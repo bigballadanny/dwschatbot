@@ -8,17 +8,10 @@ import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/context/AuthContext';
 import { useToast } from "@/components/ui/use-toast";
 import { useQuery } from '@tanstack/react-query';
+import { searchTranscriptsForQuery, generateSummaryResponse } from '@/utils/transcriptUtils';
 
 interface ChatInterfaceProps {
   className?: string;
-}
-
-interface Transcript {
-  id: string;
-  title: string;
-  content: string;
-  created_at: string;
-  file_path?: string;
 }
 
 const INITIAL_MESSAGES: MessageProps[] = [
@@ -48,10 +41,10 @@ const ChatInterface: React.FC<ChatInterfaceProps> = ({ className }) => {
         
       if (error) {
         console.error('Error fetching transcripts:', error);
-        return [] as Transcript[];
+        return [];
       }
       
-      return data as Transcript[];
+      return data || [];
     },
     enabled: !!user,
   });
@@ -94,45 +87,26 @@ const ChatInterface: React.FC<ChatInterfaceProps> = ({ className }) => {
     }
   }, [user]);
   
-  const searchTranscripts = (query: string): { content: string, title: string } | null => {
-    if (!transcripts || transcripts.length === 0) {
-      return null;
-    }
-    
-    const keywords = query.toLowerCase().split(' ');
-    
-    for (const transcript of transcripts) {
-      if (!transcript.content) continue;
-      
-      const content = transcript.content.toLowerCase();
-      if (keywords.some(keyword => content.includes(keyword))) {
-        return {
-          content: transcript.content,
-          title: transcript.title
-        };
-      }
-    }
-    
-    return null;
-  };
-  
   const generateResponse = async (question: string): Promise<MessageProps> => {
     await new Promise(resolve => setTimeout(resolve, 1500));
     
-    const matchedTranscript = searchTranscripts(question);
-    
-    if (matchedTranscript) {
-      const excerptLength = 300;
-      const content = matchedTranscript.content;
-      
-      const excerpt = content.length > excerptLength 
-        ? content.substring(0, excerptLength) + '...'
-        : content;
-        
+    if (!transcripts || transcripts.length === 0) {
       return {
-        content: `Based on the transcript "${matchedTranscript.title}", I found this information:\n\n${excerpt}`,
+        content: "I'm sorry, I don't have any transcript data to search through at the moment. Please upload some transcripts first or ask a general question about Carl Allen's teachings.",
+        source: 'system',
+        timestamp: new Date()
+      };
+    }
+    
+    const matchedContent = searchTranscriptsForQuery(question, transcripts);
+    
+    if (matchedContent) {
+      const summary = generateSummaryResponse(matchedContent.content, question);
+      
+      return {
+        content: summary,
         source: 'transcript',
-        citation: `From ${matchedTranscript.title}`,
+        citation: `Based on information from "${matchedContent.title}"`,
         timestamp: new Date()
       };
     }
