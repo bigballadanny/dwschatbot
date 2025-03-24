@@ -1,4 +1,3 @@
-
 import React, { useState, useRef, useEffect } from 'react';
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -8,9 +7,18 @@ import { cn } from "@/lib/utils";
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/context/AuthContext';
 import { useToast } from "@/components/ui/use-toast";
+import { useQuery } from '@tanstack/react-query';
 
 interface ChatInterfaceProps {
   className?: string;
+}
+
+interface Transcript {
+  id: string;
+  title: string;
+  content: string;
+  created_at: string;
+  file_path?: string;
 }
 
 const INITIAL_MESSAGES: MessageProps[] = [
@@ -31,11 +39,26 @@ const ChatInterface: React.FC<ChatInterfaceProps> = ({ className }) => {
   const { user } = useAuth();
   const { toast } = useToast();
   
-  // Create a new conversation when the component mounts
+  const { data: transcripts } = useQuery({
+    queryKey: ['transcripts'],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from('transcripts')
+        .select('id, title, content, created_at, file_path');
+        
+      if (error) {
+        console.error('Error fetching transcripts:', error);
+        return [] as Transcript[];
+      }
+      
+      return data as Transcript[];
+    },
+    enabled: !!user,
+  });
+  
   useEffect(() => {
     const createConversation = async () => {
       try {
-        // Create a new conversation
         const { data, error } = await supabase
           .from('conversations')
           .insert([
@@ -51,7 +74,6 @@ const ChatInterface: React.FC<ChatInterfaceProps> = ({ className }) => {
         if (data && data.length > 0) {
           setConversationId(data[0].id);
           
-          // Save the initial system message
           await supabase
             .from('messages')
             .insert([
@@ -72,12 +94,49 @@ const ChatInterface: React.FC<ChatInterfaceProps> = ({ className }) => {
     }
   }, [user]);
   
-  // Mock response for demo purposes - in a real app, this would call your API
+  const searchTranscripts = (query: string): { content: string, title: string } | null => {
+    if (!transcripts || transcripts.length === 0) {
+      return null;
+    }
+    
+    const keywords = query.toLowerCase().split(' ');
+    
+    for (const transcript of transcripts) {
+      if (!transcript.content) continue;
+      
+      const content = transcript.content.toLowerCase();
+      if (keywords.some(keyword => content.includes(keyword))) {
+        return {
+          content: transcript.content,
+          title: transcript.title
+        };
+      }
+    }
+    
+    return null;
+  };
+  
   const generateResponse = async (question: string): Promise<MessageProps> => {
-    // Simulate API delay
     await new Promise(resolve => setTimeout(resolve, 1500));
     
-    // Example mock responses for demonstration
+    const matchedTranscript = searchTranscripts(question);
+    
+    if (matchedTranscript) {
+      const excerptLength = 300;
+      const content = matchedTranscript.content;
+      
+      const excerpt = content.length > excerptLength 
+        ? content.substring(0, excerptLength) + '...'
+        : content;
+        
+      return {
+        content: `Based on the transcript "${matchedTranscript.title}", I found this information:\n\n${excerpt}`,
+        source: 'transcript',
+        citation: `From ${matchedTranscript.title}`,
+        timestamp: new Date()
+      };
+    }
+    
     if (question.toLowerCase().includes('deal structuring')) {
       return {
         content: "In Carl Allen's mastermind transcripts, he emphasizes that deal structuring should be tailored to each acquisition. He recommends using earn-outs to bridge valuation gaps and preserve cash flow. According to him, 'The best deal structure protects you from downside risk while allowing the seller to maximize their return if the business performs well.'",
@@ -113,7 +172,6 @@ const ChatInterface: React.FC<ChatInterfaceProps> = ({ className }) => {
     
     if (!input.trim() || isLoading || !conversationId) return;
     
-    // Add user message
     const userMessage: MessageProps = {
       content: input,
       source: 'user',
@@ -125,7 +183,6 @@ const ChatInterface: React.FC<ChatInterfaceProps> = ({ className }) => {
     setIsLoading(true);
     
     try {
-      // Save user message to database
       await supabase
         .from('messages')
         .insert([
@@ -136,7 +193,6 @@ const ChatInterface: React.FC<ChatInterfaceProps> = ({ className }) => {
           }
         ]);
       
-      // Show loading message
       const loadingMessage: MessageProps = {
         content: "Searching through Carl Allen's transcripts...",
         source: 'system',
@@ -146,10 +202,8 @@ const ChatInterface: React.FC<ChatInterfaceProps> = ({ className }) => {
       
       setMessages(prev => [...prev, loadingMessage]);
       
-      // Generate response
       const responseMessage = await generateResponse(input);
       
-      // Save bot response to database
       await supabase
         .from('messages')
         .insert([
@@ -160,10 +214,8 @@ const ChatInterface: React.FC<ChatInterfaceProps> = ({ className }) => {
           }
         ]);
       
-      // Replace loading message with actual response
       setMessages(prev => [...prev.slice(0, prev.length - 1), responseMessage]);
       
-      // Update conversation title after a few messages if it's still the default
       if (messages.length <= 3) {
         await supabase
           .from('conversations')
@@ -173,7 +225,6 @@ const ChatInterface: React.FC<ChatInterfaceProps> = ({ className }) => {
     } catch (error) {
       console.error('Error generating response:', error);
       
-      // Replace loading message with error message
       setMessages(prev => [
         ...prev.slice(0, prev.length - 1), 
         {
@@ -187,12 +238,10 @@ const ChatInterface: React.FC<ChatInterfaceProps> = ({ className }) => {
     }
   };
   
-  // Auto-scroll to bottom of messages
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
   }, [messages]);
   
-  // Focus input on mount
   useEffect(() => {
     inputRef.current?.focus();
   }, []);
