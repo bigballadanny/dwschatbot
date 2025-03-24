@@ -7,6 +7,7 @@ import { BrowserRouter, Routes, Route } from "react-router-dom";
 import { ThemeProvider } from "@/components/ThemeProvider";
 import { AuthProvider } from "@/context/AuthContext";
 import ProtectedRoute from "@/components/ProtectedRoute";
+import ManagementRoute from "@/components/ManagementRoute";
 import Index from "./pages/Index";
 import Auth from "./pages/Auth";
 import Transcripts from "./pages/Transcripts";
@@ -35,9 +36,9 @@ const App = () => (
               <Route 
                 path="/transcripts" 
                 element={
-                  <ProtectedRoute>
+                  <ManagementRoute>
                     <Transcripts />
-                  </ProtectedRoute>
+                  </ManagementRoute>
                 } 
               />
               {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}

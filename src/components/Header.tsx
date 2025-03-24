@@ -8,6 +8,8 @@ import ConversationHistory, { Conversation } from "@/components/ConversationHist
 import { useNavigate } from "react-router-dom";
 import { useAuth } from '@/context/AuthContext';
 import { useToast } from "@/components/ui/use-toast";
+import { useQuery } from '@tanstack/react-query';
+import { supabase } from '@/integrations/supabase/client';
 
 interface HeaderProps {
   className?: string;
@@ -18,6 +20,27 @@ const Header: React.FC<HeaderProps> = ({ className }) => {
   const navigate = useNavigate();
   const { user, signOut } = useAuth();
   const { toast } = useToast();
+  
+  const { data: isManager } = useQuery({
+    queryKey: ['isManager', user?.id],
+    queryFn: async () => {
+      if (!user) return false;
+      
+      const { data, error } = await supabase
+        .from('user_roles')
+        .select('role')
+        .eq('user_id', user.id)
+        .in('role', ['manager', 'admin']);
+      
+      if (error) {
+        console.error('Error checking user role:', error);
+        return false;
+      }
+      
+      return data && data.length > 0;
+    },
+    enabled: !!user,
+  });
   
   // Sample conversation history - in a real app this would come from a database or localStorage
   const conversations: Conversation[] = [
@@ -80,7 +103,7 @@ const Header: React.FC<HeaderProps> = ({ className }) => {
           <Home className="h-5 w-5" />
         </Button>
         
-        {user && (
+        {user && isManager && (
           <Button
             variant="ghost"
             size="icon"
