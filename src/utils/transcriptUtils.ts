@@ -18,11 +18,31 @@ export const searchTranscriptsForQuery = (
     return null;
   }
   
+  // Enhanced keyword extraction - include common business acquisition terms
+  const lowercaseQuery = query.toLowerCase();
+  const businessTerms = [
+    'acquisition', 'deal', 'negotiate', 'diligence', 'finance', 'purchase', 
+    'business', 'seller', 'buyer', 'agreement', 'contract', 'creative', 'dealmaker'
+  ];
+  
+  // Check if query explicitly mentions the book
+  const isBookQuery = lowercaseQuery.includes('book') || 
+                      lowercaseQuery.includes('creative dealmaker') || 
+                      lowercaseQuery.includes('carl allen');
+                      
+  // Extract keywords from query
   const keywords = query.toLowerCase().split(' ').filter(word => 
     word.length > 3 && !['what', 'when', 'where', 'which', 'how', 'does', 'this', 'that', 'with', 'about'].includes(word)
   );
   
-  if (keywords.length === 0) return null;
+  // Add business-specific terms that appear in the query
+  businessTerms.forEach(term => {
+    if (lowercaseQuery.includes(term) && !keywords.includes(term)) {
+      keywords.push(term);
+    }
+  });
+  
+  if (keywords.length === 0 && !isBookQuery) return null;
   
   // Score each transcript by number of keyword matches
   const scoredTranscripts = transcripts
@@ -32,7 +52,16 @@ export const searchTranscriptsForQuery = (
       let score = 0;
       let matches = 0;
       
-      // Calculate score based on keyword frequency
+      // Boost score for transcripts with titles matching keywords
+      const lowercaseTitle = transcript.title.toLowerCase();
+      keywords.forEach(keyword => {
+        if (lowercaseTitle.includes(keyword)) {
+          score += 5; // Higher weight for title matches
+          matches++;
+        }
+      });
+      
+      // Calculate score based on keyword frequency in content
       keywords.forEach(keyword => {
         const regex = new RegExp(keyword, 'gi');
         const count = (content.match(regex) || []).length;
@@ -47,9 +76,15 @@ export const searchTranscriptsForQuery = (
         score *= 2;
       }
       
+      // Boost score if explicitly about the book and transcript mentions book
+      if (isBookQuery && (content.includes('book') || content.includes('creative dealmaker'))) {
+        score += 10;
+      }
+      
       return {
         transcript,
-        score
+        score,
+        matches
       };
     })
     .filter(item => item.score > 0)
@@ -57,10 +92,28 @@ export const searchTranscriptsForQuery = (
   
   if (scoredTranscripts.length === 0) return null;
   
-  // Return the highest scoring transcript
+  // Get the highest scoring transcript
+  const bestMatch = scoredTranscripts[0];
+  
+  // Extract the most relevant sections
+  const content = bestMatch.transcript.content;
+  const paragraphs = content.split('\n\n');
+  
+  // Find paragraphs that contain the keywords
+  const relevantParagraphs = paragraphs.filter(paragraph => {
+    const lowercaseParagraph = paragraph.toLowerCase();
+    return keywords.some(keyword => lowercaseParagraph.includes(keyword));
+  });
+  
+  // If we have relevant paragraphs, use them; otherwise use the whole content
+  const extractedContent = relevantParagraphs.length > 0 
+    ? relevantParagraphs.join('\n\n')
+    : content;
+  
+  // Return the best matching content with context
   return {
-    content: scoredTranscripts[0].transcript.content,
-    title: scoredTranscripts[0].transcript.title
+    content: `This information is from "The Creative Dealmaker" by Carl Allen:\n\n${extractedContent}`,
+    title: bestMatch.transcript.title
   };
 };
 

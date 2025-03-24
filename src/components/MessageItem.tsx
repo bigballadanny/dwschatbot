@@ -1,3 +1,4 @@
+
 import React from 'react';
 import { cn } from "@/lib/utils";
 
@@ -24,12 +25,67 @@ const MessageItem: React.FC<MessageProps> = ({
   const timeString = timestamp.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
   
   const formattedContent = React.useMemo(() => {
-    // Add paragraph breaks
-    return content.split('\n\n').map((paragraph, index) => (
-      <p key={index} className={index > 0 ? 'mt-3' : ''}>
-        {paragraph}
-      </p>
-    ));
+    // Handle asterisks for bold formatting (convert *text* to <strong>text</strong>)
+    let formattedText = content.replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>').replace(/\*(.*?)\*/g, '<strong>$1</strong>');
+    
+    // Handle bullet points
+    formattedText = formattedText.replace(/^- (.*)/gm, '• $1');
+    
+    // Handle numbered lists
+    formattedText = formattedText.replace(/^(\d+)\. (.*)/gm, '$1. $2');
+    
+    // Split by paragraph breaks and create JSX elements
+    return formattedText.split('\n\n').map((paragraph, index) => {
+      // Check if paragraph is a bullet list
+      if (paragraph.includes('\n• ')) {
+        const listItems = paragraph.split('\n• ');
+        const title = listItems.shift(); // Get the first line as title
+        
+        return (
+          <div key={index} className={index > 0 ? 'mt-4' : ''}>
+            {title && <p>{title}</p>}
+            <ul className="list-disc pl-5 mt-2 space-y-1">
+              {listItems.map((item, i) => (
+                <li key={i} dangerouslySetInnerHTML={{ __html: item }} />
+              ))}
+            </ul>
+          </div>
+        );
+      } 
+      // Check if paragraph is a numbered list
+      else if (/\n\d+\.\s/.test(paragraph)) {
+        const listItems = paragraph.split(/\n(\d+\.\s)/);
+        const title = listItems.shift(); // Get the first line as title
+        
+        const numberItems = [];
+        for (let i = 0; i < listItems.length; i += 2) {
+          if (i + 1 < listItems.length) {
+            numberItems.push(listItems[i] + listItems[i + 1]);
+          }
+        }
+        
+        return (
+          <div key={index} className={index > 0 ? 'mt-4' : ''}>
+            {title && <p>{title}</p>}
+            <ol className="list-decimal pl-5 mt-2 space-y-1">
+              {numberItems.map((item, i) => (
+                <li key={i} dangerouslySetInnerHTML={{ __html: item }} />
+              ))}
+            </ol>
+          </div>
+        );
+      } 
+      // Regular paragraph
+      else {
+        return (
+          <p 
+            key={index} 
+            className={index > 0 ? 'mt-3' : ''} 
+            dangerouslySetInnerHTML={{ __html: paragraph }}
+          />
+        );
+      }
+    });
   }, [content]);
   
   return (
@@ -48,7 +104,7 @@ const MessageItem: React.FC<MessageProps> = ({
             : "glassmorphism rounded-tl-none",
         isLoading && "animate-pulse-subtle"
       )}>
-        <div className="message-content">
+        <div className="message-content prose prose-sm dark:prose-invert max-w-none">
           {formattedContent}
         </div>
         

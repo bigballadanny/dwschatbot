@@ -16,7 +16,7 @@ serve(async (req) => {
   }
 
   try {
-    const { query, messages } = await req.json();
+    const { query, messages, context, instructions } = await req.json();
     
     // Format the messages for Gemini API
     const formattedMessages = messages.map(msg => ({
@@ -29,8 +29,24 @@ serve(async (req) => {
       formattedMessages.unshift({
         role: 'model',
         parts: [{ 
-          text: "I'm the Carl Allen Expert Bot. I'll answer questions about business acquisitions, deal structuring, negotiations, due diligence, and more based on Carl Allen's transcripts."
+          text: "I'm the Carl Allen Expert Bot. I'll answer questions about business acquisitions, deal structuring, negotiations, due diligence, and more based on Carl Allen's book 'The Creative Dealmaker' and his mastermind transcripts."
         }]
+      });
+    }
+
+    // Add the context as a system message
+    if (context) {
+      formattedMessages.unshift({
+        role: 'model',
+        parts: [{ text: context }]
+      });
+    }
+    
+    // Add formatting instructions as a system message
+    if (instructions) {
+      formattedMessages.unshift({
+        role: 'model',
+        parts: [{ text: instructions }]
       });
     }
 
