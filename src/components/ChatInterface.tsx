@@ -5,6 +5,9 @@ import { Input } from "@/components/ui/input";
 import { Send } from "lucide-react";
 import MessageItem, { MessageProps } from './MessageItem';
 import { cn } from "@/lib/utils";
+import { supabase } from '@/integrations/supabase/client';
+import { useAuth } from '@/context/AuthContext';
+import { useToast } from "@/components/ui/use-toast";
 
 interface ChatInterfaceProps {
   className?: string;
@@ -22,8 +25,52 @@ const ChatInterface: React.FC<ChatInterfaceProps> = ({ className }) => {
   const [messages, setMessages] = useState<MessageProps[]>(INITIAL_MESSAGES);
   const [input, setInput] = useState('');
   const [isLoading, setIsLoading] = useState(false);
+  const [conversationId, setConversationId] = useState<string | null>(null);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
+  const { user } = useAuth();
+  const { toast } = useToast();
+  
+  // Create a new conversation when the component mounts
+  useEffect(() => {
+    const createConversation = async () => {
+      try {
+        // Create a new conversation
+        const { data, error } = await supabase
+          .from('conversations')
+          .insert([
+            { 
+              title: 'New Conversation',
+              user_id: user?.id
+            }
+          ])
+          .select();
+          
+        if (error) throw error;
+        
+        if (data && data.length > 0) {
+          setConversationId(data[0].id);
+          
+          // Save the initial system message
+          await supabase
+            .from('messages')
+            .insert([
+              {
+                conversation_id: data[0].id,
+                content: INITIAL_MESSAGES[0].content,
+                is_user: false
+              }
+            ]);
+        }
+      } catch (error) {
+        console.error('Error creating conversation:', error);
+      }
+    };
+    
+    if (user) {
+      createConversation();
+    }
+  }, [user]);
   
   // Mock response for demo purposes - in a real app, this would call your API
   const generateResponse = async (question: string): Promise<MessageProps> => {
@@ -64,7 +111,7 @@ const ChatInterface: React.FC<ChatInterfaceProps> = ({ className }) => {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     
-    if (!input.trim() || isLoading) return;
+    if (!input.trim() || isLoading || !conversationId) return;
     
     // Add user message
     const userMessage: MessageProps = {
@@ -78,6 +125,17 @@ const ChatInterface: React.FC<ChatInterfaceProps> = ({ className }) => {
     setIsLoading(true);
     
     try {
+      // Save user message to database
+      await supabase
+        .from('messages')
+        .insert([
+          {
+            conversation_id: conversationId,
+            content: userMessage.content,
+            is_user: true
+          }
+        ]);
+      
       // Show loading message
       const loadingMessage: MessageProps = {
         content: "Searching through Carl Allen's transcripts...",
@@ -91,8 +149,27 @@ const ChatInterface: React.FC<ChatInterfaceProps> = ({ className }) => {
       // Generate response
       const responseMessage = await generateResponse(input);
       
+      // Save bot response to database
+      await supabase
+        .from('messages')
+        .insert([
+          {
+            conversation_id: conversationId,
+            content: responseMessage.content,
+            is_user: false
+          }
+        ]);
+      
       // Replace loading message with actual response
       setMessages(prev => [...prev.slice(0, prev.length - 1), responseMessage]);
+      
+      // Update conversation title after a few messages if it's still the default
+      if (messages.length <= 3) {
+        await supabase
+          .from('conversations')
+          .update({ title: input.substring(0, 50) })
+          .eq('id', conversationId);
+      }
     } catch (error) {
       console.error('Error generating response:', error);
       
@@ -154,7 +231,7 @@ const ChatInterface: React.FC<ChatInterfaceProps> = ({ className }) => {
               type="submit" 
               size="icon" 
               className="h-12 w-12 rounded-full flex-shrink-0"
-              disabled={isLoading || !input.trim()}
+              disabled={isLoading || !input.trim() || !conversationId}
             >
               <Send className="h-5 w-5" />
             </Button>

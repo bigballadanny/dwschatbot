@@ -2,6 +2,7 @@
 import React from 'react';
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
+import { useAuth } from "@/context/AuthContext";
 
 interface WelcomeScreenProps {
   onStartChat: () => void;
@@ -9,6 +10,8 @@ interface WelcomeScreenProps {
 }
 
 const WelcomeScreen: React.FC<WelcomeScreenProps> = ({ onStartChat, className }) => {
+  const { user } = useAuth();
+  
   return (
     <div className={cn(
       "w-full max-w-3xl mx-auto px-6 py-16 sm:py-24 flex flex-col items-center justify-center animate-fade-in",
@@ -51,12 +54,28 @@ const WelcomeScreen: React.FC<WelcomeScreenProps> = ({ onStartChat, className })
       </div>
       
       <div className="mt-10">
-        <Button 
-          className="px-8 py-6 text-lg hover-scale"
-          onClick={onStartChat}
-        >
-          Start a Conversation
-        </Button>
+        {user ? (
+          <div className="space-y-4">
+            <Button 
+              className="px-8 py-6 text-lg hover-scale"
+              onClick={onStartChat}
+            >
+              Start a Conversation
+            </Button>
+          </div>
+        ) : (
+          <div className="space-y-4">
+            <p className="text-center mb-4">
+              Please sign in to start using the Carl Allen Expert Bot
+            </p>
+            <Button 
+              className="px-8 py-6 text-lg hover-scale"
+              onClick={() => window.location.href = '/auth'}
+            >
+              Sign In
+            </Button>
+          </div>
+        )}
       </div>
     </div>
   );

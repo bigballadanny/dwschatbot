@@ -2,10 +2,12 @@
 import React from 'react';
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
-import { Home, Moon, Sun } from "lucide-react";
+import { Home, Moon, Sun, LogOut, FileText, MessageSquare } from "lucide-react";
 import { useTheme } from "@/components/ThemeProvider";
 import ConversationHistory, { Conversation } from "@/components/ConversationHistory";
 import { useNavigate } from "react-router-dom";
+import { useAuth } from '@/context/AuthContext';
+import { useToast } from "@/components/ui/use-toast";
 
 interface HeaderProps {
   className?: string;
@@ -14,6 +16,8 @@ interface HeaderProps {
 const Header: React.FC<HeaderProps> = ({ className }) => {
   const { theme, toggleTheme } = useTheme();
   const navigate = useNavigate();
+  const { user, signOut } = useAuth();
+  const { toast } = useToast();
   
   // Sample conversation history - in a real app this would come from a database or localStorage
   const conversations: Conversation[] = [
@@ -39,6 +43,25 @@ const Header: React.FC<HeaderProps> = ({ className }) => {
   const goHome = () => {
     navigate('/');
   };
+
+  const goToTranscripts = () => {
+    navigate('/transcripts');
+  };
+  
+  const handleSignOut = async () => {
+    try {
+      await signOut();
+      toast({
+        title: "Signed out successfully",
+      });
+      navigate('/auth');
+    } catch (error) {
+      toast({
+        title: "Error signing out",
+        variant: "destructive"
+      });
+    }
+  };
   
   return (
     <header className={cn(
@@ -57,10 +80,23 @@ const Header: React.FC<HeaderProps> = ({ className }) => {
           <Home className="h-5 w-5" />
         </Button>
         
-        <ConversationHistory 
-          conversations={conversations}
-          onSelectConversation={handleSelectConversation}
-        />
+        {user && (
+          <Button
+            variant="ghost"
+            size="icon"
+            onClick={goToTranscripts}
+            aria-label="Transcripts"
+          >
+            <FileText className="h-5 w-5" />
+          </Button>
+        )}
+        
+        {user && (
+          <ConversationHistory 
+            conversations={conversations}
+            onSelectConversation={handleSelectConversation}
+          />
+        )}
       </div>
       
       <div className="flex flex-col items-center">
@@ -72,18 +108,31 @@ const Header: React.FC<HeaderProps> = ({ className }) => {
         </p>
       </div>
       
-      <Button 
-        variant="ghost" 
-        size="icon" 
-        onClick={toggleTheme}
-        aria-label={theme === 'dark' ? 'Switch to light mode' : 'Switch to dark mode'}
-      >
-        {theme === 'dark' ? (
-          <Sun className="h-5 w-5" />
-        ) : (
-          <Moon className="h-5 w-5" />
+      <div className="flex items-center gap-3">
+        {user && (
+          <Button 
+            variant="ghost" 
+            size="icon" 
+            onClick={handleSignOut}
+            aria-label="Sign Out"
+          >
+            <LogOut className="h-5 w-5" />
+          </Button>
         )}
-      </Button>
+        
+        <Button 
+          variant="ghost" 
+          size="icon" 
+          onClick={toggleTheme}
+          aria-label={theme === 'dark' ? 'Switch to light mode' : 'Switch to dark mode'}
+        >
+          {theme === 'dark' ? (
+            <Sun className="h-5 w-5" />
+          ) : (
+            <Moon className="h-5 w-5" />
+          )}
+        </Button>
+      </div>
     </header>
   );
 };
