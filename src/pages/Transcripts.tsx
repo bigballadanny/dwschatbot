@@ -175,6 +175,11 @@ const TranscriptsPage: React.FC = () => {
     }
   };
 
+  // Function to get the public URL for a file
+  const getFileUrl = (filePath: string) => {
+    return `${import.meta.env.VITE_SUPABASE_URL}/storage/v1/object/public/transcripts/${filePath}`;
+  };
+
   return (
     <div className="min-h-screen bg-background">
       <Header />
@@ -277,7 +282,7 @@ const TranscriptsPage: React.FC = () => {
                           variant="outline" 
                           size="sm"
                           onClick={() => window.open(
-                            `${supabase.storageUrl}/object/public/transcripts/${transcript.file_path}`,
+                            getFileUrl(transcript.file_path!),
                             '_blank'
                           )}
                         >
