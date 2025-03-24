@@ -1,12 +1,27 @@
-// Update this page (the content is just a fallback if you fail to update the page)
+
+import React, { useState } from 'react';
+import Header from '@/components/Header';
+import WelcomeScreen from '@/components/WelcomeScreen';
+import ChatInterface from '@/components/ChatInterface';
 
 const Index = () => {
+  const [showWelcome, setShowWelcome] = useState(true);
+  
+  const handleStartChat = () => {
+    setShowWelcome(false);
+  };
+
   return (
-    <div className="min-h-screen flex items-center justify-center bg-gray-100">
-      <div className="text-center">
-        <h1 className="text-4xl font-bold mb-4">Welcome to Your Blank App</h1>
-        <p className="text-xl text-gray-600">Start building your amazing project here!</p>
-      </div>
+    <div className="flex flex-col min-h-screen">
+      <Header />
+      
+      <main className="flex-1 flex flex-col">
+        {showWelcome ? (
+          <WelcomeScreen onStartChat={handleStartChat} />
+        ) : (
+          <ChatInterface className="flex-1" />
+        )}
+      </main>
     </div>
   );
 };
