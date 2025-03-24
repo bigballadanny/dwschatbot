@@ -8,7 +8,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/context/AuthContext';
 import { useToast } from "@/components/ui/use-toast";
 import { useQuery } from '@tanstack/react-query';
-import { searchTranscriptsForQuery, generateSummaryResponse } from '@/utils/transcriptUtils';
+import { generateGeminiResponse } from '@/utils/geminiUtils';
 
 interface ChatInterfaceProps {
   className?: string;
@@ -87,60 +87,6 @@ const ChatInterface: React.FC<ChatInterfaceProps> = ({ className }) => {
     }
   }, [user]);
   
-  const generateResponse = async (question: string): Promise<MessageProps> => {
-    await new Promise(resolve => setTimeout(resolve, 1500));
-    
-    if (!transcripts || transcripts.length === 0) {
-      return {
-        content: "I'm sorry, I don't have any transcript data to search through at the moment. Please upload some transcripts first or ask a general question about Carl Allen's teachings.",
-        source: 'system',
-        timestamp: new Date()
-      };
-    }
-    
-    const matchedContent = searchTranscriptsForQuery(question, transcripts);
-    
-    if (matchedContent) {
-      const summary = generateSummaryResponse(matchedContent.content, question);
-      
-      return {
-        content: summary,
-        source: 'transcript',
-        citation: `Based on information from "${matchedContent.title}"`,
-        timestamp: new Date()
-      };
-    }
-    
-    if (question.toLowerCase().includes('deal structuring')) {
-      return {
-        content: "In Carl Allen's mastermind transcripts, he emphasizes that deal structuring should be tailored to each acquisition. He recommends using earn-outs to bridge valuation gaps and preserve cash flow. According to him, 'The best deal structure protects you from downside risk while allowing the seller to maximize their return if the business performs well.'",
-        source: 'transcript',
-        citation: "From Mastermind Call #5: Deal Structuring Fundamentals",
-        timestamp: new Date()
-      };
-    } else if (question.toLowerCase().includes('due diligence')) {
-      return {
-        content: "Carl Allen stresses the importance of thorough due diligence in his transcripts. He suggests creating a comprehensive checklist covering financial, legal, operational, and customer aspects. He specifically mentions: 'Many deals fall apart during due diligence. The key is to identify deal-breakers early and negotiate solutions rather than walking away immediately.'",
-        source: 'transcript',
-        citation: "From Mastermind Call #7: Due Diligence Deep Dive",
-        timestamp: new Date()
-      };
-    } else if (question.toLowerCase().includes('funding') || question.toLowerCase().includes('financing')) {
-      return {
-        content: "According to online sources, Carl Allen advocates for creative financing strategies in business acquisitions. This includes seller financing, SBA loans, and using the business's own cash flow to fund the purchase. He often discusses the 'no money down' approach to acquisitions, focusing on structuring deals that require minimal personal investment.\n\nThis aligns with his mastermind teachings where he emphasizes leveraging other people's money (OPM) for acquisitions.",
-        source: 'web',
-        citation: "Information from online sources about Carl Allen's financing strategies",
-        timestamp: new Date()
-      };
-    } else {
-      return {
-        content: "I don't have specific information about that topic in Carl Allen's mastermind transcripts. However, I'd be happy to help with questions about deal structuring, negotiation strategies, due diligence processes, business acquisition, funding and financing, market analysis, risk assessment, business operations, investment strategies, or exit planning.\n\nIs there a specific aspect of business acquisition you'd like to learn more about?",
-        source: 'system',
-        timestamp: new Date()
-      };
-    }
-  };
-  
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     
@@ -176,7 +122,11 @@ const ChatInterface: React.FC<ChatInterfaceProps> = ({ className }) => {
       
       setMessages(prev => [...prev, loadingMessage]);
       
-      const responseMessage = await generateResponse(input);
+      const responseMessage = await generateGeminiResponse(
+        input, 
+        transcripts || [], 
+        messages.concat(userMessage)
+      );
       
       await supabase
         .from('messages')
