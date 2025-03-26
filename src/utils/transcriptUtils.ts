@@ -1,3 +1,4 @@
+
 import { MessageProps } from '@/components/MessageItem';
 
 interface Transcript {
@@ -8,6 +9,15 @@ interface Transcript {
   file_path?: string;
   source?: string;
 }
+
+// Business-related terms for improved query matching
+const BUSINESS_TERMS = [
+  'acquisition', 'merger', 'deal', 'negotiation', 'valuation', 
+  'due diligence', 'roi', 'financing', 'investor', 'term sheet', 
+  'closing', 'loi', 'letter of intent', 'ebitda', 'cash flow',
+  'assets', 'liabilities', 'equity', 'debt', 'leverage',
+  'buyout', 'owner financing', 'sba', 'bank loan', 'seller note'
+];
 
 // Simplified context sources
 const CONTEXT_SOURCES = {
