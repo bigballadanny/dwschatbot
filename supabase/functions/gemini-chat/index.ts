@@ -16,7 +16,7 @@ serve(async (req) => {
   }
 
   try {
-    const { query, messages, context, instructions } = await req.json();
+    const { query, messages, context, instructions, sourceType } = await req.json();
     
     // Format the messages for Gemini API
     const formattedMessages = messages.map(msg => ({
@@ -34,6 +34,31 @@ serve(async (req) => {
       });
     }
 
+    // Add specific source type instructions
+    let sourceSpecificInstructions = "";
+    if (sourceType) {
+      switch(sourceType) {
+        case 'creative_dealmaker':
+          sourceSpecificInstructions = "You're drawing from Carl Allen's book 'The Creative Dealmaker'. Focus on core concepts, principles, and methodologies presented in the book.";
+          break;
+        case 'mastermind_call':
+          sourceSpecificInstructions = "You're referencing Carl Allen's mastermind call transcripts. These contain Q&A sessions, practical advice, and real-time guidance Carl has provided to students.";
+          break;
+        case 'case_study':
+          sourceSpecificInstructions = "You're using information from a case study. Focus on the specific examples, outcomes, and lessons learned from this real-world scenario.";
+          break;
+        case 'financial_advice':
+          sourceSpecificInstructions = "You're drawing from financial guidance content. Emphasize practical financial strategies, funding options, and capital considerations for acquisitions.";
+          break;
+        case 'due_diligence':
+          sourceSpecificInstructions = "You're referencing due diligence material. Focus on the step-by-step process, key areas to investigate, and common pitfalls to avoid.";
+          break;
+        case 'negotiation':
+          sourceSpecificInstructions = "You're using negotiation strategy content. Emphasize techniques, leverage points, and effective frameworks for successful deal negotiations.";
+          break;
+      }
+    }
+
     // Add the context as a system message
     if (context) {
       formattedMessages.unshift({
@@ -42,13 +67,29 @@ serve(async (req) => {
       });
     }
     
+    // Combine all formatting instructions
+    const enhancedInstructions = `
+    ${instructions || ''}
+    
+    ${sourceSpecificInstructions}
+    
+    Additionally:
+    - Make your responses conversational and engaging
+    - Ensure all information is accurate and aligned with Carl Allen's teachings
+    - When there's uncertainty, acknowledge limits rather than inventing information
+    - Use concrete examples where possible to illustrate concepts
+    `;
+    
     // Add formatting instructions as a system message
-    if (instructions) {
+    if (enhancedInstructions) {
       formattedMessages.unshift({
         role: 'model',
-        parts: [{ text: instructions }]
+        parts: [{ text: enhancedInstructions }]
       });
     }
+
+    console.log("Sending request to Gemini with context:", context.substring(0, 100) + "...");
+    console.log("Source type:", sourceType || "None specified");
 
     // Call Gemini API
     const response = await fetch(`${GEMINI_API_URL}?key=${GEMINI_API_KEY}`, {
@@ -78,6 +119,8 @@ serve(async (req) => {
     // Extract the generated text
     const generatedText = data.candidates?.[0]?.content?.parts?.[0]?.text || 
       "I'm sorry, I couldn't generate a response at this time.";
+      
+    console.log("Generated response size:", generatedText.length);
 
     // Return the response
     return new Response(JSON.stringify({ 

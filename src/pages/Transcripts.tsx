@@ -6,10 +6,12 @@ import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle }
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { useAuth } from '@/context/AuthContext';
 import { supabase } from '@/integrations/supabase/client';
 import Header from '@/components/Header';
-import { FileText, Upload } from 'lucide-react';
+import { FileText, Upload, Tag } from 'lucide-react';
+import { detectSourceCategory, getSourceDescription } from '@/utils/transcriptUtils';
 
 interface Transcript {
   id: string;
@@ -17,15 +19,18 @@ interface Transcript {
   content: string;
   created_at: string;
   file_path?: string;
+  source?: string;
 }
 
 const TranscriptsPage: React.FC = () => {
   const [title, setTitle] = useState('');
   const [content, setContent] = useState('');
+  const [source, setSource] = useState('creative_dealmaker');
   const [uploading, setUploading] = useState(false);
   const [transcripts, setTranscripts] = useState<Transcript[]>([]);
   const [loading, setLoading] = useState(true);
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
+  const [filterSource, setFilterSource] = useState<string>('all');
   const fileInputRef = useRef<HTMLInputElement>(null);
   const { user } = useAuth();
   const { toast } = useToast();
@@ -57,14 +62,14 @@ const TranscriptsPage: React.FC = () => {
     fetchTranscripts();
   }, [toast]);
 
-  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0] || null;
     if (file) {
       // Validate file type
-      if (file.type !== 'application/pdf') {
+      if (file.type !== 'application/pdf' && !file.type.includes('text/plain')) {
         toast({
           title: 'Invalid file type',
-          description: 'Please select a PDF file',
+          description: 'Please select a PDF or TXT file',
           variant: 'destructive',
         });
         // Reset the file input
@@ -75,10 +80,30 @@ const TranscriptsPage: React.FC = () => {
       }
       
       setSelectedFile(file);
+      
       // Auto-fill title from filename if title is empty
       if (!title) {
-        const fileName = file.name.replace(/\.pdf$/, '');
+        const fileName = file.name.replace(/\.(pdf|txt)$/, '');
         setTitle(fileName);
+      }
+      
+      // If it's a text file, try to read it and auto-detect the source
+      if (file.type.includes('text/plain')) {
+        try {
+          const text = await file.text();
+          setContent(text);
+          
+          // Auto-detect source category
+          const detectedSource = detectSourceCategory(file.name, text);
+          setSource(detectedSource);
+          
+          toast({
+            title: 'Text file loaded',
+            description: `Source category detected: ${getSourceDescription(detectedSource)}`,
+          });
+        } catch (error) {
+          console.error('Error reading text file:', error);
+        }
       }
     }
   };
@@ -115,7 +140,7 @@ const TranscriptsPage: React.FC = () => {
     if (!content.trim() && !selectedFile) {
       toast({
         title: 'Missing information',
-        description: 'Please provide either content or upload a PDF file',
+        description: 'Please provide either content or upload a file',
         variant: 'destructive',
       });
       return;
@@ -125,10 +150,16 @@ const TranscriptsPage: React.FC = () => {
     
     try {
       let filePath = null;
+      let finalContent = content;
       
       // Upload file if selected
       if (selectedFile) {
         filePath = await uploadFile(selectedFile);
+        
+        // If it's a PDF and there's no content, use placeholder
+        if (selectedFile.type === 'application/pdf' && !content.trim()) {
+          finalContent = 'PDF file uploaded';
+        }
       }
       
       // Insert transcript into database
@@ -137,8 +168,9 @@ const TranscriptsPage: React.FC = () => {
         .insert([
           { 
             title, 
-            content: content || 'PDF file uploaded', // Use default text if content is empty
+            content: finalContent,
             file_path: filePath,
+            source: source,
             user_id: user?.id 
           }
         ])
@@ -161,7 +193,7 @@ const TranscriptsPage: React.FC = () => {
       
       toast({
         title: 'Transcript saved',
-        description: 'Your transcript has been successfully saved',
+        description: `Your transcript has been successfully saved as ${getSourceDescription(source)}`,
       });
     } catch (error: any) {
       console.error('Error saving transcript:', error);
@@ -180,6 +212,24 @@ const TranscriptsPage: React.FC = () => {
     return `${import.meta.env.VITE_SUPABASE_URL}/storage/v1/object/public/transcripts/${filePath}`;
   };
 
+  // Filter transcripts based on selected source
+  const filteredTranscripts = filterSource === 'all' 
+    ? transcripts 
+    : transcripts.filter(t => t.source === filterSource);
+
+  // Get source badge color
+  const getSourceColor = (source: string | undefined): string => {
+    switch(source) {
+      case 'creative_dealmaker': return 'bg-blue-100 text-blue-800';
+      case 'mastermind_call': return 'bg-purple-100 text-purple-800';
+      case 'case_study': return 'bg-green-100 text-green-800';
+      case 'financial_advice': return 'bg-yellow-100 text-yellow-800';
+      case 'due_diligence': return 'bg-red-100 text-red-800';
+      case 'negotiation': return 'bg-indigo-100 text-indigo-800';
+      default: return 'bg-gray-100 text-gray-800';
+    }
+  };
+
   return (
     <div className="min-h-screen bg-background">
       <Header />
@@ -193,7 +243,7 @@ const TranscriptsPage: React.FC = () => {
             <CardHeader>
               <CardTitle>Add New Transcript</CardTitle>
               <CardDescription>
-                Add a new transcript by pasting text or uploading a PDF file
+                Add a new transcript by pasting text or uploading a file
               </CardDescription>
             </CardHeader>
             <form onSubmit={handleSubmit}>
@@ -209,13 +259,36 @@ const TranscriptsPage: React.FC = () => {
                 </div>
                 
                 <div className="space-y-2">
-                  <Label htmlFor="file">Upload PDF (optional)</Label>
+                  <Label htmlFor="source">Source Category</Label>
+                  <Select 
+                    value={source} 
+                    onValueChange={setSource}
+                  >
+                    <SelectTrigger>
+                      <SelectValue placeholder="Select source category" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="creative_dealmaker">The Creative Dealmaker Book</SelectItem>
+                      <SelectItem value="mastermind_call">Mastermind Call Transcript</SelectItem>
+                      <SelectItem value="case_study">Case Study / Success Story</SelectItem>
+                      <SelectItem value="financial_advice">Financial Guidance</SelectItem>
+                      <SelectItem value="due_diligence">Due Diligence Process</SelectItem>
+                      <SelectItem value="negotiation">Negotiation Strategies</SelectItem>
+                    </SelectContent>
+                  </Select>
+                  <p className="text-sm text-muted-foreground mt-1">
+                    {getSourceDescription(source)}
+                  </p>
+                </div>
+                
+                <div className="space-y-2">
+                  <Label htmlFor="file">Upload File (PDF or TXT)</Label>
                   <div className="flex items-center gap-2">
                     <Input
                       ref={fileInputRef}
                       id="file"
                       type="file"
-                      accept=".pdf"
+                      accept=".pdf,.txt"
                       className="flex-1"
                       onChange={handleFileChange}
                     />
@@ -231,7 +304,7 @@ const TranscriptsPage: React.FC = () => {
                   <Label htmlFor="content">Content (optional if PDF is uploaded)</Label>
                   <Textarea
                     id="content"
-                    placeholder="Paste transcript content here or upload a PDF file"
+                    placeholder="Paste transcript content here or upload a file"
                     value={content}
                     onChange={(e) => setContent(e.target.value)}
                     className="min-h-[200px]"
@@ -252,27 +325,58 @@ const TranscriptsPage: React.FC = () => {
           
           {/* Transcript List */}
           <div className="space-y-4">
-            <h2 className="text-xl font-semibold">Your Transcripts</h2>
+            <div className="flex justify-between items-center">
+              <h2 className="text-xl font-semibold">Your Transcripts</h2>
+              
+              <Select 
+                value={filterSource} 
+                onValueChange={setFilterSource}
+              >
+                <SelectTrigger className="w-[180px]">
+                  <SelectValue placeholder="Filter by source" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">All Sources</SelectItem>
+                  <SelectItem value="creative_dealmaker">Creative Dealmaker</SelectItem>
+                  <SelectItem value="mastermind_call">Mastermind Call</SelectItem>
+                  <SelectItem value="case_study">Case Study</SelectItem>
+                  <SelectItem value="financial_advice">Financial Advice</SelectItem>
+                  <SelectItem value="due_diligence">Due Diligence</SelectItem>
+                  <SelectItem value="negotiation">Negotiation</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
             
             {loading ? (
               <p>Loading transcripts...</p>
-            ) : transcripts.length === 0 ? (
-              <p className="text-muted-foreground">No transcripts found. Add your first transcript!</p>
+            ) : filteredTranscripts.length === 0 ? (
+              <p className="text-muted-foreground">
+                {filterSource === 'all' 
+                  ? 'No transcripts found. Add your first transcript!' 
+                  : 'No transcripts found with this source filter.'}
+              </p>
             ) : (
-              transcripts.map((transcript) => (
+              filteredTranscripts.map((transcript) => (
                 <Card key={transcript.id}>
                   <CardHeader>
-                    <CardTitle className="flex items-center gap-2">
-                      {transcript.file_path ? <FileText className="h-4 w-4" /> : null}
-                      {transcript.title}
-                    </CardTitle>
+                    <div className="flex justify-between items-start">
+                      <CardTitle className="flex items-center gap-2">
+                        {transcript.file_path ? <FileText className="h-4 w-4" /> : null}
+                        {transcript.title}
+                      </CardTitle>
+                      
+                      <span className={`px-2 py-1 rounded-full text-xs flex items-center ${getSourceColor(transcript.source)}`}>
+                        <Tag className="h-3 w-3 mr-1" />
+                        {transcript.source?.replace('_', ' ')}
+                      </span>
+                    </div>
                     <CardDescription>
                       Added on {new Date(transcript.created_at).toLocaleDateString()}
                     </CardDescription>
                   </CardHeader>
                   <CardContent>
                     <p className="line-clamp-3 text-sm text-muted-foreground">
-                      {transcript.file_path 
+                      {transcript.file_path && transcript.content === 'PDF file uploaded'
                         ? 'PDF file uploaded' 
                         : transcript.content}
                     </p>
@@ -286,7 +390,7 @@ const TranscriptsPage: React.FC = () => {
                             '_blank'
                           )}
                         >
-                          View PDF
+                          View File
                         </Button>
                       </div>
                     )}

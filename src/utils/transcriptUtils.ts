@@ -1,3 +1,4 @@
+
 import { MessageProps } from '@/components/MessageItem';
 
 interface Transcript {
@@ -9,21 +10,76 @@ interface Transcript {
   source?: string;
 }
 
+// Expanded list of business terms for better keyword matching
 const BUSINESS_TERMS = [
   'acquisition', 'deal', 'negotiate', 'diligence', 'finance', 
   'purchase', 'business', 'seller', 'buyer', 'agreement', 
-  'contract', 'creative', 'dealmaker', 'valuation', 'strategy'
+  'contract', 'creative', 'dealmaker', 'valuation', 'strategy',
+  'cash flow', 'revenue', 'profit', 'equity', 'assets',
+  'liabilities', 'lending', 'funding', 'capital', 'investment',
+  'roi', 'due diligence', 'closing', 'loi', 'letter of intent',
+  'term sheet', 'escrow', 'sba', 'leveraged', 'holdback',
+  'earn-out', 'seller financing', 'balance sheet', 'p&l'
 ];
 
+// Enhanced context source definitions with more detailed categorization
 const CONTEXT_SOURCES = {
   'creative_dealmaker': {
-    keywords: ['carl allen', 'creative dealmaker', 'book'],
-    weight: 2.0
+    keywords: ['carl allen', 'creative dealmaker', 'book', 'dealmaker', 'creative'],
+    weight: 2.0,
+    description: 'Content from Carl Allen\'s "The Creative Dealmaker" book'
   },
   'mastermind_call': {
-    keywords: ['mastermind', 'call', 'transcript'],
-    weight: 1.5
+    keywords: ['mastermind', 'call', 'transcript', 'session', 'q&a'],
+    weight: 1.5,
+    description: 'Transcripts from Carl Allen\'s mastermind calls and sessions'
+  },
+  'case_study': {
+    keywords: ['case study', 'example', 'success story', 'deal story'],
+    weight: 1.8,
+    description: 'Real-world case studies and deal examples'
+  },
+  'financial_advice': {
+    keywords: ['financing', 'funding', 'loan', 'capital', 'investment', 'money', 'cash', 'bank', 'sba'],
+    weight: 1.6,
+    description: 'Financial guidance, funding strategies, and investment advice'
+  },
+  'due_diligence': {
+    keywords: ['due diligence', 'research', 'investigate', 'verify', 'check', 'audit'],
+    weight: 1.7,
+    description: 'Due diligence processes, checklists, and best practices'
+  },
+  'negotiation': {
+    keywords: ['negotiate', 'negotiation', 'bargain', 'terms', 'condition', 'offer'],
+    weight: 1.6,
+    description: 'Negotiation strategies, tactics, and frameworks'
   }
+};
+
+// Detect possible source category from transcript content and title
+export const detectSourceCategory = (title: string, content: string): string => {
+  const combinedText = (title + ' ' + content).toLowerCase();
+  
+  // Check each source category for keyword matches
+  const matchedSources = Object.entries(CONTEXT_SOURCES)
+    .map(([sourceName, sourceConfig]) => {
+      const matchCount = sourceConfig.keywords.reduce((count, keyword) => {
+        return count + (combinedText.includes(keyword) ? 1 : 0);
+      }, 0);
+      
+      return { sourceName, matchCount, weight: sourceConfig.weight };
+    })
+    .filter(item => item.matchCount > 0)
+    .sort((a, b) => (b.matchCount * b.weight) - (a.matchCount * a.weight));
+  
+  // Return the best match or default
+  return matchedSources.length > 0 ? matchedSources[0].sourceName : 'creative_dealmaker';
+};
+
+// Get description for a source category
+export const getSourceDescription = (source: string): string => {
+  return CONTEXT_SOURCES[source as keyof typeof CONTEXT_SOURCES]?.description || 
+    'Content from Carl Allen\'s business acquisition methodology';
 };
 
 export const searchTranscriptsForQuery = (
@@ -34,20 +90,25 @@ export const searchTranscriptsForQuery = (
 
   const lowercaseQuery = query.toLowerCase();
   
+  // Extract keywords from the query, with improved filtering
   const keywords = lowercaseQuery
     .split(/\s+/)
     .filter(word => 
       word.length > 3 && 
-      !['what', 'when', 'where', 'which', 'how', 'does', 'this', 'that', 'with', 'about'].includes(word)
+      !['what', 'when', 'where', 'which', 'how', 'does', 'this', 'that', 'with', 'about', 
+        'from', 'have', 'will', 'would', 'could', 'should', 'their', 'there'].includes(word)
     );
 
+  // Add matched business terms to keywords
   keywords.push(...BUSINESS_TERMS.filter(term => lowercaseQuery.includes(term)));
 
+  // Check if query matches any specific context sources
   const contextSourceMatch = Object.entries(CONTEXT_SOURCES)
     .find(([_, sourceConfig]) => 
       sourceConfig.keywords.some(keyword => lowercaseQuery.includes(keyword))
     );
 
+  // Score transcripts based on content relevance
   const scoredTranscripts = transcripts
     .filter(transcript => transcript.content)
     .map(transcript => {
@@ -55,16 +116,20 @@ export const searchTranscriptsForQuery = (
       const title = transcript.title.toLowerCase();
       let score = 0;
 
+      // Score based on keyword matches in title and content
       keywords.forEach(keyword => {
         const titleMatches = (title.match(new RegExp(keyword, 'gi')) || []).length;
         const contentMatches = (content.match(new RegExp(keyword, 'gi')) || []).length;
         
+        // Title matches are weighted more heavily
         score += titleMatches * 3 + contentMatches;
       });
 
+      // Apply source-specific weight boost if applicable
       if (contextSourceMatch) {
         const [sourceName, sourceConfig] = contextSourceMatch;
-        if (sourceConfig.keywords.some(k => content.includes(k) || title.includes(k))) {
+        if (transcript.source === sourceName || 
+            sourceConfig.keywords.some(k => content.includes(k) || title.includes(k))) {
           score *= sourceConfig.weight;
         }
       }
@@ -77,9 +142,39 @@ export const searchTranscriptsForQuery = (
   if (scoredTranscripts.length === 0) return null;
 
   const bestMatch = scoredTranscripts[0].transcript;
-  const extractedContent = bestMatch.content.length > 500 
-    ? bestMatch.content.substring(0, 500) + '...' 
-    : bestMatch.content;
+  
+  // Extract the most relevant section for the query
+  let extractedContent = bestMatch.content;
+  if (extractedContent.length > 800) {
+    // Find the most relevant paragraph
+    const paragraphs = extractedContent.split(/\n\n+/);
+    const scoredParagraphs = paragraphs.map(paragraph => {
+      let score = 0;
+      keywords.forEach(keyword => {
+        const matches = (paragraph.toLowerCase().match(new RegExp(keyword, 'gi')) || []).length;
+        score += matches;
+      });
+      return { paragraph, score };
+    }).sort((a, b) => b.score - a.score);
+    
+    if (scoredParagraphs.length > 0 && scoredParagraphs[0].score > 0) {
+      // Get the most relevant paragraph and some context around it
+      const bestParagraphIndex = paragraphs.findIndex(p => p === scoredParagraphs[0].paragraph);
+      
+      let contextStart = Math.max(0, bestParagraphIndex - 1);
+      let contextEnd = Math.min(paragraphs.length - 1, bestParagraphIndex + 1);
+      
+      extractedContent = paragraphs.slice(contextStart, contextEnd + 1).join('\n\n');
+      
+      // If the content is still too long, truncate it
+      if (extractedContent.length > 800) {
+        extractedContent = extractedContent.substring(0, 797) + '...';
+      }
+    } else {
+      // If no relevant paragraph found, use the beginning of the content
+      extractedContent = extractedContent.substring(0, 797) + '...';
+    }
+  }
 
   return {
     content: extractedContent,
