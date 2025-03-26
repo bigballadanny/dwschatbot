@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect, useRef } from 'react';
 import { useToast } from "@/components/ui/use-toast";
 import { Button } from "@/components/ui/button";
@@ -9,7 +10,10 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { useAuth } from '@/context/AuthContext';
 import { supabase } from '@/integrations/supabase/client';
 import Header from '@/components/Header';
-import { FileText, Upload, Tag } from 'lucide-react';
+import { FileText, Upload, Tag, Loader2 } from 'lucide-react';
+import { detectSourceCategory } from '@/utils/transcriptUtils';
+import { Progress } from "@/components/ui/progress";
+import { Sheet, SheetContent, SheetDescription, SheetHeader, SheetTitle, SheetTrigger } from "@/components/ui/sheet";
 
 interface Transcript {
   id: string;
@@ -28,8 +32,14 @@ const TranscriptsPage: React.FC = () => {
   const [transcripts, setTranscripts] = useState<Transcript[]>([]);
   const [loading, setLoading] = useState(true);
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
+  const [selectedFiles, setSelectedFiles] = useState<File[]>([]);
   const [filterSource, setFilterSource] = useState<string>('all');
+  const [uploadProgress, setUploadProgress] = useState(0);
+  const [processingFiles, setProcessingFiles] = useState(false);
+  const [uploadResults, setUploadResults] = useState<{success: number, failed: number}>({success: 0, failed: 0});
+  const [failedFiles, setFailedFiles] = useState<string[]>([]);
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const multiFileInputRef = useRef<HTMLInputElement>(null);
   const { user } = useAuth();
   const { toast } = useToast();
 
@@ -107,6 +117,41 @@ const TranscriptsPage: React.FC = () => {
         });
       }
     }
+  };
+
+  const handleMultipleFilesChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const files = e.target.files;
+    if (!files || files.length === 0) return;
+    
+    // Convert FileList to array and filter only .txt files
+    const fileArray = Array.from(files).filter(file => file.type.includes('text/plain'));
+    
+    if (fileArray.length === 0) {
+      toast({
+        title: 'Invalid file type',
+        description: 'Please select TXT files only',
+        variant: 'destructive',
+      });
+      if (multiFileInputRef.current) {
+        multiFileInputRef.current.value = '';
+      }
+      return;
+    }
+    
+    // If some files were filtered out, notify the user
+    if (fileArray.length < files.length) {
+      toast({
+        title: 'Some files skipped',
+        description: `${files.length - fileArray.length} non-TXT files were skipped`,
+      });
+    }
+    
+    setSelectedFiles(fileArray);
+    
+    toast({
+      title: 'Files selected',
+      description: `${fileArray.length} files ready for upload`,
+    });
   };
 
   const uploadFile = async (file: File) => {
@@ -204,6 +249,101 @@ const TranscriptsPage: React.FC = () => {
     }
   };
 
+  const handleBatchUpload = async () => {
+    if (selectedFiles.length === 0) {
+      toast({
+        title: 'No files selected',
+        description: 'Please select files to upload',
+        variant: 'destructive',
+      });
+      return;
+    }
+    
+    setProcessingFiles(true);
+    setUploadProgress(0);
+    setUploadResults({success: 0, failed: 0});
+    setFailedFiles([]);
+    
+    const totalFiles = selectedFiles.length;
+    let successCount = 0;
+    let failedCount = 0;
+    const failedFilesList: string[] = [];
+    
+    for (let i = 0; i < totalFiles; i++) {
+      const file = selectedFiles[i];
+      setUploadProgress(Math.floor((i / totalFiles) * 100));
+      
+      try {
+        // Read file content
+        const text = await file.text();
+        // Extract filename without extension for title
+        const title = file.name.replace(/\.txt$/, '');
+        // Detect source based on filename
+        const lowercaseFileName = title.toLowerCase();
+        let fileSource = 'protege_call'; // Default source
+        
+        if (lowercaseFileName.includes('protege')) {
+          fileSource = 'protege_call';
+        } else if (lowercaseFileName.includes('foundation')) {
+          fileSource = 'foundations_call';
+        }
+        
+        // Upload file to storage
+        const filePath = await uploadFile(file);
+        
+        // Save transcript to database
+        const { error } = await supabase
+          .from('transcripts')
+          .insert([{
+            title,
+            content: text,
+            file_path: filePath,
+            source: fileSource,
+            user_id: user?.id
+          }]);
+          
+        if (error) throw error;
+        
+        successCount++;
+      } catch (error) {
+        console.error(`Error processing file ${file.name}:`, error);
+        failedCount++;
+        failedFilesList.push(file.name);
+      }
+    }
+    
+    // Update progress to 100% when done
+    setUploadProgress(100);
+    setUploadResults({success: successCount, failed: failedCount});
+    setFailedFiles(failedFilesList);
+    
+    // Fetch updated transcripts
+    try {
+      const { data, error } = await supabase
+        .from('transcripts')
+        .select('*')
+        .order('created_at', { ascending: false });
+        
+      if (error) throw error;
+      setTranscripts(data || []);
+    } catch (error: any) {
+      console.error('Error fetching updated transcripts:', error);
+    }
+    
+    // Reset file input
+    if (multiFileInputRef.current) {
+      multiFileInputRef.current.value = '';
+    }
+    setSelectedFiles([]);
+    
+    toast({
+      title: 'Batch upload completed',
+      description: `Successfully uploaded ${successCount} out of ${totalFiles} files`,
+    });
+    
+    setProcessingFiles(false);
+  };
+
   // Function to get the public URL for a file
   const getFileUrl = (filePath: string) => {
     return `${import.meta.env.VITE_SUPABASE_URL}/storage/v1/object/public/transcripts/${filePath}`;
@@ -232,82 +372,180 @@ const TranscriptsPage: React.FC = () => {
         
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
           {/* Upload Transcript Form */}
-          <Card>
-            <CardHeader>
-              <CardTitle>Add New Transcript</CardTitle>
-              <CardDescription>
-                Upload a transcript from a Protege or Foundations Call
-              </CardDescription>
-            </CardHeader>
-            <form onSubmit={handleSubmit}>
+          <div className="space-y-6">
+            <Card>
+              <CardHeader>
+                <CardTitle>Add New Transcript</CardTitle>
+                <CardDescription>
+                  Upload a transcript from a Protege or Foundations Call
+                </CardDescription>
+              </CardHeader>
+              <form onSubmit={handleSubmit}>
+                <CardContent className="space-y-4">
+                  <div className="space-y-2">
+                    <Label htmlFor="title">Title</Label>
+                    <Input
+                      id="title"
+                      placeholder="Transcript title (auto-filled from filename)"
+                      value={title}
+                      onChange={(e) => setTitle(e.target.value)}
+                    />
+                  </div>
+                  
+                  <div className="space-y-2">
+                    <Label htmlFor="source">Call Type</Label>
+                    <Select 
+                      value={source} 
+                      onValueChange={setSource}
+                    >
+                      <SelectTrigger>
+                        <SelectValue placeholder="Select call type" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="protege_call">Protege Call</SelectItem>
+                        <SelectItem value="foundations_call">Foundations Call</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  
+                  <div className="space-y-2">
+                    <Label htmlFor="file">Upload Transcript (TXT only)</Label>
+                    <div className="flex items-center gap-2">
+                      <Input
+                        ref={fileInputRef}
+                        id="file"
+                        type="file"
+                        accept=".txt"
+                        className="flex-1"
+                        onChange={handleFileChange}
+                      />
+                      {selectedFile && (
+                        <div className="text-sm text-muted-foreground">
+                          {selectedFile.name}
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                  
+                  <div className="space-y-2">
+                    <Label htmlFor="content">Transcript Content</Label>
+                    <Textarea
+                      id="content"
+                      placeholder="Transcript content will be auto-loaded from the file"
+                      value={content}
+                      onChange={(e) => setContent(e.target.value)}
+                      className="min-h-[200px]"
+                    />
+                  </div>
+                </CardContent>
+                <CardFooter>
+                  <Button 
+                    type="submit" 
+                    className="w-full"
+                    disabled={uploading}
+                  >
+                    {uploading ? 'Saving...' : 'Save Transcript'}
+                  </Button>
+                </CardFooter>
+              </form>
+            </Card>
+            
+            {/* Batch Upload Card */}
+            <Card>
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2">
+                  <Upload className="h-5 w-5" />
+                  Batch Upload
+                </CardTitle>
+                <CardDescription>
+                  Upload multiple transcript files at once
+                </CardDescription>
+              </CardHeader>
               <CardContent className="space-y-4">
                 <div className="space-y-2">
-                  <Label htmlFor="title">Title</Label>
+                  <Label htmlFor="multiFile">Select Multiple Files (TXT only)</Label>
                   <Input
-                    id="title"
-                    placeholder="Transcript title (auto-filled from filename)"
-                    value={title}
-                    onChange={(e) => setTitle(e.target.value)}
+                    ref={multiFileInputRef}
+                    id="multiFile"
+                    type="file"
+                    accept=".txt"
+                    multiple
+                    className="flex-1"
+                    onChange={handleMultipleFilesChange}
                   />
+                  {selectedFiles.length > 0 && (
+                    <p className="text-sm text-muted-foreground">
+                      {selectedFiles.length} files selected
+                    </p>
+                  )}
                 </div>
                 
-                <div className="space-y-2">
-                  <Label htmlFor="source">Call Type</Label>
-                  <Select 
-                    value={source} 
-                    onValueChange={setSource}
-                  >
-                    <SelectTrigger>
-                      <SelectValue placeholder="Select call type" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="protege_call">Protege Call</SelectItem>
-                      <SelectItem value="foundations_call">Foundations Call</SelectItem>
-                    </SelectContent>
-                  </Select>
-                </div>
+                {processingFiles && (
+                  <div className="space-y-2">
+                    <div className="flex justify-between text-sm">
+                      <span>Uploading files...</span>
+                      <span>{uploadProgress}%</span>
+                    </div>
+                    <Progress value={uploadProgress} className="h-2" />
+                  </div>
+                )}
+              </CardContent>
+              <CardFooter className="flex flex-col space-y-2">
+                <Button 
+                  type="button" 
+                  className="w-full"
+                  onClick={handleBatchUpload}
+                  disabled={processingFiles || selectedFiles.length === 0}
+                >
+                  {processingFiles ? (
+                    <span className="flex items-center">
+                      <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                      Processing...
+                    </span>
+                  ) : (
+                    'Upload All Files'
+                  )}
+                </Button>
                 
-                <div className="space-y-2">
-                  <Label htmlFor="file">Upload Transcript (TXT only)</Label>
-                  <div className="flex items-center gap-2">
-                    <Input
-                      ref={fileInputRef}
-                      id="file"
-                      type="file"
-                      accept=".txt"
-                      className="flex-1"
-                      onChange={handleFileChange}
-                    />
-                    {selectedFile && (
-                      <div className="text-sm text-muted-foreground">
-                        {selectedFile.name}
-                      </div>
+                {(uploadResults.success > 0 || uploadResults.failed > 0) && (
+                  <div className="flex justify-between w-full text-sm">
+                    <span className="text-emerald-600">
+                      {uploadResults.success} files uploaded successfully
+                    </span>
+                    {uploadResults.failed > 0 && (
+                      <Sheet>
+                        <SheetTrigger asChild>
+                          <Button 
+                            variant="link" 
+                            className="text-rose-600 p-0 h-auto"
+                          >
+                            {uploadResults.failed} files failed
+                          </Button>
+                        </SheetTrigger>
+                        <SheetContent>
+                          <SheetHeader>
+                            <SheetTitle>Failed Uploads</SheetTitle>
+                            <SheetDescription>
+                              The following files could not be uploaded:
+                            </SheetDescription>
+                          </SheetHeader>
+                          <div className="mt-4">
+                            <ul className="list-disc list-inside space-y-1">
+                              {failedFiles.map((file, index) => (
+                                <li key={index} className="text-sm text-rose-600">
+                                  {file}
+                                </li>
+                              ))}
+                            </ul>
+                          </div>
+                        </SheetContent>
+                      </Sheet>
                     )}
                   </div>
-                </div>
-                
-                <div className="space-y-2">
-                  <Label htmlFor="content">Transcript Content</Label>
-                  <Textarea
-                    id="content"
-                    placeholder="Transcript content will be auto-loaded from the file"
-                    value={content}
-                    onChange={(e) => setContent(e.target.value)}
-                    className="min-h-[200px]"
-                  />
-                </div>
-              </CardContent>
-              <CardFooter>
-                <Button 
-                  type="submit" 
-                  className="w-full"
-                  disabled={uploading}
-                >
-                  {uploading ? 'Saving...' : 'Save Transcript'}
-                </Button>
+                )}
               </CardFooter>
-            </form>
-          </Card>
+            </Card>
+          </div>
           
           {/* Transcript List */}
           <div className="space-y-4">
