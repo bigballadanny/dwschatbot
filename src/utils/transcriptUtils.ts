@@ -1,4 +1,3 @@
-
 import { MessageProps } from '@/components/MessageItem';
 
 interface Transcript {
@@ -10,49 +9,17 @@ interface Transcript {
   source?: string;
 }
 
-// Expanded list of business terms for better keyword matching
-const BUSINESS_TERMS = [
-  'acquisition', 'deal', 'negotiate', 'diligence', 'finance', 
-  'purchase', 'business', 'seller', 'buyer', 'agreement', 
-  'contract', 'creative', 'dealmaker', 'valuation', 'strategy',
-  'cash flow', 'revenue', 'profit', 'equity', 'assets',
-  'liabilities', 'lending', 'funding', 'capital', 'investment',
-  'roi', 'due diligence', 'closing', 'loi', 'letter of intent',
-  'term sheet', 'escrow', 'sba', 'leveraged', 'holdback',
-  'earn-out', 'seller financing', 'balance sheet', 'p&l'
-];
-
-// Enhanced context source definitions with more detailed categorization
+// Simplified context sources
 const CONTEXT_SOURCES = {
-  'creative_dealmaker': {
-    keywords: ['carl allen', 'creative dealmaker', 'book', 'dealmaker', 'creative'],
-    weight: 2.0,
-    description: 'Content from Carl Allen\'s "The Creative Dealmaker" book'
-  },
-  'mastermind_call': {
-    keywords: ['mastermind', 'call', 'transcript', 'session', 'q&a'],
+  'protege_call': {
+    keywords: ['protege', 'call', 'mentorship', 'guidance'],
     weight: 1.5,
-    description: 'Transcripts from Carl Allen\'s mastermind calls and sessions'
+    description: 'Transcripts from Protege Calls with Carl Allen'
   },
-  'case_study': {
-    keywords: ['case study', 'example', 'success story', 'deal story'],
-    weight: 1.8,
-    description: 'Real-world case studies and deal examples'
-  },
-  'financial_advice': {
-    keywords: ['financing', 'funding', 'loan', 'capital', 'investment', 'money', 'cash', 'bank', 'sba'],
-    weight: 1.6,
-    description: 'Financial guidance, funding strategies, and investment advice'
-  },
-  'due_diligence': {
-    keywords: ['due diligence', 'research', 'investigate', 'verify', 'check', 'audit'],
-    weight: 1.7,
-    description: 'Due diligence processes, checklists, and best practices'
-  },
-  'negotiation': {
-    keywords: ['negotiate', 'negotiation', 'bargain', 'terms', 'condition', 'offer'],
-    weight: 1.6,
-    description: 'Negotiation strategies, tactics, and frameworks'
+  'foundations_call': {
+    keywords: ['foundations', 'call', 'basics', 'learning'],
+    weight: 1.5,
+    description: 'Transcripts from Foundations Calls with Carl Allen'
   }
 };
 
@@ -60,7 +27,6 @@ const CONTEXT_SOURCES = {
 export const detectSourceCategory = (title: string, content: string): string => {
   const combinedText = (title + ' ' + content).toLowerCase();
   
-  // Check each source category for keyword matches
   const matchedSources = Object.entries(CONTEXT_SOURCES)
     .map(([sourceName, sourceConfig]) => {
       const matchCount = sourceConfig.keywords.reduce((count, keyword) => {
@@ -73,13 +39,13 @@ export const detectSourceCategory = (title: string, content: string): string => 
     .sort((a, b) => (b.matchCount * b.weight) - (a.matchCount * a.weight));
   
   // Return the best match or default
-  return matchedSources.length > 0 ? matchedSources[0].sourceName : 'creative_dealmaker';
+  return matchedSources.length > 0 ? matchedSources[0].sourceName : 'protege_call';
 };
 
 // Get description for a source category
 export const getSourceDescription = (source: string): string => {
   return CONTEXT_SOURCES[source as keyof typeof CONTEXT_SOURCES]?.description || 
-    'Content from Carl Allen\'s business acquisition methodology';
+    'Transcript from Carl Allen\'s calls';
 };
 
 export const searchTranscriptsForQuery = (
@@ -179,7 +145,7 @@ export const searchTranscriptsForQuery = (
   return {
     content: extractedContent,
     title: bestMatch.title,
-    source: bestMatch.source || 'creative_dealmaker'
+    source: bestMatch.source || 'protege_call'
   };
 };
 

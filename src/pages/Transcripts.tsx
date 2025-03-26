@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect, useRef } from 'react';
 import { useToast } from "@/components/ui/use-toast";
 import { Button } from "@/components/ui/button";
@@ -11,7 +10,6 @@ import { useAuth } from '@/context/AuthContext';
 import { supabase } from '@/integrations/supabase/client';
 import Header from '@/components/Header';
 import { FileText, Upload, Tag } from 'lucide-react';
-import { detectSourceCategory, getSourceDescription } from '@/utils/transcriptUtils';
 
 interface Transcript {
   id: string;
@@ -25,7 +23,7 @@ interface Transcript {
 const TranscriptsPage: React.FC = () => {
   const [title, setTitle] = useState('');
   const [content, setContent] = useState('');
-  const [source, setSource] = useState('creative_dealmaker');
+  const [source, setSource] = useState('protege_call');
   const [uploading, setUploading] = useState(false);
   const [transcripts, setTranscripts] = useState<Transcript[]>([]);
   const [loading, setLoading] = useState(true);
@@ -35,7 +33,6 @@ const TranscriptsPage: React.FC = () => {
   const { user } = useAuth();
   const { toast } = useToast();
 
-  // Fetch transcripts on page load
   useEffect(() => {
     const fetchTranscripts = async () => {
       try {
@@ -66,10 +63,10 @@ const TranscriptsPage: React.FC = () => {
     const file = e.target.files?.[0] || null;
     if (file) {
       // Validate file type
-      if (file.type !== 'application/pdf' && !file.type.includes('text/plain')) {
+      if (!file.type.includes('text/plain')) {
         toast({
           title: 'Invalid file type',
-          description: 'Please select a PDF or TXT file',
+          description: 'Please select a TXT file',
           variant: 'destructive',
         });
         // Reset the file input
@@ -81,29 +78,33 @@ const TranscriptsPage: React.FC = () => {
       
       setSelectedFile(file);
       
-      // Auto-fill title from filename if title is empty
-      if (!title) {
-        const fileName = file.name.replace(/\.(pdf|txt)$/, '');
+      try {
+        const text = await file.text();
+        setContent(text);
+        
+        // Use the filename (without extension) as the title
+        const fileName = file.name.replace(/\.txt$/, '');
         setTitle(fileName);
-      }
-      
-      // If it's a text file, try to read it and auto-detect the source
-      if (file.type.includes('text/plain')) {
-        try {
-          const text = await file.text();
-          setContent(text);
-          
-          // Auto-detect source category
-          const detectedSource = detectSourceCategory(file.name, text);
-          setSource(detectedSource);
-          
-          toast({
-            title: 'Text file loaded',
-            description: `Source category detected: ${getSourceDescription(detectedSource)}`,
-          });
-        } catch (error) {
-          console.error('Error reading text file:', error);
+        
+        // Auto-detect source based on filename
+        const lowercaseFileName = fileName.toLowerCase();
+        if (lowercaseFileName.includes('protege')) {
+          setSource('protege_call');
+        } else if (lowercaseFileName.includes('foundation')) {
+          setSource('foundations_call');
         }
+        
+        toast({
+          title: 'Text file loaded',
+          description: `File "${fileName}" successfully loaded`,
+        });
+      } catch (error) {
+        console.error('Error reading text file:', error);
+        toast({
+          title: 'Error reading file',
+          description: 'Could not read the file contents',
+          variant: 'destructive',
+        });
       }
     }
   };
@@ -155,11 +156,7 @@ const TranscriptsPage: React.FC = () => {
       // Upload file if selected
       if (selectedFile) {
         filePath = await uploadFile(selectedFile);
-        
-        // If it's a PDF and there's no content, use placeholder
-        if (selectedFile.type === 'application/pdf' && !content.trim()) {
-          finalContent = 'PDF file uploaded';
-        }
+        finalContent = content;
       }
       
       // Insert transcript into database
@@ -193,7 +190,7 @@ const TranscriptsPage: React.FC = () => {
       
       toast({
         title: 'Transcript saved',
-        description: `Your transcript has been successfully saved as ${getSourceDescription(source)}`,
+        description: `Your transcript has been successfully saved.`,
       });
     } catch (error: any) {
       console.error('Error saving transcript:', error);
@@ -220,12 +217,8 @@ const TranscriptsPage: React.FC = () => {
   // Get source badge color
   const getSourceColor = (source: string | undefined): string => {
     switch(source) {
-      case 'creative_dealmaker': return 'bg-blue-100 text-blue-800';
-      case 'mastermind_call': return 'bg-purple-100 text-purple-800';
-      case 'case_study': return 'bg-green-100 text-green-800';
-      case 'financial_advice': return 'bg-yellow-100 text-yellow-800';
-      case 'due_diligence': return 'bg-red-100 text-red-800';
-      case 'negotiation': return 'bg-indigo-100 text-indigo-800';
+      case 'protege_call': return 'bg-blue-100 text-blue-800';
+      case 'foundations_call': return 'bg-purple-100 text-purple-800';
       default: return 'bg-gray-100 text-gray-800';
     }
   };
@@ -243,7 +236,7 @@ const TranscriptsPage: React.FC = () => {
             <CardHeader>
               <CardTitle>Add New Transcript</CardTitle>
               <CardDescription>
-                Add a new transcript by pasting text or uploading a file
+                Upload a transcript from a Protege or Foundations Call
               </CardDescription>
             </CardHeader>
             <form onSubmit={handleSubmit}>
@@ -252,43 +245,36 @@ const TranscriptsPage: React.FC = () => {
                   <Label htmlFor="title">Title</Label>
                   <Input
                     id="title"
-                    placeholder="Enter transcript title"
+                    placeholder="Transcript title (auto-filled from filename)"
                     value={title}
                     onChange={(e) => setTitle(e.target.value)}
                   />
                 </div>
                 
                 <div className="space-y-2">
-                  <Label htmlFor="source">Source Category</Label>
+                  <Label htmlFor="source">Call Type</Label>
                   <Select 
                     value={source} 
                     onValueChange={setSource}
                   >
                     <SelectTrigger>
-                      <SelectValue placeholder="Select source category" />
+                      <SelectValue placeholder="Select call type" />
                     </SelectTrigger>
                     <SelectContent>
-                      <SelectItem value="creative_dealmaker">The Creative Dealmaker Book</SelectItem>
-                      <SelectItem value="mastermind_call">Mastermind Call Transcript</SelectItem>
-                      <SelectItem value="case_study">Case Study / Success Story</SelectItem>
-                      <SelectItem value="financial_advice">Financial Guidance</SelectItem>
-                      <SelectItem value="due_diligence">Due Diligence Process</SelectItem>
-                      <SelectItem value="negotiation">Negotiation Strategies</SelectItem>
+                      <SelectItem value="protege_call">Protege Call</SelectItem>
+                      <SelectItem value="foundations_call">Foundations Call</SelectItem>
                     </SelectContent>
                   </Select>
-                  <p className="text-sm text-muted-foreground mt-1">
-                    {getSourceDescription(source)}
-                  </p>
                 </div>
                 
                 <div className="space-y-2">
-                  <Label htmlFor="file">Upload File (PDF or TXT)</Label>
+                  <Label htmlFor="file">Upload Transcript (TXT only)</Label>
                   <div className="flex items-center gap-2">
                     <Input
                       ref={fileInputRef}
                       id="file"
                       type="file"
-                      accept=".pdf,.txt"
+                      accept=".txt"
                       className="flex-1"
                       onChange={handleFileChange}
                     />
@@ -301,10 +287,10 @@ const TranscriptsPage: React.FC = () => {
                 </div>
                 
                 <div className="space-y-2">
-                  <Label htmlFor="content">Content (optional if PDF is uploaded)</Label>
+                  <Label htmlFor="content">Transcript Content</Label>
                   <Textarea
                     id="content"
-                    placeholder="Paste transcript content here or upload a file"
+                    placeholder="Transcript content will be auto-loaded from the file"
                     value={content}
                     onChange={(e) => setContent(e.target.value)}
                     className="min-h-[200px]"
@@ -333,16 +319,12 @@ const TranscriptsPage: React.FC = () => {
                 onValueChange={setFilterSource}
               >
                 <SelectTrigger className="w-[180px]">
-                  <SelectValue placeholder="Filter by source" />
+                  <SelectValue placeholder="Filter by call type" />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="all">All Sources</SelectItem>
-                  <SelectItem value="creative_dealmaker">Creative Dealmaker</SelectItem>
-                  <SelectItem value="mastermind_call">Mastermind Call</SelectItem>
-                  <SelectItem value="case_study">Case Study</SelectItem>
-                  <SelectItem value="financial_advice">Financial Advice</SelectItem>
-                  <SelectItem value="due_diligence">Due Diligence</SelectItem>
-                  <SelectItem value="negotiation">Negotiation</SelectItem>
+                  <SelectItem value="all">All Calls</SelectItem>
+                  <SelectItem value="protege_call">Protege Calls</SelectItem>
+                  <SelectItem value="foundations_call">Foundations Calls</SelectItem>
                 </SelectContent>
               </Select>
             </div>
