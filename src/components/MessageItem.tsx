@@ -25,11 +25,19 @@ const MessageItem: React.FC<MessageProps> = ({
   const timeString = timestamp.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
   
   const formattedContent = React.useMemo(() => {
+    // First, replace any direct HTML tags with their encoded equivalents to prevent raw HTML rendering
+    let sanitizedText = content
+      .replace(/<strong>/g, '**')
+      .replace(/<\/strong>/g, '**')
+      .replace(/<em>/g, '*')
+      .replace(/<\/em>/g, '*');
+    
     // Handle asterisks for bold formatting (convert *text* to <strong>text</strong>)
-    let formattedText = content.replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>').replace(/\*(.*?)\*/g, '<strong>$1</strong>');
+    let formattedText = sanitizedText.replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>').replace(/\*(.*?)\*/g, '<em>$1</em>');
     
     // Handle bullet points
     formattedText = formattedText.replace(/^- (.*)/gm, '• $1');
+    formattedText = formattedText.replace(/^• (.*)/gm, '• $1'); // Also handle existing bullet points
     
     // Handle numbered lists
     formattedText = formattedText.replace(/^(\d+)\. (.*)/gm, '$1. $2');
@@ -43,7 +51,7 @@ const MessageItem: React.FC<MessageProps> = ({
         
         return (
           <div key={index} className={index > 0 ? 'mt-4' : ''}>
-            {title && <p>{title}</p>}
+            {title && <p dangerouslySetInnerHTML={{ __html: title }} />}
             <ul className="list-disc pl-5 mt-2 space-y-1">
               {listItems.map((item, i) => (
                 <li key={i} dangerouslySetInnerHTML={{ __html: item }} />
@@ -66,7 +74,7 @@ const MessageItem: React.FC<MessageProps> = ({
         
         return (
           <div key={index} className={index > 0 ? 'mt-4' : ''}>
-            {title && <p>{title}</p>}
+            {title && <p dangerouslySetInnerHTML={{ __html: title }} />}
             <ol className="list-decimal pl-5 mt-2 space-y-1">
               {numberItems.map((item, i) => (
                 <li key={i} dangerouslySetInnerHTML={{ __html: item }} />
@@ -101,7 +109,9 @@ const MessageItem: React.FC<MessageProps> = ({
           ? "bg-primary text-primary-foreground rounded-tr-none"
           : source === 'system'
             ? "bg-secondary text-secondary-foreground"
-            : "glassmorphism rounded-tl-none",
+            : source === 'fallback'
+              ? "bg-amber-50 text-amber-900 dark:bg-amber-950 dark:text-amber-200 border border-amber-200 dark:border-amber-800"
+              : "glassmorphism rounded-tl-none",
         isLoading && "animate-pulse-subtle"
       )}>
         <div className="message-content prose prose-sm dark:prose-invert max-w-none">
@@ -115,7 +125,7 @@ const MessageItem: React.FC<MessageProps> = ({
         )}
         
         <div className="flex justify-between items-center mt-2">
-          {!isUser && source !== 'system' && (
+          {!isUser && (
             <div className="text-xs font-semibold uppercase tracking-wide">
               {source === 'transcript' ? (
                 <span className="text-blue-500 dark:text-blue-300">Transcript Source</span>
@@ -123,6 +133,10 @@ const MessageItem: React.FC<MessageProps> = ({
                 <span className="text-emerald-500 dark:text-emerald-300">Web Source</span>
               ) : source === 'gemini' ? (
                 <span className="text-purple-500 dark:text-purple-300">Gemini AI</span>
+              ) : source === 'fallback' ? (
+                <span className="text-amber-600 dark:text-amber-300">Quota Limited Response</span>
+              ) : source === 'system' ? (
+                <span className="text-gray-500 dark:text-gray-400">System</span>
               ) : null}
             </div>
           )}

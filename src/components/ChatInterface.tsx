@@ -167,6 +167,12 @@ const ChatInterface = forwardRef<
       
       if (responseMessage.source === 'fallback') {
         setApiQuotaExceeded(true);
+        toast({
+          title: "API Quota Limit Reached",
+          description: "Responses are currently limited due to high demand. Full AI capabilities will be restored soon.",
+          variant: "destructive",
+          duration: 5000,
+        });
       }
       
       const totalResponseTime = Date.now() - queryStartTime;
@@ -227,7 +233,7 @@ const ChatInterface = forwardRef<
           <AlertTitle>API Quota Exceeded</AlertTitle>
           <AlertDescription>
             The AI service is currently experiencing high demand and has reached its quota limit. 
-            You're now receiving fallback responses. Please try again later for full AI capabilities.
+            You're now receiving fallback responses with general information. Please try again later for full AI capabilities.
           </AlertDescription>
         </Alert>
       )}
