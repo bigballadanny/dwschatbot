@@ -2,49 +2,36 @@
 import React from 'react';
 import { Navigate } from 'react-router-dom';
 import { useAuth } from '@/context/AuthContext';
-import { useQuery } from '@tanstack/react-query';
-import { supabase } from '@/integrations/supabase/client';
+import { useAdmin } from '@/context/AdminContext';
 
 interface ManagementRouteProps {
   children: React.ReactNode;
+  adminRequired?: boolean;
 }
 
-const ManagementRoute: React.FC<ManagementRouteProps> = ({ children }) => {
-  const { user, isLoading } = useAuth();
-  
-  const { data: hasManagerRole, isLoading: isCheckingRole } = useQuery({
-    queryKey: ['hasManagerRole', user?.id],
-    queryFn: async () => {
-      if (!user) return false;
-      
-      const { data, error } = await supabase
-        .from('user_roles')
-        .select('role')
-        .eq('user_id', user.id)
-        .in('role', ['manager', 'admin']);
-      
-      if (error) {
-        console.error('Error checking user role:', error);
-        return false;
-      }
-      
-      return data && data.length > 0;
-    },
-    enabled: !!user,
-  });
-  
-  if (isLoading || isCheckingRole) {
-    return <div className="h-screen flex items-center justify-center">Loading...</div>;
+const ManagementRoute: React.FC<ManagementRouteProps> = ({ 
+  children,
+  adminRequired = false
+}) => {
+  const { user, isLoading: authLoading } = useAuth();
+  const { isAdmin, isLoading: adminLoading } = useAdmin();
+
+  // If still loading, show nothing (or could add a loading spinner)
+  if (authLoading || adminLoading) {
+    return null;
   }
-  
+
+  // If not logged in, redirect to auth page
   if (!user) {
-    return <Navigate to="/auth" />;
+    return <Navigate to="/auth" replace />;
   }
-  
-  if (!hasManagerRole) {
-    return <Navigate to="/" />;
+
+  // If admin is required and user is not admin, redirect to home
+  if (adminRequired && !isAdmin) {
+    return <Navigate to="/" replace />;
   }
-  
+
+  // If user is logged in, render the protected component
   return <>{children}</>;
 };
 

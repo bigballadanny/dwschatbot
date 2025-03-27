@@ -57,7 +57,7 @@ const Analytics = () => {
           ? 'month'
           : 'all';
           
-      return getTopQueries(timePeriod as any);
+      return getTopQueries(timePeriod);
     },
   });
   
@@ -100,36 +100,36 @@ const Analytics = () => {
       <Header />
       
       <main className="flex-1 container mx-auto py-8 px-4">
-        <div className="flex justify-between items-center mb-8">
+        <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 mb-8">
           <h1 className="text-3xl font-bold">Analytics Dashboard</h1>
           
-          <div className="flex gap-4">
-            <Tabs value={dateRange} onValueChange={(v) => setDateRange(v as any)}>
-              <TabsList>
-                <TabsTrigger value="7d">Last 7 Days</TabsTrigger>
-                <TabsTrigger value="30d">Last 30 Days</TabsTrigger>
-                <TabsTrigger value="all">All Time</TabsTrigger>
+          <div className="flex flex-col sm:flex-row gap-4 w-full md:w-auto">
+            <Tabs value={dateRange} onValueChange={(v) => setDateRange(v as any)} className="w-full sm:w-auto">
+              <TabsList className="w-full sm:w-auto">
+                <TabsTrigger value="7d" className="flex-1">Last 7 Days</TabsTrigger>
+                <TabsTrigger value="30d" className="flex-1">Last 30 Days</TabsTrigger>
+                <TabsTrigger value="all" className="flex-1">All Time</TabsTrigger>
               </TabsList>
             </Tabs>
             
-            <div className="flex gap-2">
-              <div className="relative">
+            <div className="flex gap-2 w-full sm:w-auto">
+              <div className="relative flex-1">
                 <Input
                   placeholder="Search queries..."
                   value={searchQuery}
                   onChange={(e) => setSearchQuery(e.target.value)}
-                  className="pr-8"
+                  className="pr-8 w-full"
                 />
                 <Search className="absolute right-2 top-2.5 h-4 w-4 text-muted-foreground" />
               </div>
-              <Button variant="outline" size="icon" onClick={handleRefresh} title="Refresh data">
+              <Button variant="outline" size="icon" onClick={handleRefresh} title="Refresh data" className="flex-shrink-0">
                 <RefreshCw className="h-4 w-4" />
               </Button>
             </div>
           </div>
         </div>
         
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 mb-8">
           <Card>
             <CardHeader className="pb-2">
               <CardTitle>Total Queries</CardTitle>
@@ -163,7 +163,7 @@ const Analytics = () => {
             </CardHeader>
             <CardContent>
               <div className="text-4xl font-bold">{transcriptCounts.total}</div>
-              <div className="flex gap-4 mt-2 text-sm">
+              <div className="flex flex-wrap gap-4 mt-2 text-sm">
                 <span>Protege: {transcriptCounts.protege_call}</span>
                 <span>Foundations: {transcriptCounts.foundations_call}</span>
                 <span>Mastermind: {transcriptCounts.mastermind_call}</span>
@@ -172,7 +172,7 @@ const Analytics = () => {
           </Card>
         </div>
         
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-8">
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-8">
           <Card>
             <CardHeader>
               <CardTitle>Source Distribution</CardTitle>
@@ -180,7 +180,7 @@ const Analytics = () => {
             </CardHeader>
             <CardContent>
               {analyticsLoading ? (
-                <div className="flex items-center justify-center h-80">
+                <div className="flex items-center justify-center h-64 lg:h-80">
                   <p>Loading data...</p>
                 </div>
               ) : sourceDistribution.length > 0 ? (
@@ -190,10 +190,10 @@ const Analytics = () => {
                   categories={['value']}
                   valueFormatter={(value) => `${value} queries`}
                   colors={['indigo', 'blue', 'violet', 'teal', 'rose', 'amber', 'lime']}
-                  className="h-80"
+                  className="h-64 lg:h-80"
                 />
               ) : (
-                <div className="flex items-center justify-center h-80">
+                <div className="flex items-center justify-center h-64 lg:h-80">
                   <p>No data available</p>
                 </div>
               )}
@@ -207,7 +207,7 @@ const Analytics = () => {
             </CardHeader>
             <CardContent>
               {analyticsLoading ? (
-                <div className="flex items-center justify-center h-80">
+                <div className="flex items-center justify-center h-64 lg:h-80">
                   <p>Loading data...</p>
                 </div>
               ) : responseTimeData.length > 0 ? (
@@ -216,11 +216,11 @@ const Analytics = () => {
                   index="date"
                   categories={["Average Response Time (ms)"]}
                   colors={["green"]}
-                  className="h-80"
+                  className="h-64 lg:h-80"
                   showLegend={false}
                 />
               ) : (
-                <div className="flex items-center justify-center h-80">
+                <div className="flex items-center justify-center h-64 lg:h-80">
                   <p>No response time data available</p>
                 </div>
               )}
@@ -228,7 +228,7 @@ const Analytics = () => {
           </Card>
         </div>
         
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
           <Card>
             <CardHeader>
               <CardTitle>Popular Queries</CardTitle>
@@ -242,8 +242,8 @@ const Analytics = () => {
                       <div className="bg-muted w-6 h-6 rounded-full flex items-center justify-center text-xs font-medium">
                         {index + 1}
                       </div>
-                      <div className="flex-1">
-                        <p className="text-sm font-medium">{query.query}</p>
+                      <div className="flex-1 min-w-0">
+                        <p className="text-sm font-medium truncate">{query.query}</p>
                         <p className="text-xs text-muted-foreground">{query.count} times</p>
                       </div>
                     </div>
@@ -266,7 +266,7 @@ const Analytics = () => {
                   {recentQueries.map((query, index) => (
                     <div key={index} className="space-y-1">
                       <div className="flex justify-between">
-                        <p className="text-sm font-medium">{query.query}</p>
+                        <p className="text-sm font-medium truncate">{query.query}</p>
                         <span className={`text-xs px-2 py-0.5 rounded-full ${query.successful ? 'bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-300' : 'bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-300'}`}>
                           {query.successful ? 'Success' : 'Failed'}
                         </span>

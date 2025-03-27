@@ -201,7 +201,7 @@ const ChatSidebar = () => {
                 </div>
               ) : (
                 filteredConversations.map((conversation) => (
-                  <SidebarMenuItem key={conversation.id} className="group">
+                  <SidebarMenuItem key={conversation.id} className="group relative">
                     <Link 
                       to={`/?conversation=${conversation.id}`}
                       className={cn(
