@@ -2,7 +2,7 @@
 import React from 'react';
 import { cn } from "@/lib/utils";
 
-export type MessageSource = 'transcript' | 'web' | 'system' | 'user' | 'gemini';
+export type MessageSource = 'transcript' | 'web' | 'system' | 'user' | 'gemini' | 'fallback';
 
 export interface MessageProps {
   content: string;
