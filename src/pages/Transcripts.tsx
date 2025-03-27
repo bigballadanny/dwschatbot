@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect, useRef } from 'react';
 import { useToast } from "@/components/ui/use-toast";
 import { Button } from "@/components/ui/button";
@@ -9,12 +10,13 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { useAuth } from '@/context/AuthContext';
 import { supabase } from '@/integrations/supabase/client';
 import Header from '@/components/Header';
-import { FileText, Upload, Tag, Loader2, X } from 'lucide-react';
+import { FileText, Upload, Tag, Loader2, X, Info } from 'lucide-react';
 import { detectSourceCategory } from '@/utils/transcriptUtils';
 import { Progress } from "@/components/ui/progress";
 import { Sheet, SheetContent, SheetDescription, SheetHeader, SheetTitle, SheetTrigger } from "@/components/ui/sheet";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogClose } from "@/components/ui/dialog";
 import { ScrollArea } from "@/components/ui/scroll-area";
+import { Badge } from "@/components/ui/badge";
 
 interface Transcript {
   id: string;
@@ -404,6 +406,11 @@ const TranscriptsPage: React.FC = () => {
     }
   };
 
+  // Get transcript counts by source
+  const protegeCount = transcripts.filter(t => t.source === 'protege_call').length;
+  const foundationsCount = transcripts.filter(t => t.source === 'foundations_call').length;
+  const totalCount = transcripts.length;
+
   return (
     <div className="min-h-screen bg-background">
       <Header />
@@ -413,6 +420,29 @@ const TranscriptsPage: React.FC = () => {
         
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
           <div className="space-y-6">
+            {/* Add transcript counts card */}
+            <Card>
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2">
+                  <Info className="h-5 w-5" />
+                  Transcript Counts
+                </CardTitle>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                <div className="flex flex-wrap gap-2">
+                  <Badge variant="outline" className="flex items-center gap-1">
+                    <span className="font-bold">Total:</span> {totalCount}
+                  </Badge>
+                  <Badge variant="outline" className="bg-blue-50 text-blue-800 flex items-center gap-1 border-blue-200">
+                    <span className="font-bold">Protege Calls:</span> {protegeCount}
+                  </Badge>
+                  <Badge variant="outline" className="bg-purple-50 text-purple-800 flex items-center gap-1 border-purple-200">
+                    <span className="font-bold">Foundations Calls:</span> {foundationsCount}
+                  </Badge>
+                </div>
+              </CardContent>
+            </Card>
+            
             <Card>
               <CardHeader>
                 <CardTitle>Add New Transcript</CardTitle>
@@ -588,7 +618,14 @@ const TranscriptsPage: React.FC = () => {
           
           <div className="space-y-4">
             <div className="flex justify-between items-center">
-              <h2 className="text-xl font-semibold">Your Transcripts</h2>
+              <h2 className="text-xl font-semibold">
+                Your Transcripts
+                {filteredTranscripts.length > 0 && (
+                  <span className="ml-2 text-sm text-muted-foreground">
+                    ({filteredTranscripts.length} {filterSource === 'all' ? 'total' : filterSource.replace('_', ' ')})
+                  </span>
+                )}
+              </h2>
               
               <Select 
                 value={filterSource} 
