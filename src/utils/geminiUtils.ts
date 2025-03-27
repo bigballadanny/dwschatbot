@@ -11,14 +11,12 @@ export const generateGeminiResponse = async (
 ): Promise<MessageProps> => {
   try {
     // Ensure we have the latest transcripts by fetching them directly from the database
-    // This ensures newly uploaded transcripts are immediately available
     const { data: latestTranscripts, error } = await supabase
       .from('transcripts')
       .select('id, title, content, created_at, file_path, source');
       
     if (error) {
       console.error('Error fetching latest transcripts:', error);
-      // Fallback to provided transcripts if query fails
     }
     
     // Use the latest transcripts if available, otherwise use the provided ones
