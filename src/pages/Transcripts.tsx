@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect, useRef } from 'react';
 import { useToast } from "@/components/ui/use-toast";
 import { Button } from "@/components/ui/button";
@@ -10,10 +9,12 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { useAuth } from '@/context/AuthContext';
 import { supabase } from '@/integrations/supabase/client';
 import Header from '@/components/Header';
-import { FileText, Upload, Tag, Loader2 } from 'lucide-react';
+import { FileText, Upload, Tag, Loader2, X } from 'lucide-react';
 import { detectSourceCategory } from '@/utils/transcriptUtils';
 import { Progress } from "@/components/ui/progress";
 import { Sheet, SheetContent, SheetDescription, SheetHeader, SheetTitle, SheetTrigger } from "@/components/ui/sheet";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogClose } from "@/components/ui/dialog";
+import { ScrollArea } from "@/components/ui/scroll-area";
 
 interface Transcript {
   id: string;
@@ -42,6 +43,9 @@ const TranscriptsPage: React.FC = () => {
   const multiFileInputRef = useRef<HTMLInputElement>(null);
   const { user } = useAuth();
   const { toast } = useToast();
+  const [selectedTranscript, setSelectedTranscript] = useState<Transcript | null>(null);
+  const [showTranscriptDialog, setShowTranscriptDialog] = useState(false);
+  const [isLoadingTranscript, setIsLoadingTranscript] = useState(false);
 
   useEffect(() => {
     const fetchTranscripts = async () => {
@@ -72,14 +76,12 @@ const TranscriptsPage: React.FC = () => {
   const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0] || null;
     if (file) {
-      // Validate file type
       if (!file.type.includes('text/plain')) {
         toast({
           title: 'Invalid file type',
           description: 'Please select a TXT file',
           variant: 'destructive',
         });
-        // Reset the file input
         if (fileInputRef.current) {
           fileInputRef.current.value = '';
         }
@@ -92,11 +94,9 @@ const TranscriptsPage: React.FC = () => {
         const text = await file.text();
         setContent(text);
         
-        // Use the filename (without extension) as the title
         const fileName = file.name.replace(/\.txt$/, '');
         setTitle(fileName);
         
-        // Auto-detect source based on filename
         const lowercaseFileName = fileName.toLowerCase();
         if (lowercaseFileName.includes('protege')) {
           setSource('protege_call');
@@ -123,7 +123,6 @@ const TranscriptsPage: React.FC = () => {
     const files = e.target.files;
     if (!files || files.length === 0) return;
     
-    // Convert FileList to array and filter only .txt files
     const fileArray = Array.from(files).filter(file => file.type.includes('text/plain'));
     
     if (fileArray.length === 0) {
@@ -138,7 +137,6 @@ const TranscriptsPage: React.FC = () => {
       return;
     }
     
-    // If some files were filtered out, notify the user
     if (fileArray.length < files.length) {
       toast({
         title: 'Some files skipped',
@@ -187,7 +185,6 @@ const TranscriptsPage: React.FC = () => {
       return;
     }
     
-    // Either content or file should be provided
     if (!content.trim() && !selectedFile) {
       toast({
         title: 'Missing information',
@@ -203,13 +200,11 @@ const TranscriptsPage: React.FC = () => {
       let filePath = null;
       let finalContent = content;
       
-      // Upload file if selected
       if (selectedFile) {
         filePath = await uploadFile(selectedFile);
         finalContent = content;
       }
       
-      // Insert transcript into database
       const { data, error } = await supabase
         .from('transcripts')
         .insert([
@@ -225,7 +220,6 @@ const TranscriptsPage: React.FC = () => {
         
       if (error) throw error;
       
-      // Reset form
       setTitle('');
       setContent('');
       setSelectedFile(null);
@@ -233,7 +227,6 @@ const TranscriptsPage: React.FC = () => {
         fileInputRef.current.value = '';
       }
       
-      // Update transcripts list
       if (data) {
         setTranscripts([data[0], ...transcripts]);
       }
@@ -279,14 +272,11 @@ const TranscriptsPage: React.FC = () => {
       setUploadProgress(Math.floor((i / totalFiles) * 100));
       
       try {
-        // Read file content
         const text = await file.text();
-        // Extract filename without extension for title
         const title = file.name.replace(/\.txt$/, '');
         
-        // Detect source based on filename
         const lowercaseFileName = title.toLowerCase();
-        let fileSource = 'protege_call'; // Default source
+        let fileSource = 'protege_call';
         
         if (lowercaseFileName.includes('protege')) {
           fileSource = 'protege_call';
@@ -294,10 +284,8 @@ const TranscriptsPage: React.FC = () => {
           fileSource = 'foundations_call';
         }
         
-        // Upload file to storage
         const filePath = await uploadFile(file);
         
-        // Save transcript to database with proper source
         const { error } = await supabase
           .from('transcripts')
           .insert([{
@@ -321,12 +309,10 @@ const TranscriptsPage: React.FC = () => {
       }
     }
     
-    // Update progress to 100% when done
     setUploadProgress(100);
     setUploadResults({success: successCount, failed: failedCount});
     setFailedFiles(failedFilesList);
     
-    // Fetch updated transcripts
     try {
       const { data, error } = await supabase
         .from('transcripts')
@@ -339,7 +325,6 @@ const TranscriptsPage: React.FC = () => {
       console.error('Error fetching updated transcripts:', error);
     }
     
-    // Reset file input
     if (multiFileInputRef.current) {
       multiFileInputRef.current.value = '';
     }
@@ -353,17 +338,64 @@ const TranscriptsPage: React.FC = () => {
     setProcessingFiles(false);
   };
 
-  // Function to get the public URL for a file
   const getFileUrl = (filePath: string) => {
     return `${import.meta.env.VITE_SUPABASE_URL}/storage/v1/object/public/transcripts/${filePath}`;
   };
 
-  // Filter transcripts based on selected source
+  const viewTranscript = async (transcript: Transcript) => {
+    setSelectedTranscript(transcript);
+    
+    if (transcript.content && transcript.content !== 'PDF file uploaded') {
+      setShowTranscriptDialog(true);
+      return;
+    }
+    
+    if (transcript.file_path) {
+      setIsLoadingTranscript(true);
+      try {
+        const response = await fetch(getFileUrl(transcript.file_path));
+        if (!response.ok) {
+          throw new Error(`Failed to fetch transcript: ${response.statusText}`);
+        }
+        
+        const textContent = await response.text();
+        
+        const updatedTranscript = { ...transcript, content: textContent };
+        setSelectedTranscript(updatedTranscript);
+        
+        if (!transcript.content || transcript.content === 'PDF file uploaded') {
+          const { error } = await supabase
+            .from('transcripts')
+            .update({ content: textContent })
+            .eq('id', transcript.id);
+            
+          if (error) {
+            console.error('Error updating transcript content:', error);
+          } else {
+            setTranscripts(prev => 
+              prev.map(t => t.id === transcript.id ? { ...t, content: textContent } : t)
+            );
+          }
+        }
+        
+        setShowTranscriptDialog(true);
+      } catch (error: any) {
+        console.error('Error fetching transcript file:', error);
+        toast({
+          title: 'Error loading transcript',
+          description: error.message,
+          variant: 'destructive',
+        });
+      } finally {
+        setIsLoadingTranscript(false);
+      }
+    }
+  };
+
   const filteredTranscripts = filterSource === 'all' 
     ? transcripts 
     : transcripts.filter(t => t.source === filterSource);
 
-  // Get source badge color
   const getSourceColor = (source: string | undefined): string => {
     switch(source) {
       case 'protege_call': return 'bg-blue-100 text-blue-800';
@@ -380,7 +412,6 @@ const TranscriptsPage: React.FC = () => {
         <h1 className="text-3xl font-bold mb-8">Transcripts</h1>
         
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
-          {/* Upload Transcript Form */}
           <div className="space-y-6">
             <Card>
               <CardHeader>
@@ -459,7 +490,6 @@ const TranscriptsPage: React.FC = () => {
               </form>
             </Card>
             
-            {/* Batch Upload Card */}
             <Card>
               <CardHeader>
                 <CardTitle className="flex items-center gap-2">
@@ -556,7 +586,6 @@ const TranscriptsPage: React.FC = () => {
             </Card>
           </div>
           
-          {/* Transcript List */}
           <div className="space-y-4">
             <div className="flex justify-between items-center">
               <h2 className="text-xl font-semibold">Your Transcripts</h2>
@@ -614,12 +643,9 @@ const TranscriptsPage: React.FC = () => {
                         <Button 
                           variant="outline" 
                           size="sm"
-                          onClick={() => window.open(
-                            getFileUrl(transcript.file_path!),
-                            '_blank'
-                          )}
+                          onClick={() => viewTranscript(transcript)}
                         >
-                          View File
+                          View Transcript
                         </Button>
                       </div>
                     )}
@@ -630,6 +656,47 @@ const TranscriptsPage: React.FC = () => {
           </div>
         </div>
       </main>
+      
+      <Dialog open={showTranscriptDialog} onOpenChange={setShowTranscriptDialog}>
+        <DialogContent className="max-w-4xl h-[80vh] flex flex-col">
+          <DialogHeader>
+            <div className="flex items-center justify-between">
+              <DialogTitle className="text-xl">{selectedTranscript?.title}</DialogTitle>
+              <DialogClose asChild>
+                <Button variant="ghost" size="icon">
+                  <X className="h-4 w-4" />
+                </Button>
+              </DialogClose>
+            </div>
+            <DialogDescription>
+              {selectedTranscript?.source && (
+                <span className={`px-2 py-1 rounded-full text-xs inline-flex items-center ${getSourceColor(selectedTranscript?.source)}`}>
+                  <Tag className="h-3 w-3 mr-1" />
+                  {selectedTranscript?.source?.replace('_', ' ')}
+                </span>
+              )}
+            </DialogDescription>
+          </DialogHeader>
+          
+          <div className="flex-1 overflow-hidden">
+            {isLoadingTranscript ? (
+              <div className="flex h-full items-center justify-center">
+                <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
+              </div>
+            ) : (
+              <ScrollArea className="h-full pr-4">
+                <div className="space-y-4 p-1">
+                  {selectedTranscript?.content.split('\n').map((line, index) => (
+                    <p key={index} className={line.trim() === '' ? 'h-4' : 'text-sm'}>
+                      {line}
+                    </p>
+                  ))}
+                </div>
+              </ScrollArea>
+            )}
+          </div>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 };
