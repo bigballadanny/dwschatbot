@@ -5,7 +5,7 @@ import { Button } from "@/components/ui/button";
 import { Avatar, AvatarImage, AvatarFallback } from "@/components/ui/avatar"
 import { useAuth } from '@/context/AuthContext';
 import { useAdmin } from '@/context/AdminContext';
-import { BookOpen, Sliders } from 'lucide-react';
+import { BookOpen, Sliders, BarChart } from 'lucide-react';
 
 const HeaderLink = ({ to, children }: { to: string; children: React.ReactNode }) => (
   <Link to={to} className="text-sm font-medium hover:text-primary">{children}</Link>
@@ -39,7 +39,12 @@ const Header: React.FC = () => {
             <HeaderLink to="/">Home</HeaderLink>
             <HeaderLink to="/transcripts">Transcripts</HeaderLink>
             {isAdmin && (
-              <HeaderLink to="/analytics">Analytics</HeaderLink>
+              <HeaderLink to="/analytics">
+                <span className="flex items-center">
+                  <BarChart className="mr-1 h-4 w-4" />
+                  Analytics
+                </span>
+              </HeaderLink>
             )}
           </nav>
         </div>

@@ -3,7 +3,6 @@ import React from 'react';
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 import { useAuth } from "@/context/AuthContext";
-import PopularQuestions from './PopularQuestions';
 
 export interface WelcomeScreenProps {
   onStartChat: () => void;
@@ -58,16 +57,6 @@ const WelcomeScreen: React.FC<WelcomeScreenProps> = ({
           For questions not covered in the transcripts, I can search online for information, clearly indicating when I'm using non-transcript sources.
         </p>
       </div>
-      
-      {user && onSelectQuestion && (
-        <div className="mt-10 w-full max-w-2xl">
-          <PopularQuestions 
-            onSelectQuestion={onSelectQuestion} 
-            limit={5}
-            timeRange="week"
-          />
-        </div>
-      )}
       
       <div className="mt-10">
         {user ? (
