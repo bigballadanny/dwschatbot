@@ -10,6 +10,7 @@ import { Separator } from '@/components/ui/separator';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { Search, RefreshCw } from 'lucide-react';
+import { supabase } from '@/integrations/supabase/client';
 import { 
   fetchAnalyticsData, 
   getTopQueries, 
@@ -93,11 +94,6 @@ const Analytics = () => {
   const handleRefresh = () => {
     refetchAnalytics();
   };
-  
-  // Import supabase client
-  const { supabase } = React.useMemo(() => {
-    return { supabase: require('@/integrations/supabase/client').supabase };
-  }, []);
   
   return (
     <div className="min-h-screen flex flex-col">
