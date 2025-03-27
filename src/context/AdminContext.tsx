@@ -29,19 +29,20 @@ export const AdminProvider: React.FC<{ children: React.ReactNode }> = ({
       }
 
       try {
-        // You can implement your own admin check logic here
-        // This is a simple example that checks for a specific role in user metadata
+        // Check if the user has an 'admin' role in the user_roles table
         const { data, error } = await supabase
-          .from('users')
+          .from('user_roles')
           .select('role')
-          .eq('id', user.id)
+          .eq('user_id', user.id)
+          .eq('role', 'admin')
           .single();
 
         if (error) {
           console.error('Error checking admin status:', error);
           setIsAdmin(false);
         } else {
-          setIsAdmin(data?.role === 'admin');
+          // If we got data back, the user is an admin
+          setIsAdmin(!!data);
         }
       } catch (error) {
         console.error('Error checking admin status:', error);
