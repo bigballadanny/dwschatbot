@@ -75,7 +75,7 @@ const PopularQuestions: React.FC<PopularQuestionsProps> = ({
               <Button
                 key={index}
                 variant="outline"
-                className="w-full justify-start text-left h-auto py-3 px-4 font-normal hover-scale"
+                className="w-full justify-start text-left h-auto py-3 px-4 font-normal hover:bg-primary/10 active:scale-[0.98] transition-all"
                 onClick={() => onSelectQuestion(question)}
               >
                 {question}

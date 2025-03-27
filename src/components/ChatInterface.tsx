@@ -1,4 +1,3 @@
-
 import React, { useState, useRef, useEffect, forwardRef, useImperativeHandle } from 'react';
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -39,7 +38,6 @@ const ChatInterface = forwardRef<
   const { user } = useAuth();
   const { toast } = useToast();
   
-  // Use React Query to fetch transcripts with automatic refetching
   const { data: transcripts, refetch: refetchTranscripts } = useQuery({
     queryKey: ['transcripts'],
     queryFn: async () => {
@@ -56,8 +54,8 @@ const ChatInterface = forwardRef<
       return data || [];
     },
     enabled: !!user,
-    refetchOnWindowFocus: true, // Refetch when window regains focus
-    refetchInterval: 60000, // Refetch every minute to get any newly uploaded transcripts
+    refetchOnWindowFocus: true,
+    refetchInterval: 60000,
   });
   
   useImperativeHandle(ref, () => ({
@@ -65,7 +63,6 @@ const ChatInterface = forwardRef<
       if (conversationId) {
         handleSubmitQuestion(question);
       } else {
-        // If conversation isn't created yet, store the question and submit it once conversation is ready
         const checkInterval = setInterval(() => {
           if (conversationId) {
             clearInterval(checkInterval);
@@ -73,7 +70,6 @@ const ChatInterface = forwardRef<
           }
         }, 500);
         
-        // Clear interval after 10 seconds to avoid memory leak
         setTimeout(() => clearInterval(checkInterval), 10000);
       }
     }
@@ -107,7 +103,6 @@ const ChatInterface = forwardRef<
               }
             ]);
             
-          // If there's an initial question, submit it
           if (initialQuestion) {
             setTimeout(() => handleSubmitQuestion(initialQuestion), 800);
           }
@@ -122,7 +117,6 @@ const ChatInterface = forwardRef<
     }
   }, [user, initialQuestion]);
   
-  // Manually refetch transcripts when the component mounts to ensure we have the latest data
   useEffect(() => {
     refetchTranscripts();
   }, [refetchTranscripts]);
@@ -160,10 +154,8 @@ const ChatInterface = forwardRef<
       
       setMessages(prev => [...prev, loadingMessage]);
       
-      // Refetch transcripts to ensure we have the latest data before generating a response
       await refetchTranscripts();
       
-      // Log the query start time for analytics
       const queryStartTime = Date.now();
       
       const responseMessage = await generateGeminiResponse(
@@ -173,12 +165,10 @@ const ChatInterface = forwardRef<
         conversationId
       );
       
-      // Check if this is a fallback response due to quota exceeded
       if (responseMessage.source === 'fallback') {
         setApiQuotaExceeded(true);
       }
       
-      // Calculate total response time
       const totalResponseTime = Date.now() - queryStartTime;
       console.log(`Total response time: ${totalResponseTime}ms`);
       

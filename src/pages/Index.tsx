@@ -16,6 +16,13 @@ const Index = () => {
   const handleSelectQuestion = (question: string) => {
     setInitialQuestion(question);
     setShowWelcome(false);
+    
+    // Use a short timeout to ensure the chat interface is mounted
+    setTimeout(() => {
+      if (chatRef.current) {
+        chatRef.current.submitQuestion(question);
+      }
+    }, 100);
   };
 
   return (
