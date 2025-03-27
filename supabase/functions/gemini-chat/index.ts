@@ -9,33 +9,47 @@ const corsHeaders = {
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
 };
 
-const FALLBACK_RESPONSE = `I'm currently experiencing high demand and have reached my API quota limit. 
+const FALLBACK_RESPONSE = `
+# Business Acquisition Fundamentals
 
-Here are some general tips about business acquisitions based on Carl Allen's teachings:
+Based on Carl Allen's teachings, here are key concepts about business acquisitions:
 
-1. **The Buy-Side Process** generally involves:
-   • Defining your buy criteria ("Buy Box")
-   • Deal origination through multiple channels
-   • Initial screening and valuation
-   • Making offers using LOIs (Letters of Intent)
-   • Due diligence
-   • Deal structuring and financing
-   • Closing
+## The Buy-Side Process
+1. **Define Your Buy Criteria** ("Buy Box")
+   • Industry focus
+   • Size parameters (revenue, EBITDA)
+   • Geographic restrictions
+   • Owner situation preferences
 
-2. **Creative Deal Structures** often include:
-   • Seller financing with flexible terms
-   • Earnouts based on performance
-   • Consulting agreements with the seller
-   • Real estate lease options
-   
-3. **Due Diligence** typically covers:
-   • Financial verification (3+ years of financials)
-   • Customer concentration analysis
-   • Operational assessment
-   • Legal and compliance review
-   • Employee and culture evaluation
+2. **Deal Origination** through multiple channels:
+   • Direct outreach
+   • Business brokers
+   • Your professional network
+   • Industry associations
+   • Digital marketing campaigns
 
-Please try your specific question again later when API capacity is available.`;
+3. **Initial Screening and Valuation**
+   • Review financials (3+ years)
+   • Analyze customer concentration
+   • Evaluate owner dependency
+   • Preliminary valuation models
+
+## Creative Deal Structures
+• **Seller Financing** with flexible payment terms
+• **Earnouts** based on future performance
+• **Consulting Agreements** keeping the seller involved
+• **Real Estate** separate from business acquisition
+• **Performance-Based** payment structures
+
+## Due Diligence Focus Areas
+• **Financial Verification** and analysis
+• **Customer Concentration** risks
+• **Operational Assessment** and improvement areas
+• **Legal and Compliance** review
+• **Employee and Culture** evaluation
+
+*Please try your specific question again when API capacity becomes available.*
+`;
 
 serve(async (req) => {
   // Handle CORS preflight requests
@@ -185,10 +199,12 @@ serve(async (req) => {
             data.error?.message?.includes("Enable it")) {
           console.log("Gemini API not enabled, providing instructions");
           
-          const instructionsResponse = `The Gemini API has not been enabled for your Google Cloud project. Please follow these steps:
+          const instructionsResponse = `# Gemini API Not Enabled
 
-1. Go to the Google Cloud Console: https://console.cloud.google.com/
-2. Navigate to APIs & Services > Enable APIs and Services
+You need to enable the Gemini API for your Google Cloud project. Follow these steps:
+
+1. Go to the [Google Cloud Console](https://console.cloud.google.com/)
+2. Navigate to **APIs & Services > Enable APIs and Services**
 3. Search for "Generative Language API" and enable it
 4. If you're using a new Google Cloud project, you might need to set up billing
 5. After enabling the API, wait a few minutes for the changes to propagate

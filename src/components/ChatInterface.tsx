@@ -11,6 +11,7 @@ import { useToast } from "@/components/ui/use-toast";
 import { useQuery } from '@tanstack/react-query';
 import { generateGeminiResponse } from '@/utils/geminiUtils';
 import { Alert, AlertTitle, AlertDescription } from "@/components/ui/alert";
+import ConversationHistory, { Conversation } from './ConversationHistory';
 
 interface ChatInterfaceProps {
   className?: string;
@@ -39,6 +40,7 @@ const ChatInterface = forwardRef<
   const inputRef = useRef<HTMLInputElement>(null);
   const { user } = useAuth();
   const { toast } = useToast();
+  const [conversations, setConversations] = useState<Conversation[]>([]);
   
   const { data: transcripts, refetch: refetchTranscripts } = useQuery({
     queryKey: ['transcripts'],
@@ -76,6 +78,52 @@ const ChatInterface = forwardRef<
       }
     }
   }));
+  
+  // Fetch conversation history
+  useEffect(() => {
+    const fetchConversations = async () => {
+      if (!user) return;
+      
+      const { data, error } = await supabase
+        .from('conversations')
+        .select('id, title, updated_at')
+        .eq('user_id', user.id)
+        .order('updated_at', { ascending: false });
+        
+      if (error) {
+        console.error('Error fetching conversations:', error);
+        return;
+      }
+      
+      // Get the first message from each conversation for the preview
+      const conversationsWithPreview = await Promise.all(
+        data.map(async (conversation) => {
+          const { data: messagesData, error: messagesError } = await supabase
+            .from('messages')
+            .select('content, is_user')
+            .eq('conversation_id', conversation.id)
+            .eq('is_user', true)
+            .order('created_at', { ascending: true })
+            .limit(1);
+            
+          const preview = messagesData && messagesData.length > 0 
+            ? messagesData[0].content.substring(0, 50) + (messagesData[0].content.length > 50 ? '...' : '')
+            : 'New conversation';
+            
+          return {
+            id: conversation.id,
+            title: conversation.title || 'New Conversation',
+            preview,
+            date: new Date(conversation.updated_at)
+          };
+        })
+      );
+      
+      setConversations(conversationsWithPreview);
+    };
+    
+    fetchConversations();
+  }, [user, conversationId]);
   
   useEffect(() => {
     const createConversation = async () => {
@@ -222,6 +270,43 @@ const ChatInterface = forwardRef<
     }
   };
   
+  const handleSelectConversation = async (selectedConversationId: string) => {
+    if (isLoading) return;
+    
+    try {
+      setIsLoading(true);
+      setConversationId(selectedConversationId);
+      
+      // Fetch messages for the selected conversation
+      const { data, error } = await supabase
+        .from('messages')
+        .select('*')
+        .eq('conversation_id', selectedConversationId)
+        .order('created_at', { ascending: true });
+        
+      if (error) throw error;
+      
+      if (data) {
+        const formattedMessages = data.map((message): MessageProps => ({
+          content: message.content,
+          source: message.is_user ? 'user' : 'gemini',
+          timestamp: new Date(message.created_at),
+        }));
+        
+        setMessages(formattedMessages);
+      }
+    } catch (error) {
+      console.error('Error loading conversation:', error);
+      toast({
+        title: "Error Loading Conversation",
+        description: "There was a problem loading the selected conversation.",
+        variant: "destructive",
+      });
+    } finally {
+      setIsLoading(false);
+    }
+  };
+  
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     await handleSubmitQuestion(input);
@@ -258,6 +343,16 @@ const ChatInterface = forwardRef<
           </AlertDescription>
         </Alert>
       )}
+      
+      <div className="flex items-center justify-between p-4 border-b">
+        <ConversationHistory 
+          conversations={conversations}
+          onSelectConversation={handleSelectConversation}
+          className="mr-2"
+        />
+        <h2 className="text-lg font-medium">Carl Allen Expert Chat</h2>
+        <div className="w-8"></div> {/* Empty div for alignment */}
+      </div>
       
       <div className="flex-1 overflow-y-auto px-4 py-6">
         <div className="max-w-4xl mx-auto">
