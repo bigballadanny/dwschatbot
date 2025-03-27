@@ -11,6 +11,7 @@ import ManagementRoute from "@/components/ManagementRoute";
 import Index from "./pages/Index";
 import Auth from "./pages/Auth";
 import Transcripts from "./pages/Transcripts";
+import Analytics from "./pages/Analytics";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
@@ -38,6 +39,14 @@ const App = () => (
                 element={
                   <ManagementRoute>
                     <Transcripts />
+                  </ManagementRoute>
+                } 
+              />
+              <Route 
+                path="/analytics" 
+                element={
+                  <ManagementRoute>
+                    <Analytics />
                   </ManagementRoute>
                 } 
               />

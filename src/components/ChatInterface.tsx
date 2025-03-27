@@ -135,11 +135,19 @@ const ChatInterface: React.FC<ChatInterfaceProps> = ({ className }) => {
       // Refetch transcripts to ensure we have the latest data before generating a response
       await refetchTranscripts();
       
+      // Log the query start time for analytics
+      const queryStartTime = Date.now();
+      
       const responseMessage = await generateGeminiResponse(
         input, 
         transcripts || [], 
-        messages.concat(userMessage)
+        messages.concat(userMessage),
+        conversationId
       );
+      
+      // Calculate total response time
+      const totalResponseTime = Date.now() - queryStartTime;
+      console.log(`Total response time: ${totalResponseTime}ms`);
       
       await supabase
         .from('messages')

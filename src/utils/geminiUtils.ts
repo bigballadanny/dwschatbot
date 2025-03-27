@@ -15,7 +15,8 @@ interface Transcript {
 export const generateGeminiResponse = async (
   query: string, 
   transcripts: Transcript[], 
-  chatHistory: MessageProps[]
+  chatHistory: MessageProps[],
+  conversationId?: string | null
 ): Promise<MessageProps> => {
   try {
     // Ensure we have the latest transcripts by fetching them directly from the database
@@ -34,20 +35,27 @@ export const generateGeminiResponse = async (
     
     console.log(`Searching through ${transcriptsToSearch.length} transcripts for query: "${query}"`);
     
+    const startTime = Date.now();
+    
     // First check if we have relevant information in transcripts
     const matchedContent = searchTranscriptsForQuery(query, transcriptsToSearch);
+    
+    const searchTime = Date.now() - startTime;
+    console.log(`Transcript search completed in ${searchTime}ms`);
     
     // Create context from the matched content if available
     let contextPrompt = "";
     let bookReference = "";
     let sourceType = "";
+    let relevanceScore = 0;
     
     if (matchedContent) {
       // Get the source description for better context
       sourceType = matchedContent.source || 'creative_dealmaker';
       const sourceDescription = getSourceDescription(sourceType);
+      relevanceScore = matchedContent.relevanceScore;
       
-      console.log(`Found matching content in source: ${sourceType}, title: "${matchedContent.title}"`);
+      console.log(`Found matching content in source: ${sourceType}, title: "${matchedContent.title}" with relevance score: ${relevanceScore}`);
       contextPrompt = `Use the following information from ${sourceDescription} to answer the question: "${matchedContent.content}"`;
       bookReference = matchedContent.title;
     } else {
@@ -76,6 +84,8 @@ export const generateGeminiResponse = async (
     9. End with a clear conclusion or summary for long responses
     `;
 
+    const apiStartTime = Date.now();
+    
     // Call our Gemini edge function
     const { data, error: functionError } = await supabase.functions.invoke('gemini-chat', {
       body: { 
@@ -86,6 +96,9 @@ export const generateGeminiResponse = async (
         sourceType: sourceType
       }
     });
+
+    const apiTime = Date.now() - apiStartTime;
+    console.log(`Gemini API call completed in ${apiTime}ms`);
 
     if (functionError) {
       console.error('Error invoking Gemini function:', functionError);
@@ -113,6 +126,26 @@ export const generateGeminiResponse = async (
     }
 
     console.log(`Generated response with citation: ${citation}`);
+    
+    // Log analytics data
+    if (conversationId) {
+      try {
+        await supabase.from('chat_analytics').insert([{
+          conversation_id: conversationId,
+          query: query,
+          response_length: data.content.length,
+          source_type: sourceType || 'general',
+          relevance_score: relevanceScore,
+          search_time_ms: searchTime,
+          api_time_ms: apiTime,
+          transcript_title: bookReference || null,
+          successful: true
+        }]);
+      } catch (analyticsError) {
+        console.error('Error logging analytics:', analyticsError);
+        // Non-blocking error, continue with response
+      }
+    }
 
     // Create a response from the Gemini data
     return {
@@ -123,6 +156,22 @@ export const generateGeminiResponse = async (
     };
   } catch (error) {
     console.error('Error generating Gemini response:', error);
+    
+    // Log the error for analytics
+    if (conversationId) {
+      try {
+        await supabase.from('chat_analytics').insert([{
+          conversation_id: conversationId,
+          query: query,
+          source_type: 'error',
+          successful: false,
+          error_message: error.message
+        }]);
+      } catch (analyticsError) {
+        console.error('Error logging analytics error:', analyticsError);
+      }
+    }
+    
     return {
       content: "I'm sorry, I couldn't process your request. Please try again later.",
       source: 'system',
