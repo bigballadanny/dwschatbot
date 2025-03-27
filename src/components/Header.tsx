@@ -5,7 +5,7 @@ import { Button } from "@/components/ui/button";
 import { Avatar, AvatarImage, AvatarFallback } from "@/components/ui/avatar"
 import { useAuth } from '@/context/AuthContext';
 import { useAdmin } from '@/context/AdminContext';
-import { BookOpen, BarChart3 } from 'lucide-react';
+import { BookOpen, BarChart3, Shield } from 'lucide-react';
 
 const HeaderLink = ({ to, children }: { to: string; children: React.ReactNode }) => (
   <Link to={to} className="text-sm font-medium hover:text-primary">{children}</Link>
@@ -24,7 +24,7 @@ const UserAvatar = () => {
 
 const Header: React.FC = () => {
   const { user } = useAuth();
-  const { isAdmin } = useAdmin();
+  const { isAdmin, makeAdmin } = useAdmin();
   
   console.log("Header - isAdmin:", isAdmin, "user:", !!user);
   
@@ -54,12 +54,17 @@ const Header: React.FC = () => {
         <div className="flex items-center space-x-2">
           {user ? (
             <div className="flex items-center gap-2">
-              {isAdmin && (
+              {isAdmin ? (
                 <Button asChild variant="outline" size="sm">
                   <Link to="/analytics">
                     <BarChart3 className="h-4 w-4 mr-1" />
                     Analytics
                   </Link>
+                </Button>
+              ) : (
+                <Button variant="outline" size="sm" onClick={makeAdmin}>
+                  <Shield className="h-4 w-4 mr-1" />
+                  Become Admin
                 </Button>
               )}
               <UserAvatar />

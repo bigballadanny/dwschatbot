@@ -11,7 +11,7 @@ import { ModeToggle } from "@/components/ModeToggle";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { 
   Settings, MessageSquare, Trash2, PlusCircle, 
-  BarChart3, LogOut, Search, ChevronLeft, ChevronRight
+  BarChart3, LogOut, Search, ChevronLeft, ChevronRight, Shield
 } from 'lucide-react';
 import { toast } from '@/components/ui/use-toast';
 import {
@@ -56,7 +56,7 @@ interface Conversation {
 
 const ChatSidebar = () => {
   const { user, signOut } = useAuth();
-  const { isAdmin } = useAdmin();
+  const { isAdmin, makeAdmin } = useAdmin();
   const [conversations, setConversations] = useState<Conversation[]>([]);
   const [searchQuery, setSearchQuery] = useState('');
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
@@ -249,7 +249,7 @@ const ChatSidebar = () => {
       
       <SidebarFooter className="border-t">
         <SidebarMenu>
-          {isAdmin && (
+          {isAdmin ? (
             <SidebarMenuItem>
               <Link to="/analytics">
                 <SidebarMenuButton>
@@ -257,6 +257,13 @@ const ChatSidebar = () => {
                   <span>Analytics</span>
                 </SidebarMenuButton>
               </Link>
+            </SidebarMenuItem>
+          ) : (
+            <SidebarMenuItem>
+              <SidebarMenuButton onClick={makeAdmin}>
+                <Shield className="h-4 w-4" />
+                <span>Become Admin</span>
+              </SidebarMenuButton>
             </SidebarMenuItem>
           )}
           <SidebarMenuItem>
