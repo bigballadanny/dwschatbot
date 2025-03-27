@@ -1,3 +1,4 @@
+
 import React, { useState, useRef, useEffect, forwardRef, useImperativeHandle } from 'react';
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -33,6 +34,7 @@ const ChatInterface = forwardRef<
   const [isLoading, setIsLoading] = useState(false);
   const [conversationId, setConversationId] = useState<string | null>(null);
   const [apiQuotaExceeded, setApiQuotaExceeded] = useState(false);
+  const [apiDisabled, setApiDisabled] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
   const { user } = useAuth();
@@ -173,6 +175,14 @@ const ChatInterface = forwardRef<
           variant: "destructive",
           duration: 5000,
         });
+      } else if (responseMessage.source === 'system' && responseMessage.content.includes("Gemini API has not been enabled")) {
+        setApiDisabled(true);
+        toast({
+          title: "Gemini API Not Enabled",
+          description: "The Gemini API needs to be enabled in your Google Cloud Console.",
+          variant: "destructive",
+          duration: 8000,
+        });
       }
       
       const totalResponseTime = Date.now() - queryStartTime;
@@ -234,6 +244,17 @@ const ChatInterface = forwardRef<
           <AlertDescription>
             The AI service is currently experiencing high demand and has reached its quota limit. 
             You're now receiving fallback responses with general information. Please try again later for full AI capabilities.
+          </AlertDescription>
+        </Alert>
+      )}
+      
+      {apiDisabled && (
+        <Alert variant="default" className="m-4 bg-blue-50 border-blue-300 text-blue-800 dark:bg-blue-950 dark:border-blue-800 dark:text-blue-200">
+          <AlertTriangle className="h-4 w-4" />
+          <AlertTitle>Gemini API Setup Required</AlertTitle>
+          <AlertDescription>
+            The Gemini API is not enabled for your Google Cloud project. Please follow the instructions in the chat to enable it.
+            After enabling the API, reload this page to connect to the Gemini service.
           </AlertDescription>
         </Alert>
       )}

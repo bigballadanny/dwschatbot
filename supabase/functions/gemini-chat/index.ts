@@ -113,6 +113,8 @@ serve(async (req) => {
     - When there's uncertainty, acknowledge limits rather than inventing information
     - Use concrete examples where possible to illustrate concepts
     - When referring to specific content, cite the source with the title of the transcript/call
+    - Use proper markdown formatting with **bold** for important concepts and headings
+    - Use bullet points for lists and numbered lists for sequential steps
     `;
     
     // Add formatting instructions as a system message
@@ -126,6 +128,18 @@ serve(async (req) => {
     console.log("Searching for information on query:", query);
     console.log("Source type identified:", sourceType || "None specified");
     console.log("Context length:", context ? context.length : 0);
+
+    // Verify the API key is valid
+    if (!GEMINI_API_KEY) {
+      console.error("GEMINI_API_KEY is not configured");
+      return new Response(JSON.stringify({ 
+        content: "The GEMINI_API_KEY is not properly configured. Please check your environment variables.",
+        source: 'system',
+        error: true
+      }), {
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      });
+    }
 
     try {
       // Call Gemini API
@@ -161,6 +175,30 @@ serve(async (req) => {
             content: FALLBACK_RESPONSE,
             source: 'fallback',
             isQuotaExceeded: true
+          }), {
+            headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+          });
+        }
+        
+        // Check if it's an API not enabled error
+        if (data.error?.message?.includes("disabled") || 
+            data.error?.message?.includes("Enable it")) {
+          console.log("Gemini API not enabled, providing instructions");
+          
+          const instructionsResponse = `The Gemini API has not been enabled for your Google Cloud project. Please follow these steps:
+
+1. Go to the Google Cloud Console: https://console.cloud.google.com/
+2. Navigate to APIs & Services > Enable APIs and Services
+3. Search for "Generative Language API" and enable it
+4. If you're using a new Google Cloud project, you might need to set up billing
+5. After enabling the API, wait a few minutes for the changes to propagate
+
+Once enabled, your chat assistant will work properly.`;
+          
+          return new Response(JSON.stringify({ 
+            content: instructionsResponse,
+            source: 'system',
+            apiDisabled: true
           }), {
             headers: { ...corsHeaders, 'Content-Type': 'application/json' },
           });

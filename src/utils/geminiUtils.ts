@@ -100,6 +100,9 @@ export const generateGeminiResponse = async (
     if (data.isQuotaExceeded) {
       // Use fallback citation if quota exceeded
       citation = "API quota exceeded - Showing general information about Carl Allen's business acquisition methodology";
+    } else if (data.apiDisabled) {
+      // Use API disabled citation
+      citation = "Gemini API needs to be enabled in Google Cloud Console - Follow the instructions above";
     } else if (matchedContent) {
       if (sourceType === 'creative_dealmaker') {
         citation = `Based on information from "${bookReference}" in Carl Allen's Creative Dealmaker book`;
@@ -127,12 +130,12 @@ export const generateGeminiResponse = async (
           conversation_id: conversationId,
           query: query,
           response_length: data.content.length,
-          source_type: data.isQuotaExceeded ? 'fallback' : (sourceType || 'general'),
+          source_type: data.isQuotaExceeded ? 'fallback' : (data.apiDisabled ? 'system' : (sourceType || 'general')),
           relevance_score: relevanceScore,
           search_time_ms: searchTime,
           api_time_ms: apiTime,
           transcript_title: bookReference || null,
-          successful: true
+          successful: !data.error && !data.isQuotaExceeded && !data.apiDisabled
         }]);
       } catch (analyticsError) {
         console.error('Error logging analytics:', analyticsError);
@@ -143,7 +146,7 @@ export const generateGeminiResponse = async (
     // Create a response from the Gemini data
     return {
       content: data.content,
-      source: data.source || 'gemini',
+      source: data.apiDisabled ? 'system' : (data.isQuotaExceeded ? 'fallback' : (data.source || 'gemini')),
       citation: citation,
       timestamp: new Date()
     };
