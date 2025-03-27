@@ -1,16 +1,6 @@
-
 import { supabase } from '@/integrations/supabase/client';
 import { MessageProps } from '@/components/MessageItem';
-import { searchTranscriptsForQuery, getSourceDescription } from './transcriptUtils';
-
-interface Transcript {
-  id: string;
-  title: string;
-  content: string;
-  created_at: string;
-  file_path?: string;
-  source?: string;
-}
+import { searchTranscriptsForQuery, getSourceDescription, Transcript } from './transcriptUtils';
 
 export const generateGeminiResponse = async (
   query: string, 
@@ -38,7 +28,7 @@ export const generateGeminiResponse = async (
     const startTime = Date.now();
     
     // First check if we have relevant information in transcripts
-    const matchedContent = searchTranscriptsForQuery(query, transcriptsToSearch);
+    const matchedContent = searchTranscriptsForQuery(query, transcriptsToSearch as Transcript[]);
     
     const searchTime = Date.now() - startTime;
     console.log(`Transcript search completed in ${searchTime}ms`);
@@ -53,7 +43,7 @@ export const generateGeminiResponse = async (
       // Get the source description for better context
       sourceType = matchedContent.source || 'creative_dealmaker';
       const sourceDescription = getSourceDescription(sourceType);
-      relevanceScore = matchedContent.relevanceScore;
+      relevanceScore = matchedContent.relevanceScore || 0;
       
       console.log(`Found matching content in source: ${sourceType}, title: "${matchedContent.title}" with relevance score: ${relevanceScore}`);
       contextPrompt = `Use the following information from ${sourceDescription} to answer the question: "${matchedContent.content}"`;

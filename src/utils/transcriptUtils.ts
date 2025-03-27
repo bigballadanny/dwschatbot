@@ -1,4 +1,3 @@
-
 import { Tables } from '../integrations/supabase/types';
 
 export type Transcript = {
@@ -7,6 +6,8 @@ export type Transcript = {
   source: string;
   created_at: string;
   content: string;
+  file_path?: string;
+  relevanceScore?: number;
 };
 
 export function getTranscriptCounts(transcripts: Transcript[]) {
@@ -47,7 +48,6 @@ export function getTranscriptSummaries(transcripts: Transcript[]) {
   }));
 }
 
-// This function was missing - detects source category from filename or content
 export function detectSourceCategory(filename: string, content?: string): string {
   const lowercaseFilename = filename.toLowerCase();
   
@@ -59,7 +59,6 @@ export function detectSourceCategory(filename: string, content?: string): string
     return 'mastermind_call';
   }
   
-  // If no category detected from filename, try content if provided
   if (content) {
     const lowercaseContent = content.toLowerCase();
     if (lowercaseContent.includes('protege')) {
@@ -71,30 +70,25 @@ export function detectSourceCategory(filename: string, content?: string): string
     }
   }
   
-  // Default category
   return 'other';
 }
 
-// This function was missing - searches transcripts for relevant content based on query
 export function searchTranscriptsForQuery(query: string, transcripts: Transcript[]) {
   if (!query || !transcripts || transcripts.length === 0) {
     return null;
   }
 
-  // Normalize query for better matching
   const normalizedQuery = query.toLowerCase().trim();
   
-  // Find transcripts that might have relevant content
   const matchedTranscripts = transcripts
     .filter(transcript => transcript.content && transcript.content.length > 0)
     .map(transcript => {
-      // Calculate a simple relevance score based on keyword matching
       const content = transcript.content.toLowerCase();
       const queryTerms = normalizedQuery.split(/\s+/);
       
       let relevanceScore = 0;
       queryTerms.forEach(term => {
-        if (term.length > 3) { // Skip short words
+        if (term.length > 3) {
           const regex = new RegExp(`\\b${term}\\b`, 'g');
           const matches = content.match(regex);
           if (matches) {
@@ -115,11 +109,9 @@ export function searchTranscriptsForQuery(query: string, transcripts: Transcript
     return null;
   }
   
-  // Return the most relevant transcript
   return matchedTranscripts[0];
 }
 
-// This function was missing - gets description for different source types
 export function getSourceDescription(sourceType: string): string {
   switch (sourceType.toLowerCase()) {
     case 'protege_call':
