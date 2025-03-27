@@ -1,13 +1,12 @@
 
 import React, { useState, useEffect } from 'react';
-import { Link, useLocation } from 'react-router-dom';
+import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/context/AuthContext';
 import { useAdmin } from '@/context/AdminContext';
 import { useSidebar } from "@/components/ui/sidebar";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Separator } from "@/components/ui/separator";
 import { ModeToggle } from "@/components/ModeToggle";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { 
@@ -38,6 +37,15 @@ import {
   DialogTitle,
   DialogTrigger,
 } from "@/components/ui/dialog";
+import {
+  Sheet,
+  SheetContent,
+  SheetDescription,
+  SheetFooter,
+  SheetHeader,
+  SheetTitle,
+  SheetTrigger,
+} from "@/components/ui/sheet";
 import { cn } from '@/lib/utils';
 
 interface Conversation {
@@ -53,7 +61,9 @@ const ChatSidebar = () => {
   const [searchQuery, setSearchQuery] = useState('');
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
   const [conversationToDelete, setConversationToDelete] = useState<string | null>(null);
+  const [settingsOpen, setSettingsOpen] = useState(false);
   const location = useLocation();
+  const navigate = useNavigate();
   const { state: sidebarState, toggleSidebar } = useSidebar();
   
   // Get conversation ID from URL if present
@@ -153,6 +163,10 @@ const ChatSidebar = () => {
     setDeleteDialogOpen(true);
   };
   
+  const handleSettings = () => {
+    setSettingsOpen(true);
+  };
+  
   const filteredConversations = conversations.filter(
     conversation => conversation.title.toLowerCase().includes(searchQuery.toLowerCase())
   );
@@ -201,7 +215,7 @@ const ChatSidebar = () => {
                 </div>
               ) : (
                 filteredConversations.map((conversation) => (
-                  <SidebarMenuItem key={conversation.id} className="group relative">
+                  <SidebarMenuItem key={conversation.id} className="group">
                     <Link 
                       to={`/?conversation=${conversation.id}`}
                       className={cn(
@@ -246,10 +260,37 @@ const ChatSidebar = () => {
             </SidebarMenuItem>
           )}
           <SidebarMenuItem>
-            <SidebarMenuButton>
-              <Settings className="h-4 w-4" />
-              <span>Settings</span>
-            </SidebarMenuButton>
+            <Sheet open={settingsOpen} onOpenChange={setSettingsOpen}>
+              <SheetTrigger asChild>
+                <SidebarMenuButton onClick={handleSettings}>
+                  <Settings className="h-4 w-4" />
+                  <span>Settings</span>
+                </SidebarMenuButton>
+              </SheetTrigger>
+              <SheetContent>
+                <SheetHeader>
+                  <SheetTitle>Settings</SheetTitle>
+                  <SheetDescription>
+                    Customize your experience
+                  </SheetDescription>
+                </SheetHeader>
+                <div className="py-4 space-y-4">
+                  <div className="flex items-center justify-between">
+                    <div className="text-sm font-medium">Theme</div>
+                    <ModeToggle />
+                  </div>
+                  {/* Add more settings here */}
+                </div>
+                <SheetFooter>
+                  <Button 
+                    variant="outline" 
+                    onClick={() => setSettingsOpen(false)}
+                  >
+                    Close
+                  </Button>
+                </SheetFooter>
+              </SheetContent>
+            </Sheet>
           </SidebarMenuItem>
           <SidebarMenuItem>
             <SidebarMenuButton onClick={signOut}>
@@ -257,9 +298,6 @@ const ChatSidebar = () => {
               <span>Sign out</span>
             </SidebarMenuButton>
           </SidebarMenuItem>
-          <div className="px-2 py-2">
-            <ModeToggle />
-          </div>
         </SidebarMenu>
       </SidebarFooter>
       

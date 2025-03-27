@@ -5,7 +5,7 @@ import { Button } from "@/components/ui/button";
 import { Avatar, AvatarImage, AvatarFallback } from "@/components/ui/avatar"
 import { useAuth } from '@/context/AuthContext';
 import { useAdmin } from '@/context/AdminContext';
-import { BookOpen, Sliders, BarChart } from 'lucide-react';
+import { BookOpen, Sliders, BarChart3 } from 'lucide-react';
 
 const HeaderLink = ({ to, children }: { to: string; children: React.ReactNode }) => (
   <Link to={to} className="text-sm font-medium hover:text-primary">{children}</Link>
@@ -26,6 +26,8 @@ const Header: React.FC = () => {
   const { user } = useAuth();
   const { isAdmin } = useAdmin();
   
+  console.log("Header - isAdmin:", isAdmin);
+  
   return (
     <header className="border-b">
       <div className="container mx-auto px-4 py-3 flex items-center justify-between">
@@ -41,7 +43,7 @@ const Header: React.FC = () => {
             {isAdmin && (
               <HeaderLink to="/analytics">
                 <span className="flex items-center">
-                  <BarChart className="mr-1 h-4 w-4" />
+                  <BarChart3 className="mr-1 h-4 w-4" />
                   Analytics
                 </span>
               </HeaderLink>
@@ -54,9 +56,9 @@ const Header: React.FC = () => {
             <div className="flex items-center gap-2">
               {isAdmin && (
                 <Button asChild variant="outline" size="sm">
-                  <Link to="/admin">
-                    <Sliders className="h-4 w-4 mr-1" />
-                    Admin
+                  <Link to="/analytics">
+                    <BarChart3 className="h-4 w-4 mr-1" />
+                    Analytics
                   </Link>
                 </Button>
               )}

@@ -29,19 +29,22 @@ export const AdminProvider: React.FC<{ children: React.ReactNode }> = ({
       }
 
       try {
+        console.log("Checking admin status for user:", user.id);
+        
         // Check if the user has an 'admin' role in the user_roles table
         const { data, error } = await supabase
           .from('user_roles')
           .select('role')
           .eq('user_id', user.id)
           .eq('role', 'admin')
-          .single();
+          .maybeSingle();
 
         if (error) {
           console.error('Error checking admin status:', error);
           setIsAdmin(false);
         } else {
           // If we got data back, the user is an admin
+          console.log("Admin check result:", data);
           setIsAdmin(!!data);
         }
       } catch (error) {
