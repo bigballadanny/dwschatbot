@@ -5,7 +5,7 @@ import { Button } from "@/components/ui/button";
 import { Avatar, AvatarImage, AvatarFallback } from "@/components/ui/avatar"
 import { useAuth } from '@/context/AuthContext';
 import { useAdmin } from '@/context/AdminContext';
-import { BookOpen, Sliders, BarChart3 } from 'lucide-react';
+import { BookOpen, BarChart3 } from 'lucide-react';
 
 const HeaderLink = ({ to, children }: { to: string; children: React.ReactNode }) => (
   <Link to={to} className="text-sm font-medium hover:text-primary">{children}</Link>
@@ -26,7 +26,7 @@ const Header: React.FC = () => {
   const { user } = useAuth();
   const { isAdmin } = useAdmin();
   
-  console.log("Header - isAdmin:", isAdmin);
+  console.log("Header - isAdmin:", isAdmin, "user:", !!user);
   
   return (
     <header className="border-b">

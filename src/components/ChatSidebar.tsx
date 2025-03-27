@@ -232,7 +232,7 @@ const ChatSidebar = () => {
                       <Button
                         variant="ghost"
                         size="icon"
-                        className="h-6 w-6 opacity-0 group-hover:opacity-100 transition-opacity ml-1 text-destructive hover:text-destructive hover:bg-destructive/10 flex-shrink-0"
+                        className="h-6 w-6 flex-shrink-0 ml-1 text-destructive opacity-100 hover:text-destructive hover:bg-destructive/10"
                         onClick={(e) => confirmDelete(conversation.id, e)}
                         title="Delete conversation"
                       >

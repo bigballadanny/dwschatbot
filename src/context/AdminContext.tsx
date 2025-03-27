@@ -37,18 +37,18 @@ export const AdminProvider: React.FC<{ children: React.ReactNode }> = ({
           .select('role')
           .eq('user_id', user.id)
           .eq('role', 'admin')
-          .maybeSingle();
+          .single();
 
-        if (error) {
+        if (error && error.code !== 'PGRST116') { // PGRST116 is "No rows returned" which is expected for non-admins
           console.error('Error checking admin status:', error);
           setIsAdmin(false);
         } else {
-          // If we got data back, the user is an admin
-          console.log("Admin check result:", data);
-          setIsAdmin(!!data);
+          const isUserAdmin = !!data;
+          console.log("User admin status:", isUserAdmin);
+          setIsAdmin(isUserAdmin);
         }
       } catch (error) {
-        console.error('Error checking admin status:', error);
+        console.error('Error in admin check:', error);
         setIsAdmin(false);
       } finally {
         setIsLoading(false);
