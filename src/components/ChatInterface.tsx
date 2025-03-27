@@ -1,4 +1,6 @@
+
 import React, { useState, useRef, useEffect, forwardRef, useImperativeHandle } from 'react';
+import { useLocation } from 'react-router-dom';
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Send, AlertTriangle } from "lucide-react";
@@ -10,7 +12,6 @@ import { useToast } from "@/components/ui/use-toast";
 import { useQuery } from '@tanstack/react-query';
 import { generateGeminiResponse } from '@/utils/geminiUtils';
 import { Alert, AlertTitle, AlertDescription } from "@/components/ui/alert";
-import ConversationHistory, { Conversation } from './ConversationHistory';
 import SearchModeToggle from './SearchModeToggle';
 
 interface ChatInterfaceProps {
@@ -41,7 +42,7 @@ const ChatInterface = forwardRef<
   const inputRef = useRef<HTMLInputElement>(null);
   const { user } = useAuth();
   const { toast } = useToast();
-  const [conversations, setConversations] = useState<Conversation[]>([]);
+  const location = useLocation();
   
   const { data: transcripts, refetch: refetchTranscripts } = useQuery({
     queryKey: ['transcripts'],
@@ -59,8 +60,8 @@ const ChatInterface = forwardRef<
       return data || [];
     },
     enabled: !!user,
-    refetchOnWindowFocus: true,
-    refetchInterval: 60000,
+    refetchOnWindowFocus: false,
+    refetchInterval: 300000, // Refresh every 5 minutes
   });
   
   useImperativeHandle(ref, () => ({
@@ -80,91 +81,95 @@ const ChatInterface = forwardRef<
     }
   }));
   
+  // Get conversation ID from URL
   useEffect(() => {
-    const fetchConversations = async () => {
-      if (!user) return;
+    const params = new URLSearchParams(location.search);
+    const urlConversationId = params.get('conversation');
+    
+    if (urlConversationId) {
+      setConversationId(urlConversationId);
+      loadConversationMessages(urlConversationId);
+    } else if (user) {
+      createNewConversation();
+    }
+  }, [location, user]);
+  
+  const loadConversationMessages = async (id: string) => {
+    try {
+      setIsLoading(true);
       
       const { data, error } = await supabase
-        .from('conversations')
-        .select('id, title, updated_at')
-        .eq('user_id', user.id)
-        .order('updated_at', { ascending: false });
+        .from('messages')
+        .select('*')
+        .eq('conversation_id', id)
+        .order('created_at', { ascending: true });
         
-      if (error) {
-        console.error('Error fetching conversations:', error);
-        return;
-      }
+      if (error) throw error;
       
-      const conversationsWithPreview = await Promise.all(
-        data.map(async (conversation) => {
-          const { data: messagesData, error: messagesError } = await supabase
-            .from('messages')
-            .select('content, is_user')
-            .eq('conversation_id', conversation.id)
-            .eq('is_user', true)
-            .order('created_at', { ascending: true })
-            .limit(1);
-            
-          const preview = messagesData && messagesData.length > 0 
-            ? messagesData[0].content.substring(0, 50) + (messagesData[0].content.length > 50 ? '...' : '')
-            : 'New conversation';
-            
-          return {
-            id: conversation.id,
-            title: conversation.title || 'New Conversation',
-            preview,
-            date: new Date(conversation.updated_at)
-          };
-        })
-      );
-      
-      setConversations(conversationsWithPreview);
-    };
-    
-    fetchConversations();
-  }, [user, conversationId]);
-  
-  useEffect(() => {
-    const createConversation = async () => {
-      try {
-        const { data, error } = await supabase
-          .from('conversations')
+      if (data && data.length > 0) {
+        const formattedMessages = data.map((message): MessageProps => ({
+          content: message.content,
+          source: message.is_user ? 'user' : 'gemini',
+          timestamp: new Date(message.created_at),
+        }));
+        
+        setMessages(formattedMessages);
+      } else {
+        // If no messages found, add the initial welcome message to this conversation
+        setMessages(INITIAL_MESSAGES);
+        
+        await supabase
+          .from('messages')
           .insert([
-            { 
-              title: 'New Conversation',
-              user_id: user?.id
+            {
+              conversation_id: id,
+              content: INITIAL_MESSAGES[0].content,
+              is_user: false
             }
-          ])
-          .select();
-          
-        if (error) throw error;
-        
-        if (data && data.length > 0) {
-          setConversationId(data[0].id);
-          
-          await supabase
-            .from('messages')
-            .insert([
-              {
-                conversation_id: data[0].id,
-                content: INITIAL_MESSAGES[0].content,
-                is_user: false
-              }
-            ]);
-            
-          if (initialQuestion) {
-            setTimeout(() => handleSubmitQuestion(initialQuestion), 800);
-          }
-        }
-      } catch (error) {
-        console.error('Error creating conversation:', error);
+          ]);
       }
-    };
-    
-    if (user) {
-      createConversation();
+    } catch (error) {
+      console.error('Error loading conversation:', error);
+    } finally {
+      setIsLoading(false);
     }
-  }, [user, initialQuestion]);
+  };
+  
+  const createNewConversation = async () => {
+    try {
+      const { data, error } = await supabase
+        .from('conversations')
+        .insert([
+          { 
+            title: 'New Conversation',
+            user_id: user?.id
+          }
+        ])
+        .select();
+          
+      if (error) throw error;
+        
+      if (data && data.length > 0) {
+        setConversationId(data[0].id);
+          
+        await supabase
+          .from('messages')
+          .insert([
+            {
+              conversation_id: data[0].id,
+              content: INITIAL_MESSAGES[0].content,
+              is_user: false
+            }
+          ]);
+            
+        if (initialQuestion) {
+          setTimeout(() => handleSubmitQuestion(initialQuestion), 800);
+        }
+      }
+    } catch (error) {
+      console.error('Error creating conversation:', error);
+    }
+  };
   
   useEffect(() => {
     refetchTranscripts();
@@ -272,42 +277,6 @@ const ChatInterface = forwardRef<
     }
   };
   
-  const handleSelectConversation = async (selectedConversationId: string) => {
-    if (isLoading) return;
-    
-    try {
-      setIsLoading(true);
-      setConversationId(selectedConversationId);
-      
-      const { data, error } = await supabase
-        .from('messages')
-        .select('*')
-        .eq('conversation_id', selectedConversationId)
-        .order('created_at', { ascending: true });
-        
-      if (error) throw error;
-      
-      if (data) {
-        const formattedMessages = data.map((message): MessageProps => ({
-          content: message.content,
-          source: message.is_user ? 'user' : 'gemini',
-          timestamp: new Date(message.created_at),
-        }));
-        
-        setMessages(formattedMessages);
-      }
-    } catch (error) {
-      console.error('Error loading conversation:', error);
-      toast({
-        title: "Error Loading Conversation",
-        description: "There was a problem loading the selected conversation.",
-        variant: "destructive",
-      });
-    } finally {
-      setIsLoading(false);
-    }
-  };
-  
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     await handleSubmitQuestion(input);
@@ -356,15 +325,7 @@ const ChatInterface = forwardRef<
         </Alert>
       )}
       
-      <div className="flex items-center justify-between p-4 border-b">
-        <ConversationHistory 
-          conversations={conversations}
-          onSelectConversation={handleSelectConversation}
-          className="mr-2"
-        />
-        
-        <h2 className="text-lg font-medium">Carl Allen Expert Chat</h2>
-        
+      <div className="flex items-center justify-end p-4 border-b">
         <SearchModeToggle 
           enableOnlineSearch={enableOnlineSearch}
           onToggle={handleToggleOnlineSearch}
