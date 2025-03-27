@@ -9,6 +9,34 @@ const corsHeaders = {
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
 };
 
+const FALLBACK_RESPONSE = `I'm currently experiencing high demand and have reached my API quota limit. 
+
+Here are some general tips about business acquisitions based on Carl Allen's teachings:
+
+1. **The Buy-Side Process** generally involves:
+   • Defining your buy criteria ("Buy Box")
+   • Deal origination through multiple channels
+   • Initial screening and valuation
+   • Making offers using LOIs (Letters of Intent)
+   • Due diligence
+   • Deal structuring and financing
+   • Closing
+
+2. **Creative Deal Structures** often include:
+   • Seller financing with flexible terms
+   • Earnouts based on performance
+   • Consulting agreements with the seller
+   • Real estate lease options
+   
+3. **Due Diligence** typically covers:
+   • Financial verification (3+ years of financials)
+   • Customer concentration analysis
+   • Operational assessment
+   • Legal and compliance review
+   • Employee and culture evaluation
+
+Please try your specific question again later when API capacity is available.`;
+
 serve(async (req) => {
   // Handle CORS preflight requests
   if (req.method === 'OPTIONS') {
@@ -99,44 +127,73 @@ serve(async (req) => {
     console.log("Source type identified:", sourceType || "None specified");
     console.log("Context length:", context ? context.length : 0);
 
-    // Call Gemini API
-    const response = await fetch(`${GEMINI_API_URL}?key=${GEMINI_API_KEY}`, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify({
-        contents: formattedMessages,
-        generationConfig: {
-          temperature: 0.7,
-          topP: 0.8,
-          topK: 40,
-          maxOutputTokens: 800,
+    try {
+      // Call Gemini API
+      const response = await fetch(`${GEMINI_API_URL}?key=${GEMINI_API_KEY}`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
         },
-      }),
-    });
+        body: JSON.stringify({
+          contents: formattedMessages,
+          generationConfig: {
+            temperature: 0.7,
+            topP: 0.8,
+            topK: 40,
+            maxOutputTokens: 800,
+          },
+        }),
+      });
 
-    // Handle API response
-    const data = await response.json();
-    
-    if (!response.ok) {
-      console.error('Gemini API error:', data);
-      throw new Error(`Gemini API error: ${data.error?.message || 'Unknown error'}`);
-    }
-    
-    // Extract the generated text
-    const generatedText = data.candidates?.[0]?.content?.parts?.[0]?.text || 
-      "I'm sorry, I couldn't generate a response at this time.";
+      // Handle API response
+      const data = await response.json();
       
-    console.log("Generated response size:", generatedText.length);
+      if (!response.ok) {
+        console.error('Gemini API error:', data);
+        
+        // Check if it's a quota exceeded error
+        if (data.error?.message?.includes("quota") || 
+            data.error?.status === "RESOURCE_EXHAUSTED" ||
+            response.status === 429) {
+          console.log("API quota exceeded, returning fallback response");
+          
+          return new Response(JSON.stringify({ 
+            content: FALLBACK_RESPONSE,
+            source: 'fallback',
+            isQuotaExceeded: true
+          }), {
+            headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+          });
+        }
+        
+        throw new Error(`Gemini API error: ${data.error?.message || 'Unknown error'}`);
+      }
+      
+      // Extract the generated text
+      const generatedText = data.candidates?.[0]?.content?.parts?.[0]?.text || 
+        "I'm sorry, I couldn't generate a response at this time.";
+        
+      console.log("Generated response size:", generatedText.length);
 
-    // Return the response
-    return new Response(JSON.stringify({ 
-      content: generatedText,
-      source: 'gemini'
-    }), {
-      headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-    });
+      // Return the response
+      return new Response(JSON.stringify({ 
+        content: generatedText,
+        source: 'gemini'
+      }), {
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      });
+    } catch (apiError) {
+      console.error('API error:', apiError);
+      
+      // Return the fallback response if there's an API error
+      return new Response(JSON.stringify({ 
+        content: FALLBACK_RESPONSE,
+        source: 'fallback',
+        isQuotaExceeded: true
+      }), {
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      });
+    }
   } catch (error) {
     console.error('Error in gemini-chat function:', error);
     return new Response(JSON.stringify({ 

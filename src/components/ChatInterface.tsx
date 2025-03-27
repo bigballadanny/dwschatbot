@@ -2,7 +2,7 @@
 import React, { useState, useRef, useEffect, forwardRef, useImperativeHandle } from 'react';
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Send } from "lucide-react";
+import { Send, AlertTriangle } from "lucide-react";
 import MessageItem, { MessageProps } from './MessageItem';
 import { cn } from "@/lib/utils";
 import { supabase } from '@/integrations/supabase/client';
@@ -10,6 +10,7 @@ import { useAuth } from '@/context/AuthContext';
 import { useToast } from "@/components/ui/use-toast";
 import { useQuery } from '@tanstack/react-query';
 import { generateGeminiResponse } from '@/utils/geminiUtils';
+import { Alert, AlertTitle, AlertDescription } from "@/components/ui/alert";
 
 interface ChatInterfaceProps {
   className?: string;
@@ -32,6 +33,7 @@ const ChatInterface = forwardRef<
   const [input, setInput] = useState('');
   const [isLoading, setIsLoading] = useState(false);
   const [conversationId, setConversationId] = useState<string | null>(null);
+  const [apiQuotaExceeded, setApiQuotaExceeded] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
   const { user } = useAuth();
@@ -171,6 +173,11 @@ const ChatInterface = forwardRef<
         conversationId
       );
       
+      // Check if this is a fallback response due to quota exceeded
+      if (responseMessage.source === 'fallback') {
+        setApiQuotaExceeded(true);
+      }
+      
       // Calculate total response time
       const totalResponseTime = Date.now() - queryStartTime;
       console.log(`Total response time: ${totalResponseTime}ms`);
@@ -224,6 +231,17 @@ const ChatInterface = forwardRef<
   
   return (
     <div className={cn("flex flex-col h-full", className)}>
+      {apiQuotaExceeded && (
+        <Alert variant="default" className="m-4 bg-amber-50 border-amber-300 text-amber-800 dark:bg-amber-950 dark:border-amber-800 dark:text-amber-200">
+          <AlertTriangle className="h-4 w-4" />
+          <AlertTitle>API Quota Exceeded</AlertTitle>
+          <AlertDescription>
+            The AI service is currently experiencing high demand and has reached its quota limit. 
+            You're now receiving fallback responses. Please try again later for full AI capabilities.
+          </AlertDescription>
+        </Alert>
+      )}
+      
       <div className="flex-1 overflow-y-auto px-4 py-6">
         <div className="max-w-4xl mx-auto">
           {messages.map((message, index) => (

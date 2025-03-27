@@ -1,3 +1,4 @@
+
 import { supabase } from '@/integrations/supabase/client';
 import { MessageProps } from '@/components/MessageItem';
 import { searchTranscriptsForQuery, getSourceDescription, Transcript } from './transcriptUtils';
@@ -97,7 +98,11 @@ export const generateGeminiResponse = async (
 
     // Create a citation based on the source
     let citation = "";
-    if (matchedContent) {
+    
+    if (data.isQuotaExceeded) {
+      // Use fallback citation if quota exceeded
+      citation = "API quota exceeded - Showing general information about Carl Allen's business acquisition methodology";
+    } else if (matchedContent) {
       if (sourceType === 'creative_dealmaker') {
         citation = `Based on information from "${bookReference}" in Carl Allen's Creative Dealmaker book`;
       } else if (sourceType === 'mastermind_call') {
@@ -124,7 +129,7 @@ export const generateGeminiResponse = async (
           conversation_id: conversationId,
           query: query,
           response_length: data.content.length,
-          source_type: sourceType || 'general',
+          source_type: data.isQuotaExceeded ? 'fallback' : (sourceType || 'general'),
           relevance_score: relevanceScore,
           search_time_ms: searchTime,
           api_time_ms: apiTime,
@@ -140,7 +145,7 @@ export const generateGeminiResponse = async (
     // Create a response from the Gemini data
     return {
       content: data.content,
-      source: 'gemini',
+      source: data.source || 'gemini',
       citation: citation,
       timestamp: new Date()
     };
@@ -163,7 +168,7 @@ export const generateGeminiResponse = async (
     }
     
     return {
-      content: "I'm sorry, I couldn't process your request. Please try again later.",
+      content: "I'm sorry, I couldn't process your request. Please try again later or contact support to resolve this issue.",
       source: 'system',
       timestamp: new Date()
     };
