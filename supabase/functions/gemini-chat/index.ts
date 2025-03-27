@@ -1,4 +1,3 @@
-
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 
 const GEMINI_API_KEY = Deno.env.get('GEMINI_API_KEY');
@@ -9,6 +8,7 @@ const corsHeaders = {
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
 };
 
+// Keep existing fallback response and other constants from the previous implementation
 const FALLBACK_RESPONSE = `
 # Business Acquisition Fundamentals
 
@@ -58,14 +58,27 @@ serve(async (req) => {
   }
 
   try {
+    // Verify API key is configured
+    if (!GEMINI_API_KEY) {
+      console.error("GEMINI_API_KEY is not configured");
+      return new Response(JSON.stringify({ 
+        content: "The GEMINI_API_KEY is not properly configured. Please check your environment variables.",
+        source: 'system',
+        error: true
+      }), {
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      });
+    }
+
     const { query, messages, context, instructions, sourceType } = await req.json();
     
-    // Format the messages for Gemini API
+    // Existing message formatting logic (kept from previous implementation)
     const formattedMessages = messages.map(msg => ({
       role: msg.source === 'user' ? 'user' : 'model',
       parts: [{ text: msg.content }]
     }));
-    
+
+    // Existing system message and context logic (kept from previous implementation)
     // Add system message if not present
     if (!formattedMessages.some(msg => msg.role === 'model' && msg.parts[0].text.includes("Carl Allen Expert Bot"))) {
       formattedMessages.unshift({
@@ -138,22 +151,10 @@ serve(async (req) => {
         parts: [{ text: enhancedInstructions }]
       });
     }
-
+    
     console.log("Searching for information on query:", query);
     console.log("Source type identified:", sourceType || "None specified");
     console.log("Context length:", context ? context.length : 0);
-
-    // Verify the API key is valid
-    if (!GEMINI_API_KEY) {
-      console.error("GEMINI_API_KEY is not configured");
-      return new Response(JSON.stringify({ 
-        content: "The GEMINI_API_KEY is not properly configured. Please check your environment variables.",
-        source: 'system',
-        error: true
-      }), {
-        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-      });
-    }
 
     try {
       // Call Gemini API
