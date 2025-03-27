@@ -96,6 +96,7 @@ export type Database = {
           file_path: string | null
           id: string
           is_processed: boolean | null
+          source: string | null
           title: string
           updated_at: string
           user_id: string
@@ -106,6 +107,7 @@ export type Database = {
           file_path?: string | null
           id?: string
           is_processed?: boolean | null
+          source?: string | null
           title: string
           updated_at?: string
           user_id: string
@@ -116,6 +118,7 @@ export type Database = {
           file_path?: string | null
           id?: string
           is_processed?: boolean | null
+          source?: string | null
           title?: string
           updated_at?: string
           user_id?: string

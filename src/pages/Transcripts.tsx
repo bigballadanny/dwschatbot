@@ -155,19 +155,24 @@ const TranscriptsPage: React.FC = () => {
   };
 
   const uploadFile = async (file: File) => {
-    const fileExt = file.name.split('.').pop();
-    const fileName = `${Math.random().toString(36).substring(2, 15)}.${fileExt}`;
-    const filePath = `${user?.id}/${fileName}`;
-    
-    const { error: uploadError } = await supabase.storage
-      .from('transcripts')
-      .upload(filePath, file);
+    try {
+      const fileExt = file.name.split('.').pop();
+      const fileName = `${Math.random().toString(36).substring(2, 15)}.${fileExt}`;
+      const filePath = `${user?.id}/${fileName}`;
       
-    if (uploadError) {
-      throw uploadError;
+      const { error: uploadError } = await supabase.storage
+        .from('transcripts')
+        .upload(filePath, file);
+        
+      if (uploadError) {
+        throw uploadError;
+      }
+      
+      return filePath;
+    } catch (error) {
+      console.error('Error uploading file:', error);
+      throw error;
     }
-    
-    return filePath;
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -278,6 +283,7 @@ const TranscriptsPage: React.FC = () => {
         const text = await file.text();
         // Extract filename without extension for title
         const title = file.name.replace(/\.txt$/, '');
+        
         // Detect source based on filename
         const lowercaseFileName = title.toLowerCase();
         let fileSource = 'protege_call'; // Default source
@@ -291,7 +297,7 @@ const TranscriptsPage: React.FC = () => {
         // Upload file to storage
         const filePath = await uploadFile(file);
         
-        // Save transcript to database
+        // Save transcript to database with proper source
         const { error } = await supabase
           .from('transcripts')
           .insert([{
@@ -302,13 +308,16 @@ const TranscriptsPage: React.FC = () => {
             user_id: user?.id
           }]);
           
-        if (error) throw error;
+        if (error) {
+          console.error(`Error inserting transcript for file ${file.name}:`, error);
+          throw error;
+        }
         
         successCount++;
-      } catch (error) {
+      } catch (error: any) {
         console.error(`Error processing file ${file.name}:`, error);
         failedCount++;
-        failedFilesList.push(file.name);
+        failedFilesList.push(`${file.name} - ${error.message || 'Unknown error'}`);
       }
     }
     
