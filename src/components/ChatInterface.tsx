@@ -1,4 +1,3 @@
-
 import React, { useState, useRef, useEffect, forwardRef, useImperativeHandle } from 'react';
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -81,7 +80,6 @@ const ChatInterface = forwardRef<
     }
   }));
   
-  // Fetch conversation history
   useEffect(() => {
     const fetchConversations = async () => {
       if (!user) return;
@@ -97,7 +95,6 @@ const ChatInterface = forwardRef<
         return;
       }
       
-      // Get the first message from each conversation for the preview
       const conversationsWithPreview = await Promise.all(
         data.map(async (conversation) => {
           const { data: messagesData, error: messagesError } = await supabase
@@ -282,7 +279,6 @@ const ChatInterface = forwardRef<
       setIsLoading(true);
       setConversationId(selectedConversationId);
       
-      // Fetch messages for the selected conversation
       const { data, error } = await supabase
         .from('messages')
         .select('*')

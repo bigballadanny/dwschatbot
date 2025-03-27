@@ -1,163 +1,89 @@
-
-import React from 'react';
-import { cn } from "@/lib/utils";
+import React, { useState } from 'react';
+import { Link } from 'react-router-dom';
 import { Button } from "@/components/ui/button";
-import { Home, Moon, Sun, LogOut, FileText, MessageSquare } from "lucide-react";
-import { useTheme } from "@/components/ThemeProvider";
-import ConversationHistory, { Conversation } from "@/components/ConversationHistory";
-import { useNavigate } from "react-router-dom";
+import { ModeToggle } from "@/components/ModeToggle";
 import { useAuth } from '@/context/AuthContext';
-import { useToast } from "@/components/ui/use-toast";
-import { useQuery } from '@tanstack/react-query';
-import { supabase } from '@/integrations/supabase/client';
+import { BookOpen, Sliders } from 'lucide-react';
+import { Avatar, AvatarImage, AvatarFallback } from "@/components/ui/avatar"
+import { useAdmin } from '@/context/AdminContext';
 
-interface HeaderProps {
-  className?: string;
+const HeaderLink = ({ to, children }: { to: string; children: React.ReactNode }) => (
+  <Link to={to} className="text-sm font-medium hover:text-primary">{children}</Link>
+);
+
+const UserAvatar = () => {
+  const { user } = useAuth();
+
+  return (
+    <Avatar>
+      <AvatarImage src={user?.user_metadata?.avatar_url} />
+      <AvatarFallback>{user?.email?.charAt(0).toUpperCase()}</AvatarFallback>
+    </Avatar>
+  )
 }
 
-const Header: React.FC<HeaderProps> = ({ className }) => {
-  const { theme, toggleTheme } = useTheme();
-  const navigate = useNavigate();
+const Header: React.FC = () => {
   const { user, signOut } = useAuth();
-  const { toast } = useToast();
-  
-  const { data: isManager } = useQuery({
-    queryKey: ['isManager', user?.id],
-    queryFn: async () => {
-      if (!user) return false;
-      
-      const { data, error } = await supabase
-        .from('user_roles')
-        .select('role')
-        .eq('user_id', user.id)
-        .in('role', ['manager', 'admin']);
-      
-      if (error) {
-        console.error('Error checking user role:', error);
-        return false;
-      }
-      
-      return data && data.length > 0;
-    },
-    enabled: !!user,
-  });
-  
-  // Sample conversation history - in a real app this would come from a database or localStorage
-  const conversations: Conversation[] = [
-    {
-      id: "1",
-      title: "Business Acquisition Basics",
-      preview: "What are the key steps in acquiring a small business?",
-      date: new Date(Date.now() - 86400000) // yesterday
-    },
-    {
-      id: "2",
-      title: "Financing Options",
-      preview: "How can I finance a business purchase without using my own capital?",
-      date: new Date(Date.now() - 172800000) // 2 days ago
-    }
-  ];
-  
-  const handleSelectConversation = (conversationId: string) => {
-    console.log(`Selected conversation: ${conversationId}`);
-    // In a real app, this would load the selected conversation
-  };
-  
-  const goHome = () => {
-    navigate('/');
-  };
-
-  const goToTranscripts = () => {
-    navigate('/transcripts');
-  };
+  const { isAdmin } = useAdmin();
+  const [mobileNavOpen, setMobileNavOpen] = useState(false);
   
   const handleSignOut = async () => {
-    try {
-      await signOut();
-      toast({
-        title: "Signed out successfully",
-      });
-      navigate('/auth');
-    } catch (error) {
-      toast({
-        title: "Error signing out",
-        variant: "destructive"
-      });
-    }
+    await signOut();
   };
-  
+   
   return (
-    <header className={cn(
-      "w-full py-6 px-8 flex items-center justify-between sticky top-0 z-10",
-      "glassmorphism border-b",
-      "animate-fade-in",
-      className
-    )}>
-      <div className="flex items-center gap-3">
-        <Button 
-          variant="ghost" 
-          size="icon" 
-          onClick={goHome}
-          aria-label="Home"
-        >
-          <Home className="h-5 w-5" />
-        </Button>
+    <header className="border-b">
+      <div className="container mx-auto px-4 py-3 flex items-center justify-between">
+        <div className="flex items-center">
+          <Link to="/" className="font-bold text-xl flex items-center">
+            <BookOpen className="mr-2 h-6 w-6 text-primary" />
+            Carl Allen Expert
+          </Link>
+          
+          <nav className="ml-8 hidden md:flex space-x-4">
+            <HeaderLink to="/">Home</HeaderLink>
+            <HeaderLink to="/transcripts">Transcripts</HeaderLink>
+            <HeaderLink to="/analytics">Analytics</HeaderLink>
+          </nav>
+        </div>
         
-        {user && isManager && (
-          <Button
-            variant="ghost"
-            size="icon"
-            onClick={goToTranscripts}
-            aria-label="Transcripts"
-          >
-            <FileText className="h-5 w-5" />
-          </Button>
-        )}
-        
-        {user && (
-          <ConversationHistory 
-            conversations={conversations}
-            onSelectConversation={handleSelectConversation}
-          />
-        )}
-      </div>
-      
-      <div className="flex flex-col items-center">
-        <h1 className="text-2xl font-medium tracking-tight text-primary">
-          Carl Allen Expert Bot
-        </h1>
-        <p className="text-sm text-muted-foreground mt-1">
-          Your guide to Carl Allen's business acquisition wisdom
-        </p>
-      </div>
-      
-      <div className="flex items-center gap-3">
-        {user && (
-          <Button 
-            variant="ghost" 
-            size="icon" 
-            onClick={handleSignOut}
-            aria-label="Sign Out"
-          >
-            <LogOut className="h-5 w-5" />
-          </Button>
-        )}
-        
-        <Button 
-          variant="ghost" 
-          size="icon" 
-          onClick={toggleTheme}
-          aria-label={theme === 'dark' ? 'Switch to light mode' : 'Switch to dark mode'}
-        >
-          {theme === 'dark' ? (
-            <Sun className="h-5 w-5" />
+        <div className="flex items-center space-x-2">
+          {user ? (
+            <div className="flex items-center gap-2">
+              {isAdmin && (
+                <Button asChild variant="outline" size="sm">
+                  <Link to="/admin">
+                    <Sliders className="h-4 w-4 mr-1" />
+                    Admin
+                  </Link>
+                </Button>
+              )}
+              <Button variant="ghost" size="sm" onClick={handleSignOut}>Sign Out</Button>
+              <UserAvatar />
+            </div>
           ) : (
-            <Moon className="h-5 w-5" />
+            <Button asChild size="sm">
+              <Link to="/auth">Sign In</Link>
+            </Button>
           )}
-        </Button>
+          <ModeToggle />
+        </div>
+      </div>
+      
+      {/* Mobile nav */}
+      <div className={`${mobileNavOpen ? 'block' : 'hidden'} md:hidden border-t p-2`}>
+        <div className="flex flex-col space-y-2">
+          <HeaderLink to="/">Home</HeaderLink>
+          <HeaderLink to="/transcripts">Transcripts</HeaderLink>
+          <HeaderLink to="/analytics">Analytics</HeaderLink>
+          {isAdmin && (
+            <HeaderLink to="/admin">Admin Panel</HeaderLink>
+          )}
+        </div>
       </div>
     </header>
   );
+  
 };
 
 export default Header;
