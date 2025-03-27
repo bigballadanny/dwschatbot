@@ -1,11 +1,10 @@
-
-import React, { useState, useEffect } from 'react';
+import React, { useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import Header from '@/components/Header';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { BarChart, LineChart, PieChart } from '@/components/ui/chart';
+import { LineChart, PieChart } from '@/components/ui/charts';
 import { getTranscriptCounts } from '@/utils/transcriptUtils';
 import { Separator } from '@/components/ui/separator';
 import { Input } from '@/components/ui/input';
@@ -66,7 +65,7 @@ const Analytics = () => {
     queryFn: async () => {
       const { data, error } = await supabase
         .from('transcripts')
-        .select('id, title, source, created_at');
+        .select('id, title, source, created_at, content');
         
       if (error) {
         console.error('Error fetching transcripts:', error);
@@ -81,24 +80,16 @@ const Analytics = () => {
   const { data: topQueries } = useQuery({
     queryKey: ['top-queries', dateRange],
     queryFn: async () => {
-      // Calculate date range
-      let dateFilter = '';
-      if (dateRange === '7d') {
-        const date = new Date();
-        date.setDate(date.getDate() - 7);
-        dateFilter = date.toISOString();
-      } else if (dateRange === '30d') {
-        const date = new Date();
-        date.setDate(date.getDate() - 30);
-        dateFilter = date.toISOString();
-      }
-      
-      let query = supabase.rpc('get_top_queries', { 
-        time_range: dateRange === 'all' ? null : dateFilter,
+      const timePeriod = dateRange === '7d' 
+        ? 'week' 
+        : dateRange === '30d' 
+          ? 'month'
+          : 'all';
+          
+      const { data, error } = await supabase.rpc('get_top_queries', { 
+        time_period: timePeriod === 'all' ? null : timePeriod,
         limit_count: 10
       });
-      
-      const { data, error } = await query;
       
       if (error) {
         console.error('Error fetching top queries:', error);
@@ -206,7 +197,6 @@ const Analytics = () => {
           </div>
         </div>
         
-        {/* Summary Cards */}
         <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
           <Card>
             <CardHeader className="pb-2">
@@ -250,7 +240,6 @@ const Analytics = () => {
           </Card>
         </div>
         
-        {/* Charts */}
         <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-8">
           <Card>
             <CardHeader>
@@ -287,7 +276,6 @@ const Analytics = () => {
           </Card>
         </div>
         
-        {/* Tables */}
         <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
           <Card>
             <CardHeader>

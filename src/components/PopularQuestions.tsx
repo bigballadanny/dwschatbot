@@ -24,7 +24,7 @@ const PopularQuestions: React.FC<PopularQuestionsProps> = ({
     queryKey: ['popular-queries', timeRange],
     queryFn: async () => {
       const { data, error } = await supabase.rpc('get_top_queries', { 
-        time_range: timeRange === 'all' ? null : timeRange,
+        time_period: timeRange === 'all' ? null : timeRange,
         limit_count: limit
       });
       
