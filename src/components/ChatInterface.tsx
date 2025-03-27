@@ -12,6 +12,7 @@ import { useQuery } from '@tanstack/react-query';
 import { generateGeminiResponse } from '@/utils/geminiUtils';
 import { Alert, AlertTitle, AlertDescription } from "@/components/ui/alert";
 import ConversationHistory, { Conversation } from './ConversationHistory';
+import SearchModeToggle from './SearchModeToggle';
 
 interface ChatInterfaceProps {
   className?: string;
@@ -36,6 +37,7 @@ const ChatInterface = forwardRef<
   const [conversationId, setConversationId] = useState<string | null>(null);
   const [apiQuotaExceeded, setApiQuotaExceeded] = useState(false);
   const [apiDisabled, setApiDisabled] = useState(false);
+  const [enableOnlineSearch, setEnableOnlineSearch] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
   const { user } = useAuth();
@@ -196,7 +198,9 @@ const ChatInterface = forwardRef<
         ]);
       
       const loadingMessage: MessageProps = {
-        content: "Searching through Carl Allen's transcripts...",
+        content: enableOnlineSearch 
+          ? "Searching through Carl Allen's transcripts and online resources..." 
+          : "Searching through Carl Allen's transcripts...",
         source: 'system',
         timestamp: new Date(),
         isLoading: true
@@ -212,7 +216,8 @@ const ChatInterface = forwardRef<
         questionText, 
         transcripts || [], 
         messages.concat(userMessage),
-        conversationId
+        conversationId,
+        enableOnlineSearch
       );
       
       if (responseMessage.source === 'fallback') {
@@ -312,6 +317,17 @@ const ChatInterface = forwardRef<
     await handleSubmitQuestion(input);
   };
   
+  const handleToggleOnlineSearch = (enabled: boolean) => {
+    setEnableOnlineSearch(enabled);
+    toast({
+      title: enabled ? "Online Search Enabled" : "Using Transcripts Only",
+      description: enabled 
+        ? "Responses will now use online information when transcripts don't have relevant content." 
+        : "Responses will be limited to Carl Allen's transcript content only.",
+      duration: 3000,
+    });
+  };
+  
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
   }, [messages]);
@@ -350,8 +366,13 @@ const ChatInterface = forwardRef<
           onSelectConversation={handleSelectConversation}
           className="mr-2"
         />
+        
         <h2 className="text-lg font-medium">Carl Allen Expert Chat</h2>
-        <div className="w-8"></div> {/* Empty div for alignment */}
+        
+        <SearchModeToggle 
+          enableOnlineSearch={enableOnlineSearch}
+          onToggle={handleToggleOnlineSearch}
+        />
       </div>
       
       <div className="flex-1 overflow-y-auto px-4 py-6">

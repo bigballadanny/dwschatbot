@@ -7,7 +7,8 @@ export const generateGeminiResponse = async (
   query: string, 
   transcripts: Transcript[], 
   chatHistory: MessageProps[],
-  conversationId?: string | null
+  conversationId?: string | null,
+  enableOnlineSearch: boolean = false
 ): Promise<MessageProps> => {
   try {
     // Ensure we have the latest transcripts by fetching them directly from the database
@@ -23,6 +24,7 @@ export const generateGeminiResponse = async (
     const transcriptsToSearch = latestTranscripts || transcripts;
     
     console.log(`Searching through ${transcriptsToSearch.length} transcripts for query: "${query}"`);
+    console.log(`Online search mode: ${enableOnlineSearch ? 'enabled' : 'disabled'}`);
     
     const startTime = Date.now();
     
@@ -37,12 +39,14 @@ export const generateGeminiResponse = async (
     let bookReference = "";
     let sourceType = "";
     let relevanceScore = 0;
+    let foundInTranscripts = false;
     
     if (matchedContent) {
       // Get the source description for better context
       sourceType = matchedContent.source || 'creative_dealmaker';
       const sourceDescription = getSourceDescription(sourceType);
       relevanceScore = matchedContent.relevanceScore || 0;
+      foundInTranscripts = true;
       
       console.log(`Found matching content in source: ${sourceType}, title: "${matchedContent.title}" with relevance score: ${relevanceScore}`);
       contextPrompt = `Use the following information from ${sourceDescription} to answer the question: "${matchedContent.content}"`;
@@ -50,7 +54,14 @@ export const generateGeminiResponse = async (
     } else {
       // If no matched content, still provide context about the book
       console.log('No specific matching content found in transcripts');
-      contextPrompt = `You are an AI assistant specialized in Carl Allen's "The Creative Dealmaker" book, which covers business acquisitions, deal structuring, negotiations, and due diligence. If you don't have specific information about a topic from the book, acknowledge that you don't have that specific section from the book yet, but try to provide general guidance based on Carl Allen's business acquisition methodology.`;
+      
+      if (enableOnlineSearch) {
+        contextPrompt = `You are an AI assistant specialized in business acquisitions and Carl Allen's methodology. For this query, you are allowed to use your general knowledge to answer the question, but make sure to note that you're providing general information rather than specific content from Carl Allen's transcripts. Try to align your response with Carl Allen's overall business acquisition approach.`;
+        sourceType = 'web';
+      } else {
+        contextPrompt = `You are an AI assistant specialized in Carl Allen's "The Creative Dealmaker" book, which covers business acquisitions, deal structuring, negotiations, and due diligence. If you don't have specific information about a topic from the book, acknowledge that you don't have that specific section from the book yet, but try to provide general guidance based on Carl Allen's business acquisition methodology.`;
+        sourceType = 'creative_dealmaker';
+      }
     }
     
     // Prepare conversation history for the API
@@ -82,7 +93,8 @@ export const generateGeminiResponse = async (
         messages,
         context: contextPrompt,
         instructions: formattingInstructions,
-        sourceType: sourceType
+        sourceType: sourceType,
+        enableOnlineSearch: enableOnlineSearch
       }
     });
 
@@ -117,6 +129,8 @@ export const generateGeminiResponse = async (
       } else {
         citation = `Based on information from "${bookReference}" by Carl Allen`;
       }
+    } else if (enableOnlineSearch) {
+      citation = "Based on general knowledge about business acquisitions - Online search mode enabled";
     } else {
       citation = "Based on general knowledge about Carl Allen's business acquisition methodology";
     }
@@ -135,7 +149,8 @@ export const generateGeminiResponse = async (
           search_time_ms: searchTime,
           api_time_ms: apiTime,
           transcript_title: bookReference || null,
-          successful: !data.error && !data.isQuotaExceeded && !data.apiDisabled
+          successful: !data.error && !data.isQuotaExceeded && !data.apiDisabled,
+          used_online_search: enableOnlineSearch && !foundInTranscripts
         }]);
       } catch (analyticsError) {
         console.error('Error logging analytics:', analyticsError);
@@ -146,7 +161,7 @@ export const generateGeminiResponse = async (
     // Create a response from the Gemini data
     return {
       content: data.content,
-      source: data.apiDisabled ? 'system' : (data.isQuotaExceeded ? 'fallback' : (data.source || 'gemini')),
+      source: data.apiDisabled ? 'system' : (data.isQuotaExceeded ? 'fallback' : (enableOnlineSearch && !foundInTranscripts ? 'web' : (data.source || 'gemini'))),
       citation: citation,
       timestamp: new Date()
     };

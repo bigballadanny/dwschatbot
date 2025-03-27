@@ -70,7 +70,7 @@ serve(async (req) => {
       });
     }
 
-    const { query, messages, context, instructions, sourceType } = await req.json();
+    const { query, messages, context, instructions, sourceType, enableOnlineSearch } = await req.json();
     
     // Existing message formatting logic (kept from previous implementation)
     const formattedMessages = messages.map(msg => ({
@@ -117,7 +117,15 @@ serve(async (req) => {
         case 'negotiation':
           sourceSpecificInstructions = "You're using negotiation strategy content. Emphasize techniques, leverage points, and effective frameworks for successful deal negotiations.";
           break;
+        case 'web':
+          sourceSpecificInstructions = "You're allowed to use your general knowledge to answer this question since no specific information was found in Carl Allen's transcripts. Still maintain alignment with Carl Allen's acquisition methodology and business philosophy.";
+          break;
       }
+    }
+
+    // Add online search specific instructions if enabled
+    if (enableOnlineSearch) {
+      sourceSpecificInstructions += " Online search mode is enabled, so you can draw on your general knowledge about business acquisitions when transcript information is insufficient. Always make it clear when you're providing general information versus specific content from Carl Allen's materials.";
     }
 
     // Add the context as a system message
@@ -142,6 +150,7 @@ serve(async (req) => {
     - When referring to specific content, cite the source with the title of the transcript/call
     - Use proper markdown formatting with **bold** for important concepts and headings
     - Use bullet points for lists and numbered lists for sequential steps
+    ${enableOnlineSearch ? "- When providing information from your general knowledge rather than the transcripts, explicitly note this" : ""}
     `;
     
     // Add formatting instructions as a system message
@@ -155,6 +164,7 @@ serve(async (req) => {
     console.log("Searching for information on query:", query);
     console.log("Source type identified:", sourceType || "None specified");
     console.log("Context length:", context ? context.length : 0);
+    console.log("Online search mode:", enableOnlineSearch ? "enabled" : "disabled");
 
     try {
       // Call Gemini API
@@ -233,7 +243,7 @@ Once enabled, your chat assistant will work properly.`;
       // Return the response
       return new Response(JSON.stringify({ 
         content: generatedText,
-        source: 'gemini'
+        source: enableOnlineSearch && sourceType === 'web' ? 'web' : 'gemini' 
       }), {
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
       });
