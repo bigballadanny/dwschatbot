@@ -9,6 +9,59 @@ export type Json =
 export type Database = {
   public: {
     Tables: {
+      chat_analytics: {
+        Row: {
+          api_time_ms: number | null
+          conversation_id: string | null
+          created_at: string
+          error_message: string | null
+          id: string
+          query: string
+          relevance_score: number | null
+          response_length: number | null
+          search_time_ms: number | null
+          source_type: string | null
+          successful: boolean | null
+          transcript_title: string | null
+        }
+        Insert: {
+          api_time_ms?: number | null
+          conversation_id?: string | null
+          created_at?: string
+          error_message?: string | null
+          id?: string
+          query: string
+          relevance_score?: number | null
+          response_length?: number | null
+          search_time_ms?: number | null
+          source_type?: string | null
+          successful?: boolean | null
+          transcript_title?: string | null
+        }
+        Update: {
+          api_time_ms?: number | null
+          conversation_id?: string | null
+          created_at?: string
+          error_message?: string | null
+          id?: string
+          query?: string
+          relevance_score?: number | null
+          response_length?: number | null
+          search_time_ms?: number | null
+          source_type?: string | null
+          successful?: boolean | null
+          transcript_title?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "chat_analytics_conversation_id_fkey"
+            columns: ["conversation_id"]
+            isOneToOne: false
+            referencedRelation: "conversations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       conversations: {
         Row: {
           created_at: string
@@ -151,6 +204,16 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
+      get_top_queries: {
+        Args: {
+          time_period: string
+          limit_count: number
+        }
+        Returns: {
+          query: string
+          count: number
+        }[]
+      }
       has_role: {
         Args: {
           user_id: string

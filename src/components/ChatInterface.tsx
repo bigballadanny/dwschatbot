@@ -1,5 +1,5 @@
 
-import React, { useState, useRef, useEffect } from 'react';
+import React, { useState, useRef, useEffect, forwardRef, useImperativeHandle } from 'react';
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Send } from "lucide-react";
@@ -13,6 +13,7 @@ import { generateGeminiResponse } from '@/utils/geminiUtils';
 
 interface ChatInterfaceProps {
   className?: string;
+  initialQuestion?: string | null;
 }
 
 const INITIAL_MESSAGES: MessageProps[] = [
@@ -23,7 +24,10 @@ const INITIAL_MESSAGES: MessageProps[] = [
   }
 ];
 
-const ChatInterface: React.FC<ChatInterfaceProps> = ({ className }) => {
+const ChatInterface = forwardRef<
+  { submitQuestion: (question: string) => void }, 
+  ChatInterfaceProps
+>(({ className, initialQuestion }, ref) => {
   const [messages, setMessages] = useState<MessageProps[]>(INITIAL_MESSAGES);
   const [input, setInput] = useState('');
   const [isLoading, setIsLoading] = useState(false);
@@ -54,6 +58,25 @@ const ChatInterface: React.FC<ChatInterfaceProps> = ({ className }) => {
     refetchInterval: 60000, // Refetch every minute to get any newly uploaded transcripts
   });
   
+  useImperativeHandle(ref, () => ({
+    submitQuestion: (question: string) => {
+      if (conversationId) {
+        handleSubmitQuestion(question);
+      } else {
+        // If conversation isn't created yet, store the question and submit it once conversation is ready
+        const checkInterval = setInterval(() => {
+          if (conversationId) {
+            clearInterval(checkInterval);
+            handleSubmitQuestion(question);
+          }
+        }, 500);
+        
+        // Clear interval after 10 seconds to avoid memory leak
+        setTimeout(() => clearInterval(checkInterval), 10000);
+      }
+    }
+  }));
+  
   useEffect(() => {
     const createConversation = async () => {
       try {
@@ -81,6 +104,11 @@ const ChatInterface: React.FC<ChatInterfaceProps> = ({ className }) => {
                 is_user: false
               }
             ]);
+            
+          // If there's an initial question, submit it
+          if (initialQuestion) {
+            setTimeout(() => handleSubmitQuestion(initialQuestion), 800);
+          }
         }
       } catch (error) {
         console.error('Error creating conversation:', error);
@@ -90,20 +118,18 @@ const ChatInterface: React.FC<ChatInterfaceProps> = ({ className }) => {
     if (user) {
       createConversation();
     }
-  }, [user]);
+  }, [user, initialQuestion]);
   
   // Manually refetch transcripts when the component mounts to ensure we have the latest data
   useEffect(() => {
     refetchTranscripts();
   }, [refetchTranscripts]);
   
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    
-    if (!input.trim() || isLoading || !conversationId) return;
+  const handleSubmitQuestion = async (questionText: string) => {
+    if (!questionText.trim() || isLoading || !conversationId) return;
     
     const userMessage: MessageProps = {
-      content: input,
+      content: questionText,
       source: 'user',
       timestamp: new Date()
     };
@@ -139,7 +165,7 @@ const ChatInterface: React.FC<ChatInterfaceProps> = ({ className }) => {
       const queryStartTime = Date.now();
       
       const responseMessage = await generateGeminiResponse(
-        input, 
+        questionText, 
         transcripts || [], 
         messages.concat(userMessage),
         conversationId
@@ -164,7 +190,7 @@ const ChatInterface: React.FC<ChatInterfaceProps> = ({ className }) => {
       if (messages.length <= 3) {
         await supabase
           .from('conversations')
-          .update({ title: input.substring(0, 50) })
+          .update({ title: questionText.substring(0, 50) })
           .eq('id', conversationId);
       }
     } catch (error) {
@@ -181,6 +207,11 @@ const ChatInterface: React.FC<ChatInterfaceProps> = ({ className }) => {
     } finally {
       setIsLoading(false);
     }
+  };
+  
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    await handleSubmitQuestion(input);
   };
   
   useEffect(() => {
@@ -234,6 +265,8 @@ const ChatInterface: React.FC<ChatInterfaceProps> = ({ className }) => {
       </div>
     </div>
   );
-};
+});
+
+ChatInterface.displayName = "ChatInterface";
 
 export default ChatInterface;

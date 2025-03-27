@@ -3,13 +3,19 @@ import React from 'react';
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 import { useAuth } from "@/context/AuthContext";
+import PopularQuestions from './PopularQuestions';
 
 interface WelcomeScreenProps {
   onStartChat: () => void;
+  onSelectQuestion?: (question: string) => void;
   className?: string;
 }
 
-const WelcomeScreen: React.FC<WelcomeScreenProps> = ({ onStartChat, className }) => {
+const WelcomeScreen: React.FC<WelcomeScreenProps> = ({ 
+  onStartChat, 
+  onSelectQuestion,
+  className 
+}) => {
   const { user } = useAuth();
   
   return (
@@ -52,6 +58,16 @@ const WelcomeScreen: React.FC<WelcomeScreenProps> = ({ onStartChat, className })
           For questions not covered in the transcripts, I can search online for information, clearly indicating when I'm using non-transcript sources.
         </p>
       </div>
+      
+      {user && onSelectQuestion && (
+        <div className="mt-10 w-full max-w-2xl">
+          <PopularQuestions 
+            onSelectQuestion={onSelectQuestion} 
+            limit={5}
+            timeRange="week"
+          />
+        </div>
+      )}
       
       <div className="mt-10">
         {user ? (
