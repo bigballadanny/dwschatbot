@@ -44,6 +44,12 @@ serve(async (req) => {
         case 'mastermind_call':
           sourceSpecificInstructions = "You're referencing Carl Allen's mastermind call transcripts. These contain Q&A sessions, practical advice, and real-time guidance Carl has provided to students.";
           break;
+        case 'protege_call':
+          sourceSpecificInstructions = "You're referencing Carl Allen's Protege call transcripts. These contain detailed training, Q&A sessions, and practical advice for his Protege program students.";
+          break;
+        case 'foundations_call':
+          sourceSpecificInstructions = "You're referencing Carl Allen's Foundations call transcripts. These contain foundational training on business acquisitions and practical advice for beginners.";
+          break;
         case 'case_study':
           sourceSpecificInstructions = "You're using information from a case study. Focus on the specific examples, outcomes, and lessons learned from this real-world scenario.";
           break;
@@ -78,6 +84,7 @@ serve(async (req) => {
     - Ensure all information is accurate and aligned with Carl Allen's teachings
     - When there's uncertainty, acknowledge limits rather than inventing information
     - Use concrete examples where possible to illustrate concepts
+    - When referring to specific content, cite the source with the title of the transcript/call
     `;
     
     // Add formatting instructions as a system message
@@ -88,8 +95,9 @@ serve(async (req) => {
       });
     }
 
-    console.log("Sending request to Gemini with context:", context.substring(0, 100) + "...");
-    console.log("Source type:", sourceType || "None specified");
+    console.log("Searching for information on query:", query);
+    console.log("Source type identified:", sourceType || "None specified");
+    console.log("Context length:", context ? context.length : 0);
 
     // Call Gemini API
     const response = await fetch(`${GEMINI_API_URL}?key=${GEMINI_API_KEY}`, {

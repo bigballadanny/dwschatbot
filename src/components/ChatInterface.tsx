@@ -1,3 +1,4 @@
+
 import React, { useState, useRef, useEffect } from 'react';
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -32,21 +33,25 @@ const ChatInterface: React.FC<ChatInterfaceProps> = ({ className }) => {
   const { user } = useAuth();
   const { toast } = useToast();
   
-  const { data: transcripts } = useQuery({
+  // Use React Query to fetch transcripts with automatic refetching
+  const { data: transcripts, refetch: refetchTranscripts } = useQuery({
     queryKey: ['transcripts'],
     queryFn: async () => {
       const { data, error } = await supabase
         .from('transcripts')
-        .select('id, title, content, created_at, file_path');
+        .select('id, title, content, created_at, file_path, source');
         
       if (error) {
         console.error('Error fetching transcripts:', error);
         return [];
       }
       
+      console.log(`Fetched ${data?.length || 0} transcripts for AI knowledge base`);
       return data || [];
     },
     enabled: !!user,
+    refetchOnWindowFocus: true, // Refetch when window regains focus
+    refetchInterval: 60000, // Refetch every minute to get any newly uploaded transcripts
   });
   
   useEffect(() => {
@@ -87,6 +92,11 @@ const ChatInterface: React.FC<ChatInterfaceProps> = ({ className }) => {
     }
   }, [user]);
   
+  // Manually refetch transcripts when the component mounts to ensure we have the latest data
+  useEffect(() => {
+    refetchTranscripts();
+  }, [refetchTranscripts]);
+  
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     
@@ -121,6 +131,9 @@ const ChatInterface: React.FC<ChatInterfaceProps> = ({ className }) => {
       };
       
       setMessages(prev => [...prev, loadingMessage]);
+      
+      // Refetch transcripts to ensure we have the latest data before generating a response
+      await refetchTranscripts();
       
       const responseMessage = await generateGeminiResponse(
         input, 

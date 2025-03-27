@@ -18,8 +18,24 @@ export const generateGeminiResponse = async (
   chatHistory: MessageProps[]
 ): Promise<MessageProps> => {
   try {
+    // Ensure we have the latest transcripts by fetching them directly from the database
+    // This ensures newly uploaded transcripts are immediately available
+    const { data: latestTranscripts, error } = await supabase
+      .from('transcripts')
+      .select('id, title, content, created_at, file_path, source');
+      
+    if (error) {
+      console.error('Error fetching latest transcripts:', error);
+      // Fallback to provided transcripts if query fails
+    }
+    
+    // Use the latest transcripts if available, otherwise use the provided ones
+    const transcriptsToSearch = latestTranscripts || transcripts;
+    
+    console.log(`Searching through ${transcriptsToSearch.length} transcripts for query: "${query}"`);
+    
     // First check if we have relevant information in transcripts
-    const matchedContent = searchTranscriptsForQuery(query, transcripts);
+    const matchedContent = searchTranscriptsForQuery(query, transcriptsToSearch);
     
     // Create context from the matched content if available
     let contextPrompt = "";
@@ -31,10 +47,12 @@ export const generateGeminiResponse = async (
       sourceType = matchedContent.source || 'creative_dealmaker';
       const sourceDescription = getSourceDescription(sourceType);
       
+      console.log(`Found matching content in source: ${sourceType}, title: "${matchedContent.title}"`);
       contextPrompt = `Use the following information from ${sourceDescription} to answer the question: "${matchedContent.content}"`;
       bookReference = matchedContent.title;
     } else {
       // If no matched content, still provide context about the book
+      console.log('No specific matching content found in transcripts');
       contextPrompt = `You are an AI assistant specialized in Carl Allen's "The Creative Dealmaker" book, which covers business acquisitions, deal structuring, negotiations, and due diligence. If you don't have specific information about a topic from the book, acknowledge that you don't have that specific section from the book yet, but try to provide general guidance based on Carl Allen's business acquisition methodology.`;
     }
     
@@ -59,7 +77,7 @@ export const generateGeminiResponse = async (
     `;
 
     // Call our Gemini edge function
-    const { data, error } = await supabase.functions.invoke('gemini-chat', {
+    const { data, error: functionError } = await supabase.functions.invoke('gemini-chat', {
       body: { 
         query,
         messages,
@@ -69,9 +87,9 @@ export const generateGeminiResponse = async (
       }
     });
 
-    if (error) {
-      console.error('Error invoking Gemini function:', error);
-      throw new Error(error.message);
+    if (functionError) {
+      console.error('Error invoking Gemini function:', functionError);
+      throw new Error(functionError.message);
     }
 
     // Create a citation based on the source
@@ -83,12 +101,18 @@ export const generateGeminiResponse = async (
         citation = `Based on information from Carl Allen's mastermind call: "${bookReference}"`;
       } else if (sourceType === 'case_study') {
         citation = `Based on the case study: "${bookReference}"`;
+      } else if (sourceType === 'protege_call') {
+        citation = `Based on information from Carl Allen's Protege call: "${bookReference}"`;
+      } else if (sourceType === 'foundations_call') {
+        citation = `Based on information from Carl Allen's Foundations call: "${bookReference}"`;
       } else {
         citation = `Based on information from "${bookReference}" by Carl Allen`;
       }
     } else {
       citation = "Based on general knowledge about Carl Allen's business acquisition methodology";
     }
+
+    console.log(`Generated response with citation: ${citation}`);
 
     // Create a response from the Gemini data
     return {
