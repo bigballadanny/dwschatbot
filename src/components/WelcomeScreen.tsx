@@ -5,7 +5,7 @@ import { cn } from "@/lib/utils";
 import { useAuth } from "@/context/AuthContext";
 import PopularQuestions from './PopularQuestions';
 
-interface WelcomeScreenProps {
+export interface WelcomeScreenProps {
   onStartChat: () => void;
   onSelectQuestion?: (question: string) => void;
   className?: string;
@@ -42,7 +42,7 @@ const WelcomeScreen: React.FC<WelcomeScreenProps> = ({
       </div>
 
       <h1 className="text-4xl font-medium text-center text-balance mb-6">
-        Welcome to the Carl Allen Expert Bot
+        Welcome to DWS AI
       </h1>
       
       <p className="text-xl text-muted-foreground text-center text-balance mb-10 max-w-2xl">
@@ -82,7 +82,7 @@ const WelcomeScreen: React.FC<WelcomeScreenProps> = ({
         ) : (
           <div className="space-y-4">
             <p className="text-center mb-4">
-              Please sign in to start using the Carl Allen Expert Bot
+              Please sign in to start using DWS AI
             </p>
             <Button 
               className="px-8 py-6 text-lg hover-scale"
