@@ -1,8 +1,7 @@
-
 import React from 'react';
 import { cn } from "@/lib/utils";
 
-export type MessageSource = 'transcript' | 'web' | 'system' | 'user' | 'gemini' | 'fallback';
+export type MessageSource = 'transcript' | 'web' | 'system' | 'user' | 'fallback';
 
 export interface MessageProps {
   content: string;
@@ -131,8 +130,6 @@ const MessageItem: React.FC<MessageProps> = ({
                 <span className="text-blue-500 dark:text-blue-300">Transcript Source</span>
               ) : source === 'web' ? (
                 <span className="text-emerald-500 dark:text-emerald-300">Web Source</span>
-              ) : source === 'gemini' ? (
-                <span className="text-purple-500 dark:text-purple-300">Gemini AI</span>
               ) : source === 'fallback' ? (
                 <span className="text-amber-600 dark:text-amber-300">Quota Limited Response</span>
               ) : source === 'system' ? (
