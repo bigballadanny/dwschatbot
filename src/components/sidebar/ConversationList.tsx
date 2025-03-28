@@ -37,7 +37,7 @@ const ConversationList = ({
               {searchQuery ? 'No conversations found' : 'No conversations yet'}
             </div>
           ) : (
-            <div className="space-y-1 px-2">
+            <div className="space-y-1 px-1">
               {filteredConversations.map((conversation) => (
                 <ConversationItem
                   key={conversation.id}
