@@ -1,4 +1,3 @@
-
 import React, { useState, useRef, useEffect } from 'react';
 import { Button } from "@/components/ui/button";
 import { Mic, MicOff, Send, Volume2, VolumeX } from "lucide-react";
@@ -30,7 +29,6 @@ const VoiceConversation: React.FC<VoiceConversationProps> = ({ className }) => {
   const messagesEndRef = useRef<HTMLDivElement | null>(null);
   const { toast } = useToast();
   
-  // Initialize speech recognition
   useEffect(() => {
     if ('SpeechRecognition' in window || 'webkitSpeechRecognition' in window) {
       // @ts-ignore - TypeScript doesn't recognize webkitSpeechRecognition by default
@@ -55,7 +53,7 @@ const VoiceConversation: React.FC<VoiceConversationProps> = ({ className }) => {
         setTranscript(finalTranscript || interimTranscript);
       };
       
-      recognitionRef.current.onerror = (event: SpeechRecognitionError) => {
+      recognitionRef.current.onerror = (event: SpeechRecognitionErrorEvent) => {
         console.error('Speech recognition error:', event.error);
         setIsRecording(false);
         toast({
@@ -66,7 +64,6 @@ const VoiceConversation: React.FC<VoiceConversationProps> = ({ className }) => {
       };
       
       recognitionRef.current.onend = () => {
-        // Only submit if we have transcript and we're still recording
         if (transcript && isRecording) {
           submitTranscript();
         }
@@ -74,7 +71,6 @@ const VoiceConversation: React.FC<VoiceConversationProps> = ({ className }) => {
       };
     }
     
-    // Initialize audio element
     audioRef.current = new Audio();
     
     return () => {
@@ -100,7 +96,6 @@ const VoiceConversation: React.FC<VoiceConversationProps> = ({ className }) => {
     
     if (isRecording) {
       recognitionRef.current.stop();
-      // onend event will handle submission and state update
     } else {
       setTranscript('');
       setIsRecording(true);
@@ -130,7 +125,6 @@ const VoiceConversation: React.FC<VoiceConversationProps> = ({ className }) => {
     setIsLoading(true);
     
     try {
-      // Add a loading message
       setMessages(prev => [...prev, {
         content: "Thinking...",
         source: 'system',
@@ -138,7 +132,6 @@ const VoiceConversation: React.FC<VoiceConversationProps> = ({ className }) => {
         isLoading: true
       }]);
       
-      // Call our voice conversation edge function
       const { data, error } = await supabase.functions.invoke('voice-conversation', {
         body: { 
           audio: transcript,
@@ -149,7 +142,6 @@ const VoiceConversation: React.FC<VoiceConversationProps> = ({ className }) => {
       
       if (error) throw error;
       
-      // Remove loading message
       setMessages(prev => prev.filter(msg => !msg.isLoading));
       
       const responseMessage: MessageProps = {
@@ -160,7 +152,6 @@ const VoiceConversation: React.FC<VoiceConversationProps> = ({ className }) => {
       
       setMessages(prev => [...prev, responseMessage]);
       
-      // Play audio response if enabled
       if (audioEnabled && data.audioContent && audioRef.current) {
         const audioSrc = `data:audio/mp3;base64,${data.audioContent}`;
         audioRef.current.src = audioSrc;
@@ -204,7 +195,6 @@ const VoiceConversation: React.FC<VoiceConversationProps> = ({ className }) => {
     setIsLoading(true);
     
     try {
-      // Add a loading message
       setMessages(prev => [...prev, {
         content: "Thinking...",
         source: 'system',
@@ -212,7 +202,6 @@ const VoiceConversation: React.FC<VoiceConversationProps> = ({ className }) => {
         isLoading: true
       }]);
       
-      // Call our voice conversation edge function with text input
       const { data, error } = await supabase.functions.invoke('voice-conversation', {
         body: { 
           messages: messages.concat(userMessage),
@@ -222,7 +211,6 @@ const VoiceConversation: React.FC<VoiceConversationProps> = ({ className }) => {
       
       if (error) throw error;
       
-      // Remove loading message
       setMessages(prev => prev.filter(msg => !msg.isLoading));
       
       const responseMessage: MessageProps = {
@@ -233,7 +221,6 @@ const VoiceConversation: React.FC<VoiceConversationProps> = ({ className }) => {
       
       setMessages(prev => [...prev, responseMessage]);
       
-      // Play audio response if enabled
       if (audioEnabled && data.audioContent && audioRef.current) {
         const audioSrc = `data:audio/mp3;base64,${data.audioContent}`;
         audioRef.current.src = audioSrc;
