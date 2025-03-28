@@ -1,4 +1,3 @@
-
 import React, { useState } from 'react';
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
@@ -7,7 +6,7 @@ import { useToast } from "@/hooks/use-toast";
 import { supabase } from '@/integrations/supabase/client';
 import AudioPlayer from './AudioPlayer';
 
-export type MessageSource = 'transcript' | 'web' | 'system' | 'user' | 'fallback';
+export type MessageSource = 'transcript' | 'web' | 'system' | 'user' | 'fallback' | 'gemini';
 
 export interface MessageProps {
   content: string;
@@ -33,29 +32,23 @@ const MessageItem: React.FC<MessageProps> = ({
   const timeString = timestamp.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
   
   const formattedContent = React.useMemo(() => {
-    // First, replace any direct HTML tags with their encoded equivalents to prevent raw HTML rendering
     let sanitizedText = content
       .replace(/<strong>/g, '**')
       .replace(/<\/strong>/g, '**')
       .replace(/<em>/g, '*')
       .replace(/<\/em>/g, '*');
     
-    // Handle asterisks for bold formatting (convert *text* to <strong>text</strong>)
     let formattedText = sanitizedText.replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>').replace(/\*(.*?)\*/g, '<em>$1</em>');
     
-    // Handle bullet points
     formattedText = formattedText.replace(/^- (.*)/gm, '• $1');
-    formattedText = formattedText.replace(/^• (.*)/gm, '• $1'); // Also handle existing bullet points
+    formattedText = formattedText.replace(/^• (.*)/gm, '• $1');
     
-    // Handle numbered lists
     formattedText = formattedText.replace(/^(\d+)\. (.*)/gm, '$1. $2');
     
-    // Split by paragraph breaks and create JSX elements
     return formattedText.split('\n\n').map((paragraph, index) => {
-      // Check if paragraph is a bullet list
       if (paragraph.includes('\n• ')) {
         const listItems = paragraph.split('\n• ');
-        const title = listItems.shift(); // Get the first line as title
+        const title = listItems.shift();
         
         return (
           <div key={index} className={index > 0 ? 'mt-4' : ''}>
@@ -68,10 +61,9 @@ const MessageItem: React.FC<MessageProps> = ({
           </div>
         );
       } 
-      // Check if paragraph is a numbered list
       else if (/\n\d+\.\s/.test(paragraph)) {
         const listItems = paragraph.split(/\n(\d+\.\s)/);
-        const title = listItems.shift(); // Get the first line as title
+        const title = listItems.shift();
         
         const numberItems = [];
         for (let i = 0; i < listItems.length; i += 2) {
@@ -91,7 +83,6 @@ const MessageItem: React.FC<MessageProps> = ({
           </div>
         );
       } 
-      // Regular paragraph
       else {
         return (
           <p 
@@ -110,11 +101,10 @@ const MessageItem: React.FC<MessageProps> = ({
     try {
       setIsGeneratingAudio(true);
       
-      // Only generate speech for non-user messages
       const textToConvert = content
-        .replace(/\*\*/g, '') // Remove bold markers
-        .replace(/•/g, 'bullet point') // Replace bullet points
-        .replace(/\n\n/g, '. '); // Replace double line breaks with periods
+        .replace(/\*\*/g, '')
+        .replace(/•/g, 'bullet point')
+        .replace(/\n\n/g, '. ');
       
       toast({
         title: "Generating audio...",
@@ -124,7 +114,7 @@ const MessageItem: React.FC<MessageProps> = ({
       const { data, error } = await supabase.functions.invoke('text-to-speech', {
         body: { 
           text: textToConvert,
-          voice: "en-US-Neural2-F" // Business-like female voice
+          voice: "en-US-Neural2-F"
         }
       });
 
@@ -137,7 +127,6 @@ const MessageItem: React.FC<MessageProps> = ({
       }
 
       if (data.audioContent) {
-        // Convert base64 to audio source
         const audioBlob = base64ToBlob(data.audioContent, 'audio/mp3');
         const audioUrl = URL.createObjectURL(audioBlob);
         setAudioSrc(audioUrl);
@@ -159,7 +148,6 @@ const MessageItem: React.FC<MessageProps> = ({
     }
   };
 
-  // Convert base64 to Blob
   const base64ToBlob = (base64: string, mimeType: string) => {
     const byteCharacters = atob(base64);
     const byteArrays = [];
@@ -241,6 +229,8 @@ const MessageItem: React.FC<MessageProps> = ({
                 <span className="text-amber-600 dark:text-amber-300">Quota Limited Response</span>
               ) : source === 'system' ? (
                 <span className="text-gray-500 dark:text-gray-400">System</span>
+              ) : source === 'gemini' ? (
+                <span className="text-green-500 dark:text-green-300">Gemini</span>
               ) : null}
             </div>
           )}
