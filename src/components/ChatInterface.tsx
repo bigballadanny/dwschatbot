@@ -14,15 +14,25 @@ interface ChatInterfaceProps {
   messages: MessageProps[];
   onSendMessage: (message: string) => Promise<void>;
   conversationId?: string | null;
+  enableOnlineSearch?: boolean;
+  onToggleOnlineSearch?: (enabled: boolean) => void;
 }
 
 const ChatInterface = forwardRef<
   { submitQuestion: (question: string) => void }, 
   ChatInterfaceProps
->(({ className, initialQuestion, messages, onSendMessage, conversationId }, ref) => {
+>(({ 
+  className, 
+  initialQuestion, 
+  messages, 
+  onSendMessage, 
+  conversationId,
+  enableOnlineSearch = false,
+  onToggleOnlineSearch
+}, ref) => {
   const [input, setInput] = React.useState('');
   const [isLoading, setIsLoading] = React.useState(false);
-  const [enableOnlineSearch, setEnableOnlineSearch] = React.useState(false);
+  const [searchMode, setSearchMode] = React.useState(enableOnlineSearch);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
   const { state: sidebarState } = useSidebar();
@@ -40,6 +50,10 @@ const ChatInterface = forwardRef<
       setTimeout(() => handleSubmitQuestion(initialQuestion), 800);
     }
   }, [initialQuestion]);
+  
+  useEffect(() => {
+    setSearchMode(enableOnlineSearch);
+  }, [enableOnlineSearch]);
   
   const handleSubmitQuestion = async (questionText: string) => {
     if (!questionText.trim() || isLoading) return;
@@ -65,9 +79,11 @@ const ChatInterface = forwardRef<
   };
   
   const handleToggleOnlineSearch = (enabled: boolean) => {
-    setEnableOnlineSearch(enabled);
-    // This will be passed to the parent component so it can be used in API calls
-    console.log("Online search toggled:", enabled);
+    setSearchMode(enabled);
+    // Pass to parent component
+    if (onToggleOnlineSearch) {
+      onToggleOnlineSearch(enabled);
+    }
   };
   
   useEffect(() => {
@@ -82,7 +98,7 @@ const ChatInterface = forwardRef<
     <div className={cn("flex flex-col h-full relative", className)}>
       <div className="flex items-center justify-end p-4 border-b">
         <SearchModeToggle 
-          enableOnlineSearch={enableOnlineSearch}
+          enableOnlineSearch={searchMode}
           onToggle={handleToggleOnlineSearch}
         />
       </div>
@@ -104,31 +120,31 @@ const ChatInterface = forwardRef<
       </div>
       
       <div className="border-t fixed bottom-0 left-0 right-0 bg-background/80 backdrop-blur-sm z-10 pb-6 pt-4 px-4">
-        <div className={cn(
-          "max-w-3xl mx-auto",
-          sidebarState === "expanded" ? "md:ml-[16rem] lg:ml-[16rem]" : "ml-0",
-          "lg:mr-auto transition-all duration-200"
-        )}>
-          <form onSubmit={handleSubmit} className="flex gap-3 items-center">
-            <Input
-              ref={inputRef}
-              type="text"
-              placeholder="Ask about deal structuring, financing, due diligence..."
-              value={input}
-              onChange={(e) => setInput(e.target.value)}
-              disabled={isLoading}
-              className="py-6 px-4 rounded-full text-base"
-            />
-            <Button 
-              type="submit" 
-              size="icon" 
-              className="h-12 w-12 rounded-full flex-shrink-0"
-              disabled={isLoading || !input.trim()}
-            >
-              <Send className="h-5 w-5" />
-            </Button>
-          </form>
-        </div>
+        <form 
+          onSubmit={handleSubmit} 
+          className={cn(
+            "flex gap-3 items-center max-w-3xl mx-auto transition-all duration-200",
+            sidebarState === "expanded" ? "md:ml-[16rem]" : "ml-0"
+          )}
+        >
+          <Input
+            ref={inputRef}
+            type="text"
+            placeholder="Ask about deal structuring, financing, due diligence..."
+            value={input}
+            onChange={(e) => setInput(e.target.value)}
+            disabled={isLoading}
+            className="py-6 px-4 rounded-full text-base"
+          />
+          <Button 
+            type="submit" 
+            size="icon" 
+            className="h-12 w-12 rounded-full flex-shrink-0"
+            disabled={isLoading || !input.trim()}
+          >
+            <Send className="h-5 w-5" />
+          </Button>
+        </form>
       </div>
     </div>
   );

@@ -329,6 +329,11 @@ const Index = () => {
     setAudioEnabled(!audioEnabled);
   };
 
+  const handleToggleOnlineSearch = (enabled: boolean) => {
+    setEnableOnlineSearch(enabled);
+    console.log("Online search set to:", enabled);
+  };
+
   const internalAudioEnabled = audioEnabled;
 
   return (
@@ -399,6 +404,8 @@ const Index = () => {
                         messages={messages}
                         onSendMessage={handleSendMessage}
                         conversationId={conversationId}
+                        enableOnlineSearch={enableOnlineSearch}
+                        onToggleOnlineSearch={handleToggleOnlineSearch}
                       />
                     )}
                   </ScrollArea>
