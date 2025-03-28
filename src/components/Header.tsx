@@ -6,6 +6,7 @@ import { BookOpen, BarChart3, Headphones } from 'lucide-react';
 import { useAuth } from '@/context/AuthContext';
 import { useAdmin } from '@/context/AdminContext';
 import { ModeToggle } from "@/components/ModeToggle";
+import { useSidebar } from "@/components/ui/sidebar";
 
 const HeaderLink = ({ to, children }: { to: string; children: React.ReactNode }) => (
   <Link to={to} className="text-sm font-medium hover:text-primary">{children}</Link>
@@ -14,6 +15,7 @@ const HeaderLink = ({ to, children }: { to: string; children: React.ReactNode })
 const Header: React.FC = () => {
   const { user } = useAuth();
   const { isAdmin } = useAdmin();
+  const { toggleSidebar } = useSidebar();
   
   console.log("Header - isAdmin:", isAdmin, "user:", !!user);
   
@@ -21,10 +23,13 @@ const Header: React.FC = () => {
     <header className="border-b">
       <div className="container mx-auto px-4 py-3 flex items-center justify-between">
         <div className="flex items-center">
-          <Link to="/" className="font-bold text-xl flex items-center">
+          <button 
+            onClick={toggleSidebar} 
+            className="font-bold text-xl flex items-center cursor-pointer hover:text-primary transition-colors"
+          >
             <BookOpen className="mr-2 h-6 w-6 text-primary" />
             DWS AI
-          </Link>
+          </button>
           
           <nav className="ml-8 hidden md:flex space-x-4">
             <HeaderLink to="/">Home</HeaderLink>
