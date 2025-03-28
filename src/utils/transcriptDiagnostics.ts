@@ -192,10 +192,10 @@ export async function fixTranscriptSourceTypes(specificIds?: string[]) {
     let fixedCount = 0;
     const errors = [];
     
-    // Get transcripts with upload date on the 27th (assuming this month)
+    // Get transcripts with upload date on the 27th (current or previous month)
     const targetDate = new Date();
-    const day27 = new Date(targetDate.getFullYear(), targetDate.getMonth(), 27);
-    const day28 = new Date(targetDate.getFullYear(), targetDate.getMonth(), 28);
+    const monthsToCheck = [targetDate.getMonth(), targetDate.getMonth() - 1];
+    const year = targetDate.getFullYear();
     
     for (const transcript of transcripts) {
       let shouldFix = false;
@@ -203,13 +203,19 @@ export async function fixTranscriptSourceTypes(specificIds?: string[]) {
       
       // Detect if this should be a business acquisitions summit transcript
       const isSummitTranscript = 
-        transcript.title.toLowerCase().includes('summit') || 
-        transcript.title.toLowerCase().includes('acquisitions summit') ||
-        (transcript.content && transcript.content.toLowerCase().includes('business acquisitions summit'));
+        transcript.title?.toLowerCase().includes('summit') || 
+        transcript.title?.toLowerCase().includes('acquisitions summit') ||
+        transcript.title?.toLowerCase().includes('acquisition summit') ||
+        (transcript.content && (
+          transcript.content.toLowerCase().includes('business acquisitions summit') ||
+          transcript.content.toLowerCase().includes('business acquisition summit')
+        ));
       
-      // Check if it was uploaded on the 27th
+      // Check if it was uploaded on the 27th of current or previous month
       const createdAt = new Date(transcript.created_at);
-      const isUploadedOn27th = createdAt >= day27 && createdAt < day28;
+      const isUploadedOn27th = createdAt.getDate() === 27 && 
+                              monthsToCheck.includes(createdAt.getMonth()) && 
+                              createdAt.getFullYear() === year;
       
       // If it's a summit transcript but not labeled as such, update it
       if (isSummitTranscript && transcript.source !== 'business_acquisitions_summit') {

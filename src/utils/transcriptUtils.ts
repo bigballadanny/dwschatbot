@@ -61,7 +61,7 @@ export function detectSourceCategory(filename: string, content?: string): string
     return 'foundations_call';
   } else if (lowercaseFilename.includes('mastermind')) {
     return 'mastermind_call';
-  } else if (lowercaseFilename.includes('summit') || lowercaseFilename.includes('acquisitions_summit')) {
+  } else if (lowercaseFilename.includes('summit') || lowercaseFilename.includes('acquisitions_summit') || lowercaseFilename.includes('acquisition summit')) {
     return 'business_acquisitions_summit';
   }
   
@@ -73,7 +73,12 @@ export function detectSourceCategory(filename: string, content?: string): string
       return 'foundations_call';
     } else if (lowercaseContent.includes('mastermind')) {
       return 'mastermind_call';
-    } else if (lowercaseContent.includes('summit') || lowercaseContent.includes('acquisitions summit')) {
+    } else if (
+      lowercaseContent.includes('summit') || 
+      lowercaseContent.includes('acquisitions summit') ||
+      lowercaseContent.includes('acquisition summit') || 
+      lowercaseContent.includes('business acquisition summit')
+    ) {
       return 'business_acquisitions_summit';
     }
   }
@@ -187,13 +192,6 @@ export function getSourceDescription(sourceType: string): string {
   }
 }
 
-/**
- * Extracts the most relevant content chunks from a transcript based on query relevance
- * @param transcript The transcript to extract content from
- * @param query The user's query
- * @param maxLength Maximum length of content to return
- * @returns Extracted relevant content
- */
 export function extractRelevantContent(transcript: Transcript, query: string, maxLength: number = 4000): string {
   if (!transcript || !transcript.content || !query) {
     return transcript?.content || '';

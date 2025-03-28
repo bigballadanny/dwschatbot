@@ -170,7 +170,7 @@ export const generateGeminiResponse = async (
 
     console.log(`Generated response with citation: ${citation}`);
     
-    // Log analytics data
+    // Log analytics data - this helps the Analytics page function
     if (conversationId) {
       try {
         await supabase.from('chat_analytics').insert([{
