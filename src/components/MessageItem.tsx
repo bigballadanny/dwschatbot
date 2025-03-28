@@ -124,7 +124,7 @@ const MessageItem: React.FC<MessageProps> = ({
       const { data, error } = await supabase.functions.invoke('text-to-speech', {
         body: { 
           text: textToConvert,
-          voice: "en-US-Neural2-D" // Business-like male voice
+          voice: "en-US-Neural2-F" // Business-like female voice
         }
       });
 

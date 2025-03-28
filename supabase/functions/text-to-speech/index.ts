@@ -38,7 +38,12 @@ serve(async (req) => {
     }
 
     console.log("Converting text to speech:", text.substring(0, 100) + "...");
-    console.log("Selected voice:", voice || "en-US-Neural2-F");
+    
+    // Default voice configuration
+    const voiceName = voice || 'en-US-Neural2-F'; // Default to female voice
+    const voiceGender = voiceName.includes("Male") || voiceName.endsWith("-D") ? "MALE" : "FEMALE";
+    
+    console.log("Selected voice:", voiceName, "Gender:", voiceGender);
 
     // Call Google Text-to-Speech API
     const response = await fetch(`${TEXT_TO_SPEECH_URL}?key=${GEMINI_API_KEY}`, {
@@ -52,8 +57,8 @@ serve(async (req) => {
         },
         voice: {
           languageCode: 'en-US',
-          name: voice || 'en-US-Neural2-F', // Business-like female voice by default
-          ssmlGender: voice?.includes("Male") ? "MALE" : "FEMALE"
+          name: voiceName,
+          ssmlGender: voiceGender
         },
         audioConfig: {
           audioEncoding: 'MP3',
