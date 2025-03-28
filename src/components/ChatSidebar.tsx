@@ -143,7 +143,7 @@ const ChatSidebar = () => {
         title: 'Success',
         description: 'Conversation deleted successfully',
       });
-    } catch (error) {
+    } catch (error: any) {
       console.error('Error deleting conversation:', error);
       toast({
         title: 'Error',
@@ -223,7 +223,7 @@ const ChatSidebar = () => {
                         conversationId === conversation.id && "bg-accent"
                       )}
                     >
-                      <div className="flex items-center flex-1 min-w-0">
+                      <div className="flex items-center flex-1 min-w-0 mr-2">
                         <MessageSquare className="mr-2 h-4 w-4 flex-shrink-0" />
                         <span className="truncate">
                           {conversation.title || 'New Conversation'}
@@ -232,7 +232,7 @@ const ChatSidebar = () => {
                       <Button
                         variant="ghost"
                         size="icon"
-                        className="h-6 w-6 flex-shrink-0 opacity-100 text-destructive hover:bg-destructive/10 hover:text-destructive"
+                        className="h-6 w-6 shrink-0 opacity-70 hover:opacity-100 text-destructive hover:bg-destructive/10 hover:text-destructive"
                         onClick={(e) => confirmDelete(conversation.id, e)}
                         title="Delete conversation"
                       >
