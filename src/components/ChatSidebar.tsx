@@ -70,9 +70,13 @@ const ChatSidebar = () => {
   const urlParams = new URLSearchParams(location.search);
   const conversationId = urlParams.get('conversation');
   
+  // Fetch user conversations whenever the user changes
   useEffect(() => {
     if (user) {
       fetchConversations();
+    } else {
+      // Clear conversations if no user is logged in
+      setConversations([]);
     }
   }, [user]);
   
@@ -88,8 +92,14 @@ const ChatSidebar = () => {
         
       if (error) throw error;
       setConversations(data || []);
+      console.log('Fetched conversations:', data);
     } catch (error) {
       console.error('Error fetching conversations:', error);
+      toast({
+        title: 'Error',
+        description: 'Failed to load your conversations',
+        variant: 'destructive',
+      });
     }
   };
   
@@ -132,11 +142,12 @@ const ChatSidebar = () => {
         
       if (error) throw error;
       
+      // Remove from local state
       setConversations(prev => prev.filter(c => c.id !== conversationToDelete));
       
+      // If the deleted conversation was selected, navigate to home
       if (conversationId === conversationToDelete) {
-        // If the deleted conversation was selected, create a new one
-        handleNewChat();
+        navigate('/');
       }
       
       toast({
@@ -229,7 +240,6 @@ const ChatSidebar = () => {
                           {conversation.title || 'New Conversation'}
                         </span>
                       </div>
-                      {/* Fixed: Made the trash button always visible */}
                       <Button
                         variant="ghost"
                         size="icon"
