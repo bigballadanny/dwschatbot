@@ -30,7 +30,7 @@ const ConversationItem = ({ id, title, isActive, onDelete }: ConversationItemPro
       <Button
         variant="ghost"
         size="icon"
-        className="h-6 w-6 p-0 flex-shrink-0 opacity-70 group-hover:opacity-100 text-destructive hover:bg-destructive/10 hover:text-destructive"
+        className="h-6 w-6 p-0 flex-shrink-0 opacity-0 group-hover:opacity-100 text-destructive hover:bg-destructive/10 hover:text-destructive"
         onClick={(e) => onDelete(id, e)}
         title="Delete conversation"
         aria-label="Delete conversation"
