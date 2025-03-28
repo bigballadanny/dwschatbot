@@ -26,12 +26,14 @@ const ChatInterface = forwardRef<
   
   useImperativeHandle(ref, () => ({
     submitQuestion: (question: string) => {
-      handleSubmitQuestion(question);
+      if (question.trim()) {
+        handleSubmitQuestion(question);
+      }
     }
   }));
   
   useEffect(() => {
-    if (initialQuestion) {
+    if (initialQuestion && initialQuestion.trim()) {
       setTimeout(() => handleSubmitQuestion(initialQuestion), 800);
     }
   }, [initialQuestion]);
@@ -53,7 +55,9 @@ const ChatInterface = forwardRef<
   
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    await handleSubmitQuestion(input);
+    if (input.trim()) {
+      await handleSubmitQuestion(input);
+    }
   };
   
   const handleToggleOnlineSearch = (enabled: boolean) => {
@@ -93,7 +97,7 @@ const ChatInterface = forwardRef<
         </div>
       </div>
       
-      <div className="border-t w-full fixed bottom-0 bg-background/80 backdrop-blur-sm z-10 transition-all duration-200">
+      <div className="border-t w-full bg-background/80 backdrop-blur-sm z-10 transition-all duration-200">
         <div className="max-w-4xl mx-auto px-4 py-4">
           <form onSubmit={handleSubmit} className="flex gap-3 items-center">
             <Input

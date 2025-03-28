@@ -75,9 +75,9 @@ const Index = () => {
     if (urlConversationId) {
       setConversationId(urlConversationId);
       loadConversationMessages(urlConversationId);
-    } else if (!conversationId && user) {
-      createNewConversation();
     }
+    // Removed the automatic conversation creation here
+    // We'll now only create conversations when a message is actually sent
 
     if (question) {
       // Allow time for the conversation to initialize
@@ -155,7 +155,7 @@ const Index = () => {
   
   const createNewConversation = async () => {
     // Only create a new conversation if user is authenticated
-    if (!user) return;
+    if (!user) return null;
     
     try {
       const { data, error } = await supabase
@@ -182,7 +182,11 @@ const Index = () => {
               is_user: false
             }
           ]);
+          
+        return data[0].id;
       }
+      
+      return null;
     } catch (error) {
       console.error('Error creating conversation:', error);
       toast({
@@ -190,6 +194,7 @@ const Index = () => {
         description: "There was a problem creating a new conversation. Please try again.",
         variant: "destructive",
       });
+      return null;
     }
   };
 
@@ -212,11 +217,13 @@ const Index = () => {
       return Promise.resolve();
     }
     
-    // Create a conversation if one doesn't exist
-    if (!conversationId) {
-      await createNewConversation();
+    let currentConversationId = conversationId;
+    
+    // Create a conversation if one doesn't exist, but ONLY if there's a message to send
+    if (!currentConversationId) {
+      currentConversationId = await createNewConversation();
       // If we still don't have a conversation ID, something went wrong
-      if (!conversationId) {
+      if (!currentConversationId) {
         toast({
           title: "Error",
           description: "Unable to create a conversation. Please try again.",
@@ -224,6 +231,7 @@ const Index = () => {
         });
         return Promise.resolve();
       }
+      setConversationId(currentConversationId);
     }
     
     const userMessage: MessageProps = {
@@ -240,7 +248,7 @@ const Index = () => {
         .from('messages')
         .insert([
           {
-            conversation_id: conversationId,
+            conversation_id: currentConversationId,
             content: userMessage.content,
             is_user: true
           }
@@ -301,7 +309,7 @@ const Index = () => {
         await supabase
           .from('conversations')
           .update({ title: message.substring(0, 50) })
-          .eq('id', conversationId);
+          .eq('id', currentConversationId);
           
         setHasInteracted(true);
       }
