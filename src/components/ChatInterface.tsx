@@ -98,8 +98,8 @@ const ChatInterface = forwardRef<
         </div>
       </div>
       
-      <div className="border-t bg-background/80 backdrop-blur-sm pb-6 pt-4 px-4">
-        <div className="max-w-3xl mx-auto">
+      <div className="border-t fixed bottom-0 left-0 right-0 bg-background/80 backdrop-blur-sm z-10 pb-6 pt-4 px-4">
+        <div className="max-w-3xl mx-auto md:ml-[16rem] lg:ml-[16rem] lg:mr-auto">
           <form onSubmit={handleSubmit} className="flex gap-3 items-center">
             <Input
               ref={inputRef}
