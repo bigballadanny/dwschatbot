@@ -1,3 +1,4 @@
+
 import { Tables } from '../integrations/supabase/types';
 
 export type Transcript = {
@@ -25,7 +26,7 @@ export function getTranscriptCounts(transcripts: Transcript[]) {
       foundations_call++;
     } else if (source.includes('mastermind')) {
       mastermind_call++;
-    } else if (source.includes('business_acquisitions_summit')) {
+    } else if (source.includes('business_acquisitions_summit') || source === 'business acquisitions summit') {
       business_acquisitions_summit++;
     } else {
       other++;
@@ -61,7 +62,12 @@ export function detectSourceCategory(filename: string, content?: string): string
     return 'foundations_call';
   } else if (lowercaseFilename.includes('mastermind')) {
     return 'mastermind_call';
-  } else if (lowercaseFilename.includes('summit') || lowercaseFilename.includes('acquisitions_summit') || lowercaseFilename.includes('acquisition summit')) {
+  } else if (
+    lowercaseFilename.includes('summit') || 
+    lowercaseFilename.includes('acquisitions_summit') || 
+    lowercaseFilename.includes('acquisition summit') ||
+    lowercaseFilename.includes('business acquisition')
+  ) {
     return 'business_acquisitions_summit';
   }
   
@@ -81,6 +87,11 @@ export function detectSourceCategory(filename: string, content?: string): string
     ) {
       return 'business_acquisitions_summit';
     }
+  }
+  
+  // Check for timestamps on 27th for likely summit content
+  if (filename.includes('2025-03-27') || filename.includes('2025-02-27')) {
+    return 'business_acquisitions_summit';
   }
   
   return 'other';
@@ -135,8 +146,10 @@ export function searchTranscriptsForQuery(query: string, transcripts: Transcript
         }
       });
       
-      const sourceBoost = transcript.source === 'mastermind_call' ? 1.2 : 
-                          transcript.source === 'business_acquisitions_summit' ? 1.3 : 1.0;
+      // Boost relevance for business_acquisitions_summit as it's the newest content
+      const sourceBoost = transcript.source === 'business_acquisitions_summit' ? 1.5 :
+                          transcript.source === 'mastermind_call' ? 1.2 : 
+                          1.0;
       
       relevanceScore *= sourceBoost;
       

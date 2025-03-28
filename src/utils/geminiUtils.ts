@@ -173,6 +173,7 @@ export const generateGeminiResponse = async (
     // Log analytics data - this helps the Analytics page function
     if (conversationId) {
       try {
+        // Ensure we store analytics information properly for displaying in Analytics page
         await supabase.from('chat_analytics').insert([{
           conversation_id: conversationId,
           query: query,
@@ -185,10 +186,14 @@ export const generateGeminiResponse = async (
           successful: !data.error && !data.isQuotaExceeded && !data.apiDisabled,
           used_online_search: enableOnlineSearch && !foundInTranscripts
         }]);
+        
+        console.log("Successfully logged analytics data for query:", query);
       } catch (analyticsError) {
         console.error('Error logging analytics:', analyticsError);
         // Non-blocking error, continue with response
       }
+    } else {
+      console.warn("No conversation ID provided - analytics data will not be logged");
     }
 
     // Create a response from the Gemini data

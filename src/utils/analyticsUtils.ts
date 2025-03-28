@@ -14,6 +14,7 @@ export type AnalyticsData = {
   created_at: string;
   transcript_title: string | null;
   error_message: string | null;
+  used_online_search?: boolean | null;
 };
 
 /**
@@ -24,6 +25,8 @@ export async function fetchAnalyticsData(
   searchQuery?: string
 ): Promise<AnalyticsData[]> {
   try {
+    console.log(`Fetching analytics data for range: ${dateRange}, search: ${searchQuery || 'none'}`);
+    
     let query = supabase
       .from('chat_analytics')
       .select('*')
@@ -46,6 +49,7 @@ export async function fetchAnalyticsData(
       return [];
     }
 
+    console.log(`Retrieved ${data?.length || 0} analytics records`);
     return data as AnalyticsData[];
   } catch (err) {
     console.error('Error in fetchAnalyticsData:', err);
@@ -61,6 +65,8 @@ export async function getTopQueries(
   limit: number = 10
 ): Promise<{ query: string; count: number }[]> {
   try {
+    console.log(`Fetching top queries for period: ${timePeriod}, limit: ${limit}`);
+    
     const { data, error } = await supabase.rpc('get_top_queries', {
       time_period: timePeriod,
       limit_count: limit,
@@ -71,6 +77,7 @@ export async function getTopQueries(
       return [];
     }
 
+    console.log(`Retrieved ${data?.length || 0} top queries`);
     return data || [];
   } catch (err) {
     console.error('Error in getTopQueries:', err);

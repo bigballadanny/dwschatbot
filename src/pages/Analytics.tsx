@@ -1,5 +1,5 @@
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import Header from '@/components/Header';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
@@ -9,8 +9,9 @@ import { getTranscriptCounts } from '@/utils/transcriptUtils';
 import { Separator } from '@/components/ui/separator';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
-import { Search, RefreshCw } from 'lucide-react';
+import { Search, RefreshCw, AlertCircle } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
+import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { 
   fetchAnalyticsData, 
   getTopQueries, 
@@ -18,13 +19,15 @@ import {
   calculateSuccessRate, 
   generateResponseTimeData
 } from '@/utils/analyticsUtils';
+import { useToast } from '@/components/ui/use-toast';
 
 const Analytics = () => {
   const [dateRange, setDateRange] = useState<'7d' | '30d' | 'all'>('7d');
   const [searchQuery, setSearchQuery] = useState('');
+  const { toast } = useToast();
   
   // Fetch analytics data
-  const { data: analyticsData, isLoading: analyticsLoading, refetch: refetchAnalytics } = useQuery({
+  const { data: analyticsData, isLoading: analyticsLoading, refetch: refetchAnalytics, isError } = useQuery({
     queryKey: ['chat-analytics', dateRange, searchQuery],
     queryFn: () => fetchAnalyticsData(dateRange, searchQuery),
     refetchInterval: 60000, // Refresh every minute
@@ -93,7 +96,24 @@ const Analytics = () => {
   // Handle manual refresh
   const handleRefresh = () => {
     refetchAnalytics();
+    toast({
+      title: "Analytics refreshed",
+      description: "The analytics data has been refreshed.",
+    });
   };
+  
+  useEffect(() => {
+    // Check source types for all transcripts to ensure they're properly categorized
+    if (transcripts?.length > 0) {
+      const summitTranscripts = transcripts.filter(t => 
+        t.source === 'business_acquisitions_summit' || 
+        t.title?.toLowerCase().includes('summit') ||
+        t.title?.toLowerCase().includes('acquisition summit')
+      );
+      
+      console.log(`Found ${summitTranscripts.length} Business Acquisition Summit transcripts`);
+    }
+  }, [transcripts]);
   
   return (
     <div className="min-h-screen flex flex-col">
@@ -128,6 +148,16 @@ const Analytics = () => {
             </div>
           </div>
         </div>
+        
+        {isError && (
+          <Alert variant="destructive" className="mb-6">
+            <AlertCircle className="h-4 w-4" />
+            <AlertTitle>Error loading analytics data</AlertTitle>
+            <AlertDescription>
+              There was a problem fetching analytics data. Please refresh or try again later.
+            </AlertDescription>
+          </Alert>
+        )}
         
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 mb-8">
           <Card>
@@ -167,6 +197,7 @@ const Analytics = () => {
                 <span>Protege: {transcriptCounts.protege_call}</span>
                 <span>Foundations: {transcriptCounts.foundations_call}</span>
                 <span>Mastermind: {transcriptCounts.mastermind_call}</span>
+                <span>Summit: {transcriptCounts.business_acquisitions_summit}</span>
               </div>
             </CardContent>
           </Card>
@@ -193,8 +224,13 @@ const Analytics = () => {
                   className="h-64 lg:h-80"
                 />
               ) : (
-                <div className="flex items-center justify-center h-64 lg:h-80">
+                <div className="flex flex-col items-center justify-center h-64 lg:h-80">
                   <p>No data available</p>
+                  {analyticsData?.length === 0 && (
+                    <p className="text-sm text-muted-foreground mt-2">
+                      Try using the AI assistant a few times to generate analytics data
+                    </p>
+                  )}
                 </div>
               )}
             </CardContent>
@@ -220,8 +256,13 @@ const Analytics = () => {
                   showLegend={false}
                 />
               ) : (
-                <div className="flex items-center justify-center h-64 lg:h-80">
+                <div className="flex flex-col items-center justify-center h-64 lg:h-80">
                   <p>No response time data available</p>
+                  {analyticsData?.length === 0 && (
+                    <p className="text-sm text-muted-foreground mt-2">
+                      Try using the AI assistant a few times to generate analytics data
+                    </p>
+                  )}
                 </div>
               )}
             </CardContent>
@@ -250,7 +291,14 @@ const Analytics = () => {
                   ))}
                 </div>
               ) : (
-                <p className="text-muted-foreground text-sm">No data available yet</p>
+                <div className="flex flex-col items-center justify-center py-8">
+                  <p className="text-muted-foreground text-sm">No data available yet</p>
+                  {analyticsData?.length === 0 && (
+                    <p className="text-sm text-muted-foreground mt-2">
+                      Try using the AI assistant a few times to generate analytics data
+                    </p>
+                  )}
+                </div>
               )}
             </CardContent>
           </Card>
@@ -280,7 +328,14 @@ const Analytics = () => {
                   ))}
                 </div>
               ) : (
-                <p className="text-muted-foreground text-sm">No recent queries</p>
+                <div className="flex flex-col items-center justify-center py-8">
+                  <p className="text-muted-foreground text-sm">No recent queries</p>
+                  {analyticsData?.length === 0 && (
+                    <p className="text-sm text-muted-foreground mt-2">
+                      Try using the AI assistant a few times to generate analytics data
+                    </p>
+                  )}
+                </div>
               )}
             </CardContent>
           </Card>
