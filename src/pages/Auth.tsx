@@ -19,6 +19,7 @@ const Auth = () => {
   const [confirmationSent, setConfirmationSent] = useState(false);
   const [resetSent, setResetSent] = useState(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
+  const [quickLoginEmail, setQuickLoginEmail] = useState('');
   const { toast } = useToast();
   const navigate = useNavigate();
   
@@ -149,6 +150,57 @@ const Auth = () => {
           variant: "destructive"
         });
       }
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleQuickLogin = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setErrorMessage(null);
+    
+    if (!quickLoginEmail) {
+      setErrorMessage("Please enter an email for quick login");
+      return;
+    }
+    
+    try {
+      setLoading(true);
+      
+      // Use the fixed password "123123" for quick login
+      const { data, error } = await supabase.auth.signInWithPassword({
+        email: quickLoginEmail,
+        password: "123123",
+      });
+      
+      if (error) {
+        // If sign in fails, try to sign up with these credentials
+        const { error: signUpError } = await supabase.auth.signUp({
+          email: quickLoginEmail,
+          password: "123123",
+          options: {
+            data: {
+              is_quick_login: true
+            }
+          }
+        });
+        
+        if (signUpError) throw signUpError;
+        
+        toast({
+          title: "Quick account created",
+          description: "You have been signed up with a quick access account",
+        });
+      }
+      
+      // The onAuthStateChange event will handle redirection
+    } catch (error: any) {
+      setErrorMessage(error.message || "An error occurred");
+      toast({
+        title: "Error with quick login",
+        description: error.message || "An error occurred with quick login",
+        variant: "destructive"
+      });
     } finally {
       setLoading(false);
     }
@@ -380,9 +432,10 @@ const Auth = () => {
           </CardDescription>
         </CardHeader>
         <Tabs defaultValue="signin" className="w-full">
-          <TabsList className="grid w-full grid-cols-2">
+          <TabsList className="grid w-full grid-cols-3">
             <TabsTrigger value="signin">Sign In</TabsTrigger>
             <TabsTrigger value="signup">Sign Up</TabsTrigger>
+            <TabsTrigger value="quicklogin">Quick Login</TabsTrigger>
           </TabsList>
           
           <TabsContent value="signin">
@@ -486,6 +539,49 @@ const Auth = () => {
                       Creating account...
                     </>
                   ) : "Create Account"}
+                </Button>
+              </CardFooter>
+            </form>
+          </TabsContent>
+          
+          <TabsContent value="quicklogin">
+            <form onSubmit={handleQuickLogin}>
+              <CardContent className="space-y-4 pt-4">
+                {errorMessage && (
+                  <Alert variant="destructive">
+                    <AlertDescription>{errorMessage}</AlertDescription>
+                  </Alert>
+                )}
+                <div className="space-y-2">
+                  <Label htmlFor="quick-email">Email</Label>
+                  <Input 
+                    id="quick-email" 
+                    type="email" 
+                    placeholder="your@email.com"
+                    value={quickLoginEmail}
+                    onChange={(e) => setQuickLoginEmail(e.target.value)}
+                    disabled={loading}
+                    autoComplete="email"
+                  />
+                </div>
+                <Alert>
+                  <AlertDescription>
+                    Quick login uses a preset password (123123). Use this option for quick access without needing to verify your email.
+                  </AlertDescription>
+                </Alert>
+              </CardContent>
+              <CardFooter>
+                <Button 
+                  type="submit" 
+                  className="w-full"
+                  disabled={loading}
+                >
+                  {loading ? (
+                    <>
+                      <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                      Processing...
+                    </>
+                  ) : "Quick Login"}
                 </Button>
               </CardFooter>
             </form>

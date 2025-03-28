@@ -30,9 +30,14 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         
         // Show toast for certain auth events
         if (event === 'SIGNED_IN') {
+          // Check if this is a quick login user
+          const isQuickLogin = session?.user?.user_metadata?.is_quick_login;
+          
           toast({
             title: "Signed in successfully",
-            description: `Welcome${session?.user?.email ? ' ' + session.user.email : ''}!`,
+            description: isQuickLogin 
+              ? "Welcome! You're using quick login access."
+              : `Welcome${session?.user?.email ? ' ' + session.user.email : ''}!`,
           });
         } else if (event === 'SIGNED_OUT') {
           toast({
