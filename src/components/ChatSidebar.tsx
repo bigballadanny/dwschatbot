@@ -1,17 +1,15 @@
 
 import React, { useState, useEffect } from 'react';
-import { Link, useLocation, useNavigate } from 'react-router-dom';
+import { useLocation, useNavigate } from 'react-router-dom';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/context/AuthContext';
 import { useAdmin } from '@/context/AdminContext';
 import { useSidebar } from "@/components/ui/sidebar";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { ModeToggle } from "@/components/ModeToggle";
-import { ScrollArea } from "@/components/ui/scroll-area";
 import { 
-  Settings, MessageSquare, Trash2, PlusCircle, 
-  BarChart3, LogOut, Search, ChevronLeft, ChevronRight
+  Settings, PlusCircle, BarChart3, LogOut, Search, 
+  ChevronLeft, ChevronRight
 } from 'lucide-react';
 import { toast } from '@/components/ui/use-toast';
 import {
@@ -23,20 +21,8 @@ import {
   SidebarMenuButton,
   SidebarMenuItem,
   SidebarProvider,
-  SidebarSeparator,
-  SidebarGroup,
-  SidebarGroupLabel,
   SidebarTrigger
 } from "@/components/ui/sidebar";
-import { 
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogFooter,
-  DialogHeader,
-  DialogTitle,
-  DialogTrigger,
-} from "@/components/ui/dialog";
 import {
   Sheet,
   SheetContent,
@@ -46,7 +32,10 @@ import {
   SheetTitle,
   SheetTrigger,
 } from "@/components/ui/sheet";
-import { cn } from '@/lib/utils';
+
+// Import refactored components
+import ConversationList from './sidebar/ConversationList';
+import DeleteConversationDialog from './sidebar/DeleteConversationDialog';
 
 interface Conversation {
   id: string;
@@ -118,8 +107,10 @@ const ChatSidebar = () => {
       if (error) throw error;
       
       if (data?.[0]?.id) {
-        // Reload the page with the new conversation ID
-        window.location.href = `/?conversation=${data[0].id}`;
+        // Redirect to the new conversation
+        navigate(`/?conversation=${data[0].id}`);
+        // Refresh the conversations list
+        fetchConversations();
       }
     } catch (error) {
       console.error('Error creating new conversation:', error);
@@ -129,6 +120,13 @@ const ChatSidebar = () => {
         variant: 'destructive',
       });
     }
+  };
+  
+  const confirmDelete = (id: string, e: React.MouseEvent) => {
+    e.stopPropagation();
+    e.preventDefault();
+    setConversationToDelete(id);
+    setDeleteDialogOpen(true);
   };
   
   const handleDeleteConversation = async () => {
@@ -167,21 +165,6 @@ const ChatSidebar = () => {
     }
   };
   
-  const confirmDelete = (id: string, e: React.MouseEvent) => {
-    e.stopPropagation();
-    e.preventDefault();
-    setConversationToDelete(id);
-    setDeleteDialogOpen(true);
-  };
-  
-  const handleSettings = () => {
-    setSettingsOpen(true);
-  };
-  
-  const filteredConversations = conversations.filter(
-    conversation => conversation.title.toLowerCase().includes(searchQuery.toLowerCase())
-  );
-  
   return (
     <Sidebar>
       <SidebarHeader className="border-b">
@@ -216,67 +199,35 @@ const ChatSidebar = () => {
       </SidebarHeader>
       
       <SidebarContent>
-        <ScrollArea className="h-full">
-          <SidebarGroup>
-            <SidebarGroupLabel>Conversations</SidebarGroupLabel>
-            <SidebarMenu>
-              {filteredConversations.length === 0 ? (
-                <div className="p-4 text-sm text-muted-foreground text-center">
-                  {searchQuery ? 'No conversations found' : 'No conversations yet'}
-                </div>
-              ) : (
-                filteredConversations.map((conversation) => (
-                  <SidebarMenuItem key={conversation.id} className="group relative">
-                    <Link 
-                      to={`/?conversation=${conversation.id}`}
-                      className={cn(
-                        "flex w-full items-center justify-between rounded-md p-2 text-sm hover:bg-accent",
-                        conversationId === conversation.id && "bg-accent"
-                      )}
-                    >
-                      <div className="flex items-center flex-1 min-w-0 mr-2">
-                        <MessageSquare className="mr-2 h-4 w-4 flex-shrink-0" />
-                        <span className="truncate">
-                          {conversation.title || 'New Conversation'}
-                        </span>
-                      </div>
-                      <Button
-                        variant="ghost"
-                        size="icon"
-                        className="h-6 w-6 flex-shrink-0 opacity-70 hover:opacity-100 text-destructive hover:bg-destructive/10 hover:text-destructive"
-                        onClick={(e) => confirmDelete(conversation.id, e)}
-                        title="Delete conversation"
-                      >
-                        <Trash2 className="h-4 w-4" />
-                      </Button>
-                    </Link>
-                  </SidebarMenuItem>
-                ))
-              )}
-            </SidebarMenu>
-          </SidebarGroup>
-        </ScrollArea>
+        <ConversationList 
+          conversations={conversations}
+          activeConversationId={conversationId}
+          onDeleteConversation={confirmDelete}
+          searchQuery={searchQuery}
+        />
       </SidebarContent>
       
       <SidebarFooter className="border-t">
         <SidebarMenu>
           {isAdmin && (
             <SidebarMenuItem>
-              <Link to="/analytics">
+              <Button variant="ghost" className="w-full justify-start" onClick={() => navigate('/analytics')}>
                 <SidebarMenuButton>
                   <BarChart3 className="h-4 w-4" />
                   <span>Analytics</span>
                 </SidebarMenuButton>
-              </Link>
+              </Button>
             </SidebarMenuItem>
           )}
           <SidebarMenuItem>
             <Sheet open={settingsOpen} onOpenChange={setSettingsOpen}>
               <SheetTrigger asChild>
-                <SidebarMenuButton onClick={handleSettings}>
-                  <Settings className="h-4 w-4" />
-                  <span>Settings</span>
-                </SidebarMenuButton>
+                <Button variant="ghost" className="w-full justify-start">
+                  <SidebarMenuButton>
+                    <Settings className="h-4 w-4" />
+                    <span>Settings</span>
+                  </SidebarMenuButton>
+                </Button>
               </SheetTrigger>
               <SheetContent>
                 <SheetHeader>
@@ -286,11 +237,7 @@ const ChatSidebar = () => {
                   </SheetDescription>
                 </SheetHeader>
                 <div className="py-4 space-y-4">
-                  <div className="flex items-center justify-between">
-                    <div className="text-sm font-medium">Theme</div>
-                    <ModeToggle />
-                  </div>
-                  {/* Add more settings here */}
+                  {/* Add settings here */}
                 </div>
                 <SheetFooter>
                   <Button 
@@ -304,33 +251,21 @@ const ChatSidebar = () => {
             </Sheet>
           </SidebarMenuItem>
           <SidebarMenuItem>
-            <SidebarMenuButton onClick={signOut}>
-              <LogOut className="h-4 w-4" />
-              <span>Sign out</span>
-            </SidebarMenuButton>
+            <Button variant="ghost" className="w-full justify-start" onClick={signOut}>
+              <SidebarMenuButton>
+                <LogOut className="h-4 w-4" />
+                <span>Sign out</span>
+              </SidebarMenuButton>
+            </Button>
           </SidebarMenuItem>
         </SidebarMenu>
       </SidebarFooter>
       
-      <Dialog open={deleteDialogOpen} onOpenChange={setDeleteDialogOpen}>
-        <DialogContent className="sm:max-w-md">
-          <DialogHeader>
-            <DialogTitle>Delete Conversation</DialogTitle>
-            <DialogDescription>
-              Are you sure you want to delete this conversation? 
-              This action cannot be undone.
-            </DialogDescription>
-          </DialogHeader>
-          <DialogFooter>
-            <Button variant="outline" onClick={() => setDeleteDialogOpen(false)}>
-              Cancel
-            </Button>
-            <Button variant="destructive" onClick={handleDeleteConversation}>
-              Delete
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
+      <DeleteConversationDialog
+        open={deleteDialogOpen}
+        onOpenChange={setDeleteDialogOpen}
+        onConfirmDelete={handleDeleteConversation}
+      />
     </Sidebar>
   );
 };
