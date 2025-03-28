@@ -1,136 +1,166 @@
 
 import { supabase } from '@/integrations/supabase/client';
 
-export interface AnalyticsData {
+export type AnalyticsData = {
   id: string;
+  conversation_id: string | null;
   query: string;
+  response_length: number | null;
+  source_type: string | null;
+  relevance_score: number | null;
+  search_time_ms: number | null;
+  api_time_ms: number | null;
+  successful: boolean | null;
   created_at: string;
-  source_type?: string;
-  successful?: boolean;
-  search_time_ms?: number;
-  api_time_ms?: number;
-  transcript_title?: string;
-  response_length?: number;
-  relevance_score?: number;
-  conversation_id?: string;
-}
+  transcript_title: string | null;
+  error_message: string | null;
+};
 
-export interface QueryStats {
-  query: string;
-  count: number;
-}
-
-export const fetchAnalyticsData = async (
-  dateRange: '7d' | '30d' | 'all' = '7d',
-  searchQuery: string = '',
-  limit: number = 1000
-): Promise<AnalyticsData[]> => {
+/**
+ * Fetches analytics data based on date range and optional search query
+ */
+export async function fetchAnalyticsData(
+  dateRange: '7d' | '30d' | 'all',
+  searchQuery?: string
+): Promise<AnalyticsData[]> {
   try {
-    // Calculate date range
-    let dateFilter = '';
-    if (dateRange === '7d') {
-      const date = new Date();
-      date.setDate(date.getDate() - 7);
-      dateFilter = date.toISOString();
-    } else if (dateRange === '30d') {
-      const date = new Date();
-      date.setDate(date.getDate() - 30);
-      dateFilter = date.toISOString();
-    }
-    
     let query = supabase
       .from('chat_analytics')
       .select('*')
-      .order('created_at', { ascending: false })
-      .limit(limit);
-    
-    // Apply date filter if needed
-    if (dateFilter) {
-      query = query.gte('created_at', dateFilter);
+      .order('created_at', { ascending: false });
+
+    if (dateRange === '7d') {
+      query = query.gte('created_at', new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString());
+    } else if (dateRange === '30d') {
+      query = query.gte('created_at', new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString());
     }
-    
-    // Apply search filter if needed
-    if (searchQuery) {
+
+    if (searchQuery && searchQuery.trim() !== '') {
       query = query.ilike('query', `%${searchQuery}%`);
     }
-    
+
     const { data, error } = await query;
-    
+
     if (error) {
-      console.error('Error fetching analytics:', error);
+      console.error('Error fetching analytics data:', error);
       return [];
     }
-    
-    return data || [];
-  } catch (error) {
-    console.error('Error in fetchAnalyticsData:', error);
+
+    return data as AnalyticsData[];
+  } catch (err) {
+    console.error('Error in fetchAnalyticsData:', err);
     return [];
   }
-};
+}
 
-export const getTopQueries = async (
-  timePeriod: 'day' | 'week' | 'month' | 'all' = 'all',
+/**
+ * Fetches the top queries based on frequency
+ */
+export async function getTopQueries(
+  timePeriod: 'day' | 'week' | 'month' | 'all',
   limit: number = 10
-): Promise<QueryStats[]> => {
+): Promise<{ query: string; count: number }[]> {
   try {
-    const { data, error } = await supabase.rpc('get_top_queries', { 
-      time_period: timePeriod === 'all' ? null : timePeriod,
-      limit_count: limit
+    const { data, error } = await supabase.rpc('get_top_queries', {
+      time_period: timePeriod,
+      limit_count: limit,
     });
-    
+
     if (error) {
       console.error('Error fetching top queries:', error);
       return [];
     }
-    
+
     return data || [];
-  } catch (error) {
-    console.error('Error in getTopQueries:', error);
+  } catch (err) {
+    console.error('Error in getTopQueries:', err);
     return [];
   }
-};
+}
 
-export const generateSourceDistribution = (data: AnalyticsData[]): {name: string, value: number}[] => {
-  const sources: {[key: string]: number} = {};
-  
-  data.forEach(item => {
+/**
+ * Generates data for source distribution chart
+ */
+export function generateSourceDistribution(
+  analyticsData: AnalyticsData[]
+): { name: string; value: number }[] {
+  const sourceCounts: Record<string, number> = {};
+
+  analyticsData.forEach((item) => {
     const source = item.source_type || 'unknown';
-    sources[source] = (sources[source] || 0) + 1;
+    sourceCounts[source] = (sourceCounts[source] || 0) + 1;
   });
-  
-  return Object.entries(sources).map(([name, value]) => ({ name, value }));
-};
 
-export const calculateSuccessRate = (data: AnalyticsData[]): {success: number, failure: number, rate: number} => {
-  const success = data.filter(item => item.successful).length;
-  const total = data.length;
-  const rate = total > 0 ? Math.round((success / total) * 100) : 0;
-  
-  return {
-    success,
-    failure: total - success,
-    rate
-  };
-};
+  return Object.entries(sourceCounts).map(([name, value]) => ({
+    name: formatSourceName(name),
+    value,
+  }));
+}
 
-export const generateResponseTimeData = (data: AnalyticsData[]): {date: string, "Average Response Time (ms)": number}[] => {
-  const dailyData: {[key: string]: {count: number, total: number}} = {};
-  
-  data.forEach(item => {
-    if (item.search_time_ms && item.api_time_ms) {
+/**
+ * Formats source name for display
+ */
+function formatSourceName(source: string): string {
+  switch (source) {
+    case 'protege_call':
+      return 'Protege Call';
+    case 'foundations_call':
+      return 'Foundations Call';
+    case 'mastermind_call':
+      return 'Mastermind Call';
+    case 'business_acquisitions_summit':
+      return '2024 Summit';
+    case 'fallback':
+      return 'API Fallback';
+    case 'web':
+      return 'Web Search';
+    case 'system':
+      return 'System Message';
+    case 'error':
+      return 'Error';
+    default:
+      return source.charAt(0).toUpperCase() + source.slice(1).replace(/_/g, ' ');
+  }
+}
+
+/**
+ * Calculates success rate stats
+ */
+export function calculateSuccessRate(analyticsData: AnalyticsData[]) {
+  const success = analyticsData.filter((item) => item.successful === true).length;
+  const failure = analyticsData.length - success;
+  const rate = analyticsData.length > 0 ? Math.round((success / analyticsData.length) * 100) : 0;
+
+  return { success, failure, rate };
+}
+
+/**
+ * Generates response time trend data
+ */
+export function generateResponseTimeData(analyticsData: AnalyticsData[]) {
+  const timeDataMap: Record<string, { total: number; count: number }> = {};
+
+  // Sort data by date first
+  const sortedData = [...analyticsData].sort(
+    (a, b) => new Date(a.created_at).getTime() - new Date(b.created_at).getTime()
+  );
+
+  sortedData.forEach((item) => {
+    if (item.api_time_ms !== null && item.search_time_ms !== null) {
       const date = new Date(item.created_at).toLocaleDateString();
-      if (!dailyData[date]) {
-        dailyData[date] = { count: 0, total: 0 };
+      
+      if (!timeDataMap[date]) {
+        timeDataMap[date] = { total: 0, count: 0 };
       }
-      dailyData[date].count++;
-      dailyData[date].total += (item.search_time_ms + item.api_time_ms);
+      
+      const totalTime = item.api_time_ms + item.search_time_ms;
+      timeDataMap[date].total += totalTime;
+      timeDataMap[date].count += 1;
     }
   });
-  
-  return Object.entries(dailyData)
-    .map(([date, data]) => ({
-      date,
-      "Average Response Time (ms)": Math.round(data.total / data.count)
-    }))
-    .sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime());
-};
+
+  return Object.entries(timeDataMap).map(([date, { total, count }]) => ({
+    date,
+    "Average Response Time (ms)": Math.round(total / count),
+  }));
+}

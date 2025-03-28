@@ -9,7 +9,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { useAuth } from '@/context/AuthContext';
 import { supabase } from '@/integrations/supabase/client';
 import Header from '@/components/Header';
-import { FileText, Upload, Tag, Loader2, X, Info } from 'lucide-react';
+import { FileText, Upload, Tag, Loader2, X, Info, AlertTriangle } from 'lucide-react';
 import { detectSourceCategory } from '@/utils/transcriptUtils';
 import { Progress } from "@/components/ui/progress";
 import { Sheet, SheetContent, SheetDescription, SheetFooter, SheetHeader, SheetTitle, SheetTrigger } from "@/components/ui/sheet";
@@ -17,6 +17,8 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, Di
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
+import TranscriptDiagnostics from "@/components/TranscriptDiagnostics";
 
 interface Transcript {
   id: string;
@@ -60,6 +62,7 @@ const TranscriptsPage: React.FC = () => {
   const [summitProcessingFiles, setSummitProcessingFiles] = useState(false);
   const [summitUploadResults, setSummitUploadResults] = useState<{success: number, failed: number}>({success: 0, failed: 0});
   const [summitFailedFiles, setSummitFailedFiles] = useState<string[]>([]);
+  const [showDiagnostics, setShowDiagnostics] = useState(false);
 
   useEffect(() => {
     const fetchTranscripts = async () => {
@@ -435,37 +438,53 @@ const TranscriptsPage: React.FC = () => {
         const text = await file.text();
         const title = file.name.replace(/\.txt$/, '');
         
-        const lowercaseFileName = title.toLowerCase();
-        let fileSource = 'protege_call';
+        const fileSource = detectSourceCategory(title, text);
         
-        if (lowercaseFileName.includes('protege')) {
-          fileSource = 'protege_call';
-        } else if (lowercaseFileName.includes('foundation')) {
-          fileSource = 'foundations_call';
+        let filePath = null;
+        
+        try {
+          filePath = await uploadFile(file);
+        } catch (uploadError: any) {
+          console.error(`Error uploading file ${file.name}:`, uploadError);
+          failedCount++;
+          failedFilesList.push(`${file.name} - Upload error: ${uploadError.message || 'Unknown error'}`);
+          continue;
         }
         
-        const filePath = await uploadFile(file);
-        
-        const { error } = await supabase
-          .from('transcripts')
-          .insert([{
-            title,
-            content: text,
-            file_path: filePath,
-            source: fileSource,
-            user_id: user?.id
-          }]);
+        try {
+          const { error: insertError } = await supabase
+            .from('transcripts')
+            .insert([{
+              title,
+              content: text,
+              file_path: filePath,
+              source: fileSource,
+              user_id: user?.id
+            }]);
+            
+          if (insertError) {
+            console.error(`Error inserting transcript for file ${file.name}:`, insertError);
+            throw insertError;
+          }
           
-        if (error) {
-          console.error(`Error inserting transcript for file ${file.name}:`, error);
-          throw error;
+          successCount++;
+        } catch (insertError: any) {
+          console.error(`Error processing file ${file.name}:`, insertError);
+          failedCount++;
+          failedFilesList.push(`${file.name} - Database error: ${insertError.message || 'Unknown error'}`);
+          
+          if (filePath) {
+            try {
+              await supabase.storage.from('transcripts').remove([filePath]);
+            } catch (cleanupError) {
+              console.error(`Error cleaning up file ${filePath}:`, cleanupError);
+            }
+          }
         }
-        
-        successCount++;
-      } catch (error: any) {
-        console.error(`Error processing file ${file.name}:`, error);
+      } catch (textError: any) {
+        console.error(`Error reading text from file ${file.name}:`, textError);
         failedCount++;
-        failedFilesList.push(`${file.name} - ${error.message || 'Unknown error'}`);
+        failedFilesList.push(`${file.name} - Text reading error: ${textError.message || 'Unknown error'}`);
       }
     }
     
@@ -655,12 +674,64 @@ const TranscriptsPage: React.FC = () => {
   const summitCount = transcripts.filter(t => t.source === 'business_acquisitions_summit').length;
   const totalCount = transcripts.length;
 
+  const refreshTranscripts = async () => {
+    setLoading(true);
+    try {
+      const { data, error } = await supabase
+        .from('transcripts')
+        .select('*')
+        .order('created_at', { ascending: false });
+        
+      if (error) throw error;
+      setTranscripts(data || []);
+      
+      toast({
+        title: 'Transcripts refreshed',
+        description: `Successfully refreshed transcript list`,
+      });
+    } catch (error: any) {
+      console.error('Error refreshing transcripts:', error);
+      toast({
+        title: 'Error refreshing transcripts',
+        description: error.message,
+        variant: 'destructive',
+      });
+    } finally {
+      setLoading(false);
+    }
+  };
+
   return (
     <div className="min-h-screen bg-background">
       <Header />
       
       <main className="container mx-auto px-4 py-8">
-        <h1 className="text-3xl font-bold mb-8">Transcripts</h1>
+        <div className="flex flex-wrap justify-between items-center mb-8">
+          <h1 className="text-3xl font-bold">Transcripts</h1>
+          
+          <div className="flex gap-2 mt-2 sm:mt-0">
+            <Button 
+              variant="outline" 
+              size="sm"
+              onClick={() => refreshTranscripts()}
+            >
+              Refresh List
+            </Button>
+            <Button 
+              variant={showDiagnostics ? "default" : "outline"} 
+              size="sm"
+              onClick={() => setShowDiagnostics(!showDiagnostics)}
+            >
+              {showDiagnostics ? "Hide Diagnostics" : "Show Diagnostics"}
+            </Button>
+          </div>
+        </div>
+        
+        {showDiagnostics && (
+          <div className="mb-8">
+            <TranscriptDiagnostics onComplete={refreshTranscripts} />
+          </div>
+        )}
         
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
           <div className="space-y-6">
@@ -1057,54 +1128,62 @@ const TranscriptsPage: React.FC = () => {
             </div>
             
             {loading ? (
-              <p>Loading transcripts...</p>
+              <div className="flex items-center justify-center p-12">
+                <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
+              </div>
             ) : filteredTranscripts.length === 0 ? (
-              <p className="text-muted-foreground">
-                {filterSource === 'all' 
-                  ? 'No transcripts found. Add your first transcript!' 
-                  : 'No transcripts found with this source filter.'}
-              </p>
+              <div className="bg-muted rounded-lg p-6 text-center">
+                <p className="text-muted-foreground">
+                  {filterSource === 'all' 
+                    ? 'No transcripts found. Add your first transcript!' 
+                    : 'No transcripts found with this source filter.'}
+                </p>
+              </div>
             ) : (
-              filteredTranscripts.map((transcript) => (
-                <Card key={transcript.id}>
-                  <CardHeader>
-                    <div className="flex justify-between items-start">
-                      <CardTitle className="flex items-center gap-2">
-                        {transcript.file_path ? <FileText className="h-4 w-4" /> : null}
-                        {transcript.title}
-                      </CardTitle>
-                      
-                      <span className={`px-2 py-1 rounded-full text-xs flex items-center ${getSourceColor(transcript.source)}`}>
-                        <Tag className="h-3 w-3 mr-1" />
-                        {transcript.source === 'business_acquisitions_summit' 
-                          ? '2024 Business Acquisitions Summit'
-                          : transcript.source?.replace('_', ' ')}
-                      </span>
-                    </div>
-                    <CardDescription>
-                      Added on {new Date(transcript.created_at).toLocaleDateString()}
-                    </CardDescription>
-                  </CardHeader>
-                  <CardContent>
-                    <p className="line-clamp-3 text-sm text-muted-foreground">
-                      {transcript.file_path && transcript.content === 'PDF file uploaded'
-                        ? 'PDF file uploaded' 
-                        : transcript.content}
-                    </p>
-                    {transcript.file_path && (
-                      <div className="mt-2">
-                        <Button 
-                          variant="outline" 
-                          size="sm"
-                          onClick={() => viewTranscript(transcript)}
-                        >
-                          View Transcript
-                        </Button>
+              <div className="space-y-4">
+                {filteredTranscripts.map((transcript) => (
+                  <Card key={transcript.id}>
+                    <CardHeader>
+                      <div className="flex justify-between items-start">
+                        <CardTitle className="flex items-center gap-2">
+                          {transcript.file_path ? <FileText className="h-4 w-4" /> : null}
+                          {transcript.title}
+                        </CardTitle>
+                        
+                        <span className={`px-2 py-1 rounded-full text-xs flex items-center ${getSourceColor(transcript.source)}`}>
+                          <Tag className="h-3 w-3 mr-1" />
+                          {transcript.source === 'business_acquisitions_summit' 
+                            ? '2024 Business Acquisitions Summit'
+                            : transcript.source?.replace('_', ' ')}
+                        </span>
                       </div>
-                    )}
-                  </CardContent>
-                </Card>
-              ))
+                      <CardDescription>
+                        Added on {new Date(transcript.created_at).toLocaleDateString()}
+                      </CardDescription>
+                    </CardHeader>
+                    <CardContent>
+                      <p className="line-clamp-3 text-sm text-muted-foreground">
+                        {transcript.content === 'PDF file uploaded'
+                          ? 'PDF file uploaded' 
+                          : (!transcript.content || transcript.content.trim() === '')
+                            ? <span className="flex items-center text-amber-600"><AlertTriangle className="h-4 w-4 mr-1" /> No content available</span>
+                            : transcript.content}
+                      </p>
+                      {transcript.file_path && (
+                        <div className="mt-2">
+                          <Button 
+                            variant="outline" 
+                            size="sm"
+                            onClick={() => viewTranscript(transcript)}
+                          >
+                            View Transcript
+                          </Button>
+                        </div>
+                      )}
+                    </CardContent>
+                  </Card>
+                ))}
+              </div>
             )}
           </div>
         </div>

@@ -1,4 +1,3 @@
-
 import { Tables } from '../integrations/supabase/types';
 
 export type Transcript = {
@@ -89,6 +88,13 @@ export function searchTranscriptsForQuery(query: string, transcripts: Transcript
 
   const normalizedQuery = query.toLowerCase().trim();
   
+  const businessKeywords = [
+    'acquisition', 'deal', 'finance', 'negotiate', 'valuation', 
+    'due diligence', 'cashflow', 'funding', 'seller', 'owner', 'sba', 
+    'structure', 'roi', 'risk', 'revenue', 'profit', 'ebitda', 'multiple',
+    'broker', 'capital', 'closing', 'contract', 'leverage', 'debt', 'equity'
+  ];
+  
   const matchedTranscripts = transcripts
     .filter(transcript => transcript.content && transcript.content.length > 0)
     .map(transcript => {
@@ -96,19 +102,60 @@ export function searchTranscriptsForQuery(query: string, transcripts: Transcript
       const queryTerms = normalizedQuery.split(/\s+/);
       
       let relevanceScore = 0;
+      let exactPhraseMatch = false;
+      
+      if (content.includes(normalizedQuery)) {
+        relevanceScore += 50;
+        exactPhraseMatch = true;
+      }
+      
       queryTerms.forEach(term => {
-        if (term.length > 3) {
+        if (term.length > 2) {
           const regex = new RegExp(`\\b${term}\\b`, 'g');
           const matches = content.match(regex);
+          
           if (matches) {
-            relevanceScore += matches.length;
+            let termScore = matches.length;
+            
+            if (businessKeywords.includes(term)) {
+              termScore *= 2;
+            }
+            
+            if (term.length > 5) {
+              termScore *= 1.5;
+            }
+            
+            relevanceScore += termScore;
           }
         }
       });
       
+      const sourceBoost = transcript.source === 'mastermind_call' ? 1.2 : 
+                          transcript.source === 'business_acquisitions_summit' ? 1.3 : 1.0;
+      
+      relevanceScore *= sourceBoost;
+      
+      if (queryTerms.length > 1 && !exactPhraseMatch) {
+        const contentParagraphs = content.split(/\n\s*\n/);
+        
+        for (const paragraph of contentParagraphs) {
+          let termsInParagraph = 0;
+          
+          for (const term of queryTerms) {
+            if (term.length > 2 && paragraph.includes(term)) {
+              termsInParagraph++;
+            }
+          }
+          
+          if (termsInParagraph > 1) {
+            relevanceScore += (termsInParagraph * 10);
+          }
+        }
+      }
+      
       return {
         ...transcript,
-        relevanceScore
+        relevanceScore: Math.round(relevanceScore)
       };
     })
     .filter(t => t.relevanceScore > 0)
@@ -118,7 +165,7 @@ export function searchTranscriptsForQuery(query: string, transcripts: Transcript
     return null;
   }
   
-  return matchedTranscripts[0];
+  return matchedTranscripts.slice(0, 3);
 }
 
 export function getSourceDescription(sourceType: string): string {
@@ -138,4 +185,69 @@ export function getSourceDescription(sourceType: string): string {
     default:
       return "Carl Allen's business acquisition material";
   }
+}
+
+/**
+ * Extracts the most relevant content chunks from a transcript based on query relevance
+ * @param transcript The transcript to extract content from
+ * @param query The user's query
+ * @param maxLength Maximum length of content to return
+ * @returns Extracted relevant content
+ */
+export function extractRelevantContent(transcript: Transcript, query: string, maxLength: number = 4000): string {
+  if (!transcript || !transcript.content || !query) {
+    return transcript?.content || '';
+  }
+  
+  const content = transcript.content;
+  const normalizedQuery = query.toLowerCase().trim();
+  const queryTerms = normalizedQuery.split(/\s+/).filter(term => term.length > 2);
+  
+  const paragraphs = content.split(/\n\s*\n/);
+  
+  const scoredParagraphs = paragraphs.map(paragraph => {
+    let score = 0;
+    
+    if (paragraph.toLowerCase().includes(normalizedQuery)) {
+      score += 50;
+    }
+    
+    for (const term of queryTerms) {
+      const regex = new RegExp(`\\b${term}\\b`, 'gi');
+      const matches = paragraph.match(regex);
+      if (matches) {
+        score += matches.length * 10;
+      }
+    }
+    
+    return { paragraph, score };
+  });
+  
+  scoredParagraphs.sort((a, b) => b.score - a.score);
+  
+  let extractedContent = '';
+  let currentLength = 0;
+  
+  for (const { paragraph, score } of scoredParagraphs) {
+    if (score > 0 && currentLength + paragraph.length <= maxLength) {
+      extractedContent += paragraph + '\n\n';
+      currentLength += paragraph.length + 2;
+    }
+  }
+  
+  if (currentLength < maxLength / 2 && paragraphs.length > 0) {
+    let contextParagraphs = '';
+    let i = 0;
+    
+    while (currentLength + contextParagraphs.length < maxLength && i < Math.min(5, paragraphs.length)) {
+      if (!extractedContent.includes(paragraphs[i])) {
+        contextParagraphs += paragraphs[i] + '\n\n';
+      }
+      i++;
+    }
+    
+    extractedContent = contextParagraphs + extractedContent;
+  }
+  
+  return extractedContent.trim();
 }

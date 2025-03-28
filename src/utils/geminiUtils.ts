@@ -1,7 +1,7 @@
 
 import { supabase } from '@/integrations/supabase/client';
 import { MessageProps } from '@/components/MessageItem';
-import { searchTranscriptsForQuery, getSourceDescription, Transcript } from './transcriptUtils';
+import { searchTranscriptsForQuery, getSourceDescription, Transcript, extractRelevantContent } from './transcriptUtils';
 
 export const generateGeminiResponse = async (
   query: string, 
@@ -29,7 +29,7 @@ export const generateGeminiResponse = async (
     const startTime = Date.now();
     
     // First check if we have relevant information in transcripts
-    const matchedContent = searchTranscriptsForQuery(query, transcriptsToSearch as Transcript[]);
+    const matchedTranscripts = searchTranscriptsForQuery(query, transcriptsToSearch as Transcript[]);
     
     const searchTime = Date.now() - startTime;
     console.log(`Transcript search completed in ${searchTime}ms`);
@@ -41,16 +41,36 @@ export const generateGeminiResponse = async (
     let relevanceScore = 0;
     let foundInTranscripts = false;
     
-    if (matchedContent) {
-      // Get the source description for better context
-      sourceType = matchedContent.source || 'creative_dealmaker';
+    if (matchedTranscripts && matchedTranscripts.length > 0) {
+      // Get the most relevant transcript
+      const primaryTranscript = matchedTranscripts[0];
+      sourceType = primaryTranscript.source || 'creative_dealmaker';
       const sourceDescription = getSourceDescription(sourceType);
-      relevanceScore = matchedContent.relevanceScore || 0;
+      relevanceScore = primaryTranscript.relevanceScore || 0;
       foundInTranscripts = true;
       
-      console.log(`Found matching content in source: ${sourceType}, title: "${matchedContent.title}" with relevance score: ${relevanceScore}`);
-      contextPrompt = `Use the following information from ${sourceDescription} to answer the question: "${matchedContent.content}"`;
-      bookReference = matchedContent.title;
+      console.log(`Found matching content in source: ${sourceType}, title: "${primaryTranscript.title}" with relevance score: ${relevanceScore}`);
+      
+      // Extract the most relevant content from the transcript
+      const extractedContent = extractRelevantContent(primaryTranscript, query, 4000);
+      
+      // Build context from the primary transcript
+      contextPrompt = `Use the following information from ${sourceDescription} to answer the question about business acquisitions: "${extractedContent}"`;
+      bookReference = primaryTranscript.title;
+      
+      // If we have additional relevant transcripts, include them as supplementary context
+      if (matchedTranscripts.length > 1) {
+        let supplementaryContent = "";
+        for (let i = 1; i < Math.min(matchedTranscripts.length, 3); i++) {
+          const suppTranscript = matchedTranscripts[i];
+          const suppSourceDesc = getSourceDescription(suppTranscript.source || 'creative_dealmaker');
+          const suppExtract = extractRelevantContent(suppTranscript, query, 1000);
+          
+          supplementaryContent += `\n\nAdditional information from ${suppSourceDesc} (${suppTranscript.title}): "${suppExtract}"`;
+        }
+        
+        contextPrompt += supplementaryContent;
+      }
     } else {
       // If no matched content, still provide context about the book
       console.log('No specific matching content found in transcripts');
@@ -63,6 +83,9 @@ export const generateGeminiResponse = async (
         sourceType = 'creative_dealmaker';
       }
     }
+    
+    // Add business owner focus to the context
+    contextPrompt += `\n\nRemember that the person asking this question is a business owner or entrepreneur interested in acquiring businesses using Carl Allen's methodology. Focus on practical, actionable advice they can implement in their acquisition journey. Emphasize risk mitigation, funding strategies, and seller psychology where relevant.`;
     
     // Prepare conversation history for the API
     const messages = chatHistory.map(msg => ({
@@ -82,6 +105,8 @@ export const generateGeminiResponse = async (
     7. Use headings to organize long responses
     8. Format numerical values, percentages, and money values consistently
     9. End with a clear conclusion or summary for long responses
+    10. Focus on practical, actionable advice for business owners looking to acquire companies
+    11. Use business acquisition terminology appropriately (EBITDA, SBA, deal structure, etc.)
     `;
 
     const apiStartTime = Date.now();
@@ -115,7 +140,8 @@ export const generateGeminiResponse = async (
     } else if (data.apiDisabled) {
       // Use API disabled citation
       citation = "Gemini API needs to be enabled in Google Cloud Console - Follow the instructions above";
-    } else if (matchedContent) {
+    } else if (matchedTranscripts && matchedTranscripts.length > 0) {
+      const primaryTranscript = matchedTranscripts[0];
       if (sourceType === 'creative_dealmaker') {
         citation = `Based on information from "${bookReference}" in Carl Allen's Creative Dealmaker book`;
       } else if (sourceType === 'mastermind_call') {
@@ -130,6 +156,11 @@ export const generateGeminiResponse = async (
         citation = `Based on information from Carl Allen's 2024 Business Acquisitions Summit: "${bookReference}"`;
       } else {
         citation = `Based on information from "${bookReference}" by Carl Allen`;
+      }
+      
+      // If we used multiple sources, add a note
+      if (matchedTranscripts.length > 1) {
+        citation += ` and ${matchedTranscripts.length - 1} other source${matchedTranscripts.length > 2 ? 's' : ''}`;
       }
     } else if (enableOnlineSearch) {
       citation = "Based on general knowledge about business acquisitions - Online search mode enabled";
