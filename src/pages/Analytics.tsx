@@ -5,11 +5,10 @@ import Header from '@/components/Header';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { LineChart, PieChart, BarChart } from '@/components/ui/charts';
-import { getTranscriptCounts } from '@/utils/transcriptUtils';
 import { Separator } from '@/components/ui/separator';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
-import { Search, RefreshCw, AlertCircle, Info, BarChart3, FileText, Zap, Database } from 'lucide-react';
+import { Search, RefreshCw, AlertCircle, Info, BarChart3, Zap, Database, ArrowUpRight } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { 
@@ -18,13 +17,16 @@ import {
   generateSourceDistribution, 
   calculateSuccessRate, 
   generateResponseTimeData,
-  getTranscriptSourceStats,
   generateKeywordFrequency,
   trackNonTranscriptSources,
-  analyzeUserSegments
 } from '@/utils/analyticsUtils';
-import { validateAnalyticsTable, checkForExistingData, insertSampleData } from '@/utils/analyticsDbCheck';
-import { useToast } from '@/components/ui/use-toast';
+import { 
+  validateAnalyticsTable, 
+  checkForExistingData, 
+  insertSampleData,
+  migrateConversationDataToAnalytics 
+} from '@/utils/analyticsDbCheck';
+import { useToast } from '@/hooks/use-toast';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 
 const Analytics = () => {
@@ -33,6 +35,7 @@ const Analytics = () => {
   const [isTableValidated, setIsTableValidated] = useState(false);
   const [existingDataCount, setExistingDataCount] = useState(0);
   const [isLoadingSample, setIsLoadingSample] = useState(false);
+  const [isMigratingData, setIsMigratingData] = useState(false);
   const { toast } = useToast();
   
   // Validate the analytics table on component mount
@@ -58,24 +61,6 @@ const Analytics = () => {
     enabled: isTableValidated, // Only run query if table is validated
   });
   
-  // Fetch transcript data
-  const { data: transcripts, refetch: refetchTranscripts } = useQuery({
-    queryKey: ['transcripts'],
-    queryFn: async () => {
-      const { data, error } = await supabase
-        .from('transcripts')
-        .select('id, title, content, created_at, file_path, source')
-        .order('created_at', { ascending: false });
-        
-      if (error) {
-        console.error('Error fetching transcripts:', error);
-        return [];
-      }
-      
-      return data || [];
-    },
-  });
-  
   // Fetch popular queries
   const { data: topQueries } = useQuery({
     queryKey: ['top-queries', dateRange],
@@ -90,11 +75,6 @@ const Analytics = () => {
     },
     enabled: isTableValidated && existingDataCount > 0,
   });
-  
-  // Calculate some analytics
-  const transcriptCounts = React.useMemo(() => {
-    return getTranscriptCounts(transcripts || []);
-  }, [transcripts]);
   
   // Generate chart data
   const sourceDistribution = React.useMemo(() => {
@@ -114,25 +94,11 @@ const Analytics = () => {
     return generateResponseTimeData(analyticsData);
   }, [analyticsData]);
   
-  // Transcript source stats from analytics data
-  const transcriptSourceStats = React.useMemo(() => {
-    if (!analyticsData) return null;
-    return getTranscriptSourceStats(analyticsData);
-  }, [analyticsData]);
-  
   // Recent queries
   const recentQueries = React.useMemo(() => {
     if (!analyticsData) return [];
     return analyticsData.slice(0, 10);
   }, [analyticsData]);
-  
-  // Recent summit transcripts
-  const summitTranscripts = React.useMemo(() => {
-    if (!transcripts) return [];
-    return transcripts
-      .filter(t => t.source === 'business_acquisitions_summit')
-      .slice(0, 5);
-  }, [transcripts]);
   
   // Keyword frequency
   const keywordFrequency = React.useMemo(() => {
@@ -146,16 +112,9 @@ const Analytics = () => {
     return trackNonTranscriptSources(analyticsData);
   }, [analyticsData]);
   
-  // User segments
-  const userSegments = React.useMemo(() => {
-    if (!analyticsData) return null;
-    return analyzeUserSegments(analyticsData);
-  }, [analyticsData]);
-  
   // Handle manual refresh
   const handleRefresh = () => {
     refetchAnalytics();
-    refetchTranscripts();
     toast({
       title: "Analytics refreshed",
       description: "The analytics data has been refreshed.",
@@ -191,6 +150,38 @@ const Analytics = () => {
       });
     } finally {
       setIsLoadingSample(false);
+    }
+  };
+
+  // Handle migrating existing conversation data to analytics
+  const handleMigrateData = async () => {
+    setIsMigratingData(true);
+    
+    try {
+      const migratedCount = await migrateConversationDataToAnalytics();
+      if (migratedCount > 0) {
+        toast({
+          title: "Data migration successful",
+          description: `Successfully created ${migratedCount} analytics records from conversation history.`,
+        });
+        refetchAnalytics();
+        setExistingDataCount(prev => prev + migratedCount);
+      } else {
+        toast({
+          title: "No data migrated",
+          description: "Could not find or migrate any conversation data to analytics.",
+          variant: "destructive"
+        });
+      }
+    } catch (error) {
+      console.error("Error migrating data:", error);
+      toast({
+        title: "Error migrating data",
+        description: "An unexpected error occurred while migrating conversation data.",
+        variant: "destructive"
+      });
+    } finally {
+      setIsMigratingData(false);
     }
   };
   
@@ -264,6 +255,17 @@ const Analytics = () => {
                 <Button 
                   variant="secondary" 
                   size="sm" 
+                  onClick={handleMigrateData}
+                  disabled={isMigratingData}
+                  className="flex items-center"
+                >
+                  <ArrowUpRight className="mr-2 h-4 w-4" />
+                  {isMigratingData ? "Migrating Conversation Data..." : "Migrate Conversation Data to Analytics"}
+                </Button>
+                
+                <Button 
+                  variant="secondary" 
+                  size="sm" 
                   onClick={handleAddSampleData} 
                   disabled={isLoadingSample}
                   className="flex items-center"
@@ -316,17 +318,14 @@ const Analytics = () => {
           
           <Card>
             <CardHeader className="pb-2">
-              <CardTitle>Knowledge Base</CardTitle>
-              <CardDescription>Available transcripts</CardDescription>
+              <CardTitle>Query Sources</CardTitle>
+              <CardDescription>Where answers are coming from</CardDescription>
             </CardHeader>
             <CardContent>
-              <div className="text-4xl font-bold">{transcriptCounts.total}</div>
-              <div className="flex flex-wrap gap-4 mt-2 text-sm">
-                <span>Protege: {transcriptCounts.protege_call}</span>
-                <span>Foundations: {transcriptCounts.foundations_call}</span>
-                <span>Mastermind: {transcriptCounts.mastermind_call}</span>
-                <span className="font-medium">Summit: {transcriptCounts.business_acquisitions_summit}</span>
-              </div>
+              <div className="text-4xl font-bold">{sourceDistribution.length}</div>
+              <p className="text-sm text-muted-foreground mt-1">
+                {externalSourceStats.percentage}% of queries used external sources
+              </p>
             </CardContent>
           </Card>
         </div>
@@ -339,7 +338,7 @@ const Analytics = () => {
             </CardHeader>
             <CardContent>
               {analyticsLoading ? (
-                <div className="flex items-center justify-center h-64 lg:h-80">
+                <div className="flex items-center justify-center h-64">
                   <p>Loading data...</p>
                 </div>
               ) : sourceDistribution.length > 0 ? (
@@ -349,10 +348,10 @@ const Analytics = () => {
                   categories={['value']}
                   valueFormatter={(value) => `${value} queries`}
                   colors={['indigo', 'blue', 'violet', 'teal', 'rose', 'amber', 'lime']}
-                  className="h-64 lg:h-80"
+                  className="h-64"
                 />
               ) : (
-                <div className="flex flex-col items-center justify-center h-64 lg:h-80">
+                <div className="flex flex-col items-center justify-center h-64">
                   <p>No data available</p>
                   {existingDataCount === 0 && (
                     <p className="text-sm text-muted-foreground mt-2">
@@ -371,7 +370,7 @@ const Analytics = () => {
             </CardHeader>
             <CardContent>
               {analyticsLoading ? (
-                <div className="flex items-center justify-center h-64 lg:h-80">
+                <div className="flex items-center justify-center h-64">
                   <p>Loading data...</p>
                 </div>
               ) : responseTimeData.length > 0 ? (
@@ -380,11 +379,11 @@ const Analytics = () => {
                   index="date"
                   categories={["Average Response Time (ms)"]}
                   colors={["green"]}
-                  className="h-64 lg:h-80"
+                  className="h-64"
                   showLegend={false}
                 />
               ) : (
-                <div className="flex flex-col items-center justify-center h-64 lg:h-80">
+                <div className="flex flex-col items-center justify-center h-64">
                   <p>No response time data available</p>
                   {existingDataCount === 0 && (
                     <p className="text-sm text-muted-foreground mt-2">
@@ -419,7 +418,7 @@ const Analytics = () => {
                   categories={["count"]}
                   colors={["blue"]}
                   valueFormatter={(value) => `${value} occurrences`}
-                  className="h-64 lg:h-80"
+                  className="h-64"
                   showLegend={false}
                 />
               ) : (
@@ -433,7 +432,7 @@ const Analytics = () => {
           <Card>
             <CardHeader>
               <CardTitle className="flex items-center">
-                <FileText className="mr-2 h-5 w-5 text-primary" />
+                <Info className="mr-2 h-5 w-5 text-primary" />
                 Knowledge Gaps
               </CardTitle>
               <CardDescription>Queries requiring external sources</CardDescription>
@@ -470,7 +469,7 @@ const Analytics = () => {
           </Card>
         </div>
         
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-8">
+        <div className="grid grid-cols-1 gap-6">
           <Card>
             <CardHeader>
               <CardTitle>Popular Queries</CardTitle>
@@ -506,69 +505,41 @@ const Analytics = () => {
           
           <Card>
             <CardHeader>
-              <CardTitle>Recent Summit Transcripts</CardTitle>
-              <CardDescription>Latest Business Acquisitions Summit content</CardDescription>
-            </CardHeader>
-            <CardContent>
-              {summitTranscripts.length > 0 ? (
-                <Table>
-                  <TableHeader>
-                    <TableRow>
-                      <TableHead>Title</TableHead>
-                      <TableHead className="hidden md:table-cell">Date Added</TableHead>
-                    </TableRow>
-                  </TableHeader>
-                  <TableBody>
-                    {summitTranscripts.map((transcript) => (
-                      <TableRow key={transcript.id}>
-                        <TableCell className="font-medium">{transcript.title}</TableCell>
-                        <TableCell className="hidden md:table-cell">
-                          {new Date(transcript.created_at).toLocaleDateString()}
-                        </TableCell>
-                      </TableRow>
-                    ))}
-                  </TableBody>
-                </Table>
-              ) : (
-                <div className="flex flex-col items-center justify-center py-8">
-                  <p className="text-muted-foreground text-sm">No summit transcripts found</p>
-                  <p className="text-sm text-muted-foreground mt-2">
-                    Make sure your summit transcripts are tagged with "business_acquisitions_summit"
-                  </p>
-                </div>
-              )}
-            </CardContent>
-          </Card>
-        </div>
-        
-        <div className="grid grid-cols-1 gap-6">
-          <Card>
-            <CardHeader>
               <CardTitle>Recent Queries</CardTitle>
               <CardDescription>Latest user interactions</CardDescription>
             </CardHeader>
             <CardContent>
               {recentQueries.length > 0 ? (
-                <div className="space-y-4">
-                  {recentQueries.map((query, index) => (
-                    <div key={index} className="space-y-1">
-                      <div className="flex justify-between items-start gap-2">
-                        <div className="flex-1">
-                          <p className="text-sm font-medium break-words">{query.query}</p>
-                          <p className="text-xs text-muted-foreground">
-                            {new Date(query.created_at).toLocaleString()} • 
-                            {query.source_type && <span className="font-medium"> Source: {query.source_type}</span>}
-                            {query.transcript_title && <span> • {query.transcript_title}</span>}
-                          </p>
-                        </div>
-                        <span className={`text-xs px-2 py-0.5 rounded-full shrink-0 ${query.successful ? 'bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-300' : 'bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-300'}`}>
-                          {query.successful ? 'Success' : 'Failed'}
-                        </span>
-                      </div>
-                      <Separator className="my-1" />
-                    </div>
-                  ))}
-                </div>
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead>Query</TableHead>
+                      <TableHead className="hidden md:table-cell">Source</TableHead>
+                      <TableHead className="hidden md:table-cell">Date</TableHead>
+                      <TableHead className="w-[80px]">Status</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {recentQueries.map((query, index) => (
+                      <TableRow key={index}>
+                        <TableCell className="font-medium max-w-[300px] truncate">
+                          {query.query}
+                        </TableCell>
+                        <TableCell className="hidden md:table-cell">
+                          {query.source_type || 'Unknown'}
+                        </TableCell>
+                        <TableCell className="hidden md:table-cell">
+                          {new Date(query.created_at).toLocaleDateString()}
+                        </TableCell>
+                        <TableCell>
+                          <span className={`text-xs px-2 py-0.5 rounded-full ${query.successful ? 'bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-300' : 'bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-300'}`}>
+                            {query.successful ? 'Success' : 'Failed'}
+                          </span>
+                        </TableCell>
+                      </TableRow>
+                    ))}
+                  </TableBody>
+                </Table>
               ) : (
                 <div className="flex flex-col items-center justify-center py-8">
                   <p className="text-muted-foreground text-sm">No recent queries</p>

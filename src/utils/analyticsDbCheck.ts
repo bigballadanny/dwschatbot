@@ -67,6 +67,100 @@ export async function checkForExistingData(): Promise<number> {
 }
 
 /**
+ * This function attempts to migrate conversation data to analytics table
+ * by creating analytics entries for past conversations
+ */
+export async function migrateConversationDataToAnalytics(): Promise<number> {
+  try {
+    console.log('Attempting to migrate conversation data to analytics...');
+    
+    // First get all conversations and their first message (which is usually the query)
+    const { data: conversations, error: convError } = await supabase
+      .from('conversations')
+      .select('id, title, created_at');
+    
+    if (convError) {
+      console.error('Error fetching conversations:', convError);
+      return 0;
+    }
+    
+    if (!conversations || conversations.length === 0) {
+      console.log('No conversations found to migrate');
+      return 0;
+    }
+    
+    console.log(`Found ${conversations.length} conversations to potentially migrate`);
+    
+    // For each conversation, get the first user message
+    let migratedCount = 0;
+    const analyticsRecords = [];
+    
+    for (const conv of conversations) {
+      const { data: messages, error: msgError } = await supabase
+        .from('messages')
+        .select('content, created_at, is_user')
+        .eq('conversation_id', conv.id)
+        .eq('is_user', true)
+        .order('created_at', { ascending: true })
+        .limit(1);
+      
+      if (msgError) {
+        console.error(`Error fetching messages for conversation ${conv.id}:`, msgError);
+        continue;
+      }
+      
+      if (!messages || messages.length === 0) {
+        console.log(`No user messages found for conversation ${conv.id}`);
+        continue;
+      }
+      
+      // Get the first AI response to calculate length
+      const { data: aiResponses, error: aiError } = await supabase
+        .from('messages')
+        .select('content, created_at')
+        .eq('conversation_id', conv.id)
+        .eq('is_user', false)
+        .order('created_at', { ascending: true })
+        .limit(1);
+      
+      const firstQuery = messages[0].content;
+      const responseLength = aiResponses && aiResponses.length > 0 ? aiResponses[0].content.length : 0;
+      
+      // Create analytics record from conversation data
+      analyticsRecords.push({
+        query: firstQuery,
+        conversation_id: conv.id,
+        response_length: responseLength,
+        successful: true, // Assume successful since there's a conversation
+        source_type: 'historical_migration',
+        created_at: messages[0].created_at
+      });
+      
+      migratedCount++;
+    }
+    
+    // Insert the analytics records if there are any
+    if (analyticsRecords.length > 0) {
+      const { error: insertError } = await supabase
+        .from('chat_analytics')
+        .insert(analyticsRecords);
+      
+      if (insertError) {
+        console.error('Error inserting migrated analytics records:', insertError);
+        return 0;
+      }
+      
+      console.log(`Successfully migrated ${migratedCount} conversation records to analytics`);
+    }
+    
+    return migratedCount;
+  } catch (err) {
+    console.error('Error in migrateConversationDataToAnalytics:', err);
+    return 0;
+  }
+}
+
+/**
  * Insert sample data for testing if needed
  * Only use this in development environments
  */

@@ -35,7 +35,7 @@ const Header: React.FC = () => {
               className="font-bold text-xl flex items-center cursor-pointer hover:text-primary transition-colors"
             >
               <BookOpen className="mr-2 h-6 w-6 text-primary" />
-              DWS AI
+              Carl's Wisdom
             </button>
           ) : (
             <Link 
@@ -43,7 +43,7 @@ const Header: React.FC = () => {
               className="font-bold text-xl flex items-center cursor-pointer hover:text-primary transition-colors"
             >
               <BookOpen className="mr-2 h-6 w-6 text-primary" />
-              DWS AI
+              Carl's Wisdom
             </Link>
           )}
         </div>
