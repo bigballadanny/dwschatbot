@@ -1,6 +1,6 @@
 
 import React from 'react';
-import { Link } from 'react-router-dom';
+import { Link, useLocation } from 'react-router-dom';
 import { Button } from "@/components/ui/button";
 import { BookOpen, BarChart3, Headphones } from 'lucide-react';
 import { useAuth } from '@/context/AuthContext';
@@ -16,20 +16,42 @@ const Header: React.FC = () => {
   const { user } = useAuth();
   const { isAdmin } = useAdmin();
   const { toggleSidebar } = useSidebar();
+  const location = useLocation();
+  
+  // Check if we're on the homepage
+  const isHomePage = location.pathname === '/';
   
   console.log("Header - isAdmin:", isAdmin, "user:", !!user);
+  
+  const handleLogoClick = () => {
+    if (isHomePage) {
+      // Toggle sidebar if we're already on the home page
+      toggleSidebar();
+    }
+    // If not on home page, the Link component will navigate to home
+  };
   
   return (
     <header className="border-b">
       <div className="container mx-auto px-4 py-3 flex items-center justify-between">
         <div className="flex items-center">
-          <button 
-            onClick={toggleSidebar} 
-            className="font-bold text-xl flex items-center cursor-pointer hover:text-primary transition-colors"
-          >
-            <BookOpen className="mr-2 h-6 w-6 text-primary" />
-            DWS AI
-          </button>
+          {isHomePage ? (
+            <button 
+              onClick={handleLogoClick} 
+              className="font-bold text-xl flex items-center cursor-pointer hover:text-primary transition-colors"
+            >
+              <BookOpen className="mr-2 h-6 w-6 text-primary" />
+              DWS AI
+            </button>
+          ) : (
+            <Link 
+              to="/" 
+              className="font-bold text-xl flex items-center cursor-pointer hover:text-primary transition-colors"
+            >
+              <BookOpen className="mr-2 h-6 w-6 text-primary" />
+              DWS AI
+            </Link>
+          )}
           
           <nav className="ml-8 hidden md:flex space-x-4">
             <HeaderLink to="/">Home</HeaderLink>
