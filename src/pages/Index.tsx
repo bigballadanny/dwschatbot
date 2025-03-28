@@ -229,26 +229,11 @@ const Index = () => {
     setIsLoading(true);
     
     try {
-      await supabase
-        .from('messages')
-        .insert([
-          {
-            conversation_id: currentConversationId,
-            content: userMessage.content,
-            is_user: true
-          }
-        ]);
-      
-      const loadingMessage: MessageProps = {
-        content: enableOnlineSearch 
-          ? "Searching through Carl Allen's transcripts and online resources..." 
-          : "Searching through Carl Allen's transcripts...",
-        source: 'system',
-        timestamp: new Date(),
-        isLoading: true
-      };
-      
-      setMessages(prev => [...prev, loadingMessage]);
+      console.log('Sending message:', {
+        message,
+        conversationId: currentConversationId,
+        enableOnlineSearch
+      });
       
       const { data, error } = await supabase.functions.invoke('voice-conversation', {
         body: { 
@@ -259,7 +244,12 @@ const Index = () => {
         }
       });
       
-      if (error) throw error;
+      console.log('Function response:', { data, error });
+      
+      if (error) {
+        console.error('Detailed error:', error);
+        throw error;
+      }
       
       setMessages(prev => prev.filter(msg => !msg.isLoading));
       
@@ -298,20 +288,20 @@ const Index = () => {
         setHasInteracted(true);
       }
     } catch (error) {
-      console.error('Error generating response:', error);
+      console.error('Full error details:', error);
       
       setMessages(prev => [
         ...prev.filter(msg => !msg.isLoading), 
         {
-          content: "I'm sorry, there was an error processing your request. Please try again.",
+          content: "I'm sorry, there was an advanced error processing your request. Please try again.",
           source: 'system',
           timestamp: new Date()
         }
       ]);
       
       toast({
-        title: "Error",
-        description: "There was a problem processing your request. Please try again.",
+        title: "Advanced Error",
+        description: "A detailed error occurred. Please check the console for more information.",
         variant: "destructive",
       });
     } finally {
