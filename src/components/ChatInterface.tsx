@@ -1,10 +1,9 @@
-
 import React, { useState, useRef, useEffect, forwardRef, useImperativeHandle } from 'react';
 import { useLocation } from 'react-router-dom';
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Send, AlertTriangle } from "lucide-react";
-import MessageItem, { MessageProps } from './MessageItem';
+import MessageItem, { MessageProps, MessageSource } from './MessageItem';
 import { cn } from "@/lib/utils";
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/context/AuthContext';
@@ -81,7 +80,6 @@ const ChatInterface = forwardRef<
     }
   }));
   
-  // Get conversation ID from URL
   useEffect(() => {
     const params = new URLSearchParams(location.search);
     const urlConversationId = params.get('conversation');
@@ -109,13 +107,12 @@ const ChatInterface = forwardRef<
       if (data && data.length > 0) {
         const formattedMessages = data.map((message): MessageProps => ({
           content: message.content,
-          source: message.is_user ? 'user' : 'gemini',
+          source: message.is_user ? 'user' : 'transcript',
           timestamp: new Date(message.created_at),
         }));
         
         setMessages(formattedMessages);
       } else {
-        // If no messages found, add the initial welcome message to this conversation
         setMessages(INITIAL_MESSAGES);
         
         await supabase
