@@ -2,15 +2,11 @@
 import React from 'react';
 import { Link, useLocation } from 'react-router-dom';
 import { Button } from "@/components/ui/button";
-import { BookOpen, BarChart3, Headphones } from 'lucide-react';
+import { BookOpen, Headphones } from 'lucide-react';
 import { useAuth } from '@/context/AuthContext';
 import { useAdmin } from '@/context/AdminContext';
 import { ModeToggle } from "@/components/ModeToggle";
 import { useSidebar } from "@/components/ui/sidebar";
-
-const HeaderLink = ({ to, children }: { to: string; children: React.ReactNode }) => (
-  <Link to={to} className="text-sm font-medium hover:text-primary">{children}</Link>
-);
 
 const Header: React.FC = () => {
   const { user } = useAuth();
@@ -52,19 +48,6 @@ const Header: React.FC = () => {
               DWS AI
             </Link>
           )}
-          
-          <nav className="ml-8 hidden md:flex space-x-4">
-            <HeaderLink to="/">Home</HeaderLink>
-            <HeaderLink to="/transcripts">Transcripts</HeaderLink>
-            {isAdmin && (
-              <HeaderLink to="/analytics">
-                <span className="flex items-center">
-                  <BarChart3 className="mr-1 h-4 w-4" />
-                  Analytics
-                </span>
-              </HeaderLink>
-            )}
-          </nav>
         </div>
         
         <div className="flex items-center space-x-2">

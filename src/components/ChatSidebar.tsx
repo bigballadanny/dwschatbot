@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
 import { supabase } from '@/integrations/supabase/client';
@@ -8,7 +9,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { 
   Settings, PlusCircle, BarChart3, LogOut, Search, 
-  ChevronLeft, ChevronRight, UserCog
+  ChevronLeft, ChevronRight, UserCog, Home, BookOpen
 } from 'lucide-react';
 import { toast } from '@/components/ui/use-toast';
 import {
@@ -20,7 +21,8 @@ import {
   SidebarMenuButton,
   SidebarMenuItem,
   SidebarProvider,
-  SidebarTrigger
+  SidebarTrigger,
+  SidebarSeparator
 } from "@/components/ui/sidebar";
 import {
   Sheet,
@@ -198,6 +200,37 @@ const ChatSidebar = () => {
       </SidebarHeader>
       
       <SidebarContent>
+        <SidebarMenu className="px-2 pt-2">
+          <SidebarMenuItem>
+            <Button variant="ghost" className="w-full justify-start" onClick={() => navigate('/')}>
+              <SidebarMenuButton>
+                <Home className="h-4 w-4" />
+                <span>Home</span>
+              </SidebarMenuButton>
+            </Button>
+          </SidebarMenuItem>
+          <SidebarMenuItem>
+            <Button variant="ghost" className="w-full justify-start" onClick={() => navigate('/transcripts')}>
+              <SidebarMenuButton>
+                <BookOpen className="h-4 w-4" />
+                <span>Transcripts</span>
+              </SidebarMenuButton>
+            </Button>
+          </SidebarMenuItem>
+          {isAdmin && (
+            <SidebarMenuItem>
+              <Button variant="ghost" className="w-full justify-start" onClick={() => navigate('/analytics')}>
+                <SidebarMenuButton>
+                  <BarChart3 className="h-4 w-4" />
+                  <span>Analytics</span>
+                </SidebarMenuButton>
+              </Button>
+            </SidebarMenuItem>
+          )}
+        </SidebarMenu>
+        
+        <SidebarSeparator className="my-2" />
+        
         <ConversationList 
           conversations={conversations}
           activeConversationId={conversationId}
@@ -209,24 +242,14 @@ const ChatSidebar = () => {
       <SidebarFooter className="border-t">
         <SidebarMenu>
           {isAdmin && (
-            <>
-              <SidebarMenuItem>
-                <Button variant="ghost" className="w-full justify-start" onClick={() => navigate('/analytics')}>
-                  <SidebarMenuButton>
-                    <BarChart3 className="h-4 w-4" />
-                    <span>Analytics</span>
-                  </SidebarMenuButton>
-                </Button>
-              </SidebarMenuItem>
-              <SidebarMenuItem>
-                <Button variant="ghost" className="w-full justify-start" onClick={() => navigate('/admin')}>
-                  <SidebarMenuButton>
-                    <UserCog className="h-4 w-4" />
-                    <span>Admin Users</span>
-                  </SidebarMenuButton>
-                </Button>
-              </SidebarMenuItem>
-            </>
+            <SidebarMenuItem>
+              <Button variant="ghost" className="w-full justify-start" onClick={() => navigate('/admin')}>
+                <SidebarMenuButton>
+                  <UserCog className="h-4 w-4" />
+                  <span>Admin Users</span>
+                </SidebarMenuButton>
+              </Button>
+            </SidebarMenuItem>
           )}
           <SidebarMenuItem>
             <Sheet open={settingsOpen} onOpenChange={setSettingsOpen}>
