@@ -11,7 +11,7 @@ import { ModeToggle } from "@/components/ModeToggle";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { 
   Settings, MessageSquare, Trash2, PlusCircle, 
-  BarChart3, LogOut, Search, ChevronLeft, ChevronRight, Shield
+  BarChart3, LogOut, Search, ChevronLeft, ChevronRight
 } from 'lucide-react';
 import { toast } from '@/components/ui/use-toast';
 import {
@@ -56,7 +56,7 @@ interface Conversation {
 
 const ChatSidebar = () => {
   const { user, signOut } = useAuth();
-  const { isAdmin, makeAdmin } = useAdmin();
+  const { isAdmin } = useAdmin();
   const [conversations, setConversations] = useState<Conversation[]>([]);
   const [searchQuery, setSearchQuery] = useState('');
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
@@ -215,7 +215,7 @@ const ChatSidebar = () => {
                 </div>
               ) : (
                 filteredConversations.map((conversation) => (
-                  <SidebarMenuItem key={conversation.id} className="group">
+                  <SidebarMenuItem key={conversation.id} className="group relative">
                     <Link 
                       to={`/?conversation=${conversation.id}`}
                       className={cn(
@@ -232,7 +232,7 @@ const ChatSidebar = () => {
                       <Button
                         variant="ghost"
                         size="icon"
-                        className="h-6 w-6 flex-shrink-0 ml-1 text-destructive opacity-100 hover:text-destructive hover:bg-destructive/10"
+                        className="h-6 w-6 flex-shrink-0 opacity-100 text-destructive hover:bg-destructive/10 hover:text-destructive"
                         onClick={(e) => confirmDelete(conversation.id, e)}
                         title="Delete conversation"
                       >
@@ -249,7 +249,7 @@ const ChatSidebar = () => {
       
       <SidebarFooter className="border-t">
         <SidebarMenu>
-          {isAdmin ? (
+          {isAdmin && (
             <SidebarMenuItem>
               <Link to="/analytics">
                 <SidebarMenuButton>
@@ -257,13 +257,6 @@ const ChatSidebar = () => {
                   <span>Analytics</span>
                 </SidebarMenuButton>
               </Link>
-            </SidebarMenuItem>
-          ) : (
-            <SidebarMenuItem>
-              <SidebarMenuButton onClick={makeAdmin}>
-                <Shield className="h-4 w-4" />
-                <span>Become Admin</span>
-              </SidebarMenuButton>
             </SidebarMenuItem>
           )}
           <SidebarMenuItem>
