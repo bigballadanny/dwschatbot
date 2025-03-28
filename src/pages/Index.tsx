@@ -87,7 +87,7 @@ const Index = () => {
             ) : (
               <div className="flex-1 overflow-hidden flex flex-col">
                 <div className="px-4 py-2 flex justify-center border-b">
-                  <Tabs defaultValue="chat" value={activeTab} onValueChange={setActiveTab} className="w-[400px]">
+                  <Tabs value={activeTab} onValueChange={setActiveTab} className="w-[400px]">
                     <TabsList className="grid w-full grid-cols-2">
                       <TabsTrigger value="chat" className="flex items-center gap-2">
                         <MessageSquare className="h-4 w-4" />
@@ -98,16 +98,13 @@ const Index = () => {
                         <span>Voice Chat</span>
                       </TabsTrigger>
                     </TabsList>
+                    <TabsContent value="chat" className="h-full">
+                      <ChatInterface ref={chatRef} initialQuestion={null} />
+                    </TabsContent>
+                    <TabsContent value="voice" className="h-full">
+                      <VoiceConversation />
+                    </TabsContent>
                   </Tabs>
-                </div>
-                
-                <div className="flex-1 overflow-hidden">
-                  <TabsContent value="chat" className="h-full">
-                    <ChatInterface ref={chatRef} initialQuestion={null} />
-                  </TabsContent>
-                  <TabsContent value="voice" className="h-full">
-                    <VoiceConversation />
-                  </TabsContent>
                 </div>
               </div>
             )}
