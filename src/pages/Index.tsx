@@ -1,4 +1,3 @@
-
 import React, { useState, useRef, useEffect } from 'react';
 import { useLocation } from 'react-router-dom';
 import ChatInterface from '@/components/ChatInterface';
@@ -18,13 +17,13 @@ const SidebarOpenButton = () => {
   
   return (
     <Button 
-      variant="outline" 
+      variant="ghost" 
       size="icon" 
-      className="fixed left-4 top-4 z-30 rounded-full h-10 w-10 bg-background shadow-md border border-border"
+      className="absolute left-4 top-16 z-30 h-8 w-8 bg-background/80 backdrop-blur-sm hover:bg-accent"
       onClick={toggleSidebar}
       title="Open sidebar"
     >
-      <PanelLeft className="h-5 w-5" />
+      <PanelLeft className="h-4 w-4" />
       <span className="sr-only">Open sidebar</span>
     </Button>
   );

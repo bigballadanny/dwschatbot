@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
 import { supabase } from '@/integrations/supabase/client';
@@ -133,6 +132,15 @@ const ChatSidebar = () => {
     if (!conversationToDelete) return;
     
     try {
+      // Delete related messages first to avoid foreign key constraint issues
+      const { error: messagesError } = await supabase
+        .from('messages')
+        .delete()
+        .eq('conversation_id', conversationToDelete);
+        
+      if (messagesError) throw messagesError;
+      
+      // Then delete the conversation
       const { error } = await supabase
         .from('conversations')
         .delete()
