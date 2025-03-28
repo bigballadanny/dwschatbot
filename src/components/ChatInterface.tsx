@@ -1,4 +1,3 @@
-
 import React, { useRef, useEffect, forwardRef, useImperativeHandle } from 'react';
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -94,7 +93,7 @@ const ChatInterface = forwardRef<
         </div>
       </div>
       
-      <div className="border-t glassmorphism w-full fixed bottom-0 left-0 right-0 bg-background/80 backdrop-blur-sm z-10 md:pl-[calc(var(--sidebar-width))] transition-all duration-200">
+      <div className="border-t w-full fixed bottom-0 bg-background/80 backdrop-blur-sm z-10 transition-all duration-200">
         <div className="max-w-4xl mx-auto px-4 py-4">
           <form onSubmit={handleSubmit} className="flex gap-3 items-center">
             <Input

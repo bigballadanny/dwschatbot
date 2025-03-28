@@ -389,7 +389,7 @@ const Index = () => {
                   </div>
                 </div>
                 
-                <div className="h-[calc(100vh-8.5rem)] flex-1 overflow-hidden">
+                <div className="h-[calc(100vh-8.5rem)] flex-1 overflow-hidden relative">
                   <ScrollArea className="h-full">
                     {voiceEnabled ? (
                       <VoiceConversation 
