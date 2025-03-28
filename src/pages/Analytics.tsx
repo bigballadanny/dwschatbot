@@ -9,7 +9,7 @@ import { getTranscriptCounts } from '@/utils/transcriptUtils';
 import { Separator } from '@/components/ui/separator';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
-import { Search, RefreshCw, AlertCircle, Info, BarChart3, FileText, Zap } from 'lucide-react';
+import { Search, RefreshCw, AlertCircle, Info, BarChart3, FileText, Zap, Database } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { 
@@ -23,19 +23,39 @@ import {
   trackNonTranscriptSources,
   analyzeUserSegments
 } from '@/utils/analyticsUtils';
+import { validateAnalyticsTable, checkForExistingData, insertSampleData } from '@/utils/analyticsDbCheck';
 import { useToast } from '@/components/ui/use-toast';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 
 const Analytics = () => {
   const [dateRange, setDateRange] = useState<'7d' | '30d' | 'all'>('7d');
   const [searchQuery, setSearchQuery] = useState('');
+  const [isTableValidated, setIsTableValidated] = useState(false);
+  const [existingDataCount, setExistingDataCount] = useState(0);
+  const [isLoadingSample, setIsLoadingSample] = useState(false);
   const { toast } = useToast();
+  
+  // Validate the analytics table on component mount
+  useEffect(() => {
+    const validateTable = async () => {
+      const isValid = await validateAnalyticsTable();
+      setIsTableValidated(isValid);
+      
+      if (isValid) {
+        const count = await checkForExistingData();
+        setExistingDataCount(count);
+      }
+    };
+    
+    validateTable();
+  }, []);
   
   // Fetch analytics data
   const { data: analyticsData, isLoading: analyticsLoading, refetch: refetchAnalytics, isError } = useQuery({
     queryKey: ['chat-analytics', dateRange, searchQuery],
     queryFn: () => fetchAnalyticsData(dateRange, searchQuery),
     refetchInterval: 60000, // Refresh every minute
+    enabled: isTableValidated, // Only run query if table is validated
   });
   
   // Fetch transcript data
@@ -68,6 +88,7 @@ const Analytics = () => {
           
       return getTopQueries(timePeriod);
     },
+    enabled: isTableValidated && existingDataCount > 0,
   });
   
   // Calculate some analytics
@@ -113,19 +134,19 @@ const Analytics = () => {
       .slice(0, 5);
   }, [transcripts]);
   
-  // NEW: Keyword frequency
+  // Keyword frequency
   const keywordFrequency = React.useMemo(() => {
     if (!analyticsData) return [];
     return generateKeywordFrequency(analyticsData, 20);
   }, [analyticsData]);
   
-  // NEW: External source tracking
+  // External source tracking
   const externalSourceStats = React.useMemo(() => {
     if (!analyticsData) return { count: 0, percentage: 0, topQueries: [] };
     return trackNonTranscriptSources(analyticsData);
   }, [analyticsData]);
   
-  // NEW: User segments
+  // User segments
   const userSegments = React.useMemo(() => {
     if (!analyticsData) return null;
     return analyzeUserSegments(analyticsData);
@@ -141,21 +162,37 @@ const Analytics = () => {
     });
   };
   
-  // Load data when component mounts
-  useEffect(() => {
-    handleRefresh();
-  }, []);
-  
-  // Log summit transcript counts on load
-  useEffect(() => {
-    if (transcripts?.length > 0) {
-      const summitTranscriptCount = transcripts.filter(t => 
-        t.source === 'business_acquisitions_summit'
-      ).length;
-      
-      console.log(`Found ${summitTranscriptCount} Business Acquisition Summit transcripts`);
+  // Handle adding sample data (for development/testing)
+  const handleAddSampleData = async () => {
+    setIsLoadingSample(true);
+    
+    try {
+      const success = await insertSampleData(20);
+      if (success) {
+        toast({
+          title: "Sample data added",
+          description: "Sample analytics data has been added for testing purposes.",
+        });
+        refetchAnalytics();
+        setExistingDataCount(prev => prev + 20);
+      } else {
+        toast({
+          title: "Error adding sample data",
+          description: "Could not add sample analytics data.",
+          variant: "destructive"
+        });
+      }
+    } catch (error) {
+      console.error("Error adding sample data:", error);
+      toast({
+        title: "Error adding sample data",
+        description: "An unexpected error occurred.",
+        variant: "destructive"
+      });
+    } finally {
+      setIsLoadingSample(false);
     }
-  }, [transcripts]);
+  };
   
   // Format keyword data for chart
   const keywordChartData = React.useMemo(() => {
@@ -199,14 +236,42 @@ const Analytics = () => {
           </div>
         </div>
         
-        {analyticsData?.length === 0 && (
+        {!isTableValidated && (
+          <Alert variant="destructive" className="mb-6">
+            <AlertCircle className="h-4 w-4" />
+            <AlertTitle>Database configuration issue</AlertTitle>
+            <AlertDescription>
+              The chat_analytics table doesn't exist or cannot be accessed. Please make sure your database is properly set up.
+            </AlertDescription>
+          </Alert>
+        )}
+        
+        {isTableValidated && existingDataCount === 0 && (
           <Alert className="mb-6">
             <Info className="h-4 w-4" />
             <AlertTitle>No analytics data found</AlertTitle>
-            <AlertDescription>
-              This may be due to a database connectivity issue or the chat_analytics table might be empty.
-              Try using the AI assistant a few times to generate analytics data, or check your Supabase 
-              implementation to ensure chat interactions are being logged properly.
+            <AlertDescription className="flex flex-col gap-4">
+              <p>
+                The analytics table exists but no data has been recorded yet. This may be because:
+                <ul className="list-disc list-inside ml-4 mt-2">
+                  <li>No user interactions have occurred with the AI assistant</li>
+                  <li>Analytics logging is not properly configured</li>
+                  <li>The database connection has issues</li>
+                </ul>
+              </p>
+              
+              <div className="flex flex-col sm:flex-row gap-2">
+                <Button 
+                  variant="secondary" 
+                  size="sm" 
+                  onClick={handleAddSampleData} 
+                  disabled={isLoadingSample}
+                  className="flex items-center"
+                >
+                  <Database className="mr-2 h-4 w-4" />
+                  {isLoadingSample ? "Adding Sample Data..." : "Add Sample Data for Testing"}
+                </Button>
+              </div>
             </AlertDescription>
           </Alert>
         )}
@@ -289,7 +354,7 @@ const Analytics = () => {
               ) : (
                 <div className="flex flex-col items-center justify-center h-64 lg:h-80">
                   <p>No data available</p>
-                  {analyticsData?.length === 0 && (
+                  {existingDataCount === 0 && (
                     <p className="text-sm text-muted-foreground mt-2">
                       Try using the AI assistant a few times to generate analytics data
                     </p>
@@ -321,7 +386,7 @@ const Analytics = () => {
               ) : (
                 <div className="flex flex-col items-center justify-center h-64 lg:h-80">
                   <p>No response time data available</p>
-                  {analyticsData?.length === 0 && (
+                  {existingDataCount === 0 && (
                     <p className="text-sm text-muted-foreground mt-2">
                       Try using the AI assistant a few times to generate analytics data
                     </p>
@@ -332,14 +397,12 @@ const Analytics = () => {
           </Card>
         </div>
         
-        {/* NEW SECTION: High-Value Analytics */}
         <h2 className="text-2xl font-bold mt-12 mb-6 flex items-center">
           <Zap className="mr-2 h-5 w-5 text-yellow-500" />
           High-Value Insights
         </h2>
         
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-8">
-          {/* NEW: Keyword Frequency */}
           <Card className="lg:col-span-2">
             <CardHeader>
               <CardTitle className="flex items-center">
@@ -367,7 +430,6 @@ const Analytics = () => {
             </CardContent>
           </Card>
           
-          {/* NEW: External Source Tracking */}
           <Card>
             <CardHeader>
               <CardTitle className="flex items-center">
@@ -432,7 +494,7 @@ const Analytics = () => {
               ) : (
                 <div className="flex flex-col items-center justify-center py-8">
                   <p className="text-muted-foreground text-sm">No data available yet</p>
-                  {analyticsData?.length === 0 && (
+                  {existingDataCount === 0 && (
                     <p className="text-sm text-muted-foreground mt-2">
                       Try using the AI assistant a few times to generate analytics data
                     </p>
@@ -510,7 +572,7 @@ const Analytics = () => {
               ) : (
                 <div className="flex flex-col items-center justify-center py-8">
                   <p className="text-muted-foreground text-sm">No recent queries</p>
-                  {analyticsData?.length === 0 && (
+                  {existingDataCount === 0 && (
                     <p className="text-sm text-muted-foreground mt-2">
                       Try using the AI assistant a few times to generate analytics data
                     </p>
