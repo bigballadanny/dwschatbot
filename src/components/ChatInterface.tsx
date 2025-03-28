@@ -70,7 +70,7 @@ const ChatInterface = forwardRef<
   }, []);
   
   return (
-    <div className={cn("flex flex-col h-full", className)}>
+    <div className={cn("flex flex-col h-full relative", className)}>
       <div className="flex items-center justify-end p-4 border-b">
         <SearchModeToggle 
           enableOnlineSearch={enableOnlineSearch}
@@ -78,7 +78,7 @@ const ChatInterface = forwardRef<
         />
       </div>
       
-      <div className="flex-1 overflow-y-auto px-4 py-6">
+      <div className="flex-1 overflow-y-auto px-4 py-6 pb-24">
         <div className="max-w-4xl mx-auto">
           {messages.map((message, index) => (
             <MessageItem
@@ -94,7 +94,7 @@ const ChatInterface = forwardRef<
         </div>
       </div>
       
-      <div className="border-t glassmorphism">
+      <div className="border-t glassmorphism w-full fixed bottom-0 left-0 right-0 bg-background/80 backdrop-blur-sm z-10">
         <div className="max-w-4xl mx-auto px-4 py-4">
           <form onSubmit={handleSubmit} className="flex gap-3 items-center">
             <Input

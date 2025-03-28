@@ -88,6 +88,38 @@ const Index = () => {
     }
   }, [location, user]);
 
+  // Setup real-time subscription for conversation changes
+  useEffect(() => {
+    if (!user) return;
+    
+    // Subscribe to real-time changes on conversations table
+    const channel = supabase
+      .channel('conversation-changes')
+      .on('postgres_changes', 
+        { event: '*', schema: 'public', table: 'conversations' },
+        (payload) => {
+          console.log('Conversations changed:', payload);
+          // Refresh conversations when changes occur
+          if (payload.eventType === 'DELETE') {
+            // If current conversation is deleted, navigate to home
+            if (payload.old && payload.old.id === conversationId) {
+              navigate('/');
+              setConversationId(null);
+              setMessages([{
+                content: "Hello! I'm Carl Allen's Expert Bot. I'm here to answer your questions about business acquisitions, deal structuring, negotiations, due diligence, and more based on Carl Allen's mastermind call transcripts. What would you like to know?",
+                source: 'system',
+                timestamp: new Date(),
+              }]);
+            }
+          }
+        })
+      .subscribe();
+      
+    return () => {
+      supabase.removeChannel(channel);
+    };
+  }, [user, conversationId, navigate]);
+
   const loadConversationMessages = async (id: string) => {
     try {
       setIsLoading(true);

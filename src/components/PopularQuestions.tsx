@@ -35,7 +35,7 @@ const PopularQuestions: React.FC<PopularQuestionsProps> = ({
       
       return data || [];
     },
-    refetchInterval: 300000, // Refetch every 5 minutes
+    refetchInterval: 60000, // Refetch every minute instead of 5 minutes
   });
 
   // Fallback questions if no popular questions are available yet
