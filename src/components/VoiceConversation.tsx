@@ -1,3 +1,4 @@
+
 import React, { useState, useRef, useEffect, forwardRef, useImperativeHandle } from 'react';
 import { Button } from "@/components/ui/button";
 import { Mic, MicOff, Send, Volume2, VolumeX } from "lucide-react";
@@ -11,6 +12,9 @@ import { Alert, AlertDescription } from "@/components/ui/alert";
 interface VoiceConversationProps {
   className?: string;
   audioEnabled?: boolean;
+  messages: MessageProps[];
+  onSendMessage: (message: string) => Promise<void>;
+  conversationId?: string | null;
 }
 
 // Define the interface for the ref
@@ -19,19 +23,14 @@ export interface VoiceConversationRefMethods {
 }
 
 const VoiceConversation = forwardRef<VoiceConversationRefMethods, VoiceConversationProps>(
-  ({ className, audioEnabled = true }, ref) => {
-    const [messages, setMessages] = useState<MessageProps[]>([{
-      content: "Hello! I'm Carl Allen's Expert Bot. How can I help you with business acquisitions today? Press the microphone button and start speaking or type your question below.",
-      source: 'system',
-      timestamp: new Date(),
-    }]);
-    
+  ({ className, audioEnabled = true, messages, onSendMessage, conversationId }, ref) => {
     const [isRecording, setIsRecording] = useState(false);
     const [transcript, setTranscript] = useState('');
     const [isLoading, setIsLoading] = useState(false);
     const [internalAudioEnabled, setInternalAudioEnabled] = useState(audioEnabled);
+    const [mediaRecorder, setMediaRecorder] = useState<MediaRecorder | null>(null);
+    const [audioChunks, setAudioChunks] = useState<Blob[]>([]);
     
-    const recognitionRef = useRef<any>(null);
     const audioRef = useRef<HTMLAudioElement | null>(null);
     const messagesEndRef = useRef<HTMLDivElement | null>(null);
     const { toast } = useToast();
@@ -42,82 +41,128 @@ const VoiceConversation = forwardRef<VoiceConversationRefMethods, VoiceConversat
     }, [audioEnabled]);
     
     useEffect(() => {
-      if ('SpeechRecognition' in window || 'webkitSpeechRecognition' in window) {
-        // @ts-ignore - TypeScript doesn't recognize webkitSpeechRecognition by default
-        const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
-        recognitionRef.current = new SpeechRecognition();
-        recognitionRef.current.continuous = true;
-        recognitionRef.current.interimResults = true;
-        
-        recognitionRef.current.onresult = (event: any) => {
-          let interimTranscript = '';
-          let finalTranscript = '';
-          
-          for (let i = event.resultIndex; i < event.results.length; i++) {
-            const transcript = event.results[i][0].transcript;
-            if (event.results[i].isFinal) {
-              finalTranscript += transcript;
-            } else {
-              interimTranscript += transcript;
-            }
-          }
-          
-          setTranscript(finalTranscript || interimTranscript);
-        };
-        
-        recognitionRef.current.onerror = (event: any) => {
-          console.error('Speech recognition error:', event.error);
-          setIsRecording(false);
-          toast({
-            title: "Speech Recognition Error",
-            description: `Error: ${event.error}. Please try again.`,
-            variant: "destructive",
-          });
-        };
-        
-        recognitionRef.current.onend = () => {
-          if (transcript && isRecording) {
-            submitTranscript(transcript);
-          }
-          setIsRecording(false);
-        };
-      }
-      
-      audioRef.current = new Audio();
-      
-      return () => {
-        if (recognitionRef.current) {
-          recognitionRef.current.abort();
-        }
-      };
-    }, []);
-    
-    useEffect(() => {
       messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
     }, [messages]);
     
-    // Expose methods via ref - Updated to return a Promise
+    useEffect(() => {
+      audioRef.current = new Audio();
+      
+      return () => {
+        stopRecording();
+      };
+    }, []);
+    
+    // Expose methods via ref
     useImperativeHandle(ref, () => ({
       submitTranscript: (text: string) => submitTranscript(text)
     }));
     
-    const toggleRecording = () => {
-      if (!recognitionRef.current) {
+    const setupMediaRecorder = async () => {
+      try {
+        const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+        const recorder = new MediaRecorder(stream, { mimeType: 'audio/webm' });
+        
+        recorder.addEventListener('dataavailable', (event) => {
+          if (event.data.size > 0) {
+            setAudioChunks((chunks) => [...chunks, event.data]);
+          }
+        });
+        
+        recorder.addEventListener('stop', async () => {
+          if (audioChunks.length > 0) {
+            const audioBlob = new Blob(audioChunks, { type: 'audio/webm' });
+            await processAudioForTranscription(audioBlob);
+            setAudioChunks([]);
+          }
+        });
+        
+        setMediaRecorder(recorder);
+      } catch (error) {
+        console.error('Error accessing microphone:', error);
         toast({
-          title: "Speech Recognition Not Available",
-          description: "Your browser doesn't support speech recognition. Please type your question instead.",
+          title: "Microphone Access Error",
+          description: "Could not access your microphone. Please check your browser permissions.",
           variant: "destructive",
         });
-        return;
+      }
+    };
+    
+    const processAudioForTranscription = async (audioBlob: Blob) => {
+      setIsLoading(true);
+      
+      try {
+        // Convert Blob to base64
+        const reader = new FileReader();
+        const audioBase64Promise = new Promise<string>((resolve) => {
+          reader.onloadend = () => {
+            // The result is a string like: "data:audio/webm;base64,XXXX"
+            // We need to extract the base64 part
+            const base64 = (reader.result as string).split(',')[1];
+            resolve(base64);
+          };
+        });
+        
+        reader.readAsDataURL(audioBlob);
+        const audioBase64 = await audioBase64Promise;
+        
+        // Send to our Speech-to-Text edge function
+        const { data, error } = await supabase.functions.invoke('speech-to-text', {
+          body: { audioData: audioBase64 }
+        });
+        
+        if (error) throw error;
+        
+        if (data.transcription) {
+          setTranscript(data.transcription);
+          // Auto-submit if we have a good transcription
+          if (data.transcription.trim().length > 5) {
+            await submitTranscript(data.transcription);
+          }
+        } else if (data.error) {
+          console.error('Speech-to-Text error:', data.error);
+          toast({
+            title: "Speech Recognition Error",
+            description: data.error,
+            variant: "destructive",
+          });
+        }
+      } catch (error) {
+        console.error('Error processing audio for transcription:', error);
+        toast({
+          title: "Speech Processing Error",
+          description: "Failed to process your speech. Please try again.",
+          variant: "destructive",
+        });
+      } finally {
+        setIsLoading(false);
+      }
+    };
+    
+    const toggleRecording = async () => {
+      if (isRecording) {
+        stopRecording();
+      } else {
+        startRecording();
+      }
+    };
+    
+    const startRecording = async () => {
+      if (!mediaRecorder) {
+        await setupMediaRecorder();
       }
       
-      if (isRecording) {
-        recognitionRef.current.stop();
-      } else {
-        setTranscript('');
+      if (mediaRecorder && mediaRecorder.state !== 'recording') {
         setIsRecording(true);
-        recognitionRef.current.start();
+        setAudioChunks([]);
+        mediaRecorder.start(1000); // Collect chunks every second
       }
+    };
+    
+    const stopRecording = () => {
+      if (mediaRecorder && mediaRecorder.state === 'recording') {
+        mediaRecorder.stop();
+      }
+      setIsRecording(false);
     };
     
     const toggleAudio = () => {
@@ -131,70 +176,19 @@ const VoiceConversation = forwardRef<VoiceConversationRefMethods, VoiceConversat
     const submitTranscript = async (text: string): Promise<void> => {
       if (!text.trim() || isLoading) return Promise.resolve();
       
-      const userMessage: MessageProps = {
-        content: text,
-        source: 'user',
-        timestamp: new Date()
-      };
-      
-      setMessages(prev => [...prev, userMessage]);
-      setTranscript('');
-      setIsLoading(true);
-      
       try {
-        setMessages(prev => [...prev, {
-          content: "Thinking...",
-          source: 'system',
-          timestamp: new Date(),
-          isLoading: true
-        }]);
-        
-        const { data, error } = await supabase.functions.invoke('voice-conversation', {
-          body: { 
-            audio: text,
-            messages: messages.concat(userMessage),
-            isVoiceInput: true
-          }
-        });
-        
-        if (error) throw error;
-        
-        setMessages(prev => prev.filter(msg => !msg.isLoading));
-        
-        const responseMessage: MessageProps = {
-          content: data.content,
-          source: 'gemini',
-          timestamp: new Date()
-        };
-        
-        setMessages(prev => [...prev, responseMessage]);
-        
-        if (internalAudioEnabled && data.audioContent && audioRef.current) {
-          const audioSrc = `data:audio/mp3;base64,${data.audioContent}`;
-          audioRef.current.src = audioSrc;
-          audioRef.current.play().catch(err => {
-            console.error('Error playing audio:', err);
-          });
-        }
+        await onSendMessage(text);
+        setTranscript('');
       } catch (error) {
-        console.error('Error in voice conversation:', error);
-        
-        setMessages(prev => prev.filter(msg => !msg.isLoading));
-        
-        setMessages(prev => [...prev, {
-          content: "I'm sorry, I couldn't process your request. Please try again.",
-          source: 'system',
-          timestamp: new Date()
-        }]);
-        
+        console.error('Error submitting transcript:', error);
         toast({
           title: "Error",
-          description: "There was a problem processing your request. Please try again.",
+          description: "Failed to send your message. Please try again.",
           variant: "destructive",
         });
-      } finally {
-        setIsLoading(false);
       }
+      
+      return Promise.resolve();
     };
     
     const handleInputSubmit = async (e: React.FormEvent) => {

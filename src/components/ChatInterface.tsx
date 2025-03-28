@@ -1,274 +1,52 @@
-import React, { useState, useRef, useEffect, forwardRef, useImperativeHandle } from 'react';
-import { useLocation } from 'react-router-dom';
+
+import React, { useRef, useEffect, forwardRef, useImperativeHandle } from 'react';
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Send, AlertTriangle } from "lucide-react";
-import MessageItem, { MessageProps, MessageSource } from './MessageItem';
+import { Send } from "lucide-react";
+import MessageItem, { MessageProps } from './MessageItem';
 import { cn } from "@/lib/utils";
-import { supabase } from '@/integrations/supabase/client';
-import { useAuth } from '@/context/AuthContext';
-import { useToast } from "@/components/ui/use-toast";
-import { useQuery } from '@tanstack/react-query';
-import { generateGeminiResponse } from '@/utils/geminiUtils';
-import { Alert, AlertTitle, AlertDescription } from "@/components/ui/alert";
 import SearchModeToggle from './SearchModeToggle';
 
 interface ChatInterfaceProps {
   className?: string;
   initialQuestion?: string | null;
+  messages: MessageProps[];
+  onSendMessage: (message: string) => Promise<void>;
+  conversationId?: string | null;
 }
-
-const INITIAL_MESSAGES: MessageProps[] = [
-  {
-    content: "Hello! I'm the Carl Allen Expert Bot. I'm here to answer your questions about business acquisitions, deal structuring, negotiations, due diligence, and more based on Carl Allen's mastermind call transcripts. What would you like to know?",
-    source: 'system',
-    timestamp: new Date(),
-  }
-];
 
 const ChatInterface = forwardRef<
   { submitQuestion: (question: string) => void }, 
   ChatInterfaceProps
->(({ className, initialQuestion }, ref) => {
-  const [messages, setMessages] = useState<MessageProps[]>(INITIAL_MESSAGES);
-  const [input, setInput] = useState('');
-  const [isLoading, setIsLoading] = useState(false);
-  const [conversationId, setConversationId] = useState<string | null>(null);
-  const [apiQuotaExceeded, setApiQuotaExceeded] = useState(false);
-  const [apiDisabled, setApiDisabled] = useState(false);
-  const [enableOnlineSearch, setEnableOnlineSearch] = useState(false);
+>(({ className, initialQuestion, messages, onSendMessage, conversationId }, ref) => {
+  const [input, setInput] = React.useState('');
+  const [isLoading, setIsLoading] = React.useState(false);
+  const [enableOnlineSearch, setEnableOnlineSearch] = React.useState(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
-  const { user } = useAuth();
-  const { toast } = useToast();
-  const location = useLocation();
-  
-  const { data: transcripts, refetch: refetchTranscripts } = useQuery({
-    queryKey: ['transcripts'],
-    queryFn: async () => {
-      const { data, error } = await supabase
-        .from('transcripts')
-        .select('id, title, content, created_at, file_path, source');
-        
-      if (error) {
-        console.error('Error fetching transcripts:', error);
-        return [];
-      }
-      
-      console.log(`Fetched ${data?.length || 0} transcripts for AI knowledge base`);
-      return data || [];
-    },
-    enabled: !!user,
-    refetchOnWindowFocus: false,
-    refetchInterval: 300000, // Refresh every 5 minutes
-  });
   
   useImperativeHandle(ref, () => ({
     submitQuestion: (question: string) => {
-      if (conversationId) {
-        handleSubmitQuestion(question);
-      } else {
-        const checkInterval = setInterval(() => {
-          if (conversationId) {
-            clearInterval(checkInterval);
-            handleSubmitQuestion(question);
-          }
-        }, 500);
-        
-        setTimeout(() => clearInterval(checkInterval), 10000);
-      }
+      handleSubmitQuestion(question);
     }
   }));
   
   useEffect(() => {
-    const params = new URLSearchParams(location.search);
-    const urlConversationId = params.get('conversation');
-    
-    if (urlConversationId) {
-      setConversationId(urlConversationId);
-      loadConversationMessages(urlConversationId);
-    } else if (user) {
-      createNewConversation();
+    if (initialQuestion) {
+      setTimeout(() => handleSubmitQuestion(initialQuestion), 800);
     }
-  }, [location, user]);
-  
-  const loadConversationMessages = async (id: string) => {
-    try {
-      setIsLoading(true);
-      
-      const { data, error } = await supabase
-        .from('messages')
-        .select('*')
-        .eq('conversation_id', id)
-        .order('created_at', { ascending: true });
-        
-      if (error) throw error;
-      
-      if (data && data.length > 0) {
-        const formattedMessages = data.map((message): MessageProps => ({
-          content: message.content,
-          source: message.is_user ? 'user' : 'transcript',
-          timestamp: new Date(message.created_at),
-        }));
-        
-        setMessages(formattedMessages);
-      } else {
-        setMessages(INITIAL_MESSAGES);
-        
-        await supabase
-          .from('messages')
-          .insert([
-            {
-              conversation_id: id,
-              content: INITIAL_MESSAGES[0].content,
-              is_user: false
-            }
-          ]);
-      }
-    } catch (error) {
-      console.error('Error loading conversation:', error);
-    } finally {
-      setIsLoading(false);
-    }
-  };
-  
-  const createNewConversation = async () => {
-    try {
-      const { data, error } = await supabase
-        .from('conversations')
-        .insert([
-          { 
-            title: 'New Conversation',
-            user_id: user?.id
-          }
-        ])
-        .select();
-          
-      if (error) throw error;
-        
-      if (data && data.length > 0) {
-        setConversationId(data[0].id);
-          
-        await supabase
-          .from('messages')
-          .insert([
-            {
-              conversation_id: data[0].id,
-              content: INITIAL_MESSAGES[0].content,
-              is_user: false
-            }
-          ]);
-            
-        if (initialQuestion) {
-          setTimeout(() => handleSubmitQuestion(initialQuestion), 800);
-        }
-      }
-    } catch (error) {
-      console.error('Error creating conversation:', error);
-    }
-  };
-  
-  useEffect(() => {
-    refetchTranscripts();
-  }, [refetchTranscripts]);
+  }, [initialQuestion]);
   
   const handleSubmitQuestion = async (questionText: string) => {
-    if (!questionText.trim() || isLoading || !conversationId) return;
+    if (!questionText.trim() || isLoading) return;
     
-    const userMessage: MessageProps = {
-      content: questionText,
-      source: 'user',
-      timestamp: new Date()
-    };
-    
-    setMessages(prev => [...prev, userMessage]);
     setInput('');
     setIsLoading(true);
     
     try {
-      await supabase
-        .from('messages')
-        .insert([
-          {
-            conversation_id: conversationId,
-            content: userMessage.content,
-            is_user: true
-          }
-        ]);
-      
-      const loadingMessage: MessageProps = {
-        content: enableOnlineSearch 
-          ? "Searching through Carl Allen's transcripts and online resources..." 
-          : "Searching through Carl Allen's transcripts...",
-        source: 'system',
-        timestamp: new Date(),
-        isLoading: true
-      };
-      
-      setMessages(prev => [...prev, loadingMessage]);
-      
-      await refetchTranscripts();
-      
-      const queryStartTime = Date.now();
-      
-      const responseMessage = await generateGeminiResponse(
-        questionText, 
-        transcripts || [], 
-        messages.concat(userMessage),
-        conversationId,
-        enableOnlineSearch
-      );
-      
-      if (responseMessage.source === 'fallback') {
-        setApiQuotaExceeded(true);
-        toast({
-          title: "API Quota Limit Reached",
-          description: "Responses are currently limited due to high demand. Full AI capabilities will be restored soon.",
-          variant: "destructive",
-          duration: 5000,
-        });
-      } else if (responseMessage.source === 'system' && responseMessage.content.includes("Gemini API has not been enabled")) {
-        setApiDisabled(true);
-        toast({
-          title: "Gemini API Not Enabled",
-          description: "The Gemini API needs to be enabled in your Google Cloud Console.",
-          variant: "destructive",
-          duration: 8000,
-        });
-      }
-      
-      const totalResponseTime = Date.now() - queryStartTime;
-      console.log(`Total response time: ${totalResponseTime}ms`);
-      
-      await supabase
-        .from('messages')
-        .insert([
-          {
-            conversation_id: conversationId,
-            content: responseMessage.content,
-            is_user: false
-          }
-        ]);
-      
-      setMessages(prev => [...prev.slice(0, prev.length - 1), responseMessage]);
-      
-      if (messages.length <= 3) {
-        await supabase
-          .from('conversations')
-          .update({ title: questionText.substring(0, 50) })
-          .eq('id', conversationId);
-      }
+      await onSendMessage(questionText);
     } catch (error) {
-      console.error('Error generating response:', error);
-      
-      setMessages(prev => [
-        ...prev.slice(0, prev.length - 1), 
-        {
-          content: "I'm sorry, there was an error processing your request. Please try again.",
-          source: 'system',
-          timestamp: new Date()
-        }
-      ]);
+      console.error('Error submitting question:', error);
     } finally {
       setIsLoading(false);
     }
@@ -281,13 +59,6 @@ const ChatInterface = forwardRef<
   
   const handleToggleOnlineSearch = (enabled: boolean) => {
     setEnableOnlineSearch(enabled);
-    toast({
-      title: enabled ? "Online Search Enabled" : "Using Transcripts Only",
-      description: enabled 
-        ? "Responses will now use online information when transcripts don't have relevant content." 
-        : "Responses will be limited to Carl Allen's transcript content only.",
-      duration: 3000,
-    });
   };
   
   useEffect(() => {
@@ -300,28 +71,6 @@ const ChatInterface = forwardRef<
   
   return (
     <div className={cn("flex flex-col h-full", className)}>
-      {apiQuotaExceeded && (
-        <Alert variant="default" className="m-4 bg-amber-50 border-amber-300 text-amber-800 dark:bg-amber-950 dark:border-amber-800 dark:text-amber-200">
-          <AlertTriangle className="h-4 w-4" />
-          <AlertTitle>API Quota Exceeded</AlertTitle>
-          <AlertDescription>
-            The AI service is currently experiencing high demand and has reached its quota limit. 
-            You're now receiving fallback responses with general information. Please try again later for full AI capabilities.
-          </AlertDescription>
-        </Alert>
-      )}
-      
-      {apiDisabled && (
-        <Alert variant="default" className="m-4 bg-blue-50 border-blue-300 text-blue-800 dark:bg-blue-950 dark:border-blue-800 dark:text-blue-200">
-          <AlertTriangle className="h-4 w-4" />
-          <AlertTitle>Gemini API Setup Required</AlertTitle>
-          <AlertDescription>
-            The Gemini API is not enabled for your Google Cloud project. Please follow the instructions in the chat to enable it.
-            After enabling the API, reload this page to connect to the Gemini service.
-          </AlertDescription>
-        </Alert>
-      )}
-      
       <div className="flex items-center justify-end p-4 border-b">
         <SearchModeToggle 
           enableOnlineSearch={enableOnlineSearch}
@@ -361,7 +110,7 @@ const ChatInterface = forwardRef<
               type="submit" 
               size="icon" 
               className="h-12 w-12 rounded-full flex-shrink-0"
-              disabled={isLoading || !input.trim() || !conversationId}
+              disabled={isLoading || !input.trim()}
             >
               <Send className="h-5 w-5" />
             </Button>
