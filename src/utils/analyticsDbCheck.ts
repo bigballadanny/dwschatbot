@@ -66,6 +66,9 @@ export async function checkForExistingData(): Promise<number> {
   }
 }
 
+/**
+ * Migrates existing conversation data to analytics table
+ */
 export async function migrateConversationDataToAnalytics(): Promise<number> {
   try {
     console.log('Attempting to migrate conversation data to analytics...');
