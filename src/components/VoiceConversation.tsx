@@ -1,4 +1,3 @@
-
 import React, { useState, useRef, useEffect, forwardRef, useImperativeHandle } from 'react';
 import { Button } from "@/components/ui/button";
 import { Mic, MicOff, Send, Volume2, VolumeX } from "lucide-react";
@@ -15,7 +14,7 @@ interface VoiceConversationProps {
 }
 
 // Define the interface for the ref
-interface VoiceConversationRefMethods {
+export interface VoiceConversationRefMethods {
   submitTranscript: (text: string) => Promise<void>;
 }
 
@@ -97,7 +96,7 @@ const VoiceConversation = forwardRef<VoiceConversationRefMethods, VoiceConversat
       messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
     }, [messages]);
     
-    // Expose methods via ref
+    // Expose methods via ref - Updated to return a Promise
     useImperativeHandle(ref, () => ({
       submitTranscript: (text: string) => submitTranscript(text)
     }));
@@ -129,8 +128,8 @@ const VoiceConversation = forwardRef<VoiceConversationRefMethods, VoiceConversat
       });
     };
     
-    const submitTranscript = async (text: string) => {
-      if (!text.trim() || isLoading) return;
+    const submitTranscript = async (text: string): Promise<void> => {
+      if (!text.trim() || isLoading) return Promise.resolve();
       
       const userMessage: MessageProps = {
         content: text,

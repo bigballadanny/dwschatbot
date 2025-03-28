@@ -6,7 +6,7 @@ import Header from '@/components/Header';
 import WelcomeScreen from '@/components/WelcomeScreen';
 import PopularQuestions from '@/components/PopularQuestions';
 import ChatSidebar from '@/components/ChatSidebar';
-import VoiceConversation from '@/components/VoiceConversation';
+import VoiceConversation, { VoiceConversationRefMethods } from '@/components/VoiceConversation';
 import { SidebarProvider, SidebarInset, useSidebar } from "@/components/ui/sidebar";
 import { Button } from "@/components/ui/button";
 import { PanelLeft, MessageSquare, Mic, Volume2, VolumeX } from 'lucide-react';
@@ -37,7 +37,7 @@ const Index = () => {
   const [voiceEnabled, setVoiceEnabled] = useState(false);
   const [audioEnabled, setAudioEnabled] = useState(true);
   const chatRef = useRef<{ submitQuestion: (question: string) => void }>(null);
-  const voiceRef = useRef<{ submitTranscript: (transcript: string) => void }>(null);
+  const voiceRef = useRef<VoiceConversationRefMethods>(null);
   const location = useLocation();
 
   // Check if a conversation ID or initial question is provided in URL params
