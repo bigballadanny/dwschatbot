@@ -3,7 +3,7 @@ import { BrowserRouter as Router, Routes, Route } from 'react-router-dom';
 import { ThemeProvider } from "@/components/ThemeProvider";
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { Toaster } from "@/components/ui/toaster";
-import { SidebarProvider } from "@/components/ui/sidebar";
+import { Sidebar, SidebarProvider } from "@/components/ui/sidebar";
 import { AuthProvider } from '@/context/AuthContext';
 import { AdminProvider } from '@/context/AdminContext';
 import Index from '@/pages/Index';
@@ -23,8 +23,8 @@ function App() {
     <QueryClientProvider client={queryClient}>
       <AuthProvider>
         <AdminProvider>
-          <ThemeProvider defaultTheme="system" storageKey="dwsai-theme">
-            <SidebarProvider defaultState="expanded" storageKey="dwsai-sidebar">
+          <ThemeProvider>
+            <SidebarProvider>
               <Router>
                 <Routes>
                   <Route path="/auth" element={<Auth />} />
