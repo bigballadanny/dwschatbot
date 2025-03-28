@@ -33,9 +33,14 @@ export async function fetchAnalyticsData(
       .order('created_at', { ascending: false });
 
     if (dateRange === '7d') {
-      query = query.gte('created_at', new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString());
+      // Use longer time range for testing when table might be empty
+      const sevenDaysAgo = new Date();
+      sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 7);
+      query = query.gte('created_at', sevenDaysAgo.toISOString());
     } else if (dateRange === '30d') {
-      query = query.gte('created_at', new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString());
+      const thirtyDaysAgo = new Date();
+      thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
+      query = query.gte('created_at', thirtyDaysAgo.toISOString());
     }
 
     if (searchQuery && searchQuery.trim() !== '') {
@@ -46,10 +51,25 @@ export async function fetchAnalyticsData(
 
     if (error) {
       console.error('Error fetching analytics data:', error);
-      return [];
+      throw error;
     }
 
     console.log(`Retrieved ${data?.length || 0} analytics records`);
+    
+    // If no data, let's add debug logging
+    if (!data || data.length === 0) {
+      console.log('No analytics data found, checking table exists...');
+      const { count, error: countError } = await supabase
+        .from('chat_analytics')
+        .select('*', { count: 'exact', head: true });
+      
+      if (countError) {
+        console.error('Error checking chat_analytics table:', countError);
+      } else {
+        console.log(`Total records in chat_analytics table: ${count}`);
+      }
+    }
+    
     return data as AnalyticsData[];
   } catch (err) {
     console.error('Error in fetchAnalyticsData:', err);
@@ -67,18 +87,66 @@ export async function getTopQueries(
   try {
     console.log(`Fetching top queries for period: ${timePeriod}, limit: ${limit}`);
     
-    const { data, error } = await supabase.rpc('get_top_queries', {
-      time_period: timePeriod,
-      limit_count: limit,
-    });
+    // First check if we have the get_top_queries function available
+    try {
+      const { data, error } = await supabase.rpc('get_top_queries', {
+        time_period: timePeriod,
+        limit_count: limit,
+      });
 
-    if (error) {
-      console.error('Error fetching top queries:', error);
-      return [];
+      if (error) {
+        console.warn('RPC get_top_queries failed, falling back to client-side calculation:', error);
+        throw error; // Fall through to the catch block
+      }
+
+      console.log(`Retrieved ${data?.length || 0} top queries using RPC`);
+      return data || [];
+    } catch (rpcErr) {
+      // Fallback: calculate top queries client-side if the RPC fails
+      console.log('Calculating top queries client-side');
+      
+      // Get all analytics data for the period
+      let query = supabase
+        .from('chat_analytics')
+        .select('query')
+        .eq('successful', true);
+      
+      if (timePeriod === 'day') {
+        const oneDayAgo = new Date();
+        oneDayAgo.setDate(oneDayAgo.getDate() - 1);
+        query = query.gte('created_at', oneDayAgo.toISOString());
+      } else if (timePeriod === 'week') {
+        const sevenDaysAgo = new Date();
+        sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 7);
+        query = query.gte('created_at', sevenDaysAgo.toISOString());
+      } else if (timePeriod === 'month') {
+        const thirtyDaysAgo = new Date();
+        thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
+        query = query.gte('created_at', thirtyDaysAgo.toISOString());
+      }
+      
+      const { data, error } = await query;
+      
+      if (error) {
+        console.error('Error fetching query data:', error);
+        return [];
+      }
+      
+      // Count occurrences of each query
+      const queryCounts: Record<string, number> = {};
+      data.forEach(item => {
+        queryCounts[item.query] = (queryCounts[item.query] || 0) + 1;
+      });
+      
+      // Sort by count and take the top N
+      const result = Object.entries(queryCounts)
+        .map(([query, count]) => ({ query, count }))
+        .sort((a, b) => b.count - a.count)
+        .slice(0, limit);
+      
+      console.log(`Calculated ${result.length} top queries client-side`);
+      return result;
     }
-
-    console.log(`Retrieved ${data?.length || 0} top queries`);
-    return data || [];
   } catch (err) {
     console.error('Error in getTopQueries:', err);
     return [];
@@ -222,4 +290,127 @@ export function getFrequentlyUsedTranscripts(
     .map(([title, { count, source }]) => ({ title, count, source }))
     .sort((a, b) => b.count - a.count)
     .slice(0, limit);
+}
+
+/**
+ * NEW: Generates keyword frequency data from user queries
+ */
+export function generateKeywordFrequency(analyticsData: AnalyticsData[], limit: number = 10) {
+  // Common words to exclude
+  const stopWords = new Set([
+    'a', 'an', 'the', 'and', 'or', 'but', 'is', 'are', 'was', 'were', 
+    'be', 'been', 'being', 'have', 'has', 'had', 'do', 'does', 'did',
+    'to', 'from', 'in', 'out', 'on', 'off', 'over', 'under', 'again',
+    'for', 'of', 'by', 'with', 'about', 'against', 'between', 'into',
+    'through', 'during', 'before', 'after', 'above', 'below', 'how',
+    'why', 'what', 'when', 'where', 'who', 'which', 'if', 'then', 'that',
+    'this', 'these', 'those', 'can', 'will', 'should', 'could', 'would',
+    'i', 'you', 'he', 'she', 'it', 'we', 'they', 'me', 'him', 'her', 'us'
+  ]);
+  
+  const wordFrequency: Record<string, number> = {};
+  
+  analyticsData.forEach(item => {
+    if (!item.query) return;
+    
+    // Extract words, convert to lowercase and remove punctuation
+    const words = item.query.toLowerCase()
+      .replace(/[.,\/#!$%\^&\*;:{}=\-_`~()]/g, '')
+      .split(/\s+/);
+    
+    words.forEach(word => {
+      // Ignore short words and stop words
+      if (word.length <= 2 || stopWords.has(word)) return;
+      
+      wordFrequency[word] = (wordFrequency[word] || 0) + 1;
+    });
+  });
+  
+  // Convert to array, sort by frequency and take top N
+  return Object.entries(wordFrequency)
+    .map(([word, count]) => ({ word, count }))
+    .sort((a, b) => b.count - a.count)
+    .slice(0, limit);
+}
+
+/**
+ * NEW: Tracks when sources outside of transcripts were used
+ */
+export function trackNonTranscriptSources(analyticsData: AnalyticsData[]) {
+  const externalSourceCount = analyticsData.filter(item => 
+    item.source_type === 'web' || item.source_type === 'fallback'
+  ).length;
+  
+  const topExternalQueries = analyticsData
+    .filter(item => item.source_type === 'web' || item.source_type === 'fallback')
+    .map(item => item.query)
+    .reduce((acc: Record<string, number>, query) => {
+      acc[query] = (acc[query] || 0) + 1;
+      return acc;
+    }, {});
+  
+  const topExternalQueriesList = Object.entries(topExternalQueries)
+    .map(([query, count]) => ({ query, count }))
+    .sort((a, b) => b.count - a.count)
+    .slice(0, 5);
+  
+  return {
+    count: externalSourceCount,
+    percentage: analyticsData.length > 0 
+      ? Math.round((externalSourceCount / analyticsData.length) * 100) 
+      : 0,
+    topQueries: topExternalQueriesList
+  };
+}
+
+/**
+ * NEW: Creates segments of users based on their query types
+ */
+export function analyzeUserSegments(analyticsData: AnalyticsData[]) {
+  // Group queries by conversation
+  const conversationQueries: Record<string, string[]> = {};
+  
+  analyticsData.forEach(item => {
+    if (item.conversation_id) {
+      if (!conversationQueries[item.conversation_id]) {
+        conversationQueries[item.conversation_id] = [];
+      }
+      conversationQueries[item.conversation_id].push(item.query);
+    }
+  });
+  
+  // Analyze segments
+  const segments = {
+    basic: 0,      // 1-2 queries
+    engaged: 0,    // 3-5 queries
+    power: 0,      // 6+ queries
+    technical: 0,  // Contains technical terms
+    conceptual: 0  // Contains conceptual questions
+  };
+  
+  const technicalTerms = ['sba', 'loan', 'financing', 'ebitda', 'valuation', 'due diligence', 
+    'leverage', 'acquisition', 'balance sheet', 'cash flow', 'liability'];
+  
+  const conceptualPhrases = ['how to', 'what is', 'why would', 'explain', 'difference between',
+    'compared to', 'strategy', 'approach', 'methodology'];
+  
+  Object.values(conversationQueries).forEach(queries => {
+    // Segment by engagement level
+    if (queries.length <= 2) segments.basic++;
+    else if (queries.length <= 5) segments.engaged++;
+    else segments.power++;
+    
+    // Segment by query type
+    const allQueriesText = queries.join(' ').toLowerCase();
+    
+    if (technicalTerms.some(term => allQueriesText.includes(term))) {
+      segments.technical++;
+    }
+    
+    if (conceptualPhrases.some(phrase => allQueriesText.includes(phrase))) {
+      segments.conceptual++;
+    }
+  });
+  
+  return segments;
 }

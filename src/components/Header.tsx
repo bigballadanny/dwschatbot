@@ -2,7 +2,7 @@
 import React from 'react';
 import { Link, useLocation } from 'react-router-dom';
 import { Button } from "@/components/ui/button";
-import { BookOpen, Headphones } from 'lucide-react';
+import { BookOpen, Headphones, BarChart } from 'lucide-react';
 import { useAuth } from '@/context/AuthContext';
 import { useAdmin } from '@/context/AdminContext';
 import { ModeToggle } from "@/components/ModeToggle";
@@ -16,8 +16,9 @@ const Header: React.FC = () => {
   
   // Check if we're on the homepage
   const isHomePage = location.pathname === '/';
+  const isAnalyticsPage = location.pathname === '/analytics';
   
-  console.log("Header - isAdmin:", isAdmin, "user:", !!user);
+  console.log("Header - isAdmin:", isAdmin, "user:", !!user, "path:", location.pathname);
   
   const handleLogoClick = () => {
     if (isHomePage) {
@@ -47,6 +48,13 @@ const Header: React.FC = () => {
               <BookOpen className="mr-2 h-6 w-6 text-primary" />
               DWS AI
             </Link>
+          )}
+          
+          {isAnalyticsPage && isAdmin && (
+            <div className="ml-4 px-2 py-1 bg-primary/10 rounded-md text-primary text-sm flex items-center">
+              <BarChart className="h-4 w-4 mr-1" />
+              Analytics Dashboard
+            </div>
           )}
         </div>
         

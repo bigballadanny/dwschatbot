@@ -9,7 +9,7 @@ import { getTranscriptCounts } from '@/utils/transcriptUtils';
 import { Separator } from '@/components/ui/separator';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
-import { Search, RefreshCw, AlertCircle, Info } from 'lucide-react';
+import { Search, RefreshCw, AlertCircle, Info, BarChart3, FileText, Zap } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { 
@@ -18,7 +18,10 @@ import {
   generateSourceDistribution, 
   calculateSuccessRate, 
   generateResponseTimeData,
-  getTranscriptSourceStats
+  getTranscriptSourceStats,
+  generateKeywordFrequency,
+  trackNonTranscriptSources,
+  analyzeUserSegments
 } from '@/utils/analyticsUtils';
 import { useToast } from '@/components/ui/use-toast';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
@@ -110,6 +113,24 @@ const Analytics = () => {
       .slice(0, 5);
   }, [transcripts]);
   
+  // NEW: Keyword frequency
+  const keywordFrequency = React.useMemo(() => {
+    if (!analyticsData) return [];
+    return generateKeywordFrequency(analyticsData, 20);
+  }, [analyticsData]);
+  
+  // NEW: External source tracking
+  const externalSourceStats = React.useMemo(() => {
+    if (!analyticsData) return { count: 0, percentage: 0, topQueries: [] };
+    return trackNonTranscriptSources(analyticsData);
+  }, [analyticsData]);
+  
+  // NEW: User segments
+  const userSegments = React.useMemo(() => {
+    if (!analyticsData) return null;
+    return analyzeUserSegments(analyticsData);
+  }, [analyticsData]);
+  
   // Handle manual refresh
   const handleRefresh = () => {
     refetchAnalytics();
@@ -135,6 +156,14 @@ const Analytics = () => {
       console.log(`Found ${summitTranscriptCount} Business Acquisition Summit transcripts`);
     }
   }, [transcripts]);
+  
+  // Format keyword data for chart
+  const keywordChartData = React.useMemo(() => {
+    return keywordFrequency.slice(0, 10).map(item => ({
+      keyword: item.word,
+      count: item.count
+    }));
+  }, [keywordFrequency]);
   
   return (
     <div className="min-h-screen flex flex-col">
@@ -173,9 +202,11 @@ const Analytics = () => {
         {analyticsData?.length === 0 && (
           <Alert className="mb-6">
             <Info className="h-4 w-4" />
-            <AlertTitle>No analytics data available</AlertTitle>
+            <AlertTitle>No analytics data found</AlertTitle>
             <AlertDescription>
-              Try using the AI assistant a few times to generate analytics data. Make sure to ask questions related to business acquisitions.
+              This may be due to a database connectivity issue or the chat_analytics table might be empty.
+              Try using the AI assistant a few times to generate analytics data, or check your Supabase 
+              implementation to ensure chat interactions are being logged properly.
             </AlertDescription>
           </Alert>
         )}
@@ -185,7 +216,8 @@ const Analytics = () => {
             <AlertCircle className="h-4 w-4" />
             <AlertTitle>Error loading analytics data</AlertTitle>
             <AlertDescription>
-              There was a problem fetching analytics data. Please refresh or try again later.
+              There was a problem fetching analytics data. Please check console logs for more details
+              or verify your Supabase connection.
             </AlertDescription>
           </Alert>
         )}
@@ -296,6 +328,82 @@ const Analytics = () => {
                   )}
                 </div>
               )}
+            </CardContent>
+          </Card>
+        </div>
+        
+        {/* NEW SECTION: High-Value Analytics */}
+        <h2 className="text-2xl font-bold mt-12 mb-6 flex items-center">
+          <Zap className="mr-2 h-5 w-5 text-yellow-500" />
+          High-Value Insights
+        </h2>
+        
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-8">
+          {/* NEW: Keyword Frequency */}
+          <Card className="lg:col-span-2">
+            <CardHeader>
+              <CardTitle className="flex items-center">
+                <BarChart3 className="mr-2 h-5 w-5 text-primary" />
+                Top Keywords in Queries
+              </CardTitle>
+              <CardDescription>Most frequently used terms in user questions</CardDescription>
+            </CardHeader>
+            <CardContent>
+              {keywordChartData.length > 0 ? (
+                <BarChart
+                  data={keywordChartData}
+                  index="keyword"
+                  categories={["count"]}
+                  colors={["blue"]}
+                  valueFormatter={(value) => `${value} occurrences`}
+                  className="h-64 lg:h-80"
+                  showLegend={false}
+                />
+              ) : (
+                <div className="flex items-center justify-center h-64">
+                  <p className="text-muted-foreground">No keyword data available</p>
+                </div>
+              )}
+            </CardContent>
+          </Card>
+          
+          {/* NEW: External Source Tracking */}
+          <Card>
+            <CardHeader>
+              <CardTitle className="flex items-center">
+                <FileText className="mr-2 h-5 w-5 text-primary" />
+                Knowledge Gaps
+              </CardTitle>
+              <CardDescription>Queries requiring external sources</CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <div className="flex items-center justify-between">
+                <span>External Source Usage:</span>
+                <span className="font-medium">{externalSourceStats.percentage}%</span>
+              </div>
+              <Separator />
+              <div>
+                <h4 className="text-sm font-medium mb-2">Top Queries Missing from Transcripts:</h4>
+                {externalSourceStats.topQueries.length > 0 ? (
+                  <ul className="space-y-2">
+                    {externalSourceStats.topQueries.map((item, idx) => (
+                      <li key={idx} className="text-sm">
+                        <span className="text-muted-foreground">{idx + 1}.</span> {item.query}
+                        <span className="text-xs text-muted-foreground ml-1">({item.count}x)</span>
+                      </li>
+                    ))}
+                  </ul>
+                ) : (
+                  <p className="text-sm text-muted-foreground">No external source queries found</p>
+                )}
+              </div>
+              
+              <div className="bg-muted/50 p-3 rounded-md mt-2">
+                <h4 className="text-sm font-medium mb-1">Recommendation:</h4>
+                <p className="text-xs text-muted-foreground">
+                  Consider adding more content related to the topics above to reduce reliance on external sources.
+                </p>
+              </div>
             </CardContent>
           </Card>
         </div>
