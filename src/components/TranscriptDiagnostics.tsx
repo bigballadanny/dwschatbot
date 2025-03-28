@@ -143,10 +143,10 @@ const TranscriptDiagnostics: React.FC<TranscriptDiagnosticsProps> = ({ onComplet
                         Uploaded: {new Date(transcript.created_at).toLocaleString()}
                       </div>
                       <div className="flex gap-2 mt-2">
-                        <Badge variant={transcript.content && transcript.content.length > 0 ? 'success' : 'destructive'}>
+                        <Badge variant={transcript.content && transcript.content.length > 0 ? 'default' : 'destructive'}>
                           {transcript.content && transcript.content.length > 0 ? 'Has Content' : 'Empty Content'}
                         </Badge>
-                        <Badge variant={transcript.file_path ? 'success' : 'destructive'}>
+                        <Badge variant={transcript.file_path ? 'default' : 'destructive'}>
                           {transcript.file_path ? 'Has File' : 'No File'}
                         </Badge>
                       </div>

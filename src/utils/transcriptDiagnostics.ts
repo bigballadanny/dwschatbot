@@ -91,11 +91,18 @@ export async function fixTranscriptIssues(transcriptIds: string[]) {
       // If there's a file path but no content, try to fetch the file
       if (transcript.file_path && (!transcript.content || transcript.content.trim() === '')) {
         // Get file URL
-        const fileUrl = `${supabase.storageUrl}/object/public/transcripts/${transcript.file_path}`;
+        const { data: publicURL } = supabase.storage
+          .from('transcripts')
+          .getPublicUrl(transcript.file_path);
+        
+        if (!publicURL || !publicURL.publicUrl) {
+          results.errors.push(`Error generating public URL for transcript ${id}`);
+          continue;
+        }
         
         try {
           // Fetch the file content
-          const response = await fetch(fileUrl);
+          const response = await fetch(publicURL.publicUrl);
           if (!response.ok) {
             results.errors.push(`Error fetching file for transcript ${id}: ${response.statusText}`);
             continue;
@@ -147,18 +154,41 @@ export async function fixTranscriptSourceTypes() {
     let fixedCount = 0;
     const errors = [];
     
+    // Get transcripts with upload date on the 27th (assuming this month)
+    const targetDate = new Date();
+    const day27 = new Date(targetDate.getFullYear(), targetDate.getMonth(), 27);
+    const day28 = new Date(targetDate.getFullYear(), targetDate.getMonth(), 28);
+    
     for (const transcript of transcripts) {
+      let shouldFix = false;
+      let newSource = transcript.source;
+      
       // Detect if this should be a business acquisitions summit transcript
       const isSummitTranscript = 
         transcript.title.toLowerCase().includes('summit') || 
         transcript.title.toLowerCase().includes('acquisitions summit') ||
         (transcript.content && transcript.content.toLowerCase().includes('business acquisitions summit'));
       
+      // Check if it was uploaded on the 27th
+      const createdAt = new Date(transcript.created_at);
+      const isUploadedOn27th = createdAt >= day27 && createdAt < day28;
+      
       // If it's a summit transcript but not labeled as such, update it
       if (isSummitTranscript && transcript.source !== 'business_acquisitions_summit') {
+        shouldFix = true;
+        newSource = 'business_acquisitions_summit';
+      }
+      
+      // If it was uploaded on the 27th and not properly categorized as summit
+      if (isUploadedOn27th && transcript.source !== 'business_acquisitions_summit') {
+        shouldFix = true;
+        newSource = 'business_acquisitions_summit';
+      }
+      
+      if (shouldFix) {
         const { error: updateError } = await supabase
           .from('transcripts')
-          .update({ source: 'business_acquisitions_summit' })
+          .update({ source: newSource })
           .eq('id', transcript.id);
           
         if (updateError) {
