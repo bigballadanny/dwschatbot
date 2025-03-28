@@ -4,12 +4,12 @@ import { useQuery } from '@tanstack/react-query';
 import Header from '@/components/Header';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { LineChart, PieChart } from '@/components/ui/charts';
+import { LineChart, PieChart, BarChart } from '@/components/ui/charts';
 import { getTranscriptCounts } from '@/utils/transcriptUtils';
 import { Separator } from '@/components/ui/separator';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
-import { Search, RefreshCw, AlertCircle } from 'lucide-react';
+import { Search, RefreshCw, AlertCircle, Info } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { 
@@ -17,9 +17,11 @@ import {
   getTopQueries, 
   generateSourceDistribution, 
   calculateSuccessRate, 
-  generateResponseTimeData
+  generateResponseTimeData,
+  getTranscriptSourceStats
 } from '@/utils/analyticsUtils';
 import { useToast } from '@/components/ui/use-toast';
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 
 const Analytics = () => {
   const [dateRange, setDateRange] = useState<'7d' | '30d' | 'all'>('7d');
@@ -34,12 +36,13 @@ const Analytics = () => {
   });
   
   // Fetch transcript data
-  const { data: transcripts } = useQuery({
+  const { data: transcripts, refetch: refetchTranscripts } = useQuery({
     queryKey: ['transcripts'],
     queryFn: async () => {
       const { data, error } = await supabase
         .from('transcripts')
-        .select('id, title, content, created_at, file_path, source');
+        .select('id, title, content, created_at, file_path, source')
+        .order('created_at', { ascending: false });
         
       if (error) {
         console.error('Error fetching transcripts:', error);
@@ -87,31 +90,49 @@ const Analytics = () => {
     return generateResponseTimeData(analyticsData);
   }, [analyticsData]);
   
+  // Transcript source stats from analytics data
+  const transcriptSourceStats = React.useMemo(() => {
+    if (!analyticsData) return null;
+    return getTranscriptSourceStats(analyticsData);
+  }, [analyticsData]);
+  
   // Recent queries
   const recentQueries = React.useMemo(() => {
     if (!analyticsData) return [];
     return analyticsData.slice(0, 10);
   }, [analyticsData]);
   
+  // Recent summit transcripts
+  const summitTranscripts = React.useMemo(() => {
+    if (!transcripts) return [];
+    return transcripts
+      .filter(t => t.source === 'business_acquisitions_summit')
+      .slice(0, 5);
+  }, [transcripts]);
+  
   // Handle manual refresh
   const handleRefresh = () => {
     refetchAnalytics();
+    refetchTranscripts();
     toast({
       title: "Analytics refreshed",
       description: "The analytics data has been refreshed.",
     });
   };
   
+  // Load data when component mounts
   useEffect(() => {
-    // Check source types for all transcripts to ensure they're properly categorized
+    handleRefresh();
+  }, []);
+  
+  // Log summit transcript counts on load
+  useEffect(() => {
     if (transcripts?.length > 0) {
-      const summitTranscripts = transcripts.filter(t => 
-        t.source === 'business_acquisitions_summit' || 
-        t.title?.toLowerCase().includes('summit') ||
-        t.title?.toLowerCase().includes('acquisition summit')
-      );
+      const summitTranscriptCount = transcripts.filter(t => 
+        t.source === 'business_acquisitions_summit'
+      ).length;
       
-      console.log(`Found ${summitTranscripts.length} Business Acquisition Summit transcripts`);
+      console.log(`Found ${summitTranscriptCount} Business Acquisition Summit transcripts`);
     }
   }, [transcripts]);
   
@@ -148,6 +169,16 @@ const Analytics = () => {
             </div>
           </div>
         </div>
+        
+        {analyticsData?.length === 0 && (
+          <Alert className="mb-6">
+            <Info className="h-4 w-4" />
+            <AlertTitle>No analytics data available</AlertTitle>
+            <AlertDescription>
+              Try using the AI assistant a few times to generate analytics data. Make sure to ask questions related to business acquisitions.
+            </AlertDescription>
+          </Alert>
+        )}
         
         {isError && (
           <Alert variant="destructive" className="mb-6">
@@ -197,7 +228,7 @@ const Analytics = () => {
                 <span>Protege: {transcriptCounts.protege_call}</span>
                 <span>Foundations: {transcriptCounts.foundations_call}</span>
                 <span>Mastermind: {transcriptCounts.mastermind_call}</span>
-                <span>Summit: {transcriptCounts.business_acquisitions_summit}</span>
+                <span className="font-medium">Summit: {transcriptCounts.business_acquisitions_summit}</span>
               </div>
             </CardContent>
           </Card>
@@ -269,7 +300,7 @@ const Analytics = () => {
           </Card>
         </div>
         
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-8">
           <Card>
             <CardHeader>
               <CardTitle>Popular Queries</CardTitle>
@@ -305,6 +336,44 @@ const Analytics = () => {
           
           <Card>
             <CardHeader>
+              <CardTitle>Recent Summit Transcripts</CardTitle>
+              <CardDescription>Latest Business Acquisitions Summit content</CardDescription>
+            </CardHeader>
+            <CardContent>
+              {summitTranscripts.length > 0 ? (
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead>Title</TableHead>
+                      <TableHead className="hidden md:table-cell">Date Added</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {summitTranscripts.map((transcript) => (
+                      <TableRow key={transcript.id}>
+                        <TableCell className="font-medium">{transcript.title}</TableCell>
+                        <TableCell className="hidden md:table-cell">
+                          {new Date(transcript.created_at).toLocaleDateString()}
+                        </TableCell>
+                      </TableRow>
+                    ))}
+                  </TableBody>
+                </Table>
+              ) : (
+                <div className="flex flex-col items-center justify-center py-8">
+                  <p className="text-muted-foreground text-sm">No summit transcripts found</p>
+                  <p className="text-sm text-muted-foreground mt-2">
+                    Make sure your summit transcripts are tagged with "business_acquisitions_summit"
+                  </p>
+                </div>
+              )}
+            </CardContent>
+          </Card>
+        </div>
+        
+        <div className="grid grid-cols-1 gap-6">
+          <Card>
+            <CardHeader>
               <CardTitle>Recent Queries</CardTitle>
               <CardDescription>Latest user interactions</CardDescription>
             </CardHeader>
@@ -313,16 +382,19 @@ const Analytics = () => {
                 <div className="space-y-4">
                   {recentQueries.map((query, index) => (
                     <div key={index} className="space-y-1">
-                      <div className="flex justify-between">
-                        <p className="text-sm font-medium truncate">{query.query}</p>
-                        <span className={`text-xs px-2 py-0.5 rounded-full ${query.successful ? 'bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-300' : 'bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-300'}`}>
+                      <div className="flex justify-between items-start gap-2">
+                        <div className="flex-1">
+                          <p className="text-sm font-medium break-words">{query.query}</p>
+                          <p className="text-xs text-muted-foreground">
+                            {new Date(query.created_at).toLocaleString()} • 
+                            {query.source_type && <span className="font-medium"> Source: {query.source_type}</span>}
+                            {query.transcript_title && <span> • {query.transcript_title}</span>}
+                          </p>
+                        </div>
+                        <span className={`text-xs px-2 py-0.5 rounded-full shrink-0 ${query.successful ? 'bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-300' : 'bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-300'}`}>
                           {query.successful ? 'Success' : 'Failed'}
                         </span>
                       </div>
-                      <p className="text-xs text-muted-foreground">
-                        {new Date(query.created_at).toLocaleString()} • 
-                        {query.source_type && ` Source: ${query.source_type}`}
-                      </p>
                       <Separator className="my-1" />
                     </div>
                   ))}

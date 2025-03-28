@@ -14,7 +14,7 @@ export type AnalyticsData = {
   created_at: string;
   transcript_title: string | null;
   error_message: string | null;
-  used_online_search?: boolean | null;
+  used_online_search: boolean | null;
 };
 
 /**
@@ -170,4 +170,29 @@ export function generateResponseTimeData(analyticsData: AnalyticsData[]) {
     date,
     "Average Response Time (ms)": Math.round(total / count),
   }));
+}
+
+/**
+ * Tracks transcript sources by type
+ */
+export function getTranscriptSourceStats(analyticsData: AnalyticsData[]) {
+  const stats = {
+    protege_call: 0,
+    foundations_call: 0,
+    mastermind_call: 0,
+    business_acquisitions_summit: 0,
+    other: 0
+  };
+  
+  analyticsData.forEach(item => {
+    const sourceType = item.source_type || 'other';
+    
+    if (sourceType in stats) {
+      stats[sourceType as keyof typeof stats] += 1;
+    } else {
+      stats.other += 1;
+    }
+  });
+  
+  return stats;
 }

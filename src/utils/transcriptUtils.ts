@@ -26,7 +26,7 @@ export function getTranscriptCounts(transcripts: Transcript[]) {
       foundations_call++;
     } else if (source.includes('mastermind')) {
       mastermind_call++;
-    } else if (source.includes('business_acquisitions_summit') || source === 'business acquisitions summit') {
+    } else if (source === 'business_acquisitions_summit' || source.includes('summit') || source.includes('acquisition summit')) {
       business_acquisitions_summit++;
     } else {
       other++;
@@ -56,41 +56,42 @@ export function getTranscriptSummaries(transcripts: Transcript[]) {
 export function detectSourceCategory(filename: string, content?: string): string {
   const lowercaseFilename = filename.toLowerCase();
   
-  if (lowercaseFilename.includes('protege')) {
+  // Check filename first for more specific matches
+  if (lowercaseFilename.includes('summit') || 
+      lowercaseFilename.includes('acquisitions_summit') || 
+      lowercaseFilename.includes('acquisition summit') ||
+      lowercaseFilename.includes('business acquisition')) {
+    return 'business_acquisitions_summit';
+  } else if (lowercaseFilename.includes('protege')) {
     return 'protege_call';
   } else if (lowercaseFilename.includes('foundation')) {
     return 'foundations_call';
   } else if (lowercaseFilename.includes('mastermind')) {
     return 'mastermind_call';
-  } else if (
-    lowercaseFilename.includes('summit') || 
-    lowercaseFilename.includes('acquisitions_summit') || 
-    lowercaseFilename.includes('acquisition summit') ||
-    lowercaseFilename.includes('business acquisition')
-  ) {
-    return 'business_acquisitions_summit';
   }
   
+  // Check content if filename didn't provide a clear match
   if (content) {
     const lowercaseContent = content.toLowerCase();
-    if (lowercaseContent.includes('protege')) {
+    if (lowercaseContent.includes('summit') || 
+        lowercaseContent.includes('acquisitions summit') ||
+        lowercaseContent.includes('acquisition summit') || 
+        lowercaseContent.includes('business acquisition summit')) {
+      return 'business_acquisitions_summit';
+    } else if (lowercaseContent.includes('protege')) {
       return 'protege_call';
     } else if (lowercaseContent.includes('foundation')) {
       return 'foundations_call';
     } else if (lowercaseContent.includes('mastermind')) {
       return 'mastermind_call';
-    } else if (
-      lowercaseContent.includes('summit') || 
-      lowercaseContent.includes('acquisitions summit') ||
-      lowercaseContent.includes('acquisition summit') || 
-      lowercaseContent.includes('business acquisition summit')
-    ) {
-      return 'business_acquisitions_summit';
     }
   }
   
-  // Check for timestamps on 27th for likely summit content
-  if (filename.includes('2025-03-27') || filename.includes('2025-02-27')) {
+  // Specific date detection for summit content
+  if (filename.includes('2024-03-27') || 
+      filename.includes('2024-02-27') || 
+      filename.includes('2025-03-27') || 
+      filename.includes('2025-02-27')) {
     return 'business_acquisitions_summit';
   }
   
@@ -147,7 +148,7 @@ export function searchTranscriptsForQuery(query: string, transcripts: Transcript
       });
       
       // Boost relevance for business_acquisitions_summit as it's the newest content
-      const sourceBoost = transcript.source === 'business_acquisitions_summit' ? 1.5 :
+      const sourceBoost = transcript.source === 'business_acquisitions_summit' ? 2.0 :
                           transcript.source === 'mastermind_call' ? 1.2 : 
                           1.0;
       
