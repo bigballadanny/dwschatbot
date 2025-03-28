@@ -51,6 +51,11 @@ const PopularQuestions: React.FC<PopularQuestionsProps> = ({
     popularQueries.map(item => item.query) : 
     fallbackQuestions;
 
+  const handleQuestionClick = (question: string) => {
+    // Call the onSelectQuestion callback with the selected question
+    onSelectQuestion(question);
+  };
+
   return (
     <Card className={cn("w-full", className)}>
       <CardHeader className="pb-3">
@@ -76,7 +81,7 @@ const PopularQuestions: React.FC<PopularQuestionsProps> = ({
                 key={index}
                 variant="outline"
                 className="w-full justify-start text-left h-auto py-3 px-4 font-normal hover:bg-primary/10 active:scale-[0.98] transition-all"
-                onClick={() => onSelectQuestion(question)}
+                onClick={() => handleQuestionClick(question)}
               >
                 {question}
               </Button>

@@ -1,6 +1,6 @@
 
 import React, { useState, useRef, useEffect } from 'react';
-import { useLocation } from 'react-router-dom';
+import { useLocation, useNavigate } from 'react-router-dom';
 import ChatInterface from '@/components/ChatInterface';
 import Header from '@/components/Header';
 import WelcomeScreen from '@/components/WelcomeScreen';
@@ -14,6 +14,7 @@ import { ScrollArea } from "@/components/ui/scroll-area";
 import { supabase } from '@/integrations/supabase/client';
 import { MessageProps } from '@/components/MessageItem';
 import { useToast } from "@/components/ui/use-toast";
+import { useAuth } from '@/context/AuthContext';
 
 // This is a small component that will only render when the sidebar is collapsed
 const SidebarOpenButton = () => {
@@ -36,6 +37,7 @@ const SidebarOpenButton = () => {
 };
 
 const Index = () => {
+  const { user } = useAuth();
   const [showWelcome, setShowWelcome] = useState(true);
   const [voiceEnabled, setVoiceEnabled] = useState(false);
   const [audioEnabled, setAudioEnabled] = useState(true);
@@ -47,10 +49,12 @@ const Index = () => {
   const [conversationId, setConversationId] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(false);
   const [enableOnlineSearch, setEnableOnlineSearch] = useState(false);
+  const [hasInteracted, setHasInteracted] = useState(false);
   
   const chatRef = useRef<{ submitQuestion: (question: string) => void }>(null);
   const voiceRef = useRef<VoiceConversationRefMethods>(null);
   const location = useLocation();
+  const navigate = useNavigate();
   const { toast } = useToast();
 
   // Check if a conversation ID or initial question is provided in URL params
@@ -59,6 +63,11 @@ const Index = () => {
     const urlConversationId = params.get('conversation');
     const question = params.get('q');
 
+    // Auto-hide welcome screen if authenticated
+    if (user) {
+      setShowWelcome(false);
+    }
+
     if (urlConversationId || question) {
       setShowWelcome(false);
     }
@@ -66,7 +75,7 @@ const Index = () => {
     if (urlConversationId) {
       setConversationId(urlConversationId);
       loadConversationMessages(urlConversationId);
-    } else if (!conversationId) {
+    } else if (!conversationId && user) {
       createNewConversation();
     }
 
@@ -74,9 +83,10 @@ const Index = () => {
       // Allow time for the conversation to initialize
       setTimeout(() => {
         handleSendMessage(question);
+        setHasInteracted(true);
       }, 1000);
     }
-  }, [location]);
+  }, [location, user]);
 
   const loadConversationMessages = async (id: string) => {
     try {
@@ -112,13 +122,16 @@ const Index = () => {
   };
   
   const createNewConversation = async () => {
+    // Only create a new conversation if user is authenticated
+    if (!user) return;
+    
     try {
       const { data, error } = await supabase
         .from('conversations')
         .insert([
           { 
             title: 'New Conversation',
-            user_id: null // We'll update this when users can authenticate
+            user_id: user.id
           }
         ])
         .select();
@@ -151,10 +164,35 @@ const Index = () => {
   const handleAskQuestion = (question: string) => {
     setShowWelcome(false);
     handleSendMessage(question);
+    setHasInteracted(true);
   };
 
   const handleSendMessage = async (message: string): Promise<void> => {
-    if (!message.trim() || isLoading || !conversationId) return Promise.resolve();
+    if (!message.trim() || isLoading) return Promise.resolve();
+    
+    // If user is not authenticated, prompt them to sign in
+    if (!user) {
+      toast({
+        title: "Authentication Required",
+        description: "Please sign in to send messages and save your conversation history.",
+        variant: "default",
+      });
+      return Promise.resolve();
+    }
+    
+    // Create a conversation if one doesn't exist
+    if (!conversationId) {
+      await createNewConversation();
+      // If we still don't have a conversation ID, something went wrong
+      if (!conversationId) {
+        toast({
+          title: "Error",
+          description: "Unable to create a conversation. Please try again.",
+          variant: "destructive",
+        });
+        return Promise.resolve();
+      }
+    }
     
     const userMessage: MessageProps = {
       content: message,
@@ -226,11 +264,14 @@ const Index = () => {
         });
       }
       
-      if (messages.length <= 3) {
+      // Update conversation title with first message if it's a new conversation
+      if (!hasInteracted && message.trim()) {
         await supabase
           .from('conversations')
           .update({ title: message.substring(0, 50) })
           .eq('id', conversationId);
+          
+        setHasInteracted(true);
       }
     } catch (error) {
       console.error('Error generating response:', error);
@@ -283,7 +324,10 @@ const Index = () => {
                     onStartChat={() => setShowWelcome(false)} 
                     onSelectQuestion={handleAskQuestion}
                   />
-                  <PopularQuestions onSelectQuestion={handleAskQuestion} />
+                  <PopularQuestions 
+                    onSelectQuestion={handleAskQuestion} 
+                    className="mt-8" 
+                  />
                 </div>
               </div>
             ) : (
