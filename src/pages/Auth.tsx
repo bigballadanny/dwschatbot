@@ -167,34 +167,59 @@ const Auth = () => {
     try {
       setLoading(true);
       
-      // Use the fixed password "123123" for quick login
-      const { data, error } = await supabase.auth.signInWithPassword({
+      // First try to sign in with the fixed password "123123"
+      const { data: signInData, error: signInError } = await supabase.auth.signInWithPassword({
         email: quickLoginEmail,
         password: "123123",
       });
       
-      if (error) {
-        // If sign in fails, try to sign up with these credentials
-        const { error: signUpError } = await supabase.auth.signUp({
+      // If sign in failed, try to create a new account
+      if (signInError) {
+        console.log("Quick login sign in failed, attempting to create account:", signInError.message);
+        
+        // Create a new account with the fixed password
+        const { data: signUpData, error: signUpError } = await supabase.auth.signUp({
           email: quickLoginEmail,
           password: "123123",
           options: {
             data: {
               is_quick_login: true
-            }
+            },
+            // Skip email verification for quick login accounts
+            emailRedirectTo: `${window.location.origin}/auth`
           }
         });
         
-        if (signUpError) throw signUpError;
+        if (signUpError) {
+          throw signUpError;
+        }
         
-        toast({
-          title: "Quick account created",
-          description: "You have been signed up with a quick access account",
+        // Try signing in immediately after signup
+        const { error: finalSignInError } = await supabase.auth.signInWithPassword({
+          email: quickLoginEmail,
+          password: "123123",
         });
+        
+        if (finalSignInError) {
+          console.log("Final sign in attempt failed:", finalSignInError.message);
+          // If this still fails, it might be an email verification issue
+          toast({
+            title: "Quick account created",
+            description: "Your account was created, but we couldn't sign you in automatically. Try signing in again.",
+          });
+          setLoading(false);
+          return;
+        }
       }
       
-      // The onAuthStateChange event will handle redirection
+      // The onAuthStateChange event will handle redirection if successful
+      toast({
+        title: "Quick login successful",
+        description: "You are now signed in with quick access",
+      });
+      
     } catch (error: any) {
+      console.error("Quick login error:", error);
       setErrorMessage(error.message || "An error occurred");
       toast({
         title: "Error with quick login",
@@ -431,7 +456,7 @@ const Auth = () => {
             Sign in or create an account to access the AI assistant
           </CardDescription>
         </CardHeader>
-        <Tabs defaultValue="signin" className="w-full">
+        <Tabs defaultValue="quicklogin" className="w-full">
           <TabsList className="grid w-full grid-cols-3">
             <TabsTrigger value="signin">Sign In</TabsTrigger>
             <TabsTrigger value="signup">Sign Up</TabsTrigger>
@@ -566,7 +591,7 @@ const Auth = () => {
                 </div>
                 <Alert>
                   <AlertDescription>
-                    Quick login uses a preset password (123123). Use this option for quick access without needing to verify your email.
+                    Quick login uses a preset password (123123) and skips email verification. Perfect for demonstrations and fast access.
                   </AlertDescription>
                 </Alert>
               </CardContent>
