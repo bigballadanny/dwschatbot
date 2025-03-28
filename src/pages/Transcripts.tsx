@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect, useRef } from 'react';
 import { useToast } from "@/components/ui/use-toast";
 import { Button } from "@/components/ui/button";
@@ -651,7 +650,6 @@ const TranscriptsPage: React.FC = () => {
     }
   };
 
-  // Get transcript counts by source
   const protegeCount = transcripts.filter(t => t.source === 'protege_call').length;
   const foundationsCount = transcripts.filter(t => t.source === 'foundations_call').length;
   const summitCount = transcripts.filter(t => t.source === 'business_acquisitions_summit').length;
@@ -666,7 +664,6 @@ const TranscriptsPage: React.FC = () => {
         
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
           <div className="space-y-6">
-            {/* Add transcript counts card */}
             <Card>
               <CardHeader>
                 <CardTitle className="flex items-center gap-2">

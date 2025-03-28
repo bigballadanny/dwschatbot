@@ -1,3 +1,4 @@
+
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 
 const GEMINI_API_KEY = Deno.env.get('GEMINI_API_KEY');
@@ -104,6 +105,9 @@ serve(async (req) => {
           break;
         case 'foundations_call':
           sourceSpecificInstructions = "You're referencing Carl Allen's Foundations call transcripts. These contain foundational training on business acquisitions and practical advice for beginners.";
+          break;
+        case 'business_acquisitions_summit':
+          sourceSpecificInstructions = "You're referencing Carl Allen's 2024 Business Acquisitions Summit transcripts. These contain the latest strategies, insights, and advice shared at this recent event.";
           break;
         case 'case_study':
           sourceSpecificInstructions = "You're using information from a case study. Focus on the specific examples, outcomes, and lessons learned from this real-world scenario.";

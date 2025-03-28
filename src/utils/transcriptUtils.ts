@@ -1,3 +1,4 @@
+
 import { Tables } from '../integrations/supabase/types';
 
 export type Transcript = {
@@ -14,6 +15,7 @@ export function getTranscriptCounts(transcripts: Transcript[]) {
   let protege_call = 0;
   let foundations_call = 0;
   let mastermind_call = 0;
+  let business_acquisitions_summit = 0;
   let other = 0;
   
   transcripts.forEach(transcript => {
@@ -24,6 +26,8 @@ export function getTranscriptCounts(transcripts: Transcript[]) {
       foundations_call++;
     } else if (source.includes('mastermind')) {
       mastermind_call++;
+    } else if (source.includes('business_acquisitions_summit')) {
+      business_acquisitions_summit++;
     } else {
       other++;
     }
@@ -34,6 +38,7 @@ export function getTranscriptCounts(transcripts: Transcript[]) {
     protege_call,
     foundations_call,
     mastermind_call,
+    business_acquisitions_summit,
     other
   };
 }
@@ -57,6 +62,8 @@ export function detectSourceCategory(filename: string, content?: string): string
     return 'foundations_call';
   } else if (lowercaseFilename.includes('mastermind')) {
     return 'mastermind_call';
+  } else if (lowercaseFilename.includes('summit') || lowercaseFilename.includes('acquisitions_summit')) {
+    return 'business_acquisitions_summit';
   }
   
   if (content) {
@@ -67,6 +74,8 @@ export function detectSourceCategory(filename: string, content?: string): string
       return 'foundations_call';
     } else if (lowercaseContent.includes('mastermind')) {
       return 'mastermind_call';
+    } else if (lowercaseContent.includes('summit') || lowercaseContent.includes('acquisitions summit')) {
+      return 'business_acquisitions_summit';
     }
   }
   
@@ -124,6 +133,8 @@ export function getSourceDescription(sourceType: string): string {
       return "Carl Allen's Creative Dealmaker book";
     case 'case_study':
       return "a case study";
+    case 'business_acquisitions_summit':
+      return "Carl Allen's 2024 Business Acquisitions Summit";
     default:
       return "Carl Allen's business acquisition material";
   }

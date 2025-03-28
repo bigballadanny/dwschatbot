@@ -126,6 +126,8 @@ export const generateGeminiResponse = async (
         citation = `Based on information from Carl Allen's Protege call: "${bookReference}"`;
       } else if (sourceType === 'foundations_call') {
         citation = `Based on information from Carl Allen's Foundations call: "${bookReference}"`;
+      } else if (sourceType === 'business_acquisitions_summit') {
+        citation = `Based on information from Carl Allen's 2024 Business Acquisitions Summit: "${bookReference}"`;
       } else {
         citation = `Based on information from "${bookReference}" by Carl Allen`;
       }
