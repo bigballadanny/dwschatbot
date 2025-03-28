@@ -24,33 +24,38 @@ const AudioPlayer = ({ audioSrc, className }: AudioPlayerProps) => {
     const audio = new Audio(audioSrc);
     audioRef.current = audio;
 
-    // Event listeners
-    audio.addEventListener('loadedmetadata', () => {
+    // Define event handlers
+    const handleLoadedMetadata = () => {
       setDuration(audio.duration);
-    });
+    };
 
-    audio.addEventListener('timeupdate', () => {
+    const handleTimeUpdate = () => {
       setProgress((audio.currentTime / audio.duration) * 100);
       if (audio.ended) {
         setIsPlaying(false);
       }
-    });
+    };
 
-    audio.addEventListener('ended', () => {
+    const handleEnded = () => {
       setIsPlaying(false);
       setProgress(0);
-    });
+    };
+
+    // Add event listeners
+    audio.addEventListener('loadedmetadata', handleLoadedMetadata);
+    audio.addEventListener('timeupdate', handleTimeUpdate);
+    audio.addEventListener('ended', handleEnded);
 
     return () => {
       // Cleanup
       if (audioRef.current) {
         audioRef.current.pause();
         audioRef.current.src = '';
-        Object.values(audioRef.current as any).forEach(handler => {
-          audioRef.current?.removeEventListener?.('loadedmetadata', handler);
-          audioRef.current?.removeEventListener?.('timeupdate', handler);
-          audioRef.current?.removeEventListener?.('ended', handler);
-        });
+        
+        // Remove event listeners with proper references
+        audio.removeEventListener('loadedmetadata', handleLoadedMetadata);
+        audio.removeEventListener('timeupdate', handleTimeUpdate);
+        audio.removeEventListener('ended', handleEnded);
       }
     };
   }, [audioSrc]);
