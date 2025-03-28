@@ -14,11 +14,11 @@ interface ConversationItemProps {
 
 const ConversationItem = ({ id, title, isActive, onDelete }: ConversationItemProps) => {
   return (
-    <div className="group flex items-center justify-between w-full rounded-md p-2 text-sm hover:bg-accent transition-colors">
+    <div className="group flex items-center w-full rounded-md p-2 text-sm hover:bg-accent transition-colors">
       <Link 
         to={`/?conversation=${id}`}
         className={cn(
-          "flex items-center flex-1 overflow-hidden mr-2",
+          "flex flex-grow items-center min-w-0 max-w-[calc(100%-40px)]",
           isActive && "font-medium"
         )}
       >
@@ -27,16 +27,18 @@ const ConversationItem = ({ id, title, isActive, onDelete }: ConversationItemPro
           {title || 'New Conversation'}
         </span>
       </Link>
-      <Button
-        variant="ghost"
-        size="sm"
-        className="h-7 w-7 p-0 flex-shrink-0 text-destructive hover:bg-destructive/10 hover:text-destructive"
-        onClick={(e) => onDelete(id, e)}
-        title="Delete conversation"
-        aria-label="Delete conversation"
-      >
-        <Trash2 className="h-4 w-4" />
-      </Button>
+      <div className="ml-auto">
+        <Button
+          variant="ghost"
+          size="sm"
+          className="h-7 w-7 p-0 flex-shrink-0 text-destructive hover:bg-destructive/10 hover:text-destructive"
+          onClick={(e) => onDelete(id, e)}
+          title="Delete conversation"
+          aria-label="Delete conversation"
+        >
+          <Trash2 className="h-4 w-4" />
+        </Button>
+      </div>
     </div>
   );
 };
