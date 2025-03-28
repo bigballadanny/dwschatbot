@@ -2,25 +2,14 @@
 import React from 'react';
 import { Link } from 'react-router-dom';
 import { Button } from "@/components/ui/button";
-import { Avatar, AvatarImage, AvatarFallback } from "@/components/ui/avatar"
+import { BookOpen, BarChart3 } from 'lucide-react';
 import { useAuth } from '@/context/AuthContext';
 import { useAdmin } from '@/context/AdminContext';
-import { BookOpen, BarChart3 } from 'lucide-react';
+import { ModeToggle } from "@/components/ModeToggle";
 
 const HeaderLink = ({ to, children }: { to: string; children: React.ReactNode }) => (
   <Link to={to} className="text-sm font-medium hover:text-primary">{children}</Link>
 );
-
-const UserAvatar = () => {
-  const { user } = useAuth();
-
-  return (
-    <Avatar>
-      <AvatarImage src={user?.user_metadata?.avatar_url} />
-      <AvatarFallback>{user?.email?.charAt(0).toUpperCase()}</AvatarFallback>
-    </Avatar>
-  )
-}
 
 const Header: React.FC = () => {
   const { user } = useAuth();
@@ -52,20 +41,10 @@ const Header: React.FC = () => {
         </div>
         
         <div className="flex items-center space-x-2">
-          {user ? (
-            <div className="flex items-center gap-2">
-              {isAdmin && (
-                <Button asChild variant="outline" size="sm">
-                  <Link to="/analytics">
-                    <BarChart3 className="h-4 w-4 mr-1" />
-                    Analytics
-                  </Link>
-                </Button>
-              )}
-              <UserAvatar />
-            </div>
-          ) : (
-            <Button asChild size="sm">
+          <ModeToggle />
+          
+          {!user && (
+            <Button asChild size="sm" className="ml-2">
               <Link to="/auth">Sign In</Link>
             </Button>
           )}
