@@ -119,13 +119,13 @@ const ChatInterface = forwardRef<
         </div>
       </div>
       
-      <div className="border-t fixed bottom-0 left-0 right-0 bg-background/80 backdrop-blur-sm z-10 pb-6 pt-4 px-4">
+      <div className={cn(
+        "border-t fixed bottom-0 bg-background/80 backdrop-blur-sm z-10 pb-6 pt-4 px-4",
+        sidebarState === "expanded" ? "left-[16rem] right-0" : "left-0 right-0"
+      )}>
         <form 
           onSubmit={handleSubmit} 
-          className={cn(
-            "flex gap-3 items-center max-w-3xl mx-auto transition-all duration-200",
-            sidebarState === "expanded" ? "md:ml-[16rem]" : "ml-0"
-          )}
+          className="flex gap-3 items-center max-w-3xl mx-auto"
         >
           <Input
             ref={inputRef}
