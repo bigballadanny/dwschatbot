@@ -1,3 +1,4 @@
+
 import React, { useState, useRef, useEffect } from 'react';
 import { useLocation } from 'react-router-dom';
 import ChatInterface from '@/components/ChatInterface';
@@ -5,9 +6,11 @@ import Header from '@/components/Header';
 import WelcomeScreen from '@/components/WelcomeScreen';
 import PopularQuestions from '@/components/PopularQuestions';
 import ChatSidebar from '@/components/ChatSidebar';
+import VoiceConversation from '@/components/VoiceConversation';
 import { SidebarProvider, SidebarInset, useSidebar } from "@/components/ui/sidebar";
 import { Button } from "@/components/ui/button";
-import { PanelLeft } from 'lucide-react';
+import { PanelLeft, MessageSquare, Mic } from 'lucide-react';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 
 // This is a small component that will only render when the sidebar is collapsed
 const SidebarOpenButton = () => {
@@ -31,6 +34,7 @@ const SidebarOpenButton = () => {
 
 const Index = () => {
   const [showWelcome, setShowWelcome] = useState(true);
+  const [activeTab, setActiveTab] = useState("chat");
   const chatRef = useRef<{ submitQuestion: (question: string) => void }>(null);
   const location = useLocation();
 
@@ -70,8 +74,8 @@ const Index = () => {
           <div className="flex flex-col h-full">
             <Header />
             
-            <div className="flex-1 overflow-y-auto">
-              {showWelcome ? (
+            {showWelcome ? (
+              <div className="flex-1 overflow-y-auto">
                 <div className="container mx-auto px-4 py-8">
                   <WelcomeScreen 
                     onStartChat={() => setShowWelcome(false)} 
@@ -79,10 +83,34 @@ const Index = () => {
                   />
                   <PopularQuestions onSelectQuestion={handleAskQuestion} />
                 </div>
-              ) : (
-                <ChatInterface ref={chatRef} initialQuestion={null} />
-              )}
-            </div>
+              </div>
+            ) : (
+              <div className="flex-1 overflow-hidden flex flex-col">
+                <div className="px-4 py-2 flex justify-center border-b">
+                  <Tabs defaultValue="chat" value={activeTab} onValueChange={setActiveTab} className="w-[400px]">
+                    <TabsList className="grid w-full grid-cols-2">
+                      <TabsTrigger value="chat" className="flex items-center gap-2">
+                        <MessageSquare className="h-4 w-4" />
+                        <span>Text Chat</span>
+                      </TabsTrigger>
+                      <TabsTrigger value="voice" className="flex items-center gap-2">
+                        <Mic className="h-4 w-4" />
+                        <span>Voice Chat</span>
+                      </TabsTrigger>
+                    </TabsList>
+                  </Tabs>
+                </div>
+                
+                <div className="flex-1 overflow-hidden">
+                  <TabsContent value="chat" className="h-full">
+                    <ChatInterface ref={chatRef} initialQuestion={null} />
+                  </TabsContent>
+                  <TabsContent value="voice" className="h-full">
+                    <VoiceConversation />
+                  </TabsContent>
+                </div>
+              </div>
+            )}
           </div>
         </SidebarInset>
       </div>
