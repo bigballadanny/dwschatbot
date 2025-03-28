@@ -38,21 +38,25 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
             description: isQuickLogin 
               ? "Welcome! You're using quick login access."
               : `Welcome${session?.user?.email ? ' ' + session.user.email : ''}!`,
+            className: "bg-primary text-primary-foreground dark:bg-primary dark:text-primary-foreground",
           });
         } else if (event === 'SIGNED_OUT') {
           toast({
             title: "Signed out",
             description: "You have been signed out successfully",
+            className: "bg-primary text-primary-foreground dark:bg-primary dark:text-primary-foreground",
           });
         } else if (event === 'USER_UPDATED') {
           toast({
             title: "Profile updated",
             description: "Your profile has been updated successfully",
+            className: "bg-primary text-primary-foreground dark:bg-primary dark:text-primary-foreground",
           });
         } else if (event === 'PASSWORD_RECOVERY') {
           toast({
             title: "Password reset",
             description: "Please enter your new password",
+            className: "bg-primary text-primary-foreground dark:bg-primary dark:text-primary-foreground",
           });
         }
       }

@@ -23,7 +23,7 @@ function App() {
     <QueryClientProvider client={queryClient}>
       <AuthProvider>
         <AdminProvider>
-          <ThemeProvider>
+          <ThemeProvider defaultTheme="light">
             <SidebarProvider>
               <Router>
                 <Routes>
