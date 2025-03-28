@@ -229,10 +229,11 @@ const ChatSidebar = () => {
                           {conversation.title || 'New Conversation'}
                         </span>
                       </div>
+                      {/* Fixed: Made the trash button always visible */}
                       <Button
                         variant="ghost"
                         size="icon"
-                        className="h-6 w-6 shrink-0 opacity-70 hover:opacity-100 text-destructive hover:bg-destructive/10 hover:text-destructive"
+                        className="h-6 w-6 flex-shrink-0 opacity-70 hover:opacity-100 text-destructive hover:bg-destructive/10 hover:text-destructive"
                         onClick={(e) => confirmDelete(conversation.id, e)}
                         title="Delete conversation"
                       >
