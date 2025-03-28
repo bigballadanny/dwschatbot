@@ -14,7 +14,7 @@ interface ConversationItemProps {
 
 const ConversationItem = ({ id, title, isActive, onDelete }: ConversationItemProps) => {
   return (
-    <div className="group flex items-center justify-between gap-2 w-full rounded-md p-2 text-sm hover:bg-accent transition-colors">
+    <div className="group/item flex items-center justify-between gap-2 w-full rounded-md p-2 text-sm hover:bg-accent transition-colors">
       <Link 
         to={`/?conversation=${id}`}
         className={cn(
@@ -30,7 +30,7 @@ const ConversationItem = ({ id, title, isActive, onDelete }: ConversationItemPro
       <Button
         variant="ghost"
         size="icon"
-        className="h-6 w-6 p-0 flex-shrink-0 opacity-0 group-hover:opacity-100 text-destructive hover:bg-destructive/10 hover:text-destructive"
+        className="h-6 w-6 p-0 flex-shrink-0 opacity-0 group-hover/item:opacity-100 text-destructive hover:bg-destructive/10 hover:text-destructive"
         onClick={(e) => onDelete(id, e)}
         title="Delete conversation"
         aria-label="Delete conversation"
