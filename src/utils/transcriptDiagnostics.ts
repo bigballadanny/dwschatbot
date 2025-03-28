@@ -21,13 +21,15 @@ export async function checkForTranscriptIssues() {
       emptyContent: 0,
       missingFilePath: 0,
       recentlyUploaded: 0,
-      businessSummitTranscripts: 0
+      businessSummitTranscripts: 0,
+      potentialSummitTranscripts: 0
     };
     
     const lastHour = new Date();
     lastHour.setHours(lastHour.getHours() - 1);
     
     const recentTranscripts = [];
+    const potentialSummitTranscripts = [];
     
     transcripts.forEach(transcript => {
       // Check for empty content
@@ -51,9 +53,20 @@ export async function checkForTranscriptIssues() {
       if (transcript.source === 'business_acquisitions_summit') {
         stats.businessSummitTranscripts++;
       }
+      
+      // Check if this transcript was uploaded on the 27th but not marked as summit
+      const uploadDate = new Date(transcript.created_at);
+      const is27thUpload = uploadDate.getDate() === 27 && 
+                         uploadDate.getMonth() === new Date().getMonth() && 
+                         uploadDate.getFullYear() === new Date().getFullYear();
+                         
+      if (is27thUpload && transcript.source !== 'business_acquisitions_summit') {
+        potentialSummitTranscripts.push(transcript);
+        stats.potentialSummitTranscripts++;
+      }
     });
     
-    return { stats, recentTranscripts };
+    return { stats, recentTranscripts, potentialSummitTranscripts };
   } catch (error) {
     console.error('Error checking for transcript issues:', error);
     throw error;
@@ -138,14 +151,39 @@ export async function fixTranscriptIssues(transcriptIds: string[]) {
 }
 
 /**
+ * Update a single transcript's source type
+ */
+export async function updateTranscriptSourceType(transcriptId: string, newSource: string) {
+  try {
+    const { error } = await supabase
+      .from('transcripts')
+      .update({ source: newSource })
+      .eq('id', transcriptId);
+      
+    if (error) {
+      throw error;
+    }
+    
+    return { success: true };
+  } catch (error: any) {
+    console.error('Error updating transcript source type:', error);
+    return { success: false, error: error.message };
+  }
+}
+
+/**
  * Ensures all transcripts have the correct source type
  */
-export async function fixTranscriptSourceTypes() {
+export async function fixTranscriptSourceTypes(specificIds?: string[]) {
   try {
-    // Get all transcripts
-    const { data: transcripts, error } = await supabase
-      .from('transcripts')
-      .select('*');
+    // Get all transcripts or specified ones
+    const query = supabase.from('transcripts').select('*');
+    
+    if (specificIds && specificIds.length > 0) {
+      query.in('id', specificIds);
+    }
+    
+    const { data: transcripts, error } = await query;
       
     if (error) {
       throw error;
@@ -183,6 +221,11 @@ export async function fixTranscriptSourceTypes() {
       if (isUploadedOn27th && transcript.source !== 'business_acquisitions_summit') {
         shouldFix = true;
         newSource = 'business_acquisitions_summit';
+      }
+      
+      // If specific IDs were provided, force update regardless of other conditions
+      if (specificIds && specificIds.includes(transcript.id)) {
+        shouldFix = true;
       }
       
       if (shouldFix) {

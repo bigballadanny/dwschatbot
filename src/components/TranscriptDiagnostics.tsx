@@ -4,9 +4,11 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { Badge } from '@/components/ui/badge';
-import { Loader2, AlertCircle, CheckCircle2 } from 'lucide-react';
+import { Loader2, AlertCircle, CheckCircle2, Tag } from 'lucide-react';
 import { useToast } from '@/components/ui/use-toast';
-import { checkForTranscriptIssues, fixTranscriptIssues, fixTranscriptSourceTypes } from '@/utils/transcriptDiagnostics';
+import { checkForTranscriptIssues, fixTranscriptIssues, fixTranscriptSourceTypes, updateTranscriptSourceType } from '@/utils/transcriptDiagnostics';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogFooter, DialogClose } from '@/components/ui/dialog';
 
 interface TranscriptDiagnosticsProps {
   onComplete?: () => void;
@@ -17,6 +19,9 @@ const TranscriptDiagnostics: React.FC<TranscriptDiagnosticsProps> = ({ onComplet
   const [diagnosisResults, setDiagnosisResults] = useState<any>(null);
   const [fixResults, setFixResults] = useState<any>(null);
   const [sourceTypeResults, setSourceTypeResults] = useState<any>(null);
+  const [selectedTranscript, setSelectedTranscript] = useState<any>(null);
+  const [showSourceTypeDialog, setShowSourceTypeDialog] = useState(false);
+  const [newSourceType, setNewSourceType] = useState<string>('business_acquisitions_summit');
   const { toast } = useToast();
 
   const runDiagnosis = async () => {
@@ -31,7 +36,7 @@ const TranscriptDiagnostics: React.FC<TranscriptDiagnosticsProps> = ({ onComplet
       
       toast({
         title: 'Diagnosis complete',
-        description: `Found ${results.stats.total} transcripts, ${results.stats.recentlyUploaded} uploaded recently.`,
+        description: `Found ${results.stats.total} transcripts, ${results.stats.recentlyUploaded} uploaded recently, ${results.stats.potentialSummitTranscripts} potential summit transcripts.`,
       });
     } catch (error: any) {
       toast({
@@ -97,6 +102,99 @@ const TranscriptDiagnostics: React.FC<TranscriptDiagnosticsProps> = ({ onComplet
     }
   };
 
+  const fixSummitSourceTypes = async () => {
+    if (!diagnosisResults || !diagnosisResults.potentialSummitTranscripts) {
+      return;
+    }
+    
+    setLoading(true);
+    
+    try {
+      const transcriptIds = diagnosisResults.potentialSummitTranscripts.map((t: any) => t.id);
+      const results = await fixTranscriptSourceTypes(transcriptIds);
+      setSourceTypeResults(results);
+      
+      toast({
+        title: 'Summit transcript fix complete',
+        description: `Updated ${results.fixedCount} transcript(s) to Business Acquisitions Summit type. ${results.errors.length} error(s).`,
+      });
+      
+      if (onComplete) {
+        onComplete();
+      }
+    } catch (error: any) {
+      toast({
+        title: 'Error fixing source types',
+        description: error.message,
+        variant: 'destructive',
+      });
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const openSourceTypeDialog = (transcript: any) => {
+    setSelectedTranscript(transcript);
+    setNewSourceType(transcript.source || 'protege_call');
+    setShowSourceTypeDialog(true);
+  };
+
+  const updateSourceType = async () => {
+    if (!selectedTranscript) return;
+    
+    setLoading(true);
+    
+    try {
+      const result = await updateTranscriptSourceType(selectedTranscript.id, newSourceType);
+      
+      if (result.success) {
+        // Update the transcript in the current state
+        if (diagnosisResults && diagnosisResults.recentTranscripts) {
+          const updatedTranscripts = diagnosisResults.recentTranscripts.map((t: any) => 
+            t.id === selectedTranscript.id ? { ...t, source: newSourceType } : t
+          );
+          setDiagnosisResults({
+            ...diagnosisResults,
+            recentTranscripts: updatedTranscripts
+          });
+        }
+        
+        toast({
+          title: 'Source type updated',
+          description: `Successfully updated transcript source type to ${newSourceType}.`,
+        });
+        
+        if (onComplete) {
+          onComplete();
+        }
+      } else {
+        toast({
+          title: 'Error updating source type',
+          description: result.error || 'An unknown error occurred',
+          variant: 'destructive',
+        });
+      }
+    } catch (error: any) {
+      toast({
+        title: 'Error updating source type',
+        description: error.message,
+        variant: 'destructive',
+      });
+    } finally {
+      setLoading(false);
+      setShowSourceTypeDialog(false);
+    }
+  };
+
+  const getSourceColor = (source: string | undefined): string => {
+    switch(source) {
+      case 'protege_call': return 'bg-blue-100 text-blue-800';
+      case 'foundations_call': return 'bg-purple-100 text-purple-800';
+      case 'business_acquisitions_summit': return 'bg-amber-100 text-amber-800';
+      default: return 'bg-gray-100 text-gray-800';
+    }
+  };
+
   return (
     <Card>
       <CardHeader>
@@ -122,8 +220,8 @@ const TranscriptDiagnostics: React.FC<TranscriptDiagnosticsProps> = ({ onComplet
                 <div className="text-sm text-muted-foreground">Summit Transcripts</div>
               </div>
               <div className="bg-muted p-4 rounded-lg">
-                <div className="text-2xl font-bold">{diagnosisResults.stats.emptyContent}</div>
-                <div className="text-sm text-muted-foreground">Empty Content</div>
+                <div className="text-2xl font-bold">{diagnosisResults.stats.potentialSummitTranscripts}</div>
+                <div className="text-sm text-muted-foreground">Potential Summit Transcripts</div>
               </div>
             </div>
 
@@ -135,9 +233,22 @@ const TranscriptDiagnostics: React.FC<TranscriptDiagnosticsProps> = ({ onComplet
                     <div key={transcript.id} className="border p-3 rounded-md">
                       <div className="flex justify-between">
                         <div className="font-medium">{transcript.title}</div>
-                        <Badge variant={transcript.source === 'business_acquisitions_summit' ? 'default' : 'outline'}>
-                          {transcript.source}
-                        </Badge>
+                        <div className="flex items-center gap-2">
+                          <Badge variant={transcript.source === 'business_acquisitions_summit' ? 'default' : 'outline'} className={`flex items-center ${getSourceColor(transcript.source)}`}>
+                            <Tag className="h-3 w-3 mr-1" />
+                            {transcript.source === 'business_acquisitions_summit'
+                              ? '2024 Business Acquisitions Summit'
+                              : transcript.source?.replace('_', ' ')}
+                          </Badge>
+                          <Button 
+                            variant="ghost" 
+                            size="sm" 
+                            className="h-7 px-2"
+                            onClick={() => openSourceTypeDialog(transcript)}
+                          >
+                            Change
+                          </Button>
+                        </div>
                       </div>
                       <div className="text-sm text-muted-foreground mt-1">
                         Uploaded: {new Date(transcript.created_at).toLocaleString()}
@@ -153,6 +264,29 @@ const TranscriptDiagnostics: React.FC<TranscriptDiagnosticsProps> = ({ onComplet
                     </div>
                   ))}
                 </div>
+              </div>
+            )}
+
+            {diagnosisResults.potentialSummitTranscripts && diagnosisResults.potentialSummitTranscripts.length > 0 && (
+              <div>
+                <Alert className="bg-amber-50 border-amber-200">
+                  <AlertCircle className="h-4 w-4 text-amber-600" />
+                  <AlertTitle>Potential Summit Transcripts</AlertTitle>
+                  <AlertDescription>
+                    Found {diagnosisResults.potentialSummitTranscripts.length} transcript(s) uploaded on the 27th that should likely be marked as Business Acquisitions Summit.
+                    <div className="mt-2">
+                      <Button 
+                        variant="outline" 
+                        size="sm"
+                        onClick={fixSummitSourceTypes}
+                        disabled={loading}
+                      >
+                        {loading ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}
+                        Fix All Summit Transcripts
+                      </Button>
+                    </div>
+                  </AlertDescription>
+                </Alert>
               </div>
             )}
 
@@ -249,11 +383,63 @@ const TranscriptDiagnostics: React.FC<TranscriptDiagnosticsProps> = ({ onComplet
             {loading && sourceTypeResults === null ? (
               <><Loader2 className="mr-2 h-4 w-4 animate-spin" /> Fixing Source Types...</>
             ) : (
-              'Fix Source Types'
+              'Fix All Source Types'
             )}
           </Button>
         </div>
       </CardFooter>
+
+      <Dialog open={showSourceTypeDialog} onOpenChange={setShowSourceTypeDialog}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Change Transcript Source Type</DialogTitle>
+            <DialogDescription>
+              Update the source type for "{selectedTranscript?.title}"
+            </DialogDescription>
+          </DialogHeader>
+          
+          <div className="space-y-4 py-4">
+            <div className="space-y-2">
+              <h4 className="text-sm font-medium">Current Source</h4>
+              <Badge className={getSourceColor(selectedTranscript?.source)}>
+                {selectedTranscript?.source === 'business_acquisitions_summit'
+                  ? '2024 Business Acquisitions Summit'
+                  : selectedTranscript?.source?.replace('_', ' ')}
+              </Badge>
+            </div>
+
+            <div className="space-y-2">
+              <h4 className="text-sm font-medium">Select New Source Type</h4>
+              <Select 
+                value={newSourceType} 
+                onValueChange={setNewSourceType}
+              >
+                <SelectTrigger>
+                  <SelectValue placeholder="Select source type" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="protege_call">Protege Call</SelectItem>
+                  <SelectItem value="foundations_call">Foundations Call</SelectItem>
+                  <SelectItem value="business_acquisitions_summit">2024 Business Acquisitions Summit</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+          </div>
+          
+          <DialogFooter>
+            <DialogClose asChild>
+              <Button variant="outline">Cancel</Button>
+            </DialogClose>
+            <Button 
+              onClick={updateSourceType} 
+              disabled={loading || newSourceType === selectedTranscript?.source}
+            >
+              {loading ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}
+              Update Source Type
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </Card>
   );
 };
