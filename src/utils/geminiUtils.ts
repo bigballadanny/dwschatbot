@@ -1,4 +1,3 @@
-
 import { supabase } from '@/integrations/supabase/client';
 import { MessageProps } from '@/components/MessageItem';
 import { searchTranscriptsForQuery, getSourceDescription, Transcript, extractRelevantContent } from './transcriptUtils';
@@ -40,6 +39,7 @@ export const generateGeminiResponse = async (
     let sourceType = "";
     let relevanceScore = 0;
     let foundInTranscripts = false;
+    let matchedTranscriptInfo = [];
     
     if (matchedTranscripts && matchedTranscripts.length > 0) {
       // Get the most relevant transcript
@@ -48,6 +48,13 @@ export const generateGeminiResponse = async (
       const sourceDescription = getSourceDescription(sourceType);
       relevanceScore = primaryTranscript.relevanceScore || 0;
       foundInTranscripts = true;
+      
+      // Track the used transcript for citation
+      matchedTranscriptInfo.push({
+        title: primaryTranscript.title,
+        source: sourceType,
+        score: relevanceScore
+      });
       
       console.log(`Found matching content in source: ${sourceType}, title: "${primaryTranscript.title}" with relevance score: ${relevanceScore}`);
       
@@ -65,6 +72,13 @@ export const generateGeminiResponse = async (
           const suppTranscript = matchedTranscripts[i];
           const suppSourceDesc = getSourceDescription(suppTranscript.source || 'creative_dealmaker');
           const suppExtract = extractRelevantContent(suppTranscript, query, 1000);
+          
+          // Track this transcript for citation
+          matchedTranscriptInfo.push({
+            title: suppTranscript.title,
+            source: suppTranscript.source || 'creative_dealmaker',
+            score: suppTranscript.relevanceScore || 0
+          });
           
           supplementaryContent += `\n\nAdditional information from ${suppSourceDesc} (${suppTranscript.title}): "${suppExtract}"`;
         }
@@ -131,8 +145,9 @@ export const generateGeminiResponse = async (
       throw new Error(functionError.message);
     }
 
-    // Create a citation based on the source
+    // Create a detailed citation based on the source
     let citation = "";
+    let detailedSourceInfo = "";
     
     if (data.isQuotaExceeded) {
       // Use fallback citation if quota exceeded
@@ -162,6 +177,13 @@ export const generateGeminiResponse = async (
       if (matchedTranscripts.length > 1) {
         citation += ` and ${matchedTranscripts.length - 1} other source${matchedTranscripts.length > 2 ? 's' : ''}`;
       }
+      
+      // Create detailed source information
+      detailedSourceInfo = "\n\n**Sources:**\n";
+      matchedTranscriptInfo.forEach((info, index) => {
+        const sourceDesc = getSourceDescription(info.source);
+        detailedSourceInfo += `${index + 1}. ${info.title} (${sourceDesc}) - Relevance: ${info.score}\n`;
+      });
     } else if (enableOnlineSearch) {
       citation = "Based on general knowledge about business acquisitions - Online search mode enabled";
     } else {
@@ -196,9 +218,15 @@ export const generateGeminiResponse = async (
       console.warn("No conversation ID provided - analytics data will not be logged");
     }
 
+    // Add detailed source information to the content if we have transcript matches
+    let enhancedContent = data.content;
+    if (matchedTranscripts && matchedTranscripts.length > 0 && detailedSourceInfo) {
+      enhancedContent += detailedSourceInfo;
+    }
+
     // Create a response from the Gemini data
     return {
-      content: data.content,
+      content: enhancedContent,
       source: data.apiDisabled ? 'system' : (data.isQuotaExceeded ? 'fallback' : (enableOnlineSearch && !foundInTranscripts ? 'web' : (data.source || 'gemini'))),
       citation: citation,
       timestamp: new Date()

@@ -196,3 +196,30 @@ export function getTranscriptSourceStats(analyticsData: AnalyticsData[]) {
   
   return stats;
 }
+
+/**
+ * Gets the most frequently used transcripts
+ */
+export function getFrequentlyUsedTranscripts(
+  analyticsData: AnalyticsData[], 
+  limit: number = 5
+): { title: string; count: number; source: string | null }[] {
+  const transcriptCounts: Record<string, { count: number; source: string | null }> = {};
+  
+  analyticsData.forEach(item => {
+    if (item.transcript_title) {
+      if (!transcriptCounts[item.transcript_title]) {
+        transcriptCounts[item.transcript_title] = { 
+          count: 0, 
+          source: item.source_type 
+        };
+      }
+      transcriptCounts[item.transcript_title].count += 1;
+    }
+  });
+  
+  return Object.entries(transcriptCounts)
+    .map(([title, { count, source }]) => ({ title, count, source }))
+    .sort((a, b) => b.count - a.count)
+    .slice(0, limit);
+}

@@ -8,7 +8,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { 
   Settings, PlusCircle, BarChart3, LogOut, Search, 
-  ChevronLeft, ChevronRight
+  ChevronLeft, ChevronRight, UserCog
 } from 'lucide-react';
 import { toast } from '@/components/ui/use-toast';
 import {
@@ -54,16 +54,13 @@ const ChatSidebar = () => {
   const navigate = useNavigate();
   const { state: sidebarState, toggleSidebar } = useSidebar();
   
-  // Get conversation ID from URL if present
   const urlParams = new URLSearchParams(location.search);
   const conversationId = urlParams.get('conversation');
   
-  // Fetch user conversations whenever the user changes
   useEffect(() => {
     if (user) {
       fetchConversations();
     } else {
-      // Clear conversations if no user is logged in
       setConversations([]);
     }
   }, [user]);
@@ -106,9 +103,7 @@ const ChatSidebar = () => {
       if (error) throw error;
       
       if (data?.[0]?.id) {
-        // Redirect to the new conversation
         navigate(`/?conversation=${data[0].id}`);
-        // Refresh the conversations list
         fetchConversations();
       }
     } catch (error) {
@@ -132,7 +127,6 @@ const ChatSidebar = () => {
     if (!conversationToDelete) return;
     
     try {
-      // Delete related messages first to avoid foreign key constraint issues
       const { error: messagesError } = await supabase
         .from('messages')
         .delete()
@@ -140,7 +134,6 @@ const ChatSidebar = () => {
         
       if (messagesError) throw messagesError;
       
-      // Then delete the conversation
       const { error } = await supabase
         .from('conversations')
         .delete()
@@ -148,10 +141,8 @@ const ChatSidebar = () => {
         
       if (error) throw error;
       
-      // Remove from local state
       setConversations(prev => prev.filter(c => c.id !== conversationToDelete));
       
-      // If the deleted conversation was selected, navigate to home
       if (conversationId === conversationToDelete) {
         navigate('/');
       }
@@ -218,14 +209,24 @@ const ChatSidebar = () => {
       <SidebarFooter className="border-t">
         <SidebarMenu>
           {isAdmin && (
-            <SidebarMenuItem>
-              <Button variant="ghost" className="w-full justify-start" onClick={() => navigate('/analytics')}>
-                <SidebarMenuButton>
-                  <BarChart3 className="h-4 w-4" />
-                  <span>Analytics</span>
-                </SidebarMenuButton>
-              </Button>
-            </SidebarMenuItem>
+            <>
+              <SidebarMenuItem>
+                <Button variant="ghost" className="w-full justify-start" onClick={() => navigate('/analytics')}>
+                  <SidebarMenuButton>
+                    <BarChart3 className="h-4 w-4" />
+                    <span>Analytics</span>
+                  </SidebarMenuButton>
+                </Button>
+              </SidebarMenuItem>
+              <SidebarMenuItem>
+                <Button variant="ghost" className="w-full justify-start" onClick={() => navigate('/admin')}>
+                  <SidebarMenuButton>
+                    <UserCog className="h-4 w-4" />
+                    <span>Admin Users</span>
+                  </SidebarMenuButton>
+                </Button>
+              </SidebarMenuItem>
+            </>
           )}
           <SidebarMenuItem>
             <Sheet open={settingsOpen} onOpenChange={setSettingsOpen}>
