@@ -6,13 +6,19 @@ import { Label } from "@/components/ui/label";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Alert, AlertDescription } from "@/components/ui/alert";
 import { useToast } from "@/components/ui/use-toast";
 import { supabase } from "@/integrations/supabase/client";
+import { Loader2 } from "lucide-react";
 
 const Auth = () => {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [loading, setLoading] = useState(false);
+  const [resetPassword, setResetPassword] = useState(false);
+  const [confirmationSent, setConfirmationSent] = useState(false);
+  const [resetSent, setResetSent] = useState(false);
+  const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const { toast } = useToast();
   const navigate = useNavigate();
   
@@ -41,13 +47,10 @@ const Auth = () => {
   
   const handleSignUp = async (e: React.FormEvent) => {
     e.preventDefault();
+    setErrorMessage(null);
     
     if (!email || !password) {
-      toast({
-        title: "Error",
-        description: "Please enter both email and password",
-        variant: "destructive"
-      });
+      setErrorMessage("Please enter both email and password");
       return;
     }
     
@@ -56,15 +59,20 @@ const Auth = () => {
       const { data, error } = await supabase.auth.signUp({
         email,
         password,
+        options: {
+          emailRedirectTo: window.location.origin
+        }
       });
       
       if (error) throw error;
       
+      setConfirmationSent(true);
       toast({
-        title: "Sign up successful",
+        title: "Sign up initiated",
         description: "Please check your email for a confirmation link",
       });
     } catch (error: any) {
+      setErrorMessage(error.message || "An error occurred during sign up");
       toast({
         title: "Error signing up",
         description: error.message || "An error occurred during sign up",
@@ -77,13 +85,10 @@ const Auth = () => {
   
   const handleSignIn = async (e: React.FormEvent) => {
     e.preventDefault();
+    setErrorMessage(null);
     
     if (!email || !password) {
-      toast({
-        title: "Error",
-        description: "Please enter both email and password",
-        variant: "destructive"
-      });
+      setErrorMessage("Please enter both email and password");
       return;
     }
     
@@ -98,6 +103,7 @@ const Auth = () => {
       
       navigate('/');
     } catch (error: any) {
+      setErrorMessage(error.message || "An error occurred during sign in");
       toast({
         title: "Error signing in",
         description: error.message || "An error occurred during sign in",
@@ -107,6 +113,135 @@ const Auth = () => {
       setLoading(false);
     }
   };
+
+  const handlePasswordReset = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setErrorMessage(null);
+    
+    if (!email) {
+      setErrorMessage("Please enter your email address");
+      return;
+    }
+    
+    try {
+      setLoading(true);
+      const { error } = await supabase.auth.resetPasswordForEmail(email, {
+        redirectTo: `${window.location.origin}/auth?tab=resetpassword`,
+      });
+      
+      if (error) throw error;
+      
+      setResetSent(true);
+      toast({
+        title: "Password reset email sent",
+        description: "Check your email for a password reset link",
+      });
+    } catch (error: any) {
+      setErrorMessage(error.message || "An error occurred during password reset");
+      toast({
+        title: "Error",
+        description: error.message || "An error occurred during password reset",
+        variant: "destructive"
+      });
+    } finally {
+      setLoading(false);
+    }
+  };
+  
+  if (confirmationSent) {
+    return (
+      <div className="min-h-screen flex items-center justify-center p-4 bg-background">
+        <Card className="w-full max-w-md">
+          <CardHeader className="space-y-1">
+            <CardTitle className="text-2xl text-center">Check your email</CardTitle>
+            <CardDescription className="text-center">
+              We've sent a confirmation link to <span className="font-medium">{email}</span>
+            </CardDescription>
+          </CardHeader>
+          <CardContent className="space-y-4 pt-4">
+            <Alert>
+              <AlertDescription>
+                Please check your email and click the link to complete your registration. 
+                You can close this page.
+              </AlertDescription>
+            </Alert>
+          </CardContent>
+          <CardFooter className="flex flex-col space-y-2">
+            <Button 
+              onClick={() => setConfirmationSent(false)} 
+              variant="outline"
+              className="w-full"
+            >
+              Back to sign in
+            </Button>
+          </CardFooter>
+        </Card>
+      </div>
+    );
+  }
+  
+  if (resetPassword) {
+    return (
+      <div className="min-h-screen flex items-center justify-center p-4 bg-background">
+        <Card className="w-full max-w-md">
+          <CardHeader className="space-y-1">
+            <CardTitle className="text-2xl text-center">Reset Password</CardTitle>
+            <CardDescription className="text-center">
+              Enter your email to receive a password reset link
+            </CardDescription>
+          </CardHeader>
+          <form onSubmit={handlePasswordReset}>
+            <CardContent className="space-y-4 pt-4">
+              {errorMessage && (
+                <Alert variant="destructive">
+                  <AlertDescription>{errorMessage}</AlertDescription>
+                </Alert>
+              )}
+              {resetSent && (
+                <Alert>
+                  <AlertDescription>
+                    Reset link sent to {email}. Check your email inbox.
+                  </AlertDescription>
+                </Alert>
+              )}
+              <div className="space-y-2">
+                <Label htmlFor="email-reset">Email</Label>
+                <Input 
+                  id="email-reset" 
+                  type="email" 
+                  placeholder="your@email.com"
+                  value={email}
+                  onChange={(e) => setEmail(e.target.value)}
+                  disabled={loading || resetSent}
+                />
+              </div>
+            </CardContent>
+            <CardFooter className="flex flex-col space-y-2">
+              <Button 
+                type="submit" 
+                className="w-full"
+                disabled={loading || resetSent}
+              >
+                {loading ? (
+                  <>
+                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                    Sending...
+                  </>
+                ) : "Send Reset Link"}
+              </Button>
+              <Button 
+                onClick={() => setResetPassword(false)} 
+                variant="ghost"
+                type="button"
+              >
+                Back to sign in
+              </Button>
+            </CardFooter>
+          </form>
+        </Card>
+      </div>
+    );
+  }
   
   return (
     <div className="min-h-screen flex items-center justify-center p-4 bg-background">
@@ -126,6 +261,11 @@ const Auth = () => {
           <TabsContent value="signin">
             <form onSubmit={handleSignIn}>
               <CardContent className="space-y-4 pt-4">
+                {errorMessage && (
+                  <Alert variant="destructive">
+                    <AlertDescription>{errorMessage}</AlertDescription>
+                  </Alert>
+                )}
                 <div className="space-y-2">
                   <Label htmlFor="email-signin">Email</Label>
                   <Input 
@@ -134,6 +274,7 @@ const Auth = () => {
                     placeholder="your@email.com"
                     value={email}
                     onChange={(e) => setEmail(e.target.value)}
+                    disabled={loading}
                   />
                 </div>
                 <div className="space-y-2">
@@ -143,8 +284,17 @@ const Auth = () => {
                     type="password"
                     value={password}
                     onChange={(e) => setPassword(e.target.value)}
+                    disabled={loading}
                   />
                 </div>
+                <Button 
+                  onClick={() => setResetPassword(true)} 
+                  variant="link" 
+                  className="p-0 h-auto font-normal text-sm"
+                  type="button"
+                >
+                  Forgot password?
+                </Button>
               </CardContent>
               <CardFooter>
                 <Button 
@@ -152,7 +302,12 @@ const Auth = () => {
                   className="w-full" 
                   disabled={loading}
                 >
-                  {loading ? "Signing in..." : "Sign In"}
+                  {loading ? (
+                    <>
+                      <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                      Signing in...
+                    </>
+                  ) : "Sign In"}
                 </Button>
               </CardFooter>
             </form>
@@ -161,6 +316,11 @@ const Auth = () => {
           <TabsContent value="signup">
             <form onSubmit={handleSignUp}>
               <CardContent className="space-y-4 pt-4">
+                {errorMessage && (
+                  <Alert variant="destructive">
+                    <AlertDescription>{errorMessage}</AlertDescription>
+                  </Alert>
+                )}
                 <div className="space-y-2">
                   <Label htmlFor="email-signup">Email</Label>
                   <Input 
@@ -169,6 +329,7 @@ const Auth = () => {
                     placeholder="your@email.com"
                     value={email}
                     onChange={(e) => setEmail(e.target.value)}
+                    disabled={loading}
                   />
                 </div>
                 <div className="space-y-2">
@@ -178,6 +339,7 @@ const Auth = () => {
                     type="password"
                     value={password}
                     onChange={(e) => setPassword(e.target.value)}
+                    disabled={loading}
                   />
                 </div>
               </CardContent>
@@ -187,7 +349,12 @@ const Auth = () => {
                   className="w-full"
                   disabled={loading}
                 >
-                  {loading ? "Creating account..." : "Create Account"}
+                  {loading ? (
+                    <>
+                      <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                      Creating account...
+                    </>
+                  ) : "Create Account"}
                 </Button>
               </CardFooter>
             </form>

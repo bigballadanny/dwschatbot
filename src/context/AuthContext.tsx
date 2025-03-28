@@ -2,6 +2,7 @@
 import React, { createContext, useContext, useEffect, useState } from 'react';
 import { Session, User } from '@supabase/supabase-js';
 import { supabase } from '@/integrations/supabase/client';
+import { useToast } from '@/components/ui/use-toast';
 
 interface AuthContextType {
   session: Session | null;
@@ -16,14 +17,39 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const [session, setSession] = useState<Session | null>(null);
   const [user, setUser] = useState<User | null>(null);
   const [isLoading, setIsLoading] = useState(true);
+  const { toast } = useToast();
 
   useEffect(() => {
     // Set up auth state listener FIRST
     const { data: { subscription } } = supabase.auth.onAuthStateChange(
       (event, session) => {
+        console.log('Auth event:', event);
         setSession(session);
         setUser(session?.user ?? null);
         setIsLoading(false);
+        
+        // Show toast for certain auth events
+        if (event === 'SIGNED_IN') {
+          toast({
+            title: "Signed in successfully",
+            description: `Welcome${session?.user?.email ? ' ' + session.user.email : ''}!`,
+          });
+        } else if (event === 'SIGNED_OUT') {
+          toast({
+            title: "Signed out",
+            description: "You have been signed out successfully",
+          });
+        } else if (event === 'USER_UPDATED') {
+          toast({
+            title: "Profile updated",
+            description: "Your profile has been updated successfully",
+          });
+        } else if (event === 'PASSWORD_RECOVERY') {
+          toast({
+            title: "Password reset",
+            description: "Please enter your new password",
+          });
+        }
       }
     );
 
@@ -35,10 +61,19 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     });
 
     return () => subscription.unsubscribe();
-  }, []);
+  }, [toast]);
 
   const signOut = async () => {
-    await supabase.auth.signOut();
+    try {
+      await supabase.auth.signOut();
+    } catch (error) {
+      console.error('Error signing out:', error);
+      toast({
+        title: "Error signing out",
+        description: "An error occurred while signing out",
+        variant: "destructive"
+      });
+    }
   };
 
   return (
