@@ -18,7 +18,7 @@ const ConversationItem = ({ id, title, isActive, onDelete }: ConversationItemPro
       <Link 
         to={`/?conversation=${id}`}
         className={cn(
-          "flex items-center flex-1 min-w-0",
+          "flex items-center flex-1 overflow-hidden",
           isActive && "font-medium"
         )}
       >
@@ -30,7 +30,7 @@ const ConversationItem = ({ id, title, isActive, onDelete }: ConversationItemPro
       <Button
         variant="ghost"
         size="icon"
-        className="h-6 w-6 flex-shrink-0 text-destructive hover:bg-destructive/10 hover:text-destructive"
+        className="ml-2 h-6 w-6 flex-shrink-0 text-destructive hover:bg-destructive/10 hover:text-destructive"
         onClick={(e) => onDelete(id, e)}
         title="Delete conversation"
       >
