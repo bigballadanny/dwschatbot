@@ -1,4 +1,3 @@
-
 import React, { useState, useRef, useEffect } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
 import ChatInterface from '@/components/ChatInterface';
@@ -16,7 +15,6 @@ import { MessageProps } from '@/components/MessageItem';
 import { useToast } from "@/components/ui/use-toast";
 import { useAuth } from '@/context/AuthContext';
 
-// This is a small component that will only render when the sidebar is collapsed
 const SidebarOpenButton = () => {
   const { state, toggleSidebar } = useSidebar();
   
@@ -57,13 +55,11 @@ const Index = () => {
   const navigate = useNavigate();
   const { toast } = useToast();
 
-  // Check if a conversation ID or initial question is provided in URL params
   useEffect(() => {
     const params = new URLSearchParams(location.search);
     const urlConversationId = params.get('conversation');
     const question = params.get('q');
 
-    // Auto-hide welcome screen if authenticated
     if (user) {
       setShowWelcome(false);
     }
@@ -76,11 +72,8 @@ const Index = () => {
       setConversationId(urlConversationId);
       loadConversationMessages(urlConversationId);
     }
-    // Removed the automatic conversation creation here
-    // We'll now only create conversations when a message is actually sent
 
     if (question) {
-      // Allow time for the conversation to initialize
       setTimeout(() => {
         handleSendMessage(question);
         setHasInteracted(true);
@@ -88,20 +81,16 @@ const Index = () => {
     }
   }, [location, user]);
 
-  // Setup real-time subscription for conversation changes
   useEffect(() => {
     if (!user) return;
     
-    // Subscribe to real-time changes on conversations table
     const channel = supabase
       .channel('conversation-changes')
       .on('postgres_changes', 
         { event: '*', schema: 'public', table: 'conversations' },
         (payload) => {
           console.log('Conversations changed:', payload);
-          // Refresh conversations when changes occur
           if (payload.eventType === 'DELETE') {
-            // If current conversation is deleted, navigate to home
             if (payload.old && payload.old.id === conversationId) {
               navigate('/');
               setConversationId(null);
@@ -154,7 +143,6 @@ const Index = () => {
   };
   
   const createNewConversation = async () => {
-    // Only create a new conversation if user is authenticated
     if (!user) return null;
     
     try {
@@ -207,7 +195,6 @@ const Index = () => {
   const handleSendMessage = async (message: string): Promise<void> => {
     if (!message.trim() || isLoading) return Promise.resolve();
     
-    // If user is not authenticated, prompt them to sign in
     if (!user) {
       toast({
         title: "Authentication Required",
@@ -219,10 +206,8 @@ const Index = () => {
     
     let currentConversationId = conversationId;
     
-    // Create a conversation if one doesn't exist, but ONLY if there's a message to send
     if (!currentConversationId) {
       currentConversationId = await createNewConversation();
-      // If we still don't have a conversation ID, something went wrong
       if (!currentConversationId) {
         toast({
           title: "Error",
@@ -265,12 +250,12 @@ const Index = () => {
       
       setMessages(prev => [...prev, loadingMessage]);
       
-      // Call the voice-conversation function for processing
       const { data, error } = await supabase.functions.invoke('voice-conversation', {
         body: { 
           audio: message,
           messages: messages.concat(userMessage),
-          isVoiceInput: false
+          isVoiceInput: false,
+          enableOnlineSearch: enableOnlineSearch
         }
       });
       
@@ -304,7 +289,6 @@ const Index = () => {
         });
       }
       
-      // Update conversation title with first message if it's a new conversation
       if (!hasInteracted && message.trim()) {
         await supabase
           .from('conversations')
@@ -345,7 +329,6 @@ const Index = () => {
     setAudioEnabled(!audioEnabled);
   };
 
-  // For using the internalAudioEnabled state within handleSendMessage
   const internalAudioEnabled = audioEnabled;
 
   return (

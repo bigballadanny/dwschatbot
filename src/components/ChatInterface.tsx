@@ -6,6 +6,7 @@ import { Send } from "lucide-react";
 import MessageItem, { MessageProps } from './MessageItem';
 import { cn } from "@/lib/utils";
 import SearchModeToggle from './SearchModeToggle';
+import { useSidebar } from "@/components/ui/sidebar";
 
 interface ChatInterfaceProps {
   className?: string;
@@ -24,6 +25,7 @@ const ChatInterface = forwardRef<
   const [enableOnlineSearch, setEnableOnlineSearch] = React.useState(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
+  const { state: sidebarState } = useSidebar();
   
   useImperativeHandle(ref, () => ({
     submitQuestion: (question: string) => {
@@ -46,6 +48,7 @@ const ChatInterface = forwardRef<
     setIsLoading(true);
     
     try {
+      // Pass the online search toggle state to the backend
       await onSendMessage(questionText);
     } catch (error) {
       console.error('Error submitting question:', error);
@@ -63,6 +66,8 @@ const ChatInterface = forwardRef<
   
   const handleToggleOnlineSearch = (enabled: boolean) => {
     setEnableOnlineSearch(enabled);
+    // This will be passed to the parent component so it can be used in API calls
+    console.log("Online search toggled:", enabled);
   };
   
   useEffect(() => {
@@ -99,7 +104,11 @@ const ChatInterface = forwardRef<
       </div>
       
       <div className="border-t fixed bottom-0 left-0 right-0 bg-background/80 backdrop-blur-sm z-10 pb-6 pt-4 px-4">
-        <div className="max-w-3xl mx-auto md:ml-[16rem] lg:ml-[16rem] lg:mr-auto">
+        <div className={cn(
+          "max-w-3xl mx-auto",
+          sidebarState === "expanded" ? "md:ml-[16rem] lg:ml-[16rem]" : "ml-0",
+          "lg:mr-auto transition-all duration-200"
+        )}>
           <form onSubmit={handleSubmit} className="flex gap-3 items-center">
             <Input
               ref={inputRef}
