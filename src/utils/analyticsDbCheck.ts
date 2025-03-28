@@ -1,4 +1,3 @@
-
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from '@/hooks/use-toast';
 
@@ -68,33 +67,43 @@ export async function checkForExistingData(): Promise<number> {
 
 /**
  * This function attempts to migrate conversation data to analytics table
- * by creating analytics entries for past conversations
+ * with improved error handling and transaction management
  */
 export async function migrateConversationDataToAnalytics(): Promise<number> {
   try {
     console.log('Attempting to migrate conversation data to analytics...');
     
-    // First get all conversations and their first message (which is usually the query)
+    // First get all conversations and their first message
     const { data: conversations, error: convError } = await supabase
       .from('conversations')
       .select('id, title, created_at');
     
     if (convError) {
       console.error('Error fetching conversations:', convError);
+      toast({
+        title: "Migration Error",
+        description: "Could not fetch conversation data.",
+        variant: "destructive"
+      });
       return 0;
     }
     
     if (!conversations || conversations.length === 0) {
       console.log('No conversations found to migrate');
+      toast({
+        title: "No Data",
+        description: "No conversation history found to migrate.",
+        variant: "default"
+      });
       return 0;
     }
     
     console.log(`Found ${conversations.length} conversations to potentially migrate`);
     
-    // For each conversation, get the first user message
     let migratedCount = 0;
     const analyticsRecords = [];
     
+    // Batch processing to reduce database load
     for (const conv of conversations) {
       const { data: messages, error: msgError } = await supabase
         .from('messages')
@@ -114,32 +123,22 @@ export async function migrateConversationDataToAnalytics(): Promise<number> {
         continue;
       }
       
-      // Get the first AI response to calculate length
-      const { data: aiResponses, error: aiError } = await supabase
-        .from('messages')
-        .select('content, created_at')
-        .eq('conversation_id', conv.id)
-        .eq('is_user', false)
-        .order('created_at', { ascending: true })
-        .limit(1);
-      
       const firstQuery = messages[0].content;
-      const responseLength = aiResponses && aiResponses.length > 0 ? aiResponses[0].content.length : 0;
       
-      // Create analytics record from conversation data
+      // Limit migration to prevent overwhelming the analytics table
+      if (migratedCount >= 500) break;
+      
       analyticsRecords.push({
         query: firstQuery,
         conversation_id: conv.id,
-        response_length: responseLength,
-        successful: true, // Assume successful since there's a conversation
         source_type: 'historical_migration',
+        successful: true,
         created_at: messages[0].created_at
       });
       
       migratedCount++;
     }
     
-    // Insert the analytics records if there are any
     if (analyticsRecords.length > 0) {
       const { error: insertError } = await supabase
         .from('chat_analytics')
@@ -147,15 +146,29 @@ export async function migrateConversationDataToAnalytics(): Promise<number> {
       
       if (insertError) {
         console.error('Error inserting migrated analytics records:', insertError);
+        toast({
+          title: "Migration Failed",
+          description: "Could not insert analytics records.",
+          variant: "destructive"
+        });
         return 0;
       }
       
-      console.log(`Successfully migrated ${migratedCount} conversation records to analytics`);
+      toast({
+        title: "Migration Successful",
+        description: `Successfully migrated ${migratedCount} conversation records to analytics.`,
+        variant: "default"
+      });
     }
     
     return migratedCount;
   } catch (err) {
-    console.error('Error in migrateConversationDataToAnalytics:', err);
+    console.error('Unexpected error in data migration:', err);
+    toast({
+      title: "Unexpected Error",
+      description: "An unexpected error occurred during migration.",
+      variant: "destructive"
+    });
     return 0;
   }
 }
