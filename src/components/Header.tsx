@@ -2,7 +2,7 @@
 import React from 'react';
 import { Link } from 'react-router-dom';
 import { Button } from "@/components/ui/button";
-import { BookOpen, BarChart3 } from 'lucide-react';
+import { BookOpen, BarChart3, Headphones } from 'lucide-react';
 import { useAuth } from '@/context/AuthContext';
 import { useAdmin } from '@/context/AdminContext';
 import { ModeToggle } from "@/components/ModeToggle";
@@ -41,6 +41,15 @@ const Header: React.FC = () => {
         </div>
         
         <div className="flex items-center space-x-2">
+          {user && (
+            <Button variant="ghost" size="sm" className="text-xs hidden sm:flex items-center">
+              <Headphones className="mr-1 h-4 w-4" />
+              <span className="hidden sm:inline">Text-to-Speech</span>
+              <span className="inline sm:hidden">TTS</span>
+              <span className="ml-1 px-1.5 py-0.5 text-[10px] bg-green-500 text-white rounded-full">New</span>
+            </Button>
+          )}
+          
           <ModeToggle />
           
           {!user && (
