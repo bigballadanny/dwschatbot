@@ -9,8 +9,8 @@ import ChatSidebar from '@/components/ChatSidebar';
 import VoiceConversation from '@/components/VoiceConversation';
 import { SidebarProvider, SidebarInset, useSidebar } from "@/components/ui/sidebar";
 import { Button } from "@/components/ui/button";
-import { PanelLeft, MessageSquare, Mic } from 'lucide-react';
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { PanelLeft, MessageSquare, Mic, Volume2, VolumeX } from 'lucide-react';
+import { ScrollArea } from "@/components/ui/scroll-area";
 
 // This is a small component that will only render when the sidebar is collapsed
 const SidebarOpenButton = () => {
@@ -34,8 +34,10 @@ const SidebarOpenButton = () => {
 
 const Index = () => {
   const [showWelcome, setShowWelcome] = useState(true);
-  const [activeTab, setActiveTab] = useState("chat");
+  const [voiceEnabled, setVoiceEnabled] = useState(false);
+  const [audioEnabled, setAudioEnabled] = useState(true);
   const chatRef = useRef<{ submitQuestion: (question: string) => void }>(null);
+  const voiceRef = useRef<{ submitTranscript: (transcript: string) => void }>(null);
   const location = useLocation();
 
   // Check if a conversation ID or initial question is provided in URL params
@@ -65,6 +67,14 @@ const Index = () => {
     }, 100);
   };
 
+  const toggleVoiceMode = () => {
+    setVoiceEnabled(!voiceEnabled);
+  };
+
+  const toggleAudio = () => {
+    setAudioEnabled(!audioEnabled);
+  };
+
   return (
     <SidebarProvider>
       <div className="flex h-screen w-full overflow-hidden">
@@ -86,29 +96,49 @@ const Index = () => {
               </div>
             ) : (
               <div className="flex-1 overflow-hidden flex flex-col">
-                <div className="px-4 py-2 flex justify-center border-b">
-                  <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full max-w-[600px]">
-                    <TabsList className="grid w-full grid-cols-2">
-                      <TabsTrigger value="chat" className="flex items-center gap-2">
-                        <MessageSquare className="h-4 w-4" />
-                        <span>Text Chat</span>
-                      </TabsTrigger>
-                      <TabsTrigger value="voice" className="flex items-center gap-2">
-                        <Mic className="h-4 w-4" />
-                        <span>Voice Chat</span>
-                      </TabsTrigger>
-                    </TabsList>
-                    <TabsContent value="chat" className="h-full mt-0 flex-1 overflow-hidden">
-                      <div className="h-[calc(100vh-8.5rem)] overflow-hidden">
-                        <ChatInterface ref={chatRef} initialQuestion={null} className="h-full" />
-                      </div>
-                    </TabsContent>
-                    <TabsContent value="voice" className="h-full mt-0 flex-1 overflow-hidden">
-                      <div className="h-[calc(100vh-8.5rem)] overflow-hidden">
-                        <VoiceConversation className="h-full" />
-                      </div>
-                    </TabsContent>
-                  </Tabs>
+                <div className="px-4 py-2 flex justify-between items-center border-b">
+                  <div className="flex items-center">
+                    <Button
+                      variant={voiceEnabled ? "default" : "outline"}
+                      size="sm"
+                      className="mr-2"
+                      onClick={toggleVoiceMode}
+                      title={voiceEnabled ? "Switch to text only" : "Enable voice input"}
+                    >
+                      {voiceEnabled ? <Mic className="h-4 w-4 mr-2" /> : <MessageSquare className="h-4 w-4 mr-2" />}
+                      {voiceEnabled ? "Voice Mode" : "Text Mode"}
+                    </Button>
+                    
+                    {voiceEnabled && (
+                      <Button 
+                        variant="outline" 
+                        size="sm"
+                        onClick={toggleAudio}
+                        title={audioEnabled ? "Mute audio" : "Enable audio"}
+                      >
+                        {audioEnabled ? <Volume2 className="h-4 w-4 mr-2" /> : <VolumeX className="h-4 w-4 mr-2" />}
+                        {audioEnabled ? "Sound On" : "Sound Off"}
+                      </Button>
+                    )}
+                  </div>
+                </div>
+                
+                <div className="h-[calc(100vh-8.5rem)] flex-1 overflow-hidden">
+                  <ScrollArea className="h-full">
+                    {voiceEnabled ? (
+                      <VoiceConversation 
+                        ref={voiceRef}
+                        className="h-full" 
+                        audioEnabled={audioEnabled}
+                      />
+                    ) : (
+                      <ChatInterface 
+                        ref={chatRef} 
+                        initialQuestion={null} 
+                        className="h-full" 
+                      />
+                    )}
+                  </ScrollArea>
                 </div>
               </div>
             )}
