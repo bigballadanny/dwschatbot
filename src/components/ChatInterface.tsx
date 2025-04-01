@@ -59,7 +59,6 @@ const ChatInterface = forwardRef<
     setIsLoading(true);
     
     try {
-      // Pass the online search toggle state to the backend
       await onSendMessage(questionText);
     } catch (error) {
       console.error('Error submitting question:', error);
@@ -70,7 +69,6 @@ const ChatInterface = forwardRef<
   
   const handleToggleOnlineSearch = (enabled: boolean) => {
     setSearchMode(enabled);
-    // Pass to parent component
     if (onToggleOnlineSearch) {
       onToggleOnlineSearch(enabled);
     }

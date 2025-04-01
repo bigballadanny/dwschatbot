@@ -14,12 +14,26 @@ export interface AIInputWithSearchProps
 
 const AIInputWithSearch = React.forwardRef<HTMLInputElement, AIInputWithSearchProps>(
   ({ className, onSend, loading = false, buttonClassName, ...props }, ref) => {
+    const [inputValue, setInputValue] = React.useState(props.value || '')
+    
+    React.useEffect(() => {
+      if (props.value !== undefined) {
+        setInputValue(props.value)
+      }
+    }, [props.value])
+    
     const handleSubmit = (e: React.FormEvent) => {
       e.preventDefault()
-      const value = (e.target as HTMLFormElement).elements.namedItem('search') as HTMLInputElement
-      if (value.value) {
-        onSend(value.value)
-        value.value = '' // Clear the input after sending
+      if (typeof inputValue === 'string' && inputValue.trim()) {
+        onSend(inputValue.trim())
+        setInputValue('')
+      }
+    }
+    
+    const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+      setInputValue(e.target.value)
+      if (props.onChange) {
+        props.onChange(e)
       }
     }
 
@@ -32,13 +46,14 @@ const AIInputWithSearch = React.forwardRef<HTMLInputElement, AIInputWithSearchPr
         onSubmit={handleSubmit}
       >
         <Input
-          name="search"
+          {...props}
+          value={inputValue}
+          onChange={handleChange}
           ref={ref}
           className={cn(
             "flex h-12 w-full rounded-md border border-input bg-background px-4 py-6 text-base",
             props.disabled && "opacity-70"
           )}
-          {...props}
         />
         <Button
           type="submit"
