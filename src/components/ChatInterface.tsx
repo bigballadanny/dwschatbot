@@ -176,7 +176,7 @@ const ChatInterface = forwardRef<
           </div>
           
           {onToggleOnlineSearch && (
-            <div className="self-start">
+            <div className="self-start ml-2">
               <SearchModeToggle 
                 enableOnlineSearch={searchMode} 
                 onToggle={handleToggleOnlineSearch}
