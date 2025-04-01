@@ -1,4 +1,3 @@
-
 import React, { useRef, useEffect, forwardRef, useImperativeHandle, useState } from 'react';
 import MessageItem, { MessageProps } from './MessageItem';
 import { cn } from "@/lib/utils";
@@ -35,6 +34,7 @@ const ChatInterface = forwardRef<
   const [searchMode, setSearchMode] = useState(enableOnlineSearch);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const { state: sidebarState } = useSidebar();
+  
   
   useImperativeHandle(ref, () => ({
     submitQuestion: (question: string) => {
@@ -156,24 +156,22 @@ const ChatInterface = forwardRef<
       </div>
       
       <div className={cn(
-        "border-t fixed bottom-0 bg-background/80 backdrop-blur-sm z-10 pb-6 pt-4 w-full",
-        sidebarState === "expanded" ? "left-[16rem] right-0" : "left-0 right-0"
+        "border-t fixed bottom-0 left-0 right-0 bg-background/80 backdrop-blur-sm z-10 pb-6 pt-4",
+        sidebarState === "expanded" ? "ml-[16rem]" : ""
       )}>
-        <div className="flex flex-col px-4 space-y-3">
-          <div className="w-full">
-            <AIInputWithSearch
-              value={input}
-              onChange={(e) => setInput(e.target.value)}
-              onSend={handleSubmitQuestion}
-              onFileUpload={handleFileUpload}
-              disabled={isLoading}
-              placeholder="Ask about deal structuring, financing, due diligence..."
-              loading={isLoading}
-              uploading={uploading}
-              className="w-full rounded-lg shadow-lg"
-              buttonClassName="shadow-md"
-            />
-          </div>
+        <div className="flex flex-col px-4 space-y-3 max-w-full">
+          <AIInputWithSearch
+            value={input}
+            onChange={(e) => setInput(e.target.value)}
+            onSend={handleSubmitQuestion}
+            onFileUpload={handleFileUpload}
+            disabled={isLoading}
+            placeholder="Ask about deal structuring, financing, due diligence..."
+            loading={isLoading}
+            uploading={uploading}
+            className="w-full rounded-lg shadow-lg"
+            buttonClassName="shadow-md"
+          />
           
           {onToggleOnlineSearch && (
             <div className="self-start ml-2">

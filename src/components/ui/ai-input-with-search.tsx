@@ -52,11 +52,11 @@ const AIInputWithSearch = React.forwardRef<HTMLInputElement, AIInputWithSearchPr
             onChange={(e) => setInputValue(e.target.value)}
             ref={ref}
             className={cn(
-              "flex h-12 w-full rounded-lg border border-input bg-background px-4 py-6 text-base shadow-sm pr-24", 
+              "flex h-12 w-full rounded-lg border border-input bg-background px-4 py-6 text-base shadow-sm pr-28", 
               props.disabled && "opacity-70"
             )}
           />
-          <div className="absolute right-2 top-1/2 transform -translate-y-1/2 flex items-center space-x-2">
+          <div className="absolute right-3 top-1/2 -translate-y-1/2 flex items-center gap-3">
             <input 
               type="file" 
               ref={fileInputRef} 
