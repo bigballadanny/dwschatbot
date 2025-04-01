@@ -159,7 +159,7 @@ const ChatInterface = forwardRef<
         "border-t fixed bottom-0 bg-background/80 backdrop-blur-sm z-10 pb-6 pt-4 px-4 w-full",
         sidebarState === "expanded" ? "left-[16rem] right-0" : "left-0 right-0"
       )}>
-        <div className="max-w-3xl mx-auto px-4">
+        <div className="max-w-3xl mx-auto">
           <AIInputWithSearch
             value={input}
             onChange={(e) => setInput(e.target.value)}
@@ -169,9 +169,19 @@ const ChatInterface = forwardRef<
             placeholder="Ask about deal structuring, financing, due diligence..."
             loading={isLoading}
             uploading={uploading}
-            className="rounded-lg shadow-md"
+            className="rounded-lg shadow-lg"
             buttonClassName="shadow-md"
           />
+          
+          <div className="flex justify-end mt-2">
+            {onToggleOnlineSearch && (
+              <SearchModeToggle 
+                enabled={searchMode} 
+                onToggle={handleToggleOnlineSearch}
+                className="text-xs"
+              />
+            )}
+          </div>
         </div>
       </div>
     </div>

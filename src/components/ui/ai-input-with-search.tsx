@@ -52,7 +52,7 @@ const AIInputWithSearch = React.forwardRef<HTMLInputElement, AIInputWithSearchPr
             onChange={(e) => setInputValue(e.target.value)}
             ref={ref}
             className={cn(
-              "flex h-12 w-full rounded-lg border border-input bg-background px-4 py-6 text-base shadow-sm pr-24",
+              "flex h-12 w-full rounded-lg border border-input bg-background px-4 py-6 text-base shadow-sm",
               props.disabled && "opacity-70"
             )}
           />
@@ -72,14 +72,14 @@ const AIInputWithSearch = React.forwardRef<HTMLInputElement, AIInputWithSearchPr
               variant="ghost"
               disabled={uploading || props.disabled}
               className={cn(
-                "h-8 w-8 text-muted-foreground hover:text-gold-500",
+                "h-8 w-8 text-muted-foreground hover:text-amber-500 transition-colors",
                 uploading && "opacity-70"
               )}
               onClick={handleFileClick}
               title="Upload document"
             >
               {uploading ? (
-                <Loader2 className="h-4 w-4 animate-spin text-gold-500" />
+                <Loader2 className="h-4 w-4 animate-spin text-amber-500" />
               ) : (
                 <Paperclip className="h-4 w-4" />
               )}
@@ -90,7 +90,7 @@ const AIInputWithSearch = React.forwardRef<HTMLInputElement, AIInputWithSearchPr
               size="icon"
               disabled={loading || props.disabled}
               className={cn(
-                "h-10 w-10 rounded-full bg-gradient-to-r from-gold-400 to-gold-600 hover:from-gold-500 hover:to-gold-700 text-black", 
+                "h-10 w-10 rounded-full bg-gradient-to-r from-amber-400 to-amber-600 hover:from-amber-500 hover:to-amber-700 text-black shadow-md", 
                 buttonClassName
               )}
             >
