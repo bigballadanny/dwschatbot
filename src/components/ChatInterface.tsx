@@ -1,3 +1,4 @@
+
 import React, { useRef, useEffect, forwardRef, useImperativeHandle, useState } from 'react';
 import MessageItem, { MessageProps } from './MessageItem';
 import { cn } from "@/lib/utils";
@@ -158,18 +159,8 @@ const ChatInterface = forwardRef<
         "border-t fixed bottom-0 bg-background/80 backdrop-blur-sm z-10 pb-6 pt-4 w-full",
         sidebarState === "expanded" ? "left-[16rem] right-0" : "left-0 right-0"
       )}>
-        <div className="flex items-center w-full px-4">
-          {onToggleOnlineSearch && (
-            <div className="mr-4">
-              <SearchModeToggle 
-                enableOnlineSearch={searchMode} 
-                onToggle={handleToggleOnlineSearch}
-                className="text-xs"
-              />
-            </div>
-          )}
-          
-          <div className="flex-1">
+        <div className="flex flex-col px-4 space-y-3">
+          <div className="w-full">
             <AIInputWithSearch
               value={input}
               onChange={(e) => setInput(e.target.value)}
@@ -183,6 +174,16 @@ const ChatInterface = forwardRef<
               buttonClassName="shadow-md"
             />
           </div>
+          
+          {onToggleOnlineSearch && (
+            <div className="self-start">
+              <SearchModeToggle 
+                enableOnlineSearch={searchMode} 
+                onToggle={handleToggleOnlineSearch}
+                className="text-xs"
+              />
+            </div>
+          )}
         </div>
       </div>
     </div>
