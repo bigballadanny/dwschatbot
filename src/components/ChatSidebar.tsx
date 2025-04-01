@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
 import { supabase } from '@/integrations/supabase/client';
@@ -9,7 +8,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { 
   Settings, PlusCircle, BarChart3, LogOut, Search, 
-  ChevronLeft, ChevronRight, UserCog, Home, BookOpen
+  ChevronLeft, ChevronRight, UserCog, Home
 } from 'lucide-react';
 import { toast } from '@/components/ui/use-toast';
 import {
@@ -206,14 +205,6 @@ const ChatSidebar = () => {
               <SidebarMenuButton>
                 <Home className="h-4 w-4" />
                 <span>Home</span>
-              </SidebarMenuButton>
-            </Button>
-          </SidebarMenuItem>
-          <SidebarMenuItem>
-            <Button variant="ghost" className="w-full justify-start" onClick={() => navigate('/transcripts')}>
-              <SidebarMenuButton>
-                <BookOpen className="h-4 w-4" />
-                <span>Transcripts</span>
               </SidebarMenuButton>
             </Button>
           </SidebarMenuItem>

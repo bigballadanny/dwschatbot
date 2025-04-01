@@ -2,7 +2,7 @@
 import React from 'react';
 import { Link, useLocation } from 'react-router-dom';
 import { Button } from "@/components/ui/button";
-import { BookOpen, Headphones, BarChart3, Menu } from 'lucide-react';
+import { Headphones, BarChart3, Menu } from 'lucide-react';
 import { useAuth } from '@/context/AuthContext';
 import { useAdmin } from '@/context/AdminContext';
 import { ModeToggle } from "@/components/ModeToggle";
@@ -50,7 +50,7 @@ const Header: React.FC = () => {
                 <img 
                   src="/lovable-uploads/a4f2b4db-0dac-4c7e-864c-54391e47cf0f.png" 
                   alt="DealMaker Wealth Society" 
-                  className="h-5 w-5" 
+                  className="h-8 w-8" 
                 />
               </div>
               <span className="bg-gradient-to-r from-primary to-primary/70 bg-clip-text text-transparent">
@@ -66,7 +66,7 @@ const Header: React.FC = () => {
                 <img 
                   src="/lovable-uploads/a4f2b4db-0dac-4c7e-864c-54391e47cf0f.png" 
                   alt="DealMaker Wealth Society" 
-                  className="h-5 w-5" 
+                  className="h-8 w-8" 
                 />
               </div>
               <span className="bg-gradient-to-r from-primary to-primary/70 bg-clip-text text-transparent">
