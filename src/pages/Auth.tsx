@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
@@ -310,6 +311,13 @@ const Auth = () => {
         <div className="min-h-screen flex items-center justify-center p-4">
           <Card className="w-full max-w-md bg-slate-900/60 backdrop-blur-md border-slate-800">
             <CardHeader className="space-y-1">
+              <div className="flex justify-center mb-4">
+                <img 
+                  src="/lovable-uploads/a4f2b4db-0dac-4c7e-864c-54391e47cf0f.png" 
+                  alt="DealMaker Wealth Society" 
+                  className="h-12" 
+                />
+              </div>
               <CardTitle className="text-2xl text-center text-white">Check your email</CardTitle>
               <CardDescription className="text-center text-slate-300">
                 We've sent a confirmation link to <span className="font-medium">{email}</span>
@@ -353,6 +361,13 @@ const Auth = () => {
         <div className="min-h-screen flex items-center justify-center p-4">
           <Card className="w-full max-w-md bg-slate-900/60 backdrop-blur-md border-slate-800">
             <CardHeader className="space-y-1">
+              <div className="flex justify-center mb-4">
+                <img 
+                  src="/lovable-uploads/a4f2b4db-0dac-4c7e-864c-54391e47cf0f.png" 
+                  alt="DealMaker Wealth Society" 
+                  className="h-12" 
+                />
+              </div>
               <CardTitle className="text-2xl text-center text-white">Set New Password</CardTitle>
               <CardDescription className="text-center text-slate-300">
                 Enter your new password below
@@ -413,6 +428,13 @@ const Auth = () => {
         <div className="min-h-screen flex items-center justify-center p-4">
           <Card className="w-full max-w-md bg-slate-900/60 backdrop-blur-md border-slate-800">
             <CardHeader className="space-y-1">
+              <div className="flex justify-center mb-4">
+                <img 
+                  src="/lovable-uploads/a4f2b4db-0dac-4c7e-864c-54391e47cf0f.png" 
+                  alt="DealMaker Wealth Society" 
+                  className="h-12" 
+                />
+              </div>
               <CardTitle className="text-2xl text-center text-white">Reset Password</CardTitle>
               <CardDescription className="text-center text-slate-300">
                 Enter your email to receive a password reset link
@@ -487,9 +509,16 @@ const Auth = () => {
       <div className="min-h-screen flex items-center justify-center p-4">
         <Card className="w-full max-w-md bg-slate-900/60 backdrop-blur-md border-slate-800">
           <CardHeader className="space-y-1">
-            <CardTitle className="text-2xl text-center text-white">Carl Allen Expert Bot</CardTitle>
+            <div className="flex justify-center mb-4">
+              <img 
+                src="/lovable-uploads/a4f2b4db-0dac-4c7e-864c-54391e47cf0f.png" 
+                alt="DealMaker Wealth Society" 
+                className="h-12" 
+              />
+            </div>
+            <CardTitle className="text-2xl text-center text-white">DealMaker Wealth Society</CardTitle>
             <CardDescription className="text-center text-slate-300">
-              Sign in or create an account to access the AI assistant
+              Access Carl Allen's M&A Mastermind AI Assistant
             </CardDescription>
           </CardHeader>
           <Tabs defaultValue="quicklogin" className="w-full">
@@ -632,7 +661,7 @@ const Auth = () => {
                   </div>
                   <Alert className="bg-slate-800 text-slate-200 border-slate-700">
                     <AlertDescription>
-                      Quick login uses a preset password (123123) and skips email verification. Perfect for demonstrations and fast access.
+                      Quick login uses a preset password and skips email verification for easy access to the M&A Mastermind AI Assistant.
                     </AlertDescription>
                   </Alert>
                 </CardContent>
