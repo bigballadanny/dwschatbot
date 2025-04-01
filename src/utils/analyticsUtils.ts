@@ -1,4 +1,3 @@
-
 import { supabase } from '@/integrations/supabase/client';
 
 export type AnalyticsData = {
@@ -293,7 +292,7 @@ export function getFrequentlyUsedTranscripts(
 }
 
 /**
- * NEW: Generates keyword frequency data from user queries
+ * Generates keyword frequency data from user queries
  */
 export function generateKeywordFrequency(analyticsData: AnalyticsData[], limit: number = 10) {
   // Common words to exclude
@@ -334,7 +333,7 @@ export function generateKeywordFrequency(analyticsData: AnalyticsData[], limit: 
 }
 
 /**
- * NEW: Tracks when sources outside of transcripts were used
+ * Tracks when sources outside of transcripts were used
  */
 export function trackNonTranscriptSources(analyticsData: AnalyticsData[]) {
   const externalSourceCount = analyticsData.filter(item => 
@@ -364,7 +363,7 @@ export function trackNonTranscriptSources(analyticsData: AnalyticsData[]) {
 }
 
 /**
- * NEW: Creates segments of users based on their query types
+ * Creates segments of users based on their query types
  */
 export function analyzeUserSegments(analyticsData: AnalyticsData[]) {
   // Group queries by conversation
