@@ -1,7 +1,10 @@
+
 import React, { useState } from 'react';
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
-import { Headphones } from "lucide-react";
+import { Copy, Check, ExternalLink, Info, Loader2, Headphones } from "lucide-react";
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
+import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 import { useToast } from "@/hooks/use-toast";
 import { supabase } from '@/integrations/supabase/client';
 import AudioPlayer from './AudioPlayer';
@@ -27,6 +30,8 @@ const MessageItem: React.FC<MessageProps> = ({
 }) => {
   const [audioSrc, setAudioSrc] = useState<string | null>(null);
   const [isGeneratingAudio, setIsGeneratingAudio] = useState(false);
+  const [copied, setCopied] = useState(false);
+  const [showCitation, setShowCitation] = useState(false);
   const { toast } = useToast();
   const isUser = source === 'user';
   const timeString = timestamp.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
@@ -94,6 +99,12 @@ const MessageItem: React.FC<MessageProps> = ({
       }
     });
   }, [content]);
+
+  const handleCopy = () => {
+    navigator.clipboard.writeText(content);
+    setCopied(true);
+    setTimeout(() => setCopied(false), 2000);
+  };
 
   const handleTextToSpeech = async () => {
     if (isUser || isLoading) return;
@@ -166,6 +177,8 @@ const MessageItem: React.FC<MessageProps> = ({
 
     return new Blob(byteArrays, { type: mimeType });
   };
+
+  const hasCitation = citation && citation.length > 0;
   
   return (
     <div className={cn(
@@ -186,7 +199,14 @@ const MessageItem: React.FC<MessageProps> = ({
         isLoading && "animate-pulse-subtle"
       )}>
         <div className="message-content prose prose-sm dark:prose-invert max-w-none">
-          {formattedContent}
+          {isLoading ? (
+            <div className="flex items-center space-x-2">
+              <Loader2 className="h-4 w-4 animate-spin" />
+              <p className="text-sm">Generating response...</p>
+            </div>
+          ) : (
+            formattedContent
+          )}
         </div>
         
         {citation && (
@@ -209,6 +229,25 @@ const MessageItem: React.FC<MessageProps> = ({
                 {isGeneratingAudio ? "Generating..." : "Listen"}
               </Button>
             )}
+            
+            <TooltipProvider>
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <Button 
+                    variant="ghost" 
+                    size="sm" 
+                    onClick={handleCopy}
+                    className="px-2 h-8 text-xs"
+                  >
+                    {copied ? <Check className="h-3 w-3" /> : <Copy className="h-3 w-3" />}
+                    <span className="ml-1">{copied ? "Copied" : "Copy"}</span>
+                  </Button>
+                </TooltipTrigger>
+                <TooltipContent side="bottom">
+                  <p>{copied ? "Copied to clipboard!" : "Copy message to clipboard"}</p>
+                </TooltipContent>
+              </Tooltip>
+            </TooltipProvider>
           </div>
         )}
         
