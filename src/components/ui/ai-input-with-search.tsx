@@ -1,4 +1,3 @@
-
 import * as React from "react"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
@@ -56,7 +55,7 @@ const AIInputWithSearch = React.forwardRef<HTMLInputElement, AIInputWithSearchPr
               props.disabled && "opacity-70"
             )}
           />
-          <div className="absolute right-2 top-1/2 -translate-y-1/2 flex items-center space-x-2">
+          <div className="absolute right-2 top-1/2 -translate-y-1/2 flex items-center space-x-2 pr-1">
             <input 
               type="file" 
               ref={fileInputRef} 
