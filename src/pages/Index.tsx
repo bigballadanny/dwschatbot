@@ -1,4 +1,3 @@
-
 import React, { useRef, useEffect, useState } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
 import MessageItem, { MessageProps } from '@/components/MessageItem';
@@ -13,8 +12,9 @@ import { ScrollArea } from "@/components/ui/scroll-area";
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from "@/components/ui/use-toast";
 import { useAuth } from '@/context/AuthContext';
-import SearchModeToggle from './SearchModeToggle';
+import SearchModeToggle from '@/components/SearchModeToggle';
 import UnifiedInputBar from '@/components/UnifiedInputBar';
+import { cn } from "@/lib/utils";
 
 const SidebarOpenButton = () => {
   const { state, toggleSidebar } = useSidebar();
