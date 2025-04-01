@@ -139,7 +139,7 @@ const ChatInterface = forwardRef<
   return (
     <div className={cn("flex flex-col h-full relative", className)}>
       <div className="flex-1 overflow-y-auto px-4 py-6 pb-28">
-        <div className="max-w-4xl mx-auto">
+        <div className="mx-auto">
           {messages.map((message, index) => (
             <MessageItem
               key={index}
@@ -158,27 +158,31 @@ const ChatInterface = forwardRef<
         "border-t fixed bottom-0 bg-background/80 backdrop-blur-sm z-10 pb-6 pt-4 w-full",
         sidebarState === "expanded" ? "left-[16rem] right-0" : "left-0 right-0"
       )}>
-        <div className="mx-auto px-2 flex flex-col items-center space-y-2 w-full">
-          <AIInputWithSearch
-            value={input}
-            onChange={(e) => setInput(e.target.value)}
-            onSend={handleSubmitQuestion}
-            onFileUpload={handleFileUpload}
-            disabled={isLoading}
-            placeholder="Ask about deal structuring, financing, due diligence..."
-            loading={isLoading}
-            uploading={uploading}
-            className="w-full rounded-lg shadow-lg"
-            buttonClassName="shadow-md"
-          />
-          
+        <div className="flex items-center w-full px-4">
           {onToggleOnlineSearch && (
-            <SearchModeToggle 
-              enableOnlineSearch={searchMode} 
-              onToggle={handleToggleOnlineSearch}
-              className="text-xs"
-            />
+            <div className="mr-4">
+              <SearchModeToggle 
+                enableOnlineSearch={searchMode} 
+                onToggle={handleToggleOnlineSearch}
+                className="text-xs"
+              />
+            </div>
           )}
+          
+          <div className="flex-1">
+            <AIInputWithSearch
+              value={input}
+              onChange={(e) => setInput(e.target.value)}
+              onSend={handleSubmitQuestion}
+              onFileUpload={handleFileUpload}
+              disabled={isLoading}
+              placeholder="Ask about deal structuring, financing, due diligence..."
+              loading={isLoading}
+              uploading={uploading}
+              className="w-full rounded-lg shadow-lg"
+              buttonClassName="shadow-md"
+            />
+          </div>
         </div>
       </div>
     </div>
