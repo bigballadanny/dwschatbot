@@ -2,7 +2,7 @@
 import React from 'react';
 import { Link, useLocation } from 'react-router-dom';
 import { Button } from "@/components/ui/button";
-import { Headphones, BarChart3, Menu } from 'lucide-react';
+import { Headphones, Menu } from 'lucide-react';
 import { useAuth } from '@/context/AuthContext';
 import { useAdmin } from '@/context/AdminContext';
 import { ModeToggle } from "@/components/ModeToggle";
@@ -18,7 +18,6 @@ const Header: React.FC = () => {
   
   // Check if we're on the homepage
   const isHomePage = location.pathname === '/';
-  const isAnalyticsPage = location.pathname === '/analytics';
   
   const handleLogoClick = () => {
     if (isHomePage) {
@@ -103,28 +102,7 @@ const Header: React.FC = () => {
                 </Tooltip>
               </TooltipProvider>
               
-              {isAdmin && (
-                <TooltipProvider>
-                  <Tooltip>
-                    <TooltipTrigger asChild>
-                      <Button 
-                        variant="ghost" 
-                        size="sm" 
-                        asChild
-                        className={`text-xs items-center transition-all hover:bg-primary/10 ${isAnalyticsPage ? 'bg-primary/10' : ''}`}
-                      >
-                        <Link to="/analytics">
-                          <BarChart3 className="mr-1 h-4 w-4 text-primary" />
-                          <span className="hidden sm:inline">Analytics</span>
-                        </Link>
-                      </Button>
-                    </TooltipTrigger>
-                    <TooltipContent>
-                      <p>View usage analytics and insights</p>
-                    </TooltipContent>
-                  </Tooltip>
-                </TooltipProvider>
-              )}
+              {/* Analytics button removed since it's already in the sidebar */}
             </>
           )}
           

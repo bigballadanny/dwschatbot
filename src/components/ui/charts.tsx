@@ -27,7 +27,7 @@ export const LineChart: React.FC<LineChartProps> = ({
   data,
   index,
   categories,
-  colors = ['#3b82f6', '#10b981', '#ef4444', '#f59e0b', '#8b5cf6'],
+  colors = ['#f59e0b', '#fbbf24', '#fcd34d', '#10b981', '#8b5cf6'], // Changed default colors with gold/amber as primary
   className,
   showLegend = true,
   valueFormatter = (value) => value.toString()

@@ -9,6 +9,7 @@ interface AuthContextType {
   user: User | null;
   signOut: () => Promise<void>;
   isLoading: boolean;
+  refreshSession: () => Promise<void>;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
@@ -18,6 +19,21 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const [user, setUser] = useState<User | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const { toast } = useToast();
+
+  const refreshSession = async () => {
+    try {
+      const { data, error } = await supabase.auth.refreshSession();
+      if (error) {
+        console.error('Error refreshing session:', error);
+        return;
+      }
+      
+      setSession(data.session);
+      setUser(data.session?.user ?? null);
+    } catch (error) {
+      console.error('Error in refreshSession:', error);
+    }
+  };
 
   useEffect(() => {
     // Set up auth state listener FIRST
@@ -58,6 +74,8 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
             description: "Please enter your new password",
             className: "bg-primary text-primary-foreground dark:bg-primary dark:text-primary-foreground",
           });
+        } else if (event === 'TOKEN_REFRESHED') {
+          console.log('Auth token refreshed successfully');
         }
       }
     );
@@ -69,12 +87,29 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       setIsLoading(false);
     });
 
-    return () => subscription.unsubscribe();
+    // Set up token refresh
+    const setupTokenRefresh = () => {
+      // Set up periodic token refresh (every 30 minutes)
+      const refreshInterval = setInterval(() => {
+        refreshSession();
+      }, 30 * 60 * 1000); // 30 minutes
+      
+      return () => clearInterval(refreshInterval);
+    };
+    
+    const refreshCleanup = setupTokenRefresh();
+
+    return () => {
+      subscription.unsubscribe();
+      refreshCleanup();
+    };
   }, [toast]);
 
   const signOut = async () => {
     try {
+      setIsLoading(true);
       await supabase.auth.signOut();
+      // The onAuthStateChange listener will update the state
     } catch (error) {
       console.error('Error signing out:', error);
       toast({
@@ -82,11 +117,13 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         description: "An error occurred while signing out",
         variant: "destructive"
       });
+    } finally {
+      setIsLoading(false);
     }
   };
 
   return (
-    <AuthContext.Provider value={{ session, user, signOut, isLoading }}>
+    <AuthContext.Provider value={{ session, user, signOut, isLoading, refreshSession }}>
       {children}
     </AuthContext.Provider>
   );
