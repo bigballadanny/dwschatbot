@@ -5,7 +5,6 @@ import SearchModeToggle from './SearchModeToggle';
 import { useSidebar } from "@/components/ui/sidebar";
 import { AIInputWithSearch } from "@/components/ui/ai-input-with-search";
 import { toast } from "@/components/ui/use-toast";
-import { supabase } from '@/integrations/supabase/client';
 
 interface ChatInterfaceProps {
   className?: string;
@@ -31,7 +30,6 @@ const ChatInterface = forwardRef<
 }, ref) => {
   const [input, setInput] = React.useState('');
   const [isLoading, setIsLoading] = React.useState(false);
-  const [searchMode, setSearchMode] = React.useState(enableOnlineSearch);
   const [uploading, setUploading] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const { state: sidebarState } = useSidebar();
@@ -111,8 +109,6 @@ const ChatInterface = forwardRef<
     setUploading(true);
     
     try {
-      // Here we would normally upload the file to storage
-      // For now, just simulate the upload
       await new Promise(resolve => setTimeout(resolve, 1500));
       
       toast({
@@ -120,8 +116,7 @@ const ChatInterface = forwardRef<
         description: `"${file.name}" has been uploaded and is being analyzed.`,
       });
       
-      // This is where you would process the document and generate a message
-      const filePrompt = `I've uploaded a document titled "${file.name}". Please analyze this document and provide insights based on it.`;
+      const filePrompt = `I've uploaded a document titled "${file.name}". Please analyze this document and provide insights.`;
       await handleSubmitQuestion(filePrompt);
       
     } catch (error) {
@@ -142,13 +137,6 @@ const ChatInterface = forwardRef<
   
   return (
     <div className={cn("flex flex-col h-full relative", className)}>
-      <div className="flex items-center justify-end p-4 border-b">
-        <SearchModeToggle 
-          enableOnlineSearch={searchMode}
-          onToggle={handleToggleOnlineSearch}
-        />
-      </div>
-      
       <div className="flex-1 overflow-y-auto px-4 py-6 pb-28">
         <div className="max-w-4xl mx-auto">
           {messages.map((message, index) => (

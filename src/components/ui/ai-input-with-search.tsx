@@ -1,3 +1,4 @@
+
 import * as React from "react"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
@@ -18,12 +19,6 @@ const AIInputWithSearch = React.forwardRef<HTMLInputElement, AIInputWithSearchPr
     const [inputValue, setInputValue] = React.useState(props.value || '')
     const fileInputRef = React.useRef<HTMLInputElement>(null)
     
-    React.useEffect(() => {
-      if (props.value !== undefined) {
-        setInputValue(props.value)
-      }
-    }, [props.value])
-    
     const handleSubmit = (e: React.FormEvent) => {
       e.preventDefault()
       if (typeof inputValue === 'string' && inputValue.trim()) {
@@ -32,13 +27,6 @@ const AIInputWithSearch = React.forwardRef<HTMLInputElement, AIInputWithSearchPr
       }
     }
     
-    const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-      setInputValue(e.target.value)
-      if (props.onChange) {
-        props.onChange(e)
-      }
-    }
-
     const handleFileClick = () => {
       fileInputRef.current?.click()
     }
@@ -61,7 +49,7 @@ const AIInputWithSearch = React.forwardRef<HTMLInputElement, AIInputWithSearchPr
           <Input
             {...props}
             value={inputValue}
-            onChange={handleChange}
+            onChange={(e) => setInputValue(e.target.value)}
             ref={ref}
             className={cn(
               "flex h-12 w-full rounded-lg border border-input bg-background px-4 py-6 text-base shadow-sm pr-24",
@@ -84,14 +72,14 @@ const AIInputWithSearch = React.forwardRef<HTMLInputElement, AIInputWithSearchPr
               variant="ghost"
               disabled={uploading || props.disabled}
               className={cn(
-                "h-8 w-8 text-muted-foreground hover:text-yellow-500",
+                "h-8 w-8 text-muted-foreground hover:text-gold-500",
                 uploading && "opacity-70"
               )}
               onClick={handleFileClick}
               title="Upload document"
             >
               {uploading ? (
-                <Loader2 className="h-4 w-4 animate-spin text-yellow-500" />
+                <Loader2 className="h-4 w-4 animate-spin text-gold-500" />
               ) : (
                 <Paperclip className="h-4 w-4" />
               )}
@@ -102,7 +90,7 @@ const AIInputWithSearch = React.forwardRef<HTMLInputElement, AIInputWithSearchPr
               size="icon"
               disabled={loading || props.disabled}
               className={cn(
-                "h-10 w-10 rounded-full bg-gradient-to-r from-yellow-400 to-yellow-600 hover:from-yellow-500 hover:to-yellow-700 text-black", 
+                "h-10 w-10 rounded-full bg-gradient-to-r from-gold-400 to-gold-600 hover:from-gold-500 hover:to-gold-700 text-black", 
                 buttonClassName
               )}
             >
