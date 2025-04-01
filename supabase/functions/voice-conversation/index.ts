@@ -11,6 +11,21 @@ const corsHeaders = {
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
 };
 
+// Function to prepare text for speech
+function prepareTextForSpeech(text: string): string {
+  return text
+    .replace(/\*\*/g, '') // Remove bold markdown
+    .replace(/\*/g, '')    // Remove italic markdown
+    .replace(/•/g, '. Bullet point, ') // Convert bullets to speech
+    .replace(/\n\n/g, '. ') // Replace double new lines with pauses
+    .replace(/\n([0-9]+)\./g, '. Number $1, ') // Handle numbered lists
+    .replace(/^([0-9]+)\./gm, 'Number $1, ') // Handle numbered list items at line start
+    .replace(/\n-\s/g, '. Bullet point, ') // Handle dash lists
+    .replace(/\n/g, ' ') // Replace remaining new lines with spaces
+    .replace(/\s{2,}/g, ' ') // Replace multiple spaces with single space
+    .trim();
+}
+
 serve(async (req) => {
   // Handle CORS preflight requests
   if (req.method === 'OPTIONS') {
@@ -104,6 +119,9 @@ serve(async (req) => {
     
     console.log("Generated text response:", generatedText.substring(0, 100) + "...");
     
+    // Process the text for better speech synthesis
+    const processedTextForSpeech = prepareTextForSpeech(generatedText);
+    
     // Convert response to speech if needed
     const voiceName = 'en-US-Neural2-F'; // Default female voice
     const voiceGender = voiceName.includes("Male") || voiceName.endsWith("-D") ? "MALE" : "FEMALE";
@@ -116,7 +134,7 @@ serve(async (req) => {
       },
       body: JSON.stringify({
         input: {
-          text: generatedText
+          text: processedTextForSpeech
         },
         voice: {
           languageCode: 'en-US',

@@ -10,6 +10,21 @@ const corsHeaders = {
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
 };
 
+// Function to clean and prepare text for speech
+function prepareTextForSpeech(text: string): string {
+  return text
+    .replace(/\*\*/g, '') // Remove bold markdown
+    .replace(/\*/g, '')    // Remove italic markdown
+    .replace(/•/g, '. Bullet point, ') // Convert bullets to speech
+    .replace(/\n\n/g, '. ') // Replace double new lines with pauses
+    .replace(/\n([0-9]+)\./g, '. Number $1, ') // Handle numbered lists
+    .replace(/^([0-9]+)\./gm, 'Number $1, ') // Handle numbered list items at line start
+    .replace(/\n-\s/g, '. Bullet point, ') // Handle dash lists
+    .replace(/\n/g, ' ') // Replace remaining new lines with spaces
+    .replace(/\s{2,}/g, ' ') // Replace multiple spaces with single space
+    .trim();
+}
+
 serve(async (req) => {
   // Handle CORS preflight requests
   if (req.method === 'OPTIONS') {
@@ -37,7 +52,10 @@ serve(async (req) => {
       });
     }
 
-    console.log("Converting text to speech:", text.substring(0, 100) + "...");
+    // Clean and prepare text for speech
+    const processedText = prepareTextForSpeech(text);
+    
+    console.log("Converting text to speech:", processedText.substring(0, 100) + "...");
     
     // Default voice configuration
     const voiceName = voice || 'en-US-Neural2-F'; // Default to female voice
@@ -53,7 +71,7 @@ serve(async (req) => {
       },
       body: JSON.stringify({
         input: {
-          text: text
+          text: processedText
         },
         voice: {
           languageCode: 'en-US',

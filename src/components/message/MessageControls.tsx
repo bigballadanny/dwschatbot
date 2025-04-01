@@ -1,7 +1,7 @@
 
-import React, { useState } from 'react';
+import React, { useState, useRef } from 'react';
 import { Button } from "@/components/ui/button";
-import { Headphones, Copy, Check } from 'lucide-react';
+import { Headphones, Copy, Check, Volume2, VolumeX } from 'lucide-react';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from "@/hooks/use-toast";
@@ -17,6 +17,8 @@ const MessageControls: React.FC<MessageControlsProps> = ({ content, citation, is
   const [copied, setCopied] = useState(false);
   const [audioSrc, setAudioSrc] = useState<string | null>(null);
   const [isGeneratingAudio, setIsGeneratingAudio] = useState(false);
+  const [isPlaying, setIsPlaying] = useState(false);
+  const audioRef = useRef<HTMLAudioElement | null>(null);
   const { toast } = useToast();
   
   // Check if this is a user message - we don't show controls for user messages
@@ -28,16 +30,29 @@ const MessageControls: React.FC<MessageControlsProps> = ({ content, citation, is
     setTimeout(() => setCopied(false), 2000);
   };
 
+  const stopAudio = () => {
+    if (audioRef.current) {
+      audioRef.current.pause();
+      audioRef.current.currentTime = 0;
+      setIsPlaying(false);
+    }
+  };
+
   const handleTextToSpeech = async () => {
     if (isLoading) return;
     
     try {
       setIsGeneratingAudio(true);
       
+      // Clean up the text for better speech synthesis
       const textToConvert = content
-        .replace(/\*\*/g, '')
-        .replace(/•/g, 'bullet point')
-        .replace(/\n\n/g, '. ');
+        .replace(/\*\*/g, '') // Remove asterisks for bold
+        .replace(/\*/g, '')    // Remove asterisks for italic
+        .replace(/•/g, ', bullet point, ') // Convert bullets to spoken text
+        .replace(/\n\n/g, '. ') // Convert double line breaks to pauses
+        .replace(/\n([0-9]+)\./g, '. Number $1,') // Convert numbered lists
+        .replace(/^([0-9]+)\./gm, 'Number $1,') // Convert numbered list items at line start
+        .replace(/\s{2,}/g, ' '); // Replace multiple spaces with single space
       
       toast({
         title: "Generating audio...",
@@ -64,9 +79,23 @@ const MessageControls: React.FC<MessageControlsProps> = ({ content, citation, is
         const audioUrl = URL.createObjectURL(audioBlob);
         setAudioSrc(audioUrl);
         
+        // Create and store audio element for playback control
+        const audio = new Audio(audioUrl);
+        audioRef.current = audio;
+        
+        audio.onplaying = () => setIsPlaying(true);
+        audio.onended = () => setIsPlaying(false);
+        audio.onpause = () => setIsPlaying(false);
+        
+        // Auto-play
+        audio.play().catch(err => {
+          console.error('Error playing audio:', err);
+          setIsPlaying(false);
+        });
+        
         toast({
           title: "Audio generated",
-          description: "Your audio is ready to play.",
+          description: "Your audio is playing. You can mute it using the audio player controls.",
         });
       }
     } catch (error) {
@@ -120,6 +149,18 @@ const MessageControls: React.FC<MessageControlsProps> = ({ content, citation, is
           </Button>
         )}
         
+        {audioSrc && isPlaying && (
+          <Button 
+            variant="ghost" 
+            size="sm" 
+            className="px-2 h-8 text-xs"
+            onClick={stopAudio}
+          >
+            <VolumeX className="h-3 w-3 mr-1" />
+            <span className="ml-1">Stop Audio</span>
+          </Button>
+        )}
+        
         <TooltipProvider>
           <Tooltip>
             <TooltipTrigger asChild>
@@ -142,7 +183,11 @@ const MessageControls: React.FC<MessageControlsProps> = ({ content, citation, is
       
       {audioSrc && (
         <div className="mt-3">
-          <AudioPlayer audioSrc={audioSrc} />
+          <AudioPlayer 
+            audioSrc={audioSrc} 
+            onStop={stopAudio} 
+            isPlayingExternally={isPlaying}
+          />
         </div>
       )}
 

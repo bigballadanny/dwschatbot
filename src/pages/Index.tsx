@@ -49,6 +49,7 @@ const Index = () => {
   const [enableOnlineSearch, setEnableOnlineSearch] = useState(false);
   const [hasInteracted, setHasInteracted] = useState(false);
   const [uploading, setUploading] = useState(false);
+  const [currentAudio, setCurrentAudio] = useState<HTMLAudioElement | null>(null);
   
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const location = useLocation();
@@ -285,8 +286,15 @@ const Index = () => {
       if (audioEnabled && data.audioContent) {
         const audioSrc = `data:audio/mp3;base64,${data.audioContent}`;
         const audio = new Audio(audioSrc);
+        setCurrentAudio(audio);
+        
+        audio.addEventListener('ended', () => {
+          setCurrentAudio(null);
+        });
+        
         audio.play().catch(err => {
           console.error('Error playing audio:', err);
+          setCurrentAudio(null);
         });
       }
       
@@ -322,7 +330,19 @@ const Index = () => {
     return Promise.resolve();
   };
 
+  const stopCurrentAudio = () => {
+    if (currentAudio) {
+      currentAudio.pause();
+      currentAudio.currentTime = 0;
+      setCurrentAudio(null);
+    }
+  };
+
   const toggleAudio = () => {
+    if (audioEnabled && currentAudio) {
+      stopCurrentAudio();
+    }
+    
     setAudioEnabled(!audioEnabled);
     toast({
       title: audioEnabled ? "Audio Disabled" : "Audio Enabled",

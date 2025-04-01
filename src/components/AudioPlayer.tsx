@@ -8,10 +8,12 @@ import { cn } from "@/lib/utils";
 interface AudioPlayerProps {
   audioSrc: string;
   className?: string;
+  onStop?: () => void;
+  isPlayingExternally?: boolean;
 }
 
-const AudioPlayer = ({ audioSrc, className }: AudioPlayerProps) => {
-  const [isPlaying, setIsPlaying] = useState(false);
+const AudioPlayer = ({ audioSrc, className, onStop, isPlayingExternally = false }: AudioPlayerProps) => {
+  const [isPlaying, setIsPlaying] = useState(isPlayingExternally);
   const [progress, setProgress] = useState(0);
   const [volume, setVolume] = useState(0.8);
   const [isMuted, setIsMuted] = useState(false);
@@ -23,6 +25,7 @@ const AudioPlayer = ({ audioSrc, className }: AudioPlayerProps) => {
     // Create audio element
     const audio = new Audio(audioSrc);
     audioRef.current = audio;
+    audio.volume = volume;
 
     // Define event handlers
     const handleLoadedMetadata = () => {
@@ -45,6 +48,11 @@ const AudioPlayer = ({ audioSrc, className }: AudioPlayerProps) => {
     audio.addEventListener('loadedmetadata', handleLoadedMetadata);
     audio.addEventListener('timeupdate', handleTimeUpdate);
     audio.addEventListener('ended', handleEnded);
+    
+    // Handle external play state
+    if (isPlayingExternally) {
+      setIsPlaying(true);
+    }
 
     return () => {
       // Cleanup
@@ -58,7 +66,18 @@ const AudioPlayer = ({ audioSrc, className }: AudioPlayerProps) => {
         audio.removeEventListener('ended', handleEnded);
       }
     };
-  }, [audioSrc]);
+  }, [audioSrc, isPlayingExternally]);
+  
+  // Update playback state when isPlayingExternally changes
+  useEffect(() => {
+    if (isPlayingExternally && audioRef.current && !isPlaying) {
+      audioRef.current.play().catch(err => console.error('Error playing audio:', err));
+      setIsPlaying(true);
+    } else if (!isPlayingExternally && audioRef.current && isPlaying) {
+      audioRef.current.pause();
+      setIsPlaying(false);
+    }
+  }, [isPlayingExternally, isPlaying]);
 
   // Handle play/pause
   const togglePlay = () => {
@@ -66,10 +85,11 @@ const AudioPlayer = ({ audioSrc, className }: AudioPlayerProps) => {
     
     if (isPlaying) {
       audioRef.current.pause();
+      setIsPlaying(false);
     } else {
-      audioRef.current.play();
+      audioRef.current.play().catch(err => console.error('Error playing audio:', err));
+      setIsPlaying(true);
     }
-    setIsPlaying(!isPlaying);
   };
 
   // Handle volume change
@@ -112,6 +132,20 @@ const AudioPlayer = ({ audioSrc, className }: AudioPlayerProps) => {
     audioRef.current.currentTime = seekTime;
     setProgress(value[0]);
   };
+  
+  // Handle stop audio
+  const handleStop = () => {
+    if (audioRef.current) {
+      audioRef.current.pause();
+      audioRef.current.currentTime = 0;
+      setIsPlaying(false);
+      setProgress(0);
+      
+      if (onStop) {
+        onStop();
+      }
+    }
+  };
 
   // Format time in MM:SS
   const formatTime = (time: number) => {
@@ -151,24 +185,35 @@ const AudioPlayer = ({ audioSrc, className }: AudioPlayerProps) => {
         </span>
       </div>
       
-      <div className="flex items-center space-x-2">
-        <Button 
-          variant="ghost" 
-          size="icon" 
-          className="h-6 w-6"
-          onClick={toggleMute}
-        >
-          {isMuted ? <VolumeX className="h-3 w-3" /> : <Volume2 className="h-3 w-3" />}
-        </Button>
+      <div className="flex items-center space-x-2 justify-between">
+        <div className="flex items-center space-x-2">
+          <Button 
+            variant="ghost" 
+            size="icon" 
+            className="h-6 w-6"
+            onClick={toggleMute}
+          >
+            {isMuted ? <VolumeX className="h-3 w-3" /> : <Volume2 className="h-3 w-3" />}
+          </Button>
+          
+          <Slider 
+            value={[volume]} 
+            min={0} 
+            max={1} 
+            step={0.01}
+            onValueChange={handleVolumeChange}
+            className="w-24 cursor-pointer"
+          />
+        </div>
         
-        <Slider 
-          value={[volume]} 
-          min={0} 
-          max={1} 
-          step={0.01}
-          onValueChange={handleVolumeChange}
-          className="w-24 cursor-pointer"
-        />
+        <Button
+          variant="ghost"
+          size="sm"
+          onClick={handleStop}
+          className="text-xs"
+        >
+          Stop
+        </Button>
       </div>
     </div>
   );
