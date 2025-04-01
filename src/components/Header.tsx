@@ -46,32 +46,22 @@ const Header: React.FC = () => {
               onClick={handleLogoClick} 
               className="font-bold text-xl flex items-center cursor-pointer transition-all hover:scale-105"
             >
-              <div className="bg-gradient-to-r from-primary to-primary/70 p-2 rounded-lg mr-2">
-                <img 
-                  src="/lovable-uploads/a4f2b4db-0dac-4c7e-864c-54391e47cf0f.png" 
-                  alt="DealMaker Wealth Society" 
-                  className="h-8 w-8" 
-                />
-              </div>
-              <span className="bg-gradient-to-r from-primary to-primary/70 bg-clip-text text-transparent">
-                Carl's Wisdom
-              </span>
+              <img 
+                src="/lovable-uploads/531b478f-fdba-4ebc-ac54-40d68ff99b06.png" 
+                alt="DealMaker Wealth Society" 
+                className="h-10 rounded-md"
+              />
             </button>
           ) : (
             <Link 
               to="/" 
               className="font-bold text-xl flex items-center cursor-pointer transition-all hover:scale-105"
             >
-              <div className="bg-gradient-to-r from-primary to-primary/70 p-2 rounded-lg mr-2">
-                <img 
-                  src="/lovable-uploads/a4f2b4db-0dac-4c7e-864c-54391e47cf0f.png" 
-                  alt="DealMaker Wealth Society" 
-                  className="h-8 w-8" 
-                />
-              </div>
-              <span className="bg-gradient-to-r from-primary to-primary/70 bg-clip-text text-transparent">
-                Carl's Wisdom
-              </span>
+              <img 
+                src="/lovable-uploads/531b478f-fdba-4ebc-ac54-40d68ff99b06.png" 
+                alt="DealMaker Wealth Society" 
+                className="h-10 rounded-md"
+              />
             </Link>
           )}
         </div>
