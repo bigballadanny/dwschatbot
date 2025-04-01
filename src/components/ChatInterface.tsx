@@ -113,7 +113,7 @@ const ChatInterface = forwardRef<
           <AIInputWithSearch
             value={input}
             onChange={(e) => setInput(e.target.value)}
-            onSend={(value) => handleSubmitQuestion(value)}
+            onSend={handleSubmitQuestion}
             disabled={isLoading}
             placeholder="Ask about deal structuring, financing, due diligence..."
             loading={isLoading}

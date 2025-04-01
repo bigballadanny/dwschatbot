@@ -19,6 +19,7 @@ const AIInputWithSearch = React.forwardRef<HTMLInputElement, AIInputWithSearchPr
       const value = (e.target as HTMLFormElement).elements.namedItem('search') as HTMLInputElement
       if (value.value) {
         onSend(value.value)
+        value.value = '' // Clear the input after sending
       }
     }
 
