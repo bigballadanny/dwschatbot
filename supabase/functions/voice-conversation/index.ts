@@ -4,7 +4,7 @@ import "https://deno.land/x/xhr@0.1.0/mod.ts";
 
 const GEMINI_API_KEY = Deno.env.get('GEMINI_API_KEY');
 const TEXT_TO_SPEECH_URL = "https://texttospeech.googleapis.com/v1/text:synthesize";
-const GEMINI_API_URL = "https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-pro:streamGenerateContent";
+const GEMINI_API_URL = "https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-pro:generateContent";
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -29,7 +29,7 @@ serve(async (req) => {
       });
     }
 
-    const { audio, messages, isVoiceInput } = await req.json();
+    const { audio, messages, isVoiceInput, enableOnlineSearch } = await req.json();
     
     // Process voice input if provided
     let userText = "";
@@ -51,6 +51,7 @@ serve(async (req) => {
     }
     
     console.log("Processing user input:", userText);
+    console.log("Online search enabled:", enableOnlineSearch ? "yes" : "no");
     
     // Format messages for Gemini API
     const formattedMessages = messages.map(msg => ({
@@ -68,7 +69,7 @@ serve(async (req) => {
       });
     }
 
-    // Call Gemini API with streaming enabled
+    // Call Gemini API without streaming to get full response at once
     const response = await fetch(`${GEMINI_API_URL}?key=${GEMINI_API_KEY}`, {
       method: 'POST',
       headers: {

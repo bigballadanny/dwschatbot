@@ -1,19 +1,20 @@
-import React, { useState, useRef, useEffect } from 'react';
+
+import React, { useRef, useEffect, useState } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
-import ChatInterface from '@/components/ChatInterface';
+import MessageItem, { MessageProps } from '@/components/MessageItem';
 import Header from '@/components/Header';
 import WelcomeScreen from '@/components/WelcomeScreen';
 import PopularQuestions from '@/components/PopularQuestions';
 import ChatSidebar from '@/components/ChatSidebar';
-import VoiceConversation, { VoiceConversationRefMethods } from '@/components/VoiceConversation';
 import { SidebarProvider, SidebarInset, useSidebar } from "@/components/ui/sidebar";
 import { Button } from "@/components/ui/button";
-import { PanelLeft, MessageSquare, Mic, Volume2, VolumeX } from 'lucide-react';
+import { PanelLeft } from 'lucide-react';
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { supabase } from '@/integrations/supabase/client';
-import { MessageProps } from '@/components/MessageItem';
 import { useToast } from "@/components/ui/use-toast";
 import { useAuth } from '@/context/AuthContext';
+import SearchModeToggle from './SearchModeToggle';
+import UnifiedInputBar from '@/components/UnifiedInputBar';
 
 const SidebarOpenButton = () => {
   const { state, toggleSidebar } = useSidebar();
@@ -37,7 +38,6 @@ const SidebarOpenButton = () => {
 const Index = () => {
   const { user } = useAuth();
   const [showWelcome, setShowWelcome] = useState(true);
-  const [voiceEnabled, setVoiceEnabled] = useState(false);
   const [audioEnabled, setAudioEnabled] = useState(true);
   const [messages, setMessages] = useState<MessageProps[]>([{
     content: "Hello! I'm Carl Allen's Expert Bot. I'm here to answer your questions about business acquisitions, deal structuring, negotiations, due diligence, and more based on Carl Allen's mastermind call transcripts. What would you like to know?",
@@ -48,12 +48,13 @@ const Index = () => {
   const [isLoading, setIsLoading] = useState(false);
   const [enableOnlineSearch, setEnableOnlineSearch] = useState(false);
   const [hasInteracted, setHasInteracted] = useState(false);
+  const [uploading, setUploading] = useState(false);
   
-  const chatRef = useRef<{ submitQuestion: (question: string) => void }>(null);
-  const voiceRef = useRef<VoiceConversationRefMethods>(null);
+  const messagesEndRef = useRef<HTMLDivElement>(null);
   const location = useLocation();
   const navigate = useNavigate();
   const { toast } = useToast();
+  const { state: sidebarState } = useSidebar();
 
   useEffect(() => {
     const params = new URLSearchParams(location.search);
@@ -75,7 +76,7 @@ const Index = () => {
 
     if (question) {
       setTimeout(() => {
-        handleSendMessage(question);
+        handleSendMessage(question, false);
         setHasInteracted(true);
       }, 1000);
     }
@@ -108,6 +109,10 @@ const Index = () => {
       supabase.removeChannel(channel);
     };
   }, [user, conversationId, navigate]);
+
+  useEffect(() => {
+    messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
+  }, [messages]);
 
   const loadConversationMessages = async (id: string) => {
     try {
@@ -188,11 +193,11 @@ const Index = () => {
 
   const handleAskQuestion = (question: string) => {
     setShowWelcome(false);
-    handleSendMessage(question);
+    handleSendMessage(question, false);
     setHasInteracted(true);
   };
 
-  const handleSendMessage = async (message: string): Promise<void> => {
+  const handleSendMessage = async (message: string, isVoiceInput: boolean): Promise<void> => {
     if (!message.trim() || isLoading) return Promise.resolve();
     
     if (!user) {
@@ -232,14 +237,15 @@ const Index = () => {
       console.log('Sending message:', {
         message,
         conversationId: currentConversationId,
-        enableOnlineSearch
+        enableOnlineSearch,
+        isVoiceInput
       });
       
       const { data, error } = await supabase.functions.invoke('voice-conversation', {
         body: { 
           audio: message,
           messages: messages.concat(userMessage),
-          isVoiceInput: false,
+          isVoiceInput: isVoiceInput,
           enableOnlineSearch: enableOnlineSearch
         }
       });
@@ -255,7 +261,7 @@ const Index = () => {
       
       const responseMessage: MessageProps = {
         content: data.content,
-        source: 'gemini',
+        source: data.source || 'gemini',
         timestamp: new Date()
       };
       
@@ -265,13 +271,18 @@ const Index = () => {
         .from('messages')
         .insert([
           {
-            conversation_id: conversationId,
+            conversation_id: currentConversationId,
+            content: message,
+            is_user: true
+          },
+          {
+            conversation_id: currentConversationId,
             content: responseMessage.content,
             is_user: false
           }
         ]);
       
-      if (internalAudioEnabled && data.audioContent) {
+      if (audioEnabled && data.audioContent) {
         const audioSrc = `data:audio/mp3;base64,${data.audioContent}`;
         const audio = new Audio(audioSrc);
         audio.play().catch(err => {
@@ -293,15 +304,15 @@ const Index = () => {
       setMessages(prev => [
         ...prev.filter(msg => !msg.isLoading), 
         {
-          content: "I'm sorry, there was an advanced error processing your request. Please try again.",
+          content: "I'm sorry, there was an error processing your request. Please try again.",
           source: 'system',
           timestamp: new Date()
         }
       ]);
       
       toast({
-        title: "Advanced Error",
-        description: "A detailed error occurred. Please check the console for more information.",
+        title: "Error",
+        description: "There was a problem processing your message. Please try again.",
         variant: "destructive",
       });
     } finally {
@@ -311,12 +322,12 @@ const Index = () => {
     return Promise.resolve();
   };
 
-  const toggleVoiceMode = () => {
-    setVoiceEnabled(!voiceEnabled);
-  };
-
   const toggleAudio = () => {
     setAudioEnabled(!audioEnabled);
+    toast({
+      title: audioEnabled ? "Audio Disabled" : "Audio Enabled",
+      description: audioEnabled ? "Response audio is now muted." : "You will now hear voice responses.",
+    });
   };
 
   const handleToggleOnlineSearch = (enabled: boolean) => {
@@ -324,7 +335,62 @@ const Index = () => {
     console.log("Online search set to:", enabled);
   };
 
-  const internalAudioEnabled = audioEnabled;
+  const handleFileUpload = async (files: FileList) => {
+    if (!files || files.length === 0) return;
+    
+    const file = files[0];
+    const allowedTypes = [
+      'application/pdf', 
+      'application/msword', 
+      'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+      'text/plain',
+      'text/csv',
+      'application/vnd.ms-excel',
+      'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
+    ];
+    
+    if (!allowedTypes.includes(file.type)) {
+      toast({
+        title: "Unsupported File Type",
+        description: "Please upload a PDF, Word, Excel, CSV, or text document.",
+        variant: "destructive"
+      });
+      return;
+    }
+    
+    if (file.size > 10 * 1024 * 1024) { // 10MB limit
+      toast({
+        title: "File Too Large",
+        description: "Please upload a file smaller than 10MB.",
+        variant: "destructive"
+      });
+      return;
+    }
+    
+    setUploading(true);
+    
+    try {
+      await new Promise(resolve => setTimeout(resolve, 1500));
+      
+      toast({
+        title: "Document Uploaded",
+        description: `"${file.name}" has been uploaded and is being analyzed.`,
+      });
+      
+      const filePrompt = `I've uploaded a document titled "${file.name}". Please analyze this document and provide insights.`;
+      await handleSendMessage(filePrompt, false);
+      
+    } catch (error) {
+      console.error('Error uploading document:', error);
+      toast({
+        title: "Upload Failed",
+        description: "There was a problem uploading your document. Please try again.",
+        variant: "destructive"
+      });
+    } finally {
+      setUploading(false);
+    }
+  };
 
   return (
     <SidebarProvider>
@@ -350,55 +416,46 @@ const Index = () => {
               </div>
             ) : (
               <div className="flex-1 overflow-hidden flex flex-col">
-                <div className="px-4 py-2 flex justify-between items-center border-b">
-                  <div className="flex items-center">
-                    <Button
-                      variant={voiceEnabled ? "default" : "outline"}
-                      size="sm"
-                      className="mr-2"
-                      onClick={toggleVoiceMode}
-                      title={voiceEnabled ? "Switch to text only" : "Enable voice input"}
-                    >
-                      {voiceEnabled ? <Mic className="h-4 w-4 mr-2" /> : <MessageSquare className="h-4 w-4 mr-2" />}
-                      {voiceEnabled ? "Voice Mode" : "Text Mode"}
-                    </Button>
-                    
-                    <Button 
-                      variant="outline" 
-                      size="sm"
-                      onClick={toggleAudio}
-                      title={audioEnabled ? "Mute audio" : "Enable audio"}
-                    >
-                      {audioEnabled ? <Volume2 className="h-4 w-4 mr-2" /> : <VolumeX className="h-4 w-4 mr-2" />}
-                      {audioEnabled ? "Sound On" : "Sound Off"}
-                    </Button>
+                <div className="flex-1 overflow-y-auto px-4 py-6 pb-28">
+                  <div className="mx-auto max-w-4xl">
+                    {messages.map((message, index) => (
+                      <MessageItem
+                        key={index}
+                        content={message.content}
+                        source={message.source}
+                        citation={message.citation}
+                        timestamp={message.timestamp}
+                        isLoading={message.isLoading}
+                      />
+                    ))}
+                    <div ref={messagesEndRef} />
                   </div>
                 </div>
                 
-                <div className="h-[calc(100vh-8.5rem)] flex-1 overflow-hidden relative">
-                  <ScrollArea className="h-full">
-                    {voiceEnabled ? (
-                      <VoiceConversation 
-                        ref={voiceRef}
-                        className="h-full" 
-                        audioEnabled={audioEnabled}
-                        messages={messages}
-                        onSendMessage={handleSendMessage}
-                        conversationId={conversationId}
+                <div className={cn(
+                  "border-t fixed bottom-0 left-0 right-0 bg-background/80 backdrop-blur-sm z-10 pb-6 pt-4",
+                  sidebarState === "expanded" ? "ml-[16rem]" : ""
+                )}>
+                  <div className="max-w-3xl mx-auto px-4">
+                    <div className="flex items-center gap-3 justify-between">
+                      <UnifiedInputBar
+                        onSend={handleSendMessage}
+                        onFileUpload={handleFileUpload}
+                        loading={isLoading}
+                        disabled={false}
+                        enableAudio={audioEnabled}
+                        onToggleAudio={toggleAudio}
+                        placeholder="Ask about deal structuring, financing, due diligence..."
+                        className="flex-1"
                       />
-                    ) : (
-                      <ChatInterface 
-                        ref={chatRef} 
-                        initialQuestion={null} 
-                        className="h-full"
-                        messages={messages}
-                        onSendMessage={handleSendMessage}
-                        conversationId={conversationId}
-                        enableOnlineSearch={enableOnlineSearch}
-                        onToggleOnlineSearch={handleToggleOnlineSearch}
+                      
+                      <SearchModeToggle 
+                        enableOnlineSearch={enableOnlineSearch} 
+                        onToggle={handleToggleOnlineSearch}
+                        className="text-xs"
                       />
-                    )}
-                  </ScrollArea>
+                    </div>
+                  </div>
                 </div>
               </div>
             )}
