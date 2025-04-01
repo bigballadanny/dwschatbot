@@ -46,22 +46,32 @@ const Header: React.FC = () => {
               onClick={handleLogoClick} 
               className="font-bold text-xl flex items-center cursor-pointer transition-all hover:scale-105"
             >
-              <img 
-                src="/lovable-uploads/531b478f-fdba-4ebc-ac54-40d68ff99b06.png" 
-                alt="DealMaker Wealth Society" 
-                className="h-10 rounded-md"
-              />
+              <div className="bg-gradient-to-r from-primary to-primary/70 p-2 rounded-lg mr-2">
+                <img 
+                  src="/lovable-uploads/d2cda96a-7427-49e3-86f0-42ecd63d9982.png" 
+                  alt="DealMaker Wealth Society" 
+                  className="h-8 w-8" 
+                />
+              </div>
+              <span className="bg-gradient-to-r from-primary to-primary/70 bg-clip-text text-transparent">
+                DWS AI
+              </span>
             </button>
           ) : (
             <Link 
               to="/" 
               className="font-bold text-xl flex items-center cursor-pointer transition-all hover:scale-105"
             >
-              <img 
-                src="/lovable-uploads/531b478f-fdba-4ebc-ac54-40d68ff99b06.png" 
-                alt="DealMaker Wealth Society" 
-                className="h-10 rounded-md"
-              />
+              <div className="bg-gradient-to-r from-primary to-primary/70 p-2 rounded-lg mr-2">
+                <img 
+                  src="/lovable-uploads/d2cda96a-7427-49e3-86f0-42ecd63d9982.png" 
+                  alt="DealMaker Wealth Society" 
+                  className="h-8 w-8" 
+                />
+              </div>
+              <span className="bg-gradient-to-r from-primary to-primary/70 bg-clip-text text-transparent">
+                DWS AI
+              </span>
             </Link>
           )}
         </div>
