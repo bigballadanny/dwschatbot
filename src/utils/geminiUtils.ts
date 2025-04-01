@@ -1,3 +1,4 @@
+
 import { supabase } from '@/integrations/supabase/client';
 import { MessageProps } from '@/components/MessageItem';
 import { searchTranscriptsForQuery, getSourceDescription, Transcript, extractRelevantContent } from './transcriptUtils';

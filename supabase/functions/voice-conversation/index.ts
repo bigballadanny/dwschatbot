@@ -14,8 +14,8 @@ const corsHeaders = {
 // Function to prepare text for speech
 function prepareTextForSpeech(text: string): string {
   return text
-    .replace(/\*\*/g, '') // Remove bold markdown
-    .replace(/\*/g, '')    // Remove italic markdown
+    .replace(/\*\*(.*?)\*\*/g, '$1') // Replace **bold** with just the text
+    .replace(/\*(.*?)\*/g, '$1')    // Replace *italic* with just the text
     .replace(/•/g, '. Bullet point, ') // Convert bullets to speech
     .replace(/\n\n/g, '. ') // Replace double new lines with pauses
     .replace(/\n([0-9]+)\./g, '. Number $1, ') // Handle numbered lists
@@ -23,6 +23,10 @@ function prepareTextForSpeech(text: string): string {
     .replace(/\n-\s/g, '. Bullet point, ') // Handle dash lists
     .replace(/\n/g, ' ') // Replace remaining new lines with spaces
     .replace(/\s{2,}/g, ' ') // Replace multiple spaces with single space
+    .replace(/Source:/g, 'Source,') // Better speak source citations
+    .replace(/\(Source:/g, '(Source,')
+    .replace(/\[/g, '')  // Remove square brackets
+    .replace(/\]/g, '')  // Remove square brackets
     .trim();
 }
 
@@ -44,7 +48,7 @@ serve(async (req) => {
       });
     }
 
-    const { audio, messages, isVoiceInput, enableOnlineSearch } = await req.json();
+    const { audio, messages, isVoiceInput, enableOnlineSearch, context } = await req.json();
     
     // Process voice input if provided
     let userText = "";
@@ -75,12 +79,20 @@ serve(async (req) => {
     }));
 
     // Add system instructions if not present
-    if (!formattedMessages.some(msg => msg.role === 'model' && msg.parts[0].text.includes("Carl Allen"))) {
+    if (!formattedMessages.some(msg => msg.role === 'model' && msg.parts[0].text.includes("DWS AI"))) {
       formattedMessages.unshift({
         role: 'model',
         parts: [{ 
-          text: "You are Carl Allen's Expert Bot. You answer questions about business acquisitions based on Carl Allen's teachings. Be practical, actionable, and conversational." 
+          text: "You are DWS AI, an assistant powered by Gemini 2.0, designed as a trusted guide for Carl Allen's M&A mastermind community. You answer questions about business acquisitions based on Carl Allen's teachings." 
         }]
+      });
+    }
+
+    // Add context if provided
+    if (context) {
+      formattedMessages.unshift({
+        role: 'model',
+        parts: [{ text: context }]
       });
     }
 
@@ -122,6 +134,18 @@ serve(async (req) => {
     // Process the text for better speech synthesis
     const processedTextForSpeech = prepareTextForSpeech(generatedText);
     
+    // Extract any citation information from the generated text
+    const citationMatch = generatedText.match(/\(Source: (.*?)\)/);
+    const citation = citationMatch ? [citationMatch[0]] : undefined;
+    
+    // Determine the source type based on the citation
+    let source = 'gemini';
+    if (citation && citation[0].includes("mastermind call")) {
+      source = 'transcript';
+    } else if (enableOnlineSearch && !citation) {
+      source = 'web';
+    }
+    
     // Convert response to speech if needed
     const voiceName = 'en-US-Neural2-F'; // Default female voice
     const voiceGender = voiceName.includes("Male") || voiceName.endsWith("-D") ? "MALE" : "FEMALE";
@@ -156,7 +180,8 @@ serve(async (req) => {
       // Return text response if speech synthesis fails
       return new Response(JSON.stringify({ 
         content: generatedText,
-        source: 'gemini',
+        source: source,
+        citation: citation,
         error: "Speech synthesis failed, but text response is available." 
       }), {
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
@@ -170,7 +195,8 @@ serve(async (req) => {
     return new Response(JSON.stringify({ 
       content: generatedText,
       audioContent: audioContent,
-      source: 'gemini'
+      source: source,
+      citation: citation
     }), {
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },
     });

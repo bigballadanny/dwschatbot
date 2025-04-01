@@ -13,8 +13,8 @@ const corsHeaders = {
 // Function to clean and prepare text for speech
 function prepareTextForSpeech(text: string): string {
   return text
-    .replace(/\*\*/g, '') // Remove bold markdown
-    .replace(/\*/g, '')    // Remove italic markdown
+    .replace(/\*\*(.*?)\*\*/g, '$1') // Replace **bold** with just the text
+    .replace(/\*(.*?)\*/g, '$1')    // Replace *italic* with just the text
     .replace(/•/g, '. Bullet point, ') // Convert bullets to speech
     .replace(/\n\n/g, '. ') // Replace double new lines with pauses
     .replace(/\n([0-9]+)\./g, '. Number $1, ') // Handle numbered lists
@@ -22,6 +22,10 @@ function prepareTextForSpeech(text: string): string {
     .replace(/\n-\s/g, '. Bullet point, ') // Handle dash lists
     .replace(/\n/g, ' ') // Replace remaining new lines with spaces
     .replace(/\s{2,}/g, ' ') // Replace multiple spaces with single space
+    .replace(/Source:/g, 'Source,') // Better speak source citations
+    .replace(/\(Source:/g, '(Source,')
+    .replace(/\[/g, '')  // Remove square brackets
+    .replace(/\]/g, '')  // Remove square brackets
     .trim();
 }
 

@@ -1,5 +1,5 @@
 
-import React, { useState, useRef } from 'react';
+import React, { useState, useRef, useEffect } from 'react';
 import { Button } from "@/components/ui/button";
 import { Headphones, Copy, Check, Volume2, VolumeX } from 'lucide-react';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
@@ -21,8 +21,15 @@ const MessageControls: React.FC<MessageControlsProps> = ({ content, citation, is
   const audioRef = useRef<HTMLAudioElement | null>(null);
   const { toast } = useToast();
   
-  // Check if this is a user message - we don't show controls for user messages
-  const isUser = false; // This is handled at MessageItem level now
+  // Effect to clean up audio on unmount
+  useEffect(() => {
+    return () => {
+      if (audioRef.current) {
+        audioRef.current.pause();
+        audioRef.current.src = '';
+      }
+    };
+  }, []);
   
   const handleCopy = () => {
     navigator.clipboard.writeText(content);
@@ -40,6 +47,13 @@ const MessageControls: React.FC<MessageControlsProps> = ({ content, citation, is
 
   const handleTextToSpeech = async () => {
     if (isLoading) return;
+    
+    // Stop any currently playing audio first
+    if (audioRef.current) {
+      stopAudio();
+      audioRef.current = null;
+      setAudioSrc(null);
+    }
     
     try {
       setIsGeneratingAudio(true);
@@ -129,7 +143,7 @@ const MessageControls: React.FC<MessageControlsProps> = ({ content, citation, is
     return new Blob(byteArrays, { type: mimeType });
   };
 
-  if (isUser || isLoading) {
+  if (isLoading) {
     return null;
   }
 
