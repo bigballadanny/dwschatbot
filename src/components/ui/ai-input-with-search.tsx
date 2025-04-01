@@ -52,7 +52,7 @@ const AIInputWithSearch = React.forwardRef<HTMLInputElement, AIInputWithSearchPr
             onChange={(e) => setInputValue(e.target.value)}
             ref={ref}
             className={cn(
-              "flex h-12 w-full rounded-lg border border-input bg-background px-4 py-6 text-base shadow-sm pr-36", // Significantly increased right padding to ensure buttons are visible
+              "flex h-12 w-full rounded-lg border border-input bg-background px-4 py-6 text-base shadow-sm pr-40", // Increased right padding to ensure full visibility
               props.disabled && "opacity-70"
             )}
           />
