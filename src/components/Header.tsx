@@ -46,14 +46,15 @@ const Header: React.FC = () => {
               onClick={handleLogoClick} 
               className="font-bold text-xl flex items-center cursor-pointer transition-all hover:scale-105"
             >
-              <div className="bg-gradient-to-r from-primary to-primary/70 p-2 rounded-lg mr-2">
+              <div className="relative p-2 rounded-lg mr-2 overflow-hidden futuristic-glow">
+                <div className="absolute inset-0 animate-pulse-subtle bg-gradient-to-r from-blue-400 via-cyan-300 to-blue-400 opacity-70 blur-md"></div>
                 <img 
                   src="/lovable-uploads/d2cda96a-7427-49e3-86f0-42ecd63d9982.png" 
                   alt="DealMaker Wealth Society" 
-                  className="h-8 w-8" 
+                  className="h-8 w-8 relative z-10" 
                 />
               </div>
-              <span className="bg-gradient-to-r from-primary to-primary/70 bg-clip-text text-transparent">
+              <span className="bg-gradient-to-r from-amber-300 via-yellow-400 to-amber-300 bg-clip-text text-transparent font-bold">
                 DWS AI
               </span>
             </button>
@@ -62,14 +63,15 @@ const Header: React.FC = () => {
               to="/" 
               className="font-bold text-xl flex items-center cursor-pointer transition-all hover:scale-105"
             >
-              <div className="bg-gradient-to-r from-primary to-primary/70 p-2 rounded-lg mr-2">
+              <div className="relative p-2 rounded-lg mr-2 overflow-hidden futuristic-glow">
+                <div className="absolute inset-0 animate-pulse-subtle bg-gradient-to-r from-blue-400 via-cyan-300 to-blue-400 opacity-70 blur-md"></div>
                 <img 
                   src="/lovable-uploads/d2cda96a-7427-49e3-86f0-42ecd63d9982.png" 
                   alt="DealMaker Wealth Society" 
-                  className="h-8 w-8" 
+                  className="h-8 w-8 relative z-10" 
                 />
               </div>
-              <span className="bg-gradient-to-r from-primary to-primary/70 bg-clip-text text-transparent">
+              <span className="bg-gradient-to-r from-amber-300 via-yellow-400 to-amber-300 bg-clip-text text-transparent font-bold">
                 DWS AI
               </span>
             </Link>
