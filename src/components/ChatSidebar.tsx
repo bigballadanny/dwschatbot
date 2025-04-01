@@ -136,9 +136,7 @@ const ChatSidebar = () => {
           <Button variant="ghost" size="icon" className="h-8 w-8" onClick={handleNewChat} title="New chat">
             <PlusCircle className="h-5 w-5" />
           </Button>
-          <SidebarTrigger className="h-8 w-8">
-            {sidebarState === "expanded" ? <ChevronLeft className="h-5 w-5" /> : <ChevronRight className="h-5 w-5" />}
-          </SidebarTrigger>
+          
         </div>
         <div className="relative px-2 pb-2">
           <Search className="absolute left-4 top-2.5 h-4 w-4 text-muted-foreground" />
