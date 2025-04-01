@@ -1,12 +1,12 @@
 
 import React, { useRef, useEffect, forwardRef, useImperativeHandle } from 'react';
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
 import { Send } from "lucide-react";
 import MessageItem, { MessageProps } from './MessageItem';
 import { cn } from "@/lib/utils";
 import SearchModeToggle from './SearchModeToggle';
 import { useSidebar } from "@/components/ui/sidebar";
+import { AIInputWithSearch } from "@/components/ui/ai-input-with-search";
 
 interface ChatInterfaceProps {
   className?: string;
@@ -34,7 +34,6 @@ const ChatInterface = forwardRef<
   const [isLoading, setIsLoading] = React.useState(false);
   const [searchMode, setSearchMode] = React.useState(enableOnlineSearch);
   const messagesEndRef = useRef<HTMLDivElement>(null);
-  const inputRef = useRef<HTMLInputElement>(null);
   const { state: sidebarState } = useSidebar();
   
   useImperativeHandle(ref, () => ({
@@ -90,10 +89,6 @@ const ChatInterface = forwardRef<
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
   }, [messages]);
   
-  useEffect(() => {
-    inputRef.current?.focus();
-  }, []);
-  
   return (
     <div className={cn("flex flex-col h-full relative", className)}>
       <div className="flex items-center justify-end p-4 border-b">
@@ -120,31 +115,21 @@ const ChatInterface = forwardRef<
       </div>
       
       <div className={cn(
-        "border-t fixed bottom-0 bg-background/80 backdrop-blur-sm z-10 pb-6 pt-4 px-4",
+        "border-t fixed bottom-0 bg-background/80 backdrop-blur-sm z-10 pb-6 pt-4 px-4 w-full",
         sidebarState === "expanded" ? "left-[16rem] right-0" : "left-0 right-0"
       )}>
-        <form 
-          onSubmit={handleSubmit} 
-          className="flex gap-3 items-center max-w-3xl mx-auto"
-        >
-          <Input
-            ref={inputRef}
-            type="text"
-            placeholder="Ask about deal structuring, financing, due diligence..."
+        <div className="max-w-3xl mx-auto">
+          <AIInputWithSearch
             value={input}
             onChange={(e) => setInput(e.target.value)}
+            onSubmit={(value) => handleSubmitQuestion(value)}
             disabled={isLoading}
-            className="py-6 px-4 rounded-full text-base"
+            placeholder="Ask about deal structuring, financing, due diligence..."
+            loading={isLoading}
+            className="rounded-full"
+            buttonClassName="rounded-full"
           />
-          <Button 
-            type="submit" 
-            size="icon" 
-            className="h-12 w-12 rounded-full flex-shrink-0"
-            disabled={isLoading || !input.trim()}
-          >
-            <Send className="h-5 w-5" />
-          </Button>
-        </form>
+        </div>
       </div>
     </div>
   );
