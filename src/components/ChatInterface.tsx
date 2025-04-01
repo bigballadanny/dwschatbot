@@ -1,3 +1,4 @@
+
 import React, { useRef, useEffect, forwardRef, useImperativeHandle, useState } from 'react';
 import MessageItem, { MessageProps } from './MessageItem';
 import { cn } from "@/lib/utils";
@@ -159,29 +160,30 @@ const ChatInterface = forwardRef<
         "border-t fixed bottom-0 left-0 right-0 bg-background/80 backdrop-blur-sm z-10 pb-6 pt-4",
         sidebarState === "expanded" ? "ml-[16rem]" : ""
       )}>
-        <div className="flex flex-col px-4 space-y-3 max-w-full">
-          <AIInputWithSearch
-            value={input}
-            onChange={(e) => setInput(e.target.value)}
-            onSend={handleSubmitQuestion}
-            onFileUpload={handleFileUpload}
-            disabled={isLoading}
-            placeholder="Ask about deal structuring, financing, due diligence..."
-            loading={isLoading}
-            uploading={uploading}
-            className="w-full rounded-lg shadow-lg"
-            buttonClassName="shadow-md"
-          />
-          
-          {onToggleOnlineSearch && (
-            <div className="self-start ml-2">
+        <div className="max-w-4xl mx-auto px-4">
+          <div className="flex flex-col sm:flex-row items-start sm:items-center gap-3">
+            <AIInputWithSearch
+              value={input}
+              onChange={(e) => setInput(e.target.value)}
+              onSend={handleSubmitQuestion}
+              onFileUpload={handleFileUpload}
+              disabled={isLoading}
+              placeholder="Ask about deal structuring, financing, due diligence..."
+              loading={isLoading}
+              uploading={uploading}
+              className="w-full"
+              containerClassName="flex-1 max-w-xl"
+              buttonClassName="shadow-md"
+            />
+            
+            {onToggleOnlineSearch && (
               <SearchModeToggle 
                 enableOnlineSearch={searchMode} 
                 onToggle={handleToggleOnlineSearch}
-                className="text-xs"
+                className="text-xs mt-2 sm:mt-0"
               />
-            </div>
-          )}
+            )}
+          </div>
         </div>
       </div>
     </div>
