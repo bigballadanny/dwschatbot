@@ -1,3 +1,4 @@
+
 import React, { useRef, useEffect, forwardRef, useImperativeHandle, useState } from 'react';
 import MessageItem, { MessageProps } from './MessageItem';
 import { cn } from "@/lib/utils";
@@ -31,6 +32,7 @@ const ChatInterface = forwardRef<
   const [input, setInput] = React.useState('');
   const [isLoading, setIsLoading] = React.useState(false);
   const [uploading, setUploading] = useState(false);
+  const [searchMode, setSearchMode] = useState(enableOnlineSearch);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const { state: sidebarState } = useSidebar();
   
