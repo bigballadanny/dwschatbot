@@ -2,14 +2,14 @@ import React, { useEffect, useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { PieChart, Pie, BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, LineChart, Line, ResponsiveContainer, Cell } from 'recharts';
 import { Download, RefreshCw } from 'lucide-react';
 import { Input } from '@/components/ui/input';
 import { Alert, AlertDescription } from '@/components/ui/alert';
-import { fetchAnalyticsData, getTopQueries, generateSourceDistribution, calculateSuccessRate, generateResponseTimeData, getFrequentlyUsedTranscripts, generateKeywordFrequency, trackNonTranscriptSources, analyzeUserSegments } from '@/utils/analyticsUtils';
+import { fetchAnalyticsData, getTopQueries, generateSourceDistribution, calculateSuccessRate, generateResponseTimeData, getFrequentlyUsedTranscripts, generateKeywordFrequency, trackNonTranscriptSources, analyzeUserSegments, generateQueryVolumeTrend } from '@/utils/analyticsUtils';
 import { checkAnalyticsTable } from '@/utils/analyticsDbCheck';
 import Header from '@/components/Header';
 import ChatSidebar from '@/components/ChatSidebar';
+import { LineChart } from '@/components/ui/charts';
 
 interface AnalyticsData {
   id: string;
@@ -151,10 +151,12 @@ const Analytics = () => {
       dailyData[date] = (dailyData[date] || 0) + 1;
     });
     
-    return Object.entries(dailyData).map(([date, count]) => ({
-      date,
-      queries: count
-    }));
+    return Object.entries(dailyData)
+      .sort((a, b) => new Date(a[0]).getTime() - new Date(b[0]).getTime())
+      .map(([date, count]) => ({
+        date,
+        queries: count
+      }));
   };
 
   return (
@@ -257,17 +259,16 @@ const Analytics = () => {
                           <CardTitle>Daily Query Volume</CardTitle>
                           <CardDescription>Number of queries per day over time.</CardDescription>
                         </CardHeader>
-                        <CardContent>
-                          <ResponsiveContainer width="100%" height={300}>
-                            <BarChart data={generateDailyQueryVolumeData()}>
-                              <CartesianGrid strokeDasharray="3 3" />
-                              <XAxis dataKey="date" />
-                              <YAxis />
-                              <Tooltip />
-                              <Legend />
-                              <Bar dataKey="queries" fill="#8884d8" name="Query Volume" />
-                            </BarChart>
-                          </ResponsiveContainer>
+                        <CardContent className="h-80">
+                          <LineChart
+                            data={generateDailyQueryVolumeData()}
+                            index="date"
+                            categories={["queries"]}
+                            colors={["#8884d8"]}
+                            valueFormatter={(value: number) => `${value} queries`}
+                            showLegend={false}
+                            className="h-80"
+                          />
                         </CardContent>
                       </Card>
                     </TabsContent>
