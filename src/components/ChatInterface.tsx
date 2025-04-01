@@ -1,4 +1,3 @@
-
 import React, { useRef, useEffect, forwardRef, useImperativeHandle, useState } from 'react';
 import MessageItem, { MessageProps } from './MessageItem';
 import { cn } from "@/lib/utils";
@@ -170,7 +169,7 @@ const ChatInterface = forwardRef<
         "border-t fixed bottom-0 bg-background/80 backdrop-blur-sm z-10 pb-6 pt-4 px-4 w-full",
         sidebarState === "expanded" ? "left-[16rem] right-0" : "left-0 right-0"
       )}>
-        <div className="max-w-3xl mx-auto">
+        <div className="max-w-3xl mx-auto px-4">
           <AIInputWithSearch
             value={input}
             onChange={(e) => setInput(e.target.value)}

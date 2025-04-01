@@ -1,4 +1,3 @@
-
 import * as React from "react"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
@@ -53,7 +52,7 @@ const AIInputWithSearch = React.forwardRef<HTMLInputElement, AIInputWithSearchPr
     return (
       <form
         className={cn(
-          "flex w-full items-center gap-2",
+          "flex w-full items-center gap-2 relative",
           className
         )}
         onSubmit={handleSubmit}
@@ -65,54 +64,56 @@ const AIInputWithSearch = React.forwardRef<HTMLInputElement, AIInputWithSearchPr
             onChange={handleChange}
             ref={ref}
             className={cn(
-              "flex h-12 w-full rounded-lg border border-input bg-background px-4 py-6 text-base shadow-sm",
+              "flex h-12 w-full rounded-lg border border-input bg-background px-4 py-6 text-base shadow-sm pr-24",
               props.disabled && "opacity-70"
             )}
           />
+          <div className="absolute right-2 top-1/2 transform -translate-y-1/2 flex items-center gap-2">
+            <input 
+              type="file" 
+              ref={fileInputRef} 
+              className="hidden" 
+              onChange={handleFileChange}
+              accept=".pdf,.doc,.docx,.txt,.csv,.xls,.xlsx"
+              multiple
+            />
+            
+            <Button
+              type="button"
+              size="icon"
+              variant="ghost"
+              disabled={uploading || props.disabled}
+              className={cn(
+                "h-8 w-8 text-muted-foreground hover:text-yellow-500",
+                uploading && "opacity-70"
+              )}
+              onClick={handleFileClick}
+              title="Upload document"
+            >
+              {uploading ? (
+                <Loader2 className="h-4 w-4 animate-spin text-yellow-500" />
+              ) : (
+                <Paperclip className="h-4 w-4" />
+              )}
+            </Button>
+            
+            <Button
+              type="submit"
+              size="icon"
+              disabled={loading || props.disabled}
+              className={cn(
+                "h-10 w-10 rounded-full bg-gradient-to-r from-yellow-400 to-yellow-600 hover:from-yellow-500 hover:to-yellow-700 text-black", 
+                buttonClassName
+              )}
+            >
+              {loading ? (
+                <Loader2 className="h-5 w-5 animate-spin" />
+              ) : (
+                <Send className="h-5 w-5" />
+              )}
+            </Button>
+          </div>
         </div>
-        
-        <input 
-          type="file" 
-          ref={fileInputRef} 
-          className="hidden" 
-          onChange={handleFileChange}
-          accept=".pdf,.doc,.docx,.txt,.csv,.xls,.xlsx"
-        />
-        
-        <Button
-          type="button"
-          size="icon"
-          variant="outline"
-          disabled={uploading || props.disabled}
-          className={cn(
-            "h-12 w-12 flex-shrink-0 rounded-lg border-yellow-500/50 hover:bg-yellow-500/10 hover:text-yellow-500",
-            uploading && "opacity-70"
-          )}
-          onClick={handleFileClick}
-          title="Upload document"
-        >
-          {uploading ? (
-            <Loader2 className="h-5 w-5 animate-spin text-yellow-500" />
-          ) : (
-            <Paperclip className="h-5 w-5 text-muted-foreground hover:text-yellow-500" />
-          )}
-        </Button>
-        
-        <Button
-          type="submit"
-          size="icon"
-          disabled={loading || props.disabled}
-          className={cn(
-            "h-12 w-12 flex-shrink-0 rounded-lg bg-gradient-to-r from-yellow-400 to-yellow-600 hover:from-yellow-500 hover:to-yellow-700 text-black", 
-            buttonClassName
-          )}
-        >
-          {loading ? (
-            <Loader2 className="h-5 w-5 animate-spin" />
-          ) : (
-            <Send className="h-5 w-5" />
-          )}
-        </Button>
       </form>
     )
   }
