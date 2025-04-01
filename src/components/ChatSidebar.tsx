@@ -6,7 +6,7 @@ import { useAdmin } from '@/context/AdminContext';
 import { useSidebar } from "@/components/ui/sidebar";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Settings, PlusCircle, BarChart3, LogOut, Search, ChevronLeft, ChevronRight, UserCog, Home } from 'lucide-react';
+import { Settings, PlusCircle, BarChart3, LogOut, Search, ChevronLeft, ChevronRight, UserCog, Home, FileText } from 'lucide-react';
 import { toast } from '@/components/ui/use-toast';
 import { Sidebar, SidebarContent, SidebarFooter, SidebarHeader, SidebarMenu, SidebarMenuButton, SidebarMenuItem, SidebarProvider, SidebarTrigger, SidebarSeparator } from "@/components/ui/sidebar";
 import { Sheet, SheetContent, SheetDescription, SheetFooter, SheetHeader, SheetTitle, SheetTrigger } from "@/components/ui/sheet";
@@ -14,11 +14,13 @@ import { Sheet, SheetContent, SheetDescription, SheetFooter, SheetHeader, SheetT
 // Import refactored components
 import ConversationList from './sidebar/ConversationList';
 import DeleteConversationDialog from './sidebar/DeleteConversationDialog';
+
 interface Conversation {
   id: string;
   title: string;
   updated_at: string;
 }
+
 const ChatSidebar = () => {
   const {
     user,
@@ -40,6 +42,7 @@ const ChatSidebar = () => {
   } = useSidebar();
   const urlParams = new URLSearchParams(location.search);
   const conversationId = urlParams.get('conversation');
+
   useEffect(() => {
     if (user) {
       fetchConversations();
@@ -47,6 +50,7 @@ const ChatSidebar = () => {
       setConversations([]);
     }
   }, [user]);
+
   const fetchConversations = async () => {
     if (!user) return;
     try {
@@ -68,6 +72,7 @@ const ChatSidebar = () => {
       });
     }
   };
+
   const handleNewChat = async () => {
     try {
       if (!user) return;
@@ -92,12 +97,14 @@ const ChatSidebar = () => {
       });
     }
   };
+
   const confirmDelete = (id: string, e: React.MouseEvent) => {
     e.stopPropagation();
     e.preventDefault();
     setConversationToDelete(id);
     setDeleteDialogOpen(true);
   };
+
   const handleDeleteConversation = async () => {
     if (!conversationToDelete) return;
     try {
@@ -129,6 +136,7 @@ const ChatSidebar = () => {
       setConversationToDelete(null);
     }
   };
+
   return <Sidebar>
       <SidebarHeader className="border-b">
         <div className="flex items-center gap-2 px-2 py-3">
@@ -136,7 +144,6 @@ const ChatSidebar = () => {
           <Button variant="ghost" size="icon" className="h-8 w-8" onClick={handleNewChat} title="New chat">
             <PlusCircle className="h-5 w-5" />
           </Button>
-          
         </div>
         <div className="relative px-2 pb-2">
           <Search className="absolute left-4 top-2.5 h-4 w-4 text-muted-foreground" />
@@ -154,14 +161,26 @@ const ChatSidebar = () => {
               </SidebarMenuButton>
             </Button>
           </SidebarMenuItem>
-          {isAdmin && <SidebarMenuItem>
-              <Button variant="ghost" className="w-full justify-start" onClick={() => navigate('/analytics')}>
-                <SidebarMenuButton>
-                  <BarChart3 className="h-4 w-4" />
-                  <span>Analytics</span>
-                </SidebarMenuButton>
-              </Button>
-            </SidebarMenuItem>}
+          {isAdmin && (
+            <>
+              <SidebarMenuItem>
+                <Button variant="ghost" className="w-full justify-start" onClick={() => navigate('/analytics')}>
+                  <SidebarMenuButton>
+                    <BarChart3 className="h-4 w-4" />
+                    <span>Analytics</span>
+                  </SidebarMenuButton>
+                </Button>
+              </SidebarMenuItem>
+              <SidebarMenuItem>
+                <Button variant="ghost" className="w-full justify-start" onClick={() => navigate('/transcripts')}>
+                  <SidebarMenuButton>
+                    <FileText className="h-4 w-4" />
+                    <span>Transcripts</span>
+                  </SidebarMenuButton>
+                </Button>
+              </SidebarMenuItem>
+            </>
+          )}
         </SidebarMenu>
         
         <SidebarSeparator className="my-2" />
@@ -221,4 +240,5 @@ const ChatSidebar = () => {
       <DeleteConversationDialog open={deleteDialogOpen} onOpenChange={setDeleteDialogOpen} onConfirmDelete={handleDeleteConversation} />
     </Sidebar>;
 };
+
 export default ChatSidebar;

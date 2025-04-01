@@ -1,3 +1,4 @@
+
 import React from 'react';
 import { Link, useLocation } from 'react-router-dom';
 import { Button } from "@/components/ui/button";
@@ -8,6 +9,7 @@ import { ModeToggle } from "@/components/ModeToggle";
 import { useSidebar } from "@/components/ui/sidebar";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
+
 const Header: React.FC = () => {
   const {
     user
@@ -29,6 +31,7 @@ const Header: React.FC = () => {
     }
     // If not on home page, the Link component will navigate to home
   };
+  
   return <header className="border-b shadow-sm bg-background/95 backdrop-blur-sm sticky top-0 z-50">
       <div className="container mx-auto px-4 py-3 flex items-center justify-between">
         <div className="flex items-center gap-2">
@@ -74,8 +77,6 @@ const Header: React.FC = () => {
                   </TooltipContent>
                 </Tooltip>
               </TooltipProvider>
-              
-              {/* Analytics button removed since it's already in the sidebar */}
             </>}
           
           <ModeToggle />
@@ -98,4 +99,5 @@ const Header: React.FC = () => {
       </div>
     </header>;
 };
+
 export default Header;

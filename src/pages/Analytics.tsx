@@ -287,7 +287,7 @@ const Analytics = () => {
                             data={generateDailyQueryVolumeData()}
                             index="date"
                             categories={["queries"]}
-                            colors={["#8884d8"]}
+                            colors={["#f59e0b"]}
                             valueFormatter={(value: number) => `${value} queries`}
                             showLegend={false}
                             className="h-80"
