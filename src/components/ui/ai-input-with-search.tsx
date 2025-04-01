@@ -1,3 +1,4 @@
+
 import * as React from "react"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
@@ -51,11 +52,11 @@ const AIInputWithSearch = React.forwardRef<HTMLInputElement, AIInputWithSearchPr
             onChange={(e) => setInputValue(e.target.value)}
             ref={ref}
             className={cn(
-              "flex h-12 w-full rounded-lg border border-input bg-background px-4 py-6 text-base shadow-sm pr-20", 
+              "flex h-12 w-full rounded-lg border border-input bg-background px-4 py-6 text-base shadow-sm pr-14", 
               props.disabled && "opacity-70"
             )}
           />
-          <div className="absolute right-2 top-1/2 -translate-y-1/2 flex items-center space-x-2 pr-1">
+          <div className="absolute right-2 top-1/2 -translate-y-1/2 flex items-center space-x-1">
             <input 
               type="file" 
               ref={fileInputRef} 
@@ -109,3 +110,4 @@ const AIInputWithSearch = React.forwardRef<HTMLInputElement, AIInputWithSearchPr
 AIInputWithSearch.displayName = "AIInputWithSearch"
 
 export { AIInputWithSearch }
+
