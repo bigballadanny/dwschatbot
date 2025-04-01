@@ -9,7 +9,7 @@ import { fetchAnalyticsData, getTopQueries, generateSourceDistribution, calculat
 import { checkAnalyticsTable } from '@/utils/analyticsDbCheck';
 import Header from '@/components/Header';
 import ChatSidebar from '@/components/ChatSidebar';
-import { LineChart } from '@/components/ui/charts';
+import { LineChart, BarChart, PieChart } from '@/components/ui/charts';
 
 interface AnalyticsData {
   id: string;
@@ -159,6 +159,29 @@ const Analytics = () => {
       }));
   };
 
+  const generatePieChartData = (data: { name: string; value: number }[]) => {
+    return data.map(item => ({
+      name: item.name,
+      value: item.value
+    }));
+  };
+
+  const generateUserSegmentsPieData = (segmentType: 'engagement' | 'queryTypes') => {
+    if (segmentType === 'engagement') {
+      return [
+        { name: "Basic (1-2)", value: userSegments.basic },
+        { name: "Engaged (3-5)", value: userSegments.engaged },
+        { name: "Power (6+)", value: userSegments.power }
+      ];
+    } else {
+      return [
+        { name: "Technical", value: userSegments.technical },
+        { name: "Conceptual", value: userSegments.conceptual },
+        { name: "Other", value: analyticsData.length - (userSegments.technical + userSegments.conceptual) }
+      ];
+    }
+  };
+
   return (
     <div className="flex h-screen">
       <ChatSidebar />
@@ -279,16 +302,16 @@ const Analytics = () => {
                           <CardTitle>Usage by Hour of Day</CardTitle>
                           <CardDescription>When users are most active during the day.</CardDescription>
                         </CardHeader>
-                        <CardContent>
-                          <ResponsiveContainer width="100%" height={300}>
-                            <BarChart data={generateUsageByHourData()}>
-                              <CartesianGrid strokeDasharray="3 3" />
-                              <XAxis dataKey="hour" label={{ value: 'Hour of Day', position: 'insideBottom', offset: -5 }} />
-                              <YAxis label={{ value: 'Number of Queries', angle: -90, position: 'insideLeft' }} />
-                              <Tooltip formatter={(value) => [`${value} queries`, 'Count']} />
-                              <Bar dataKey="queries" fill="#82ca9d" name="Queries" />
-                            </BarChart>
-                          </ResponsiveContainer>
+                        <CardContent className="h-80">
+                          <BarChart
+                            data={generateUsageByHourData()}
+                            index="hour"
+                            categories={["queries"]}
+                            colors={["#82ca9d"]}
+                            valueFormatter={(value: number) => `${value} queries`}
+                            showLegend={false}
+                            className="h-80"
+                          />
                         </CardContent>
                       </Card>
                       
@@ -298,38 +321,16 @@ const Analytics = () => {
                             <CardTitle>Conversation Length Distribution</CardTitle>
                             <CardDescription>How many messages users typically exchange per conversation.</CardDescription>
                           </CardHeader>
-                          <CardContent>
-                            <div className="h-[300px] flex items-center justify-center">
-                              {userSegments && (
-                                <ResponsiveContainer width="100%" height={280}>
-                                  <PieChart>
-                                    <Pie
-                                      data={[
-                                        { name: "Basic (1-2)", value: userSegments.basic },
-                                        { name: "Engaged (3-5)", value: userSegments.engaged },
-                                        { name: "Power (6+)", value: userSegments.power }
-                                      ]}
-                                      cx="50%"
-                                      cy="50%"
-                                      outerRadius={80}
-                                      fill="#8884d8"
-                                      dataKey="value"
-                                      label={({ name, percent }) => `${name}: ${(percent * 100).toFixed(0)}%`}
-                                    >
-                                      {[
-                                        { name: "Basic (1-2)", value: userSegments.basic },
-                                        { name: "Engaged (3-5)", value: userSegments.engaged },
-                                        { name: "Power (6+)", value: userSegments.power }
-                                      ].map((entry, index) => (
-                                        <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
-                                      ))}
-                                    </Pie>
-                                    <Tooltip />
-                                    <Legend />
-                                  </PieChart>
-                                </ResponsiveContainer>
-                              )}
-                            </div>
+                          <CardContent className="h-[300px]">
+                            {userSegments && (
+                              <PieChart
+                                data={generateUserSegmentsPieData('engagement')}
+                                index="name"
+                                categories={["value"]}
+                                colors={['#0088FE', '#00C49F', '#FFBB28']}
+                                className="h-[280px]"
+                              />
+                            )}
                           </CardContent>
                         </Card>
                         
@@ -338,38 +339,16 @@ const Analytics = () => {
                             <CardTitle>Query Types Breakdown</CardTitle>
                             <CardDescription>Technical vs. conceptual query distribution.</CardDescription>
                           </CardHeader>
-                          <CardContent>
-                            <div className="h-[300px] flex items-center justify-center">
-                              {userSegments && (
-                                <ResponsiveContainer width="100%" height={280}>
-                                  <PieChart>
-                                    <Pie
-                                      data={[
-                                        { name: "Technical", value: userSegments.technical },
-                                        { name: "Conceptual", value: userSegments.conceptual },
-                                        { name: "Other", value: analyticsData.length - (userSegments.technical + userSegments.conceptual) }
-                                      ]}
-                                      cx="50%"
-                                      cy="50%"
-                                      outerRadius={80}
-                                      fill="#8884d8"
-                                      dataKey="value"
-                                      label={({ name, percent }) => `${name}: ${(percent * 100).toFixed(0)}%`}
-                                    >
-                                      {[
-                                        { name: "Technical", value: userSegments.technical },
-                                        { name: "Conceptual", value: userSegments.conceptual },
-                                        { name: "Other", value: analyticsData.length - (userSegments.technical + userSegments.conceptual) }
-                                      ].map((entry, index) => (
-                                        <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
-                                      ))}
-                                    </Pie>
-                                    <Tooltip />
-                                    <Legend />
-                                  </PieChart>
-                                </ResponsiveContainer>
-                              )}
-                            </div>
+                          <CardContent className="h-[300px]">
+                            {userSegments && (
+                              <PieChart
+                                data={generateUserSegmentsPieData('queryTypes')}
+                                index="name"
+                                categories={["value"]}
+                                colors={['#FF8042', '#8884d8', '#FFBB28']}
+                                className="h-[280px]"
+                              />
+                            )}
                           </CardContent>
                         </Card>
                       </div>
@@ -398,26 +377,14 @@ const Analytics = () => {
                           <CardTitle>Source Distribution</CardTitle>
                           <CardDescription>Distribution of response sources.</CardDescription>
                         </CardHeader>
-                        <CardContent>
-                          <ResponsiveContainer width="100%" height={300}>
-                            <PieChart>
-                              <Pie
-                                dataKey="value"
-                                data={sourceDistribution}
-                                cx="50%"
-                                cy="50%"
-                                outerRadius={80}
-                                fill="#8884d8"
-                                label
-                              >
-                                {sourceDistribution.map((entry, index) => (
-                                  <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
-                                ))}
-                              </Pie>
-                              <Tooltip />
-                              <Legend />
-                            </PieChart>
-                          </ResponsiveContainer>
+                        <CardContent className="h-[300px]">
+                          <PieChart
+                            data={generatePieChartData(sourceDistribution)}
+                            index="name"
+                            categories={["value"]}
+                            colors={['#0088FE', '#00C49F', '#FFBB28', '#FF8042', '#8884d8']}
+                            className="h-[280px]"
+                          />
                         </CardContent>
                       </Card>
                     </TabsContent>
