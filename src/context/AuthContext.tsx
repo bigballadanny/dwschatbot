@@ -22,6 +22,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
   const refreshSession = async () => {
     try {
+      console.log('Refreshing session...');
       const { data, error } = await supabase.auth.refreshSession();
       if (error) {
         console.error('Error refreshing session:', error);
@@ -30,6 +31,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       
       setSession(data.session);
       setUser(data.session?.user ?? null);
+      console.log('Session refreshed successfully');
     } catch (error) {
       console.error('Error in refreshSession:', error);
     }

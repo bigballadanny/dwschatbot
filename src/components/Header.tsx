@@ -9,10 +9,19 @@ import { ModeToggle } from "@/components/ModeToggle";
 import { useSidebar } from "@/components/ui/sidebar";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuLabel,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 
 const Header: React.FC = () => {
   const {
-    user
+    user,
+    signOut
   } = useAuth();
   const {
     isAdmin
@@ -83,18 +92,36 @@ const Header: React.FC = () => {
           
           {!user ? <Button asChild size="sm" className="ml-2 bg-gradient-to-r from-primary to-primary/80 hover:from-primary/90 hover:to-primary/70 transition-all">
               <Link to="/auth">Sign In</Link>
-            </Button> : <TooltipProvider>
-              <Tooltip>
-                <TooltipTrigger asChild>
-                  <Avatar className="h-8 w-8 transition-all hover:ring-2 hover:ring-primary/50 cursor-pointer">
-                    
-                  </Avatar>
-                </TooltipTrigger>
-                <TooltipContent>
-                  <p>{user.email || 'User Account'}</p>
-                </TooltipContent>
-              </Tooltip>
-            </TooltipProvider>}
+            </Button> : 
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <Avatar className="h-8 w-8 transition-all hover:ring-2 hover:ring-primary/50 cursor-pointer">
+                  <AvatarFallback>
+                    {user.email?.substring(0, 2).toUpperCase() || 'U'}
+                  </AvatarFallback>
+                </Avatar>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="end">
+                <DropdownMenuLabel>Account</DropdownMenuLabel>
+                <DropdownMenuItem className="text-sm">
+                  {user.email || 'User'}
+                </DropdownMenuItem>
+                <DropdownMenuSeparator />
+                {isAdmin && (
+                  <>
+                    <DropdownMenuItem asChild>
+                      <Link to="/admin">Admin Dashboard</Link>
+                    </DropdownMenuItem>
+                    <DropdownMenuItem asChild>
+                      <Link to="/transcripts">Manage Transcripts</Link>
+                    </DropdownMenuItem>
+                  </>
+                )}
+                <DropdownMenuItem onClick={signOut} className="text-red-500 hover:text-red-700 hover:bg-red-50 dark:hover:bg-red-950/30">
+                  Sign out
+                </DropdownMenuItem>
+              </DropdownMenuContent>
+            </DropdownMenu>}
         </div>
       </div>
     </header>;
