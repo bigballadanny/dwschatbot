@@ -1,15 +1,22 @@
 
 import React from 'react';
 import { cn } from "@/lib/utils";
-import { MessageSource } from '../MessageItem';
+
+export type MessageSource = 'user' | 'system' | 'transcript' | 'gemini' | 'error' | 'web' | 'fallback';
 
 interface MessageSourceLabelProps {
   source: MessageSource;
-  isUser: boolean;
-  timeString: string;
+  timestamp: Date;
 }
 
-const MessageSourceLabel: React.FC<MessageSourceLabelProps> = ({ source, isUser, timeString }) => {
+const MessageSourceLabel: React.FC<MessageSourceLabelProps> = ({ source, timestamp }) => {
+  const isUser = source === 'user';
+  const timeString = new Intl.DateTimeFormat('en-US', {
+    hour: 'numeric',
+    minute: 'numeric',
+    hour12: true
+  }).format(timestamp);
+
   return (
     <div className="flex justify-between items-center mt-2">
       {!isUser && (

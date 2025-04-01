@@ -3,11 +3,11 @@ import React from 'react';
 import { cn } from '@/lib/utils';
 import MessageContent from './message/MessageContent';
 import MessageControls from './message/MessageControls';
-import MessageSourceLabel from './message/MessageSourceLabel';
+import MessageSourceLabel, { MessageSource } from './message/MessageSourceLabel';
 
 export interface MessageProps {
   content: string;
-  source: 'user' | 'system' | 'transcript' | 'gemini' | 'error';
+  source: MessageSource;
   timestamp: Date;
   citation?: string[];
   isLoading?: boolean;
@@ -45,7 +45,13 @@ const MessageItem: React.FC<MessageItemProps> = ({
       >
         <MessageContent content={content} isLoading={isLoading} />
         <MessageSourceLabel source={source} timestamp={timestamp} />
-        {citation && <MessageControls citation={citation} />}
+        {!isUser && (
+          <MessageControls 
+            content={content} 
+            citation={citation} 
+            isLoading={isLoading} 
+          />
+        )}
       </div>
     </div>
   );

@@ -9,15 +9,18 @@ import AudioPlayer from '@/components/AudioPlayer';
 
 interface MessageControlsProps {
   content: string;
-  isUser: boolean;
-  isLoading: boolean;
+  citation?: string[];
+  isLoading?: boolean;
 }
 
-const MessageControls: React.FC<MessageControlsProps> = ({ content, isUser, isLoading }) => {
+const MessageControls: React.FC<MessageControlsProps> = ({ content, citation, isLoading }) => {
   const [copied, setCopied] = useState(false);
   const [audioSrc, setAudioSrc] = useState<string | null>(null);
   const [isGeneratingAudio, setIsGeneratingAudio] = useState(false);
   const { toast } = useToast();
+  
+  // Check if this is a user message - we don't show controls for user messages
+  const isUser = false; // This is handled at MessageItem level now
   
   const handleCopy = () => {
     navigator.clipboard.writeText(content);
@@ -26,7 +29,7 @@ const MessageControls: React.FC<MessageControlsProps> = ({ content, isUser, isLo
   };
 
   const handleTextToSpeech = async () => {
-    if (isUser || isLoading) return;
+    if (isLoading) return;
     
     try {
       setIsGeneratingAudio(true);
@@ -140,6 +143,12 @@ const MessageControls: React.FC<MessageControlsProps> = ({ content, isUser, isLo
       {audioSrc && (
         <div className="mt-3">
           <AudioPlayer audioSrc={audioSrc} />
+        </div>
+      )}
+
+      {citation && citation.length > 0 && (
+        <div className="mt-2 text-xs text-muted-foreground">
+          <p className="italic">{citation.join(', ')}</p>
         </div>
       )}
     </>

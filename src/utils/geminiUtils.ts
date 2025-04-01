@@ -146,36 +146,36 @@ export const generateGeminiResponse = async (
     }
 
     // Create a detailed citation based on the source
-    let citation = "";
+    let citation: string[] = [];
     let detailedSourceInfo = "";
     
     if (data.isQuotaExceeded) {
       // Use fallback citation if quota exceeded
-      citation = "API quota exceeded - Showing general information about Carl Allen's business acquisition methodology";
+      citation = ["API quota exceeded - Showing general information about Carl Allen's business acquisition methodology"];
     } else if (data.apiDisabled) {
       // Use API disabled citation
-      citation = "Gemini API needs to be enabled in Google Cloud Console - Follow the instructions above";
+      citation = ["Gemini API needs to be enabled in Google Cloud Console - Follow the instructions above"];
     } else if (matchedTranscripts && matchedTranscripts.length > 0) {
       const primaryTranscript = matchedTranscripts[0];
       if (sourceType === 'creative_dealmaker') {
-        citation = `Based on information from "${bookReference}" in Carl Allen's Creative Dealmaker book`;
+        citation = [`Based on information from "${bookReference}" in Carl Allen's Creative Dealmaker book`];
       } else if (sourceType === 'mastermind_call') {
-        citation = `Based on information from Carl Allen's mastermind call: "${bookReference}"`;
+        citation = [`Based on information from Carl Allen's mastermind call: "${bookReference}"`];
       } else if (sourceType === 'case_study') {
-        citation = `Based on the case study: "${bookReference}"`;
+        citation = [`Based on the case study: "${bookReference}"`];
       } else if (sourceType === 'protege_call') {
-        citation = `Based on information from Carl Allen's Protege call: "${bookReference}"`;
+        citation = [`Based on information from Carl Allen's Protege call: "${bookReference}"`];
       } else if (sourceType === 'foundations_call') {
-        citation = `Based on information from Carl Allen's Foundations call: "${bookReference}"`;
+        citation = [`Based on information from Carl Allen's Foundations call: "${bookReference}"`];
       } else if (sourceType === 'business_acquisitions_summit') {
-        citation = `Based on information from Carl Allen's 2024 Business Acquisitions Summit: "${bookReference}"`;
+        citation = [`Based on information from Carl Allen's 2024 Business Acquisitions Summit: "${bookReference}"`];
       } else {
-        citation = `Based on information from "${bookReference}" by Carl Allen`;
+        citation = [`Based on information from "${bookReference}" by Carl Allen`];
       }
       
       // If we used multiple sources, add a note
       if (matchedTranscripts.length > 1) {
-        citation += ` and ${matchedTranscripts.length - 1} other source${matchedTranscripts.length > 2 ? 's' : ''}`;
+        citation[0] += ` and ${matchedTranscripts.length - 1} other source${matchedTranscripts.length > 2 ? 's' : ''}`;
       }
       
       // Create detailed source information
@@ -185,12 +185,12 @@ export const generateGeminiResponse = async (
         detailedSourceInfo += `${index + 1}. ${info.title} (${sourceDesc}) - Relevance: ${info.score}\n`;
       });
     } else if (enableOnlineSearch) {
-      citation = "Based on general knowledge about business acquisitions - Online search mode enabled";
+      citation = ["Based on general knowledge about business acquisitions - Online search mode enabled"];
     } else {
-      citation = "Based on general knowledge about Carl Allen's business acquisition methodology";
+      citation = ["Based on general knowledge about Carl Allen's business acquisition methodology"];
     }
 
-    console.log(`Generated response with citation: ${citation}`);
+    console.log(`Generated response with citation: ${citation.join(', ')}`);
     
     // Log analytics data - this helps the Analytics page function
     if (conversationId) {
