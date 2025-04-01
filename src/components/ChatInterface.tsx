@@ -1,3 +1,4 @@
+
 import React, { useRef, useEffect, forwardRef, useImperativeHandle, useState } from 'react';
 import MessageItem, { MessageProps } from './MessageItem';
 import { cn } from "@/lib/utils";
@@ -174,7 +175,7 @@ const ChatInterface = forwardRef<
           
           {onToggleOnlineSearch && (
             <SearchModeToggle 
-              enabled={searchMode} 
+              enableOnlineSearch={searchMode} 
               onToggle={handleToggleOnlineSearch}
               className="text-xs"
             />

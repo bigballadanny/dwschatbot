@@ -1,6 +1,5 @@
 
 import React from 'react';
-import { Toggle } from "@/components/ui/toggle";
 import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
 import { Globe, BookOpen } from "lucide-react";
