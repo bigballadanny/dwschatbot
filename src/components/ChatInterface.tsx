@@ -1,7 +1,5 @@
 
 import React, { useRef, useEffect, forwardRef, useImperativeHandle } from 'react';
-import { Button } from "@/components/ui/button";
-import { Send } from "lucide-react";
 import MessageItem, { MessageProps } from './MessageItem';
 import { cn } from "@/lib/utils";
 import SearchModeToggle from './SearchModeToggle';
@@ -70,13 +68,6 @@ const ChatInterface = forwardRef<
     }
   };
   
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (input.trim()) {
-      await handleSubmitQuestion(input);
-    }
-  };
-  
   const handleToggleOnlineSearch = (enabled: boolean) => {
     setSearchMode(enabled);
     // Pass to parent component
@@ -122,7 +113,7 @@ const ChatInterface = forwardRef<
           <AIInputWithSearch
             value={input}
             onChange={(e) => setInput(e.target.value)}
-            onSubmit={(value) => handleSubmitQuestion(value)}
+            onSend={(value) => handleSubmitQuestion(value)}
             disabled={isLoading}
             placeholder="Ask about deal structuring, financing, due diligence..."
             loading={isLoading}

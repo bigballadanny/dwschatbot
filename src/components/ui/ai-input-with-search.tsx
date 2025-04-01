@@ -7,18 +7,18 @@ import { Send, Loader2 } from "lucide-react"
 
 export interface AIInputWithSearchProps
   extends React.InputHTMLAttributes<HTMLInputElement> {
-  onSubmit: (value: string) => void
+  onSend: (value: string) => void
   loading?: boolean
   buttonClassName?: string
 }
 
 const AIInputWithSearch = React.forwardRef<HTMLInputElement, AIInputWithSearchProps>(
-  ({ className, onSubmit, loading = false, buttonClassName, ...props }, ref) => {
+  ({ className, onSend, loading = false, buttonClassName, ...props }, ref) => {
     const handleSubmit = (e: React.FormEvent) => {
       e.preventDefault()
       const value = (e.target as HTMLFormElement).elements.namedItem('search') as HTMLInputElement
       if (value.value) {
-        onSubmit(value.value)
+        onSend(value.value)
       }
     }
 
