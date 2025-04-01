@@ -23,6 +23,7 @@ export type Database = {
           source_type: string | null
           successful: boolean | null
           transcript_title: string | null
+          used_online_search: boolean | null
         }
         Insert: {
           api_time_ms?: number | null
@@ -37,6 +38,7 @@ export type Database = {
           source_type?: string | null
           successful?: boolean | null
           transcript_title?: string | null
+          used_online_search?: boolean | null
         }
         Update: {
           api_time_ms?: number | null
@@ -51,6 +53,7 @@ export type Database = {
           source_type?: string | null
           successful?: boolean | null
           transcript_title?: string | null
+          used_online_search?: boolean | null
         }
         Relationships: [
           {

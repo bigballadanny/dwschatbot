@@ -39,7 +39,7 @@ export async function checkAnalyticsTable() {
       console.log('Analytics table validation successful');
       
       // If table exists but is empty and we're in development, add sample data
-      if (import.meta.env.DEV && (!data || data.length === 0)) {
+      if (import.meta.env.DEV) {
         const { count } = await supabase
           .from('chat_analytics')
           .select('*', { count: 'exact', head: true });
@@ -47,6 +47,8 @@ export async function checkAnalyticsTable() {
         if (count === 0) {
           console.log('Analytics table is empty, adding sample data for development');
           await generateSampleAnalyticsData();
+        } else {
+          console.log(`Analytics table has ${count} records`);
         }
       }
       

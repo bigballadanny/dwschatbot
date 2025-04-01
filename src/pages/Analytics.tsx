@@ -26,11 +26,11 @@ interface AnalyticsData {
 }
 
 const Analytics = () => {
-  // Add this at the beginning of the component
   useEffect(() => {
     checkAnalyticsTable().then(success => {
       if (success) {
         console.log('Analytics table is ready');
+        loadAnalyticsData();
       } else {
         console.error('Analytics table setup failed');
       }
@@ -48,45 +48,48 @@ const Analytics = () => {
   const [userSegments, setUserSegments] = useState<{ basic: number; engaged: number; power: number; technical: number; conceptual: number }>({ basic: 0, engaged: 0, power: 0, technical: 0, conceptual: 0 });
   const [dateRange, setDateRange] = useState<'7d' | '30d' | 'all'>('7d');
   const [searchQuery, setSearchQuery] = useState<string>('');
-  const [loading, setLoading] = useState(false);
+  const [loading, setLoading] = useState(true);
 
   const COLORS = ['#0088FE', '#00C49F', '#FFBB28', '#FF8042', '#8884d8'];
 
   useEffect(() => {
-    loadAnalyticsData();
+    if (analyticsData.length > 0) {
+      loadAnalyticsData();
+    }
   }, [dateRange, searchQuery]);
 
   const loadAnalyticsData = async () => {
     setLoading(true);
     try {
+      console.log('Loading analytics data...');
       const data = await fetchAnalyticsData(dateRange, searchQuery);
+      console.log(`Loaded ${data.length} analytics records`);
       setAnalyticsData(data);
 
-      const topQueriesData = await getTopQueries(dateRange === 'all' ? 'all' : 'week');
-      setTopQueries(topQueriesData);
+      if (data.length > 0) {
+        const topQueriesData = await getTopQueries(dateRange === 'all' ? 'all' : 'week');
+        setTopQueries(topQueriesData);
 
-      const sourceDist = generateSourceDistribution(data);
-      setSourceDistribution(sourceDist);
+        const sourceDist = generateSourceDistribution(data);
+        setSourceDistribution(sourceDist);
 
-      const success = calculateSuccessRate(data);
-      setSuccessRate(success);
+        const success = calculateSuccessRate(data);
+        setSuccessRate(success);
 
-      const timeData = generateResponseTimeData(data);
-      setResponseTimeData(timeData);
+        const timeData = generateResponseTimeData(data);
+        setResponseTimeData(timeData);
 
-      const transcripts = getFrequentlyUsedTranscripts(data);
-      setFrequentTranscripts(transcripts);
+        const transcripts = getFrequentlyUsedTranscripts(data);
+        setFrequentTranscripts(transcripts);
 
-      const keywords = generateKeywordFrequency(data);
-      setKeywordFrequency(keywords);
+        const keywords = generateKeywordFrequency(data);
+        setKeywordFrequency(keywords);
 
-      const nonTranscript = trackNonTranscriptSources(data);
-      setNonTranscriptSources(nonTranscript);
-
-      // Analyze user segments
-      // const segments = analyzeUserSegments(data);
-      // setUserSegments(segments);
-
+        const nonTranscript = trackNonTranscriptSources(data);
+        setNonTranscriptSources(nonTranscript);
+      } else {
+        console.log('No analytics data found');
+      }
     } catch (error) {
       console.error('Error loading analytics data:', error);
     } finally {
@@ -99,6 +102,9 @@ const Analytics = () => {
   };
 
   const handleDownload = () => {
+    if (analyticsData.length === 0) {
+      return;
+    }
     const csvData = convertToCSV(analyticsData);
     const blob = new Blob([csvData], { type: 'text/csv' });
     const url = window.URL.createObjectURL(blob);
@@ -112,6 +118,7 @@ const Analytics = () => {
   };
 
   const convertToCSV = (data: AnalyticsData[]) => {
+    if (data.length === 0) return '';
     const header = Object.keys(data[0]).join(',');
     const rows = data.map(item => Object.values(item).join(','));
     return `${header}\n${rows.join('\n')}`;
@@ -143,7 +150,7 @@ const Analytics = () => {
               <Button variant="outline" size="icon" onClick={handleRefresh} disabled={loading}>
                 <RefreshCw className="h-4 w-4" />
               </Button>
-              <Button variant="outline" size="sm" onClick={handleDownload} disabled={loading}>
+              <Button variant="outline" size="sm" onClick={handleDownload} disabled={loading || analyticsData.length === 0}>
                 <Download className="h-4 w-4 mr-2" />
                 Download CSV
               </Button>
@@ -164,7 +171,6 @@ const Analytics = () => {
                 <TabsTrigger value="overview">Overview</TabsTrigger>
                 <TabsTrigger value="queries">Top Queries</TabsTrigger>
                 <TabsTrigger value="sources">Source Distribution</TabsTrigger>
-                {/* <TabsTrigger value="segments">User Segments</TabsTrigger> */}
                 <TabsTrigger value="transcripts">Frequent Transcripts</TabsTrigger>
                 <TabsTrigger value="keywords">Keyword Frequency</TabsTrigger>
                 <TabsTrigger value="external">External Sources</TabsTrigger>
@@ -200,7 +206,7 @@ const Analytics = () => {
                     <CardContent>
                       <div className="text-4xl font-bold">
                         {responseTimeData.length > 0
-                          ? responseTimeData.reduce((acc, curr) => acc + curr["Average Response Time (ms)"], 0) / responseTimeData.length
+                          ? Math.round(responseTimeData.reduce((acc, curr) => acc + curr["Average Response Time (ms)"], 0) / responseTimeData.length)
                           : 0} ms
                       </div>
                     </CardContent>
@@ -271,23 +277,6 @@ const Analytics = () => {
                   </CardContent>
                 </Card>
               </TabsContent>
-              {/* <TabsContent value="segments" className="space-y-4">
-                <Card>
-                  <CardHeader>
-                    <CardTitle>User Segments</CardTitle>
-                    <CardDescription>Analysis of user segments based on query types.</CardDescription>
-                  </CardHeader>
-                  <CardContent>
-                    <ul>
-                      <li>Basic Users: {userSegments.basic}</li>
-                      <li>Engaged Users: {userSegments.engaged}</li>
-                      <li>Power Users: {userSegments.power}</li>
-                      <li>Technical Queries: {userSegments.technical}</li>
-                      <li>Conceptual Queries: {userSegments.conceptual}</li>
-                    </ul>
-                  </CardContent>
-                </Card>
-              </TabsContent> */}
               <TabsContent value="transcripts" className="space-y-4">
                 <Card>
                   <CardHeader>
