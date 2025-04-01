@@ -129,6 +129,34 @@ const Analytics = () => {
     return `${header}\n${rows.join('\n')}`;
   };
 
+  const generateUsageByHourData = () => {
+    const hourCounts = Array(24).fill(0);
+    
+    analyticsData.forEach(item => {
+      const hour = new Date(item.created_at).getHours();
+      hourCounts[hour]++;
+    });
+    
+    return hourCounts.map((count, hour) => ({
+      hour: hour.toString(),
+      queries: count
+    }));
+  };
+
+  const generateDailyQueryVolumeData = () => {
+    const dailyData: Record<string, number> = {};
+    
+    analyticsData.forEach(item => {
+      const date = new Date(item.created_at).toLocaleDateString();
+      dailyData[date] = (dailyData[date] || 0) + 1;
+    });
+    
+    return Object.entries(dailyData).map(([date, count]) => ({
+      date,
+      queries: count
+    }));
+  };
+
   return (
     <div className="flex h-screen">
       <ChatSidebar />
@@ -179,6 +207,7 @@ const Analytics = () => {
                   <Tabs defaultValue="overview" className="space-y-4">
                     <TabsList>
                       <TabsTrigger value="overview">Overview</TabsTrigger>
+                      <TabsTrigger value="usage">Usage Patterns</TabsTrigger>
                       <TabsTrigger value="queries">Top Queries</TabsTrigger>
                       <TabsTrigger value="sources">Source Distribution</TabsTrigger>
                       <TabsTrigger value="transcripts">Frequent Transcripts</TabsTrigger>
@@ -190,6 +219,15 @@ const Analytics = () => {
                       <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                         <Card>
                           <CardHeader>
+                            <CardTitle>Total Queries</CardTitle>
+                            <CardDescription>Number of queries in the selected range.</CardDescription>
+                          </CardHeader>
+                          <CardContent>
+                            <div className="text-4xl font-bold">{analyticsData.length}</div>
+                          </CardContent>
+                        </Card>
+                        <Card>
+                          <CardHeader>
                             <CardTitle>Success Rate</CardTitle>
                             <CardDescription>Percentage of successful queries.</CardDescription>
                           </CardHeader>
@@ -198,15 +236,6 @@ const Analytics = () => {
                             <div className="text-sm text-muted-foreground">
                               {successRate.success} successful / {analyticsData.length} total
                             </div>
-                          </CardContent>
-                        </Card>
-                        <Card>
-                          <CardHeader>
-                            <CardTitle>Total Queries</CardTitle>
-                            <CardDescription>Number of queries in the selected range.</CardDescription>
-                          </CardHeader>
-                          <CardContent>
-                            <div className="text-4xl font-bold">{analyticsData.length}</div>
                           </CardContent>
                         </Card>
                         <Card>
@@ -225,23 +254,126 @@ const Analytics = () => {
                       </div>
                       <Card>
                         <CardHeader>
-                          <CardTitle>Response Time Trend</CardTitle>
-                          <CardDescription>Average response time over time.</CardDescription>
+                          <CardTitle>Daily Query Volume</CardTitle>
+                          <CardDescription>Number of queries per day over time.</CardDescription>
                         </CardHeader>
                         <CardContent>
                           <ResponsiveContainer width="100%" height={300}>
-                            <LineChart data={responseTimeData}>
+                            <BarChart data={generateDailyQueryVolumeData()}>
                               <CartesianGrid strokeDasharray="3 3" />
                               <XAxis dataKey="date" />
                               <YAxis />
                               <Tooltip />
                               <Legend />
-                              <Line type="monotone" dataKey="Average Response Time (ms)" stroke="#82ca9d" />
-                            </LineChart>
+                              <Bar dataKey="queries" fill="#8884d8" name="Query Volume" />
+                            </BarChart>
                           </ResponsiveContainer>
                         </CardContent>
                       </Card>
                     </TabsContent>
+                    
+                    <TabsContent value="usage" className="space-y-4">
+                      <Card>
+                        <CardHeader>
+                          <CardTitle>Usage by Hour of Day</CardTitle>
+                          <CardDescription>When users are most active during the day.</CardDescription>
+                        </CardHeader>
+                        <CardContent>
+                          <ResponsiveContainer width="100%" height={300}>
+                            <BarChart data={generateUsageByHourData()}>
+                              <CartesianGrid strokeDasharray="3 3" />
+                              <XAxis dataKey="hour" label={{ value: 'Hour of Day', position: 'insideBottom', offset: -5 }} />
+                              <YAxis label={{ value: 'Number of Queries', angle: -90, position: 'insideLeft' }} />
+                              <Tooltip formatter={(value) => [`${value} queries`, 'Count']} />
+                              <Bar dataKey="queries" fill="#82ca9d" name="Queries" />
+                            </BarChart>
+                          </ResponsiveContainer>
+                        </CardContent>
+                      </Card>
+                      
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        <Card>
+                          <CardHeader>
+                            <CardTitle>Conversation Length Distribution</CardTitle>
+                            <CardDescription>How many messages users typically exchange per conversation.</CardDescription>
+                          </CardHeader>
+                          <CardContent>
+                            <div className="h-[300px] flex items-center justify-center">
+                              {userSegments && (
+                                <ResponsiveContainer width="100%" height={280}>
+                                  <PieChart>
+                                    <Pie
+                                      data={[
+                                        { name: "Basic (1-2)", value: userSegments.basic },
+                                        { name: "Engaged (3-5)", value: userSegments.engaged },
+                                        { name: "Power (6+)", value: userSegments.power }
+                                      ]}
+                                      cx="50%"
+                                      cy="50%"
+                                      outerRadius={80}
+                                      fill="#8884d8"
+                                      dataKey="value"
+                                      label={({ name, percent }) => `${name}: ${(percent * 100).toFixed(0)}%`}
+                                    >
+                                      {[
+                                        { name: "Basic (1-2)", value: userSegments.basic },
+                                        { name: "Engaged (3-5)", value: userSegments.engaged },
+                                        { name: "Power (6+)", value: userSegments.power }
+                                      ].map((entry, index) => (
+                                        <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
+                                      ))}
+                                    </Pie>
+                                    <Tooltip />
+                                    <Legend />
+                                  </PieChart>
+                                </ResponsiveContainer>
+                              )}
+                            </div>
+                          </CardContent>
+                        </Card>
+                        
+                        <Card>
+                          <CardHeader>
+                            <CardTitle>Query Types Breakdown</CardTitle>
+                            <CardDescription>Technical vs. conceptual query distribution.</CardDescription>
+                          </CardHeader>
+                          <CardContent>
+                            <div className="h-[300px] flex items-center justify-center">
+                              {userSegments && (
+                                <ResponsiveContainer width="100%" height={280}>
+                                  <PieChart>
+                                    <Pie
+                                      data={[
+                                        { name: "Technical", value: userSegments.technical },
+                                        { name: "Conceptual", value: userSegments.conceptual },
+                                        { name: "Other", value: analyticsData.length - (userSegments.technical + userSegments.conceptual) }
+                                      ]}
+                                      cx="50%"
+                                      cy="50%"
+                                      outerRadius={80}
+                                      fill="#8884d8"
+                                      dataKey="value"
+                                      label={({ name, percent }) => `${name}: ${(percent * 100).toFixed(0)}%`}
+                                    >
+                                      {[
+                                        { name: "Technical", value: userSegments.technical },
+                                        { name: "Conceptual", value: userSegments.conceptual },
+                                        { name: "Other", value: analyticsData.length - (userSegments.technical + userSegments.conceptual) }
+                                      ].map((entry, index) => (
+                                        <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
+                                      ))}
+                                    </Pie>
+                                    <Tooltip />
+                                    <Legend />
+                                  </PieChart>
+                                </ResponsiveContainer>
+                              )}
+                            </div>
+                          </CardContent>
+                        </Card>
+                      </div>
+                    </TabsContent>
+                    
                     <TabsContent value="queries" className="space-y-4">
                       <Card>
                         <CardHeader>
@@ -345,7 +477,6 @@ const Analytics = () => {
                       </Card>
                     </TabsContent>
                     
-                    {/* New User Segments tab */}
                     <TabsContent value="user-segments" className="space-y-4">
                       <Card>
                         <CardHeader>

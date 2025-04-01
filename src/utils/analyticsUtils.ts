@@ -240,6 +240,93 @@ export function generateResponseTimeData(analyticsData: AnalyticsData[]) {
 }
 
 /**
+ * Generates usage by time of day data 
+ */
+export function generateUsageByTimeOfDay(analyticsData: AnalyticsData[]) {
+  const hourCounts = Array(24).fill(0);
+  
+  analyticsData.forEach(item => {
+    const hour = new Date(item.created_at).getHours();
+    hourCounts[hour]++;
+  });
+  
+  return hourCounts.map((count, hour) => ({
+    hour: hour.toString(),
+    queries: count
+  }));
+}
+
+/**
+ * Generates daily query volume data
+ */
+export function generateDailyQueryVolume(analyticsData: AnalyticsData[]) {
+  const dailyData: Record<string, number> = {};
+  
+  analyticsData.forEach(item => {
+    const date = new Date(item.created_at).toLocaleDateString();
+    dailyData[date] = (dailyData[date] || 0) + 1;
+  });
+  
+  // Sort by date
+  return Object.entries(dailyData)
+    .sort((a, b) => new Date(a[0]).getTime() - new Date(b[0]).getTime())
+    .map(([date, count]) => ({
+      date,
+      queries: count
+    }));
+}
+
+/**
+ * Generates query volume trend data
+ */
+export function generateQueryVolumeTrend(analyticsData: AnalyticsData[]) {
+  const volumeByDate: Record<string, number> = {};
+  
+  analyticsData.forEach(item => {
+    const date = new Date(item.created_at).toLocaleDateString();
+    volumeByDate[date] = (volumeByDate[date] || 0) + 1;
+  });
+  
+  return Object.entries(volumeByDate)
+    .sort((a, b) => new Date(a[0]).getTime() - new Date(b[0]).getTime())
+    .map(([date, count]) => ({
+      date,
+      volume: count
+    }));
+}
+
+/**
+ * Analyzes conversation length distribution
+ */
+export function analyzeConversationLengths(analyticsData: AnalyticsData[]) {
+  const conversationQueryCounts: Record<string, number> = {};
+  
+  analyticsData.forEach(item => {
+    if (item.conversation_id) {
+      conversationQueryCounts[item.conversation_id] = 
+        (conversationQueryCounts[item.conversation_id] || 0) + 1;
+    }
+  });
+  
+  const lengths = Object.values(conversationQueryCounts);
+  
+  // Calculate distribution
+  const shortConvs = lengths.filter(length => length <= 2).length;
+  const mediumConvs = lengths.filter(length => length > 2 && length <= 5).length;
+  const longConvs = lengths.filter(length => length > 5).length;
+  
+  return {
+    short: shortConvs,
+    medium: mediumConvs,
+    long: longConvs,
+    total: lengths.length,
+    averageLength: lengths.length > 0 
+      ? Math.round(lengths.reduce((sum, length) => sum + length, 0) / lengths.length) 
+      : 0
+  };
+}
+
+/**
  * Tracks transcript sources by type
  */
 export function getTranscriptSourceStats(analyticsData: AnalyticsData[]) {
