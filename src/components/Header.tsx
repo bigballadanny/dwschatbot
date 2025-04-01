@@ -47,7 +47,11 @@ const Header: React.FC = () => {
               className="font-bold text-xl flex items-center cursor-pointer transition-all hover:scale-105"
             >
               <div className="bg-gradient-to-r from-primary to-primary/70 p-2 rounded-lg mr-2">
-                <BookOpen className="h-5 w-5 text-primary-foreground" />
+                <img 
+                  src="/lovable-uploads/a4f2b4db-0dac-4c7e-864c-54391e47cf0f.png" 
+                  alt="DealMaker Wealth Society" 
+                  className="h-5 w-5" 
+                />
               </div>
               <span className="bg-gradient-to-r from-primary to-primary/70 bg-clip-text text-transparent">
                 Carl's Wisdom
@@ -59,7 +63,11 @@ const Header: React.FC = () => {
               className="font-bold text-xl flex items-center cursor-pointer transition-all hover:scale-105"
             >
               <div className="bg-gradient-to-r from-primary to-primary/70 p-2 rounded-lg mr-2">
-                <BookOpen className="h-5 w-5 text-primary-foreground" />
+                <img 
+                  src="/lovable-uploads/a4f2b4db-0dac-4c7e-864c-54391e47cf0f.png" 
+                  alt="DealMaker Wealth Society" 
+                  className="h-5 w-5" 
+                />
               </div>
               <span className="bg-gradient-to-r from-primary to-primary/70 bg-clip-text text-transparent">
                 Carl's Wisdom
