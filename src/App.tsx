@@ -14,6 +14,7 @@ import AdminManagement from '@/pages/AdminManagement';
 import NotFound from '@/pages/NotFound';
 import ProtectedRoute from '@/components/ProtectedRoute';
 import ManagementRoute from '@/components/ManagementRoute';
+import WavyPage from '@/pages/Wavy';
 
 // Create a client for React Query
 const queryClient = new QueryClient();
@@ -36,6 +37,7 @@ function App() {
                       </ProtectedRoute>
                     } 
                   />
+                  <Route path="/wavy" element={<WavyPage />} />
                   <Route 
                     path="/analytics" 
                     element={
