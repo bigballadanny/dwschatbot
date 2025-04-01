@@ -417,7 +417,7 @@ const Index = () => {
             ) : (
               <div className="flex-1 overflow-hidden flex flex-col">
                 <div className="flex-1 overflow-y-auto px-4 py-6 pb-28">
-                  <div className="mx-auto max-w-4xl">
+                  <div className="mx-auto max-w-3xl">
                     {messages.map((message, index) => (
                       <MessageItem
                         key={index}

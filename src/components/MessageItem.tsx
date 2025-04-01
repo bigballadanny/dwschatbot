@@ -1,61 +1,51 @@
 
 import React from 'react';
-import { cn } from "@/lib/utils";
+import { cn } from '@/lib/utils';
 import MessageContent from './message/MessageContent';
 import MessageControls from './message/MessageControls';
 import MessageSourceLabel from './message/MessageSourceLabel';
 
-export type MessageSource = 'transcript' | 'web' | 'system' | 'user' | 'fallback' | 'gemini';
-
 export interface MessageProps {
   content: string;
-  source: MessageSource;
-  citation?: string;
+  source: 'user' | 'system' | 'transcript' | 'gemini' | 'error';
   timestamp: Date;
+  citation?: string[];
   isLoading?: boolean;
+}
+
+interface MessageItemProps extends MessageProps {
   className?: string;
 }
 
-const MessageItem: React.FC<MessageProps> = ({
+const MessageItem: React.FC<MessageItemProps> = ({
   content,
   source,
-  citation,
   timestamp,
-  isLoading = false,
-  className
+  citation,
+  isLoading,
+  className,
 }) => {
   const isUser = source === 'user';
-  const timeString = timestamp.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
-  
+
   return (
-    <div className={cn(
-      "flex w-full mb-6 animate-fade-in",
-      isUser ? "justify-end" : "justify-start",
-      className
-    )}>
-      <div className={cn(
-        "max-w-[80%] sm:max-w-[70%] py-3 px-4 rounded-xl shadow-sm",
-        "flex flex-col",
-        isUser 
-          ? "bg-primary text-primary-foreground rounded-tr-none"
-          : source === 'system'
-            ? "bg-secondary text-secondary-foreground"
-            : source === 'fallback'
-              ? "bg-amber-50 text-amber-900 dark:bg-amber-950 dark:text-amber-200 border border-amber-200 dark:border-amber-800"
-              : "glassmorphism rounded-tl-none",
-        isLoading && "animate-pulse-subtle"
-      )}>
-        <MessageContent content={content} isLoading={isLoading} />
-        
-        {citation && (
-          <div className="mt-3 pt-2 border-t border-foreground/10 text-sm font-light opacity-80">
-            {citation}
-          </div>
+    <div
+      className={cn(
+        'flex flex-col space-y-2 mb-6',
+        isUser ? 'items-end' : 'items-start',
+        className
+      )}
+    >
+      <div
+        className={cn(
+          'flex flex-col p-4 rounded-lg max-w-3xl',
+          isUser
+            ? 'bg-gradient-to-r from-amber-400 to-amber-600 text-white'
+            : 'bg-muted'
         )}
-        
-        <MessageControls content={content} isUser={isUser} isLoading={isLoading} />
-        
-        <MessageSourceLabel source={source} isUser={isUser} timeString={timeString} />
+      >
+        <MessageContent content={content} isLoading={isLoading} />
+        <MessageSourceLabel source={source} timestamp={timestamp} />
+        {citation && <MessageControls citation={citation} />}
       </div>
     </div>
   );

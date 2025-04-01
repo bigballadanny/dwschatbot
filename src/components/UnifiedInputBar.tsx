@@ -5,6 +5,7 @@ import { Input } from "@/components/ui/input";
 import { cn } from "@/lib/utils";
 import { Send, Loader2, Mic, MicOff, Volume2, VolumeX } from "lucide-react";
 import { useToast } from "@/components/ui/use-toast";
+import { supabase } from '@/integrations/supabase/client';
 
 export interface UnifiedInputBarProps {
   onSend: (message: string, isVoice: boolean) => Promise<void>;
@@ -29,53 +30,12 @@ const UnifiedInputBar: React.FC<UnifiedInputBarProps> = ({
 }) => {
   const [inputValue, setInputValue] = useState('');
   const [isRecording, setIsRecording] = useState(false);
-  const [transcript, setTranscript] = useState('');
   const [isProcessingVoice, setIsProcessingVoice] = useState(false);
   
   const fileInputRef = useRef<HTMLInputElement>(null);
-  const recognitionRef = useRef<SpeechRecognition | null>(null);
+  const mediaRecorderRef = useRef<MediaRecorder | null>(null);
+  const audioChunksRef = useRef<Blob[]>([]);
   const { toast } = useToast();
-  
-  // Setup SpeechRecognition
-  useEffect(() => {
-    if (typeof window !== 'undefined') {
-      const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
-      if (SpeechRecognition) {
-        recognitionRef.current = new SpeechRecognition();
-        recognitionRef.current.continuous = true;
-        recognitionRef.current.interimResults = true;
-        recognitionRef.current.lang = 'en-US';
-        
-        recognitionRef.current.onresult = (event) => {
-          const transcript = Array.from(event.results)
-            .map(result => result[0])
-            .map(result => result.transcript)
-            .join('');
-          
-          setTranscript(transcript);
-          setInputValue(transcript);
-        };
-        
-        recognitionRef.current.onerror = (event) => {
-          console.error('Speech recognition error', event.error);
-          if (event.error === 'not-allowed') {
-            toast({
-              title: "Microphone Access Denied",
-              description: "Please allow microphone access to use voice input.",
-              variant: "destructive",
-            });
-            setIsRecording(false);
-          }
-        };
-      }
-    }
-    
-    return () => {
-      if (recognitionRef.current) {
-        recognitionRef.current.stop();
-      }
-    };
-  }, [toast]);
   
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -89,47 +49,115 @@ const UnifiedInputBar: React.FC<UnifiedInputBarProps> = ({
     try {
       await onSend(inputValue, false);
       setInputValue('');
-      setTranscript('');
     } catch (error) {
       console.error('Error sending message:', error);
     }
   };
   
-  const startRecording = () => {
-    if (!recognitionRef.current) {
+  const startRecording = async () => {
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+      const mediaRecorder = new MediaRecorder(stream);
+      mediaRecorderRef.current = mediaRecorder;
+      audioChunksRef.current = [];
+      
+      mediaRecorder.ondataavailable = (event) => {
+        if (event.data.size > 0) {
+          audioChunksRef.current.push(event.data);
+        }
+      };
+      
+      mediaRecorder.start();
+      setIsRecording(true);
+      setInputValue('Listening...');
+      
       toast({
-        title: "Speech Recognition Not Supported",
-        description: "Your browser doesn't support speech recognition.",
+        title: "Recording Started",
+        description: "Speak now, recording will automatically stop after a pause.",
+      });
+      
+    } catch (error) {
+      console.error('Error starting recording:', error);
+      toast({
+        title: "Microphone Access Denied",
+        description: "Please allow microphone access to use voice input.",
         variant: "destructive",
       });
-      return;
-    }
-    
-    try {
-      recognitionRef.current.start();
-      setIsRecording(true);
-      setInputValue('');
-      setTranscript('');
-    } catch (error) {
-      console.error('Error starting speech recognition:', error);
     }
   };
   
   const stopRecording = async () => {
-    if (!recognitionRef.current) return;
+    if (!mediaRecorderRef.current) return;
     
     try {
-      recognitionRef.current.stop();
+      mediaRecorderRef.current.stop();
       setIsRecording(false);
+      setIsProcessingVoice(true);
+      setInputValue('Processing your voice...');
       
-      if (transcript.trim()) {
-        setIsProcessingVoice(true);
-        await onSend(transcript, true);
-        setTranscript('');
+      // Wait for the mediaRecorder's onstop event
+      await new Promise<void>((resolve) => {
+        if (mediaRecorderRef.current) {
+          mediaRecorderRef.current.onstop = () => {
+            resolve();
+          };
+        } else {
+          resolve();
+        }
+      });
+      
+      if (audioChunksRef.current.length === 0) {
+        setIsProcessingVoice(false);
+        setInputValue('');
+        return;
+      }
+      
+      const audioBlob = new Blob(audioChunksRef.current, { type: 'audio/webm' });
+      
+      // Convert the audio blob to base64
+      const reader = new FileReader();
+      reader.readAsDataURL(audioBlob);
+      
+      const base64Audio = await new Promise<string>((resolve) => {
+        reader.onloadend = () => {
+          const base64String = reader.result as string;
+          // Remove the data URL prefix (e.g., "data:audio/webm;base64,")
+          const base64 = base64String.split(',')[1];
+          resolve(base64);
+        };
+      });
+      
+      // Send the audio to the Google Speech-to-Text API via our Supabase Edge Function
+      const { data, error } = await supabase.functions.invoke('speech-to-text', {
+        body: { audioData: base64Audio }
+      });
+      
+      if (error) {
+        throw error;
+      }
+      
+      if (data?.transcription) {
+        setInputValue(data.transcription);
+        await onSend(data.transcription, true);
+      } else {
+        toast({
+          title: "No Speech Detected",
+          description: "We couldn't detect any speech. Please try again.",
+          variant: "destructive",
+        });
         setInputValue('');
       }
+      
+      // Stop all tracks of the MediaStream
+      mediaRecorderRef.current.stream.getTracks().forEach((track) => track.stop());
+      
     } catch (error) {
-      console.error('Error stopping speech recognition:', error);
+      console.error('Error processing voice:', error);
+      toast({
+        title: "Voice Processing Error",
+        description: "There was a problem processing your voice input.",
+        variant: "destructive",
+      });
     } finally {
       setIsProcessingVoice(false);
     }
