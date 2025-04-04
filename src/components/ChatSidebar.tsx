@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
 import { supabase } from '@/integrations/supabase/client';
@@ -6,10 +7,13 @@ import { useAdmin } from '@/context/AdminContext';
 import { useSidebar } from "@/components/ui/sidebar";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Settings, PlusCircle, BarChart3, LogOut, Search, ChevronLeft, ChevronRight, UserCog, Home, FileText } from 'lucide-react';
+import { Settings, PlusCircle, BarChart3, LogOut, Search, ChevronLeft, ChevronRight, UserCog, Home, FileText, Moon, Sun } from 'lucide-react';
 import { toast } from '@/components/ui/use-toast';
 import { Sidebar, SidebarContent, SidebarFooter, SidebarHeader, SidebarMenu, SidebarMenuButton, SidebarMenuItem, SidebarProvider, SidebarTrigger, SidebarSeparator } from "@/components/ui/sidebar";
 import { Sheet, SheetContent, SheetDescription, SheetFooter, SheetHeader, SheetTitle, SheetTrigger } from "@/components/ui/sheet";
+import { useTheme } from "next-themes";
+import { Switch } from "@/components/ui/switch";
+import { Label } from "@/components/ui/label";
 
 // Import refactored components
 import ConversationList from './sidebar/ConversationList';
@@ -22,6 +26,7 @@ interface Conversation {
 }
 
 const ChatSidebar = () => {
+  const { theme, setTheme } = useTheme();
   const {
     user,
     signOut
@@ -137,6 +142,10 @@ const ChatSidebar = () => {
     }
   };
 
+  const toggleTheme = () => {
+    setTheme(theme === "dark" ? "light" : "dark");
+  };
+
   return <Sidebar>
       <SidebarHeader className="border-b">
         <div className="flex items-center gap-2 px-2 py-3">
@@ -216,7 +225,32 @@ const ChatSidebar = () => {
                   </SheetDescription>
                 </SheetHeader>
                 <div className="py-4 space-y-4">
-                  {/* Add settings here */}
+                  {/* Theme toggle in settings */}
+                  <div className="space-y-2">
+                    <h3 className="text-sm font-medium">Appearance</h3>
+                    <div className="flex items-center gap-2">
+                      <Switch
+                        id="dark-mode"
+                        checked={theme === "dark"}
+                        onCheckedChange={toggleTheme}
+                        aria-label="Toggle dark mode"
+                      />
+                      <Label htmlFor="dark-mode" className="flex items-center cursor-pointer">
+                        {theme === "dark" ? (
+                          <div className="flex items-center gap-2">
+                            <Moon className="h-4 w-4" />
+                            <span>Dark Mode</span>
+                          </div>
+                        ) : (
+                          <div className="flex items-center gap-2">
+                            <Sun className="h-4 w-4" />
+                            <span>Light Mode</span>
+                          </div>
+                        )}
+                      </Label>
+                    </div>
+                  </div>
+                  {/* Additional settings can be added here */}
                 </div>
                 <SheetFooter>
                   <Button variant="outline" onClick={() => setSettingsOpen(false)}>

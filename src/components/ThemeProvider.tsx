@@ -10,7 +10,7 @@ interface ThemeProviderProps {
 
 export function ThemeProvider({
   children,
-  defaultTheme = "system",
+  defaultTheme = "dark", // Changed default from "system" to "dark"
   storageKey = "vite-ui-theme",
   ...props
 }: ThemeProviderProps) {

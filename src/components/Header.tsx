@@ -5,7 +5,6 @@ import { Button } from "@/components/ui/button";
 import { Headphones, Menu } from 'lucide-react';
 import { useAuth } from '@/context/AuthContext';
 import { useAdmin } from '@/context/AdminContext';
-import { ModeToggle } from "@/components/ModeToggle";
 import { useSidebar } from "@/components/ui/sidebar";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
@@ -88,7 +87,7 @@ const Header: React.FC = () => {
               </TooltipProvider>
             </>}
           
-          <ModeToggle />
+          {/* Theme toggle has been moved to settings */}
           
           {!user ? <Button asChild size="sm" className="ml-2 bg-gradient-to-r from-primary to-primary/80 hover:from-primary/90 hover:to-primary/70 transition-all">
               <Link to="/auth">Sign In</Link>
