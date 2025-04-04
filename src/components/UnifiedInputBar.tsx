@@ -16,6 +16,7 @@ export interface UnifiedInputBarProps {
   onToggleAudio?: () => void;
   placeholder?: string;
   className?: string;
+  showVoiceFeatures?: boolean; // New prop to control voice feature visibility
 }
 
 const UnifiedInputBar: React.FC<UnifiedInputBarProps> = ({
@@ -25,8 +26,9 @@ const UnifiedInputBar: React.FC<UnifiedInputBarProps> = ({
   disabled = false,
   enableAudio = true,
   onToggleAudio,
-  placeholder = "Type a message or press the mic button to speak...",
-  className
+  placeholder = "Type a message...",
+  className,
+  showVoiceFeatures = false // Default to hiding voice features
 }) => {
   const [inputValue, setInputValue] = useState('');
   const [isRecording, setIsRecording] = useState(false);
@@ -180,16 +182,19 @@ const UnifiedInputBar: React.FC<UnifiedInputBarProps> = ({
       className={cn("flex items-center gap-2", className)}
       onSubmit={handleSubmit}
     >
-      <Button
-        type="button"
-        variant={isRecording ? "destructive" : "outline"}
-        size="icon"
-        className="h-10 w-10 rounded-full flex-shrink-0"
-        disabled={loading || disabled || isProcessingVoice}
-        onClick={isRecording ? stopRecording : startRecording}
-      >
-        {isRecording ? <MicOff className="h-5 w-5" /> : <Mic className="h-5 w-5" />}
-      </Button>
+      {/* Only show the mic button if showVoiceFeatures is true */}
+      {showVoiceFeatures && (
+        <Button
+          type="button"
+          variant={isRecording ? "destructive" : "outline"}
+          size="icon"
+          className="h-10 w-10 rounded-full flex-shrink-0"
+          disabled={loading || disabled || isProcessingVoice}
+          onClick={isRecording ? stopRecording : startRecording}
+        >
+          {isRecording ? <MicOff className="h-5 w-5" /> : <Mic className="h-5 w-5" />}
+        </Button>
+      )}
       
       <div className="relative flex-1">
         <Input
@@ -232,7 +237,8 @@ const UnifiedInputBar: React.FC<UnifiedInputBarProps> = ({
           </>
         )}
         
-        {onToggleAudio && (
+        {/* Only show the audio toggle button if showVoiceFeatures is true */}
+        {showVoiceFeatures && onToggleAudio && (
           <Button
             type="button"
             size="icon"
