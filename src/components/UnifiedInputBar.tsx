@@ -3,7 +3,7 @@ import React, { useState, useRef, useEffect } from 'react';
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { cn } from "@/lib/utils";
-import { Send, Loader2, Mic, MicOff, Volume2, VolumeX } from "lucide-react";
+import { Send, Loader2, Mic, MicOff, Volume2, VolumeX, Paperclip } from "lucide-react";
 import { useToast } from "@/components/ui/use-toast";
 import { supabase } from '@/integrations/supabase/client';
 
@@ -227,7 +227,7 @@ const UnifiedInputBar: React.FC<UnifiedInputBarProps> = ({
               onClick={handleFileClick}
               title="Upload document"
             >
-              <Loader2 className="h-4 w-4" />
+              <Paperclip className="h-4 w-4" />
             </Button>
           </>
         )}
