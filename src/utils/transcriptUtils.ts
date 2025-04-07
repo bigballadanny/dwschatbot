@@ -1,4 +1,3 @@
-
 import { Tables } from '../integrations/supabase/types';
 
 export type Transcript = {
@@ -8,6 +7,7 @@ export type Transcript = {
   created_at: string;
   content: string;
   file_path?: string;
+  file_type?: string;
   relevanceScore?: number;
 };
 
@@ -68,6 +68,13 @@ export function detectSourceCategory(filename: string, content?: string): string
     return 'foundations_call';
   } else if (lowercaseFilename.includes('mastermind')) {
     return 'mastermind_call';
+  } else if (lowercaseFilename.includes('sba') ||
+      lowercaseFilename.includes('law') || 
+      lowercaseFilename.includes('regulation')) {
+    return 'reference_material';
+  } else if (lowercaseFilename.includes('book') ||
+      lowercaseFilename.includes('guide')) {
+    return 'educational_material';
   }
   
   // Check content if filename didn't provide a clear match
@@ -84,6 +91,10 @@ export function detectSourceCategory(filename: string, content?: string): string
       return 'foundations_call';
     } else if (lowercaseContent.includes('mastermind')) {
       return 'mastermind_call';
+    } else if (lowercaseContent.includes('sba') ||
+        lowercaseContent.includes('law') || 
+        lowercaseContent.includes('regulation')) {
+      return 'reference_material';
     }
   }
   
@@ -95,7 +106,58 @@ export function detectSourceCategory(filename: string, content?: string): string
     return 'business_acquisitions_summit';
   }
   
+  // If Year 2025 is mentioned, it's likely the new Business Acquisitions seminar
+  if (filename.includes('2025') || (content && content.includes('2025'))) {
+    return 'business_acquisitions_summit';
+  }
+  
   return 'other';
+}
+
+export function detectFileType(fileName: string, mimeType: string): string {
+  if (mimeType.includes('video/')) {
+    return 'video';
+  } else if (mimeType === 'application/pdf') {
+    return 'pdf';
+  } else if (mimeType.includes('text/')) {
+    return 'text';
+  } else if (mimeType.includes('audio/')) {
+    return 'audio';
+  } else if (mimeType.includes('image/')) {
+    return 'image';
+  } else if (mimeType === 'application/vnd.openxmlformats-officedocument.wordprocessingml.document' || mimeType === 'application/msword') {
+    return 'document';
+  } else {
+    // Try to detect from file extension
+    const extension = fileName.split('.').pop()?.toLowerCase();
+    switch (extension) {
+      case 'pdf': return 'pdf';
+      case 'txt': return 'text';
+      case 'doc':
+      case 'docx': return 'document';
+      case 'mp4':
+      case 'webm':
+      case 'mov': return 'video';
+      case 'mp3':
+      case 'wav': return 'audio';
+      case 'jpg':
+      case 'jpeg':
+      case 'png': return 'image';
+      default: return 'other';
+    }
+  }
+}
+
+export function generateFileIcon(fileType: string) {
+  switch (fileType) {
+    case 'video': return 'video';
+    case 'pdf': return 'file-text';
+    case 'text': return 'file-text';
+    case 'document': return 'file';
+    case 'audio': return 'headphones';
+    case 'image': return 'image';
+    default: return 'file';
+  }
 }
 
 export function searchTranscriptsForQuery(query: string, transcripts: Transcript[]) {
@@ -201,6 +263,10 @@ export function getSourceDescription(sourceType: string): string {
       return "a case study";
     case 'business_acquisitions_summit':
       return "Carl Allen's 2024 Business Acquisitions Summit";
+    case 'reference_material':
+      return "Carl Allen's reference material";
+    case 'educational_material':
+      return "Carl Allen's educational material";
     default:
       return "Carl Allen's business acquisition material";
   }
