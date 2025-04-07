@@ -6,8 +6,8 @@ import type {
   ToastProps,
 } from "@/components/ui/toast"
 
-const TOAST_LIMIT = 1
-const TOAST_REMOVE_DELAY = 5000 // Changed from 1000000 to 5000ms (5 seconds)
+const TOAST_LIMIT = 3 // Increased from 1 to allow multiple notifications when needed
+const TOAST_REMOVE_DELAY = 5000 // 5 seconds is a good balance
 
 type ToasterToast = ToastProps & {
   id: string
@@ -194,4 +194,21 @@ function useToast() {
   }
 }
 
-export { useToast, toast }
+// Create convenience methods for different toast types
+const success = (props: Omit<Toast, "variant">) => {
+  return toast({ ...props, variant: "success" });
+};
+
+const error = (props: Omit<Toast, "variant">) => {
+  return toast({ ...props, variant: "destructive" });
+};
+
+const warning = (props: Omit<Toast, "variant">) => {
+  return toast({ ...props, variant: "warning" });
+};
+
+const info = (props: Omit<Toast, "variant">) => {
+  return toast({ ...props, variant: "info" });
+};
+
+export { useToast, toast, success, error, warning, info }
