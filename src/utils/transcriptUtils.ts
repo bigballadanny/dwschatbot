@@ -1,4 +1,3 @@
-
 import { Tables } from '../integrations/supabase/types';
 
 export type Transcript = {
@@ -11,6 +10,9 @@ export type Transcript = {
   file_type?: string;
   relevanceScore?: number;
   tags?: string[];
+  is_processed?: boolean;
+  updated_at?: string;
+  user_id?: string;
 };
 
 export function getTranscriptCounts(transcripts: Transcript[]) {
@@ -163,7 +165,6 @@ export function generateFileIcon(fileType: string) {
   }
 }
 
-// New function to get common tag suggestions
 export function getCommonTagSuggestions() {
   return [
     { id: 'deal-sourcing', label: 'Deal Sourcing' },
@@ -184,7 +185,6 @@ export function getCommonTagSuggestions() {
   ];
 }
 
-// Function to search tags by text
 export function searchTagsByText(query: string, tags: string[]) {
   if (!query || !tags || tags.length === 0) {
     return tags;
@@ -194,7 +194,6 @@ export function searchTagsByText(query: string, tags: string[]) {
   return tags.filter(tag => tag.toLowerCase().includes(normalizedQuery));
 }
 
-// Function to format tags for display
 export function formatTagForDisplay(tag: string): string {
   // Convert kebab-case to Title Case
   return tag
@@ -203,7 +202,6 @@ export function formatTagForDisplay(tag: string): string {
     .join(' ');
 }
 
-// Function to format tag for storage
 export function formatTagForStorage(tag: string): string {
   // Convert to lowercase kebab-case
   return tag
@@ -212,7 +210,6 @@ export function formatTagForStorage(tag: string): string {
     .replace(/[^a-z0-9-]/g, '');
 }
 
-// Rest of existing functions...
 export function searchTranscriptsForQuery(query: string, transcripts: Transcript[]) {
   if (!query || !transcripts || transcripts.length === 0) {
     return null;
