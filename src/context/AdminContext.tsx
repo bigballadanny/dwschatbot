@@ -1,38 +1,35 @@
 
 import React, { createContext, useContext, useEffect, useState } from 'react';
-import { useAuth } from '@/context/AuthContext';
 import { supabase } from '@/integrations/supabase/client';
-import { toast } from '@/components/ui/use-toast';
+import { useAuth } from './AuthContext';
 
 interface AdminContextType {
   isAdmin: boolean;
-  isLoading: boolean;
+  loading: boolean;
 }
 
 const AdminContext = createContext<AdminContextType>({
   isAdmin: false,
-  isLoading: true,
+  loading: true,
 });
 
-export const AdminProvider: React.FC<{ children: React.ReactNode }> = ({ 
-  children 
-}) => {
+export const useAdmin = () => useContext(AdminContext);
+
+export const AdminProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const { user } = useAuth();
   const [isAdmin, setIsAdmin] = useState(false);
-  const [isLoading, setIsLoading] = useState(true);
+  const [loading, setLoading] = useState(true);
 
   useEffect(() => {
     const checkAdminStatus = async () => {
       if (!user) {
         setIsAdmin(false);
-        setIsLoading(false);
+        setLoading(false);
         return;
       }
 
       try {
-        console.log("Checking admin status for user:", user.id);
-        
-        // Check if the user has an 'admin' role in the user_roles table
+        // Check if user has admin role
         const { data, error } = await supabase
           .from('user_roles')
           .select('role')
@@ -40,19 +37,17 @@ export const AdminProvider: React.FC<{ children: React.ReactNode }> = ({
           .eq('role', 'admin')
           .single();
 
-        if (error && error.code !== 'PGRST116') { // PGRST116 is "No rows returned" which is expected for non-admins
+        if (error) {
           console.error('Error checking admin status:', error);
           setIsAdmin(false);
         } else {
-          const isUserAdmin = !!data;
-          console.log("User admin status:", isUserAdmin);
-          setIsAdmin(isUserAdmin);
+          setIsAdmin(data ? true : false);
         }
       } catch (error) {
-        console.error('Error in admin check:', error);
+        console.error('Error checking admin status:', error);
         setIsAdmin(false);
       } finally {
-        setIsLoading(false);
+        setLoading(false);
       }
     };
 
@@ -60,12 +55,8 @@ export const AdminProvider: React.FC<{ children: React.ReactNode }> = ({
   }, [user]);
 
   return (
-    <AdminContext.Provider value={{ isAdmin, isLoading }}>
+    <AdminContext.Provider value={{ isAdmin, loading }}>
       {children}
     </AdminContext.Provider>
   );
-};
-
-export const useAdmin = (): AdminContextType => {
-  return useContext(AdminContext);
 };

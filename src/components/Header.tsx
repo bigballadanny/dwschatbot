@@ -1,3 +1,4 @@
+
 import React from 'react';
 import { Link, useNavigate, useLocation } from 'react-router-dom';
 import { Button, buttonVariants } from "@/components/ui/button";
@@ -17,8 +18,9 @@ import { useAdmin } from '@/context/AdminContext';
 import { useMobile } from '@/hooks/useMobile';
 import { cn } from '@/lib/utils';
 import { LogOut, Settings } from 'lucide-react';
+import { getUserInitials } from '@/utils/helpers';
 
-// Keep the Header component and add the War Room link
+// Header component with War Room link
 const Header: React.FC = () => {
   const { user, signOut } = useAuth();
   const navigate = useNavigate();
@@ -33,24 +35,6 @@ const Header: React.FC = () => {
     } catch (error) {
       console.error('Error signing out:', error);
     }
-  };
-
-  const getUserInitials = (user: any) => {
-    if (!user) return '';
-    
-    if (user.displayName) {
-      const names = user.displayName.split(' ');
-      if (names.length >= 2) {
-        return `${names[0][0]}${names[1][0]}`.toUpperCase();
-      }
-      return user.displayName[0].toUpperCase();
-    }
-    
-    if (user.email) {
-      return user.email[0].toUpperCase();
-    }
-    
-    return 'U';
   };
 
   return (

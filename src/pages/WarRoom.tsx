@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect, useRef } from 'react';
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardFooter, CardTitle, CardDescription } from "@/components/ui/card";
@@ -90,7 +89,7 @@ const WarRoomPage: React.FC = () => {
       }
 
       if (data) {
-        setFiles(data);
+        setFiles(data as DocumentFile[]);
       }
     } catch (error: any) {
       console.error('Error fetching documents:', error.message);
@@ -142,19 +141,16 @@ const WarRoomPage: React.FC = () => {
         
         const fileType = determineFileType(file.name);
         
-        // Create document record
-        const { data: documentData, error: documentError } = await supabase
+        const { error: documentError } = await supabase
           .from('business_documents')
-          .insert([
-            {
-              title: file.name,
-              file_path: filePath,
-              file_type: fileType,
-              category: category,
-              user_id: user.id,
-              is_analyzed: false
-            }
-          ]);
+          .insert({
+            title: file.name,
+            file_path: filePath,
+            file_type: fileType,
+            category: category,
+            user_id: user.id,
+            is_analyzed: false
+          });
 
         if (documentError) {
           console.error(`Error creating document record for ${file.name}:`, documentError);
@@ -224,7 +220,6 @@ const WarRoomPage: React.FC = () => {
     setIsAnalyzing(true);
     setAnalysisProgress(0);
     
-    // Find the document
     const document = files.find(file => file.id === documentId);
     if (!document) {
       showError("Analysis Error", "Document not found.");
@@ -232,7 +227,6 @@ const WarRoomPage: React.FC = () => {
       return;
     }
 
-    // Simulate a progressive analysis
     const totalSteps = 5;
     const progressInterval = 100 / totalSteps;
     
@@ -241,9 +235,8 @@ const WarRoomPage: React.FC = () => {
       setAnalysisProgress(step * progressInterval);
     }
 
-    // Generate mock analysis results based on document type
     let analysisSummary = '';
-    let analysisScore = Math.round(Math.random() * 40) + 60; // 60-100 range
+    let analysisScore = Math.round(Math.random() * 40) + 60;
     let metrics = {};
     
     if (document.category === 'financial') {
@@ -252,7 +245,7 @@ const WarRoomPage: React.FC = () => {
         revenue: Math.round(Math.random() * 500000) + 500000,
         profit: Math.round(Math.random() * 100000) + 50000,
         ebitda: Math.round(Math.random() * 150000) + 100000,
-        multiple: Math.round(Math.random() * 20) / 10 + 3, // 3.0-5.0 range
+        multiple: Math.round(Math.random() * 20) / 10 + 3,
         growth: Math.round(Math.random() * 20) + 5,
         risk_score: Math.round(Math.random() * 40) + 20
       };
@@ -261,7 +254,7 @@ const WarRoomPage: React.FC = () => {
       metrics = {
         revenue: Math.round(Math.random() * 1000000) + 1000000,
         profit: Math.round(Math.random() * 200000) + 150000,
-        multiple: Math.round(Math.random() * 30) / 10 + 4, // 4.0-7.0 range
+        multiple: Math.round(Math.random() * 30) / 10 + 4,
         growth: Math.round(Math.random() * 30) + 10,
         risk_score: Math.round(Math.random() * 30) + 30
       };
@@ -272,7 +265,6 @@ const WarRoomPage: React.FC = () => {
       };
     }
 
-    // Update the document with analysis results
     try {
       const { error } = await supabase
         .from('business_documents')
@@ -384,14 +376,12 @@ const WarRoomPage: React.FC = () => {
     }
 
     try {
-      // Find the document to get the file path
       const document = files.find(file => file.id === id);
       if (!document) {
         showError("Delete Error", "Document not found.");
         return;
       }
 
-      // Delete from storage
       if (document.file_path) {
         const { error: storageError } = await supabase.storage
           .from('business_documents')
@@ -402,7 +392,6 @@ const WarRoomPage: React.FC = () => {
         }
       }
 
-      // Delete from database
       const { error: dbError } = await supabase
         .from('business_documents')
         .delete()
@@ -428,7 +417,8 @@ const WarRoomPage: React.FC = () => {
 
   return (
     <div className="container mx-auto py-6">
-      <div className="flex justify-between items-center mb-6">
+      <Header />
+      <div className="flex justify-between items-center mb-6 mt-4">
         <div>
           <h1 className="text-2xl font-bold">War Room</h1>
           <p className="text-muted-foreground">Analyze and assess business documents for acquisition decisions</p>
