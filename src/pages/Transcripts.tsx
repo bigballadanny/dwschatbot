@@ -105,7 +105,11 @@ const TranscriptsPage: React.FC = () => {
   };
 
   const handleFileSelect = (files: FileList) => {
-    setSelectedFile(files[0] || null);
+    if (files.length === 1) {
+      setSelectedFile(files[0]);
+    } else if (files.length > 1) {
+      handleBatchFileUpload(files);
+    }
   };
 
   const handleBatchFileUpload = async (files: FileList) => {
@@ -465,10 +469,9 @@ const TranscriptsPage: React.FC = () => {
             </CardHeader>
             <CardContent>
               <Tabs defaultValue="manual" className="w-full">
-                <TabsList className="grid grid-cols-3 mb-4">
+                <TabsList className="grid grid-cols-2 mb-4">
                   <TabsTrigger value="manual">Manual Input</TabsTrigger>
-                  <TabsTrigger value="upload">Single Upload</TabsTrigger>
-                  <TabsTrigger value="batch">Batch Upload</TabsTrigger>
+                  <TabsTrigger value="upload">File Upload</TabsTrigger>
                 </TabsList>
                 
                 <TabsContent value="manual">
@@ -605,83 +608,42 @@ const TranscriptsPage: React.FC = () => {
                       </p>
                     </div>
                     
-                    <FileUploader 
-                      onFileSelect={handleFileSelect}
-                      isUploading={isUploading}
-                      uploadProgress={uploadProgress}
-                      multiple={false}
-                    />
-                    
-                    <Button 
-                      onClick={uploadFile} 
-                      disabled={isUploading || !selectedFile} 
-                      className="w-full"
-                    >
-                      {isUploading ? (
-                        <span className="flex items-center">
-                          <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                          Uploading... {uploadProgress}%
-                        </span>
-                      ) : (
-                        <>
-                          <Upload className="mr-2 h-4 w-4" />
-                          Upload File
-                        </>
-                      )}
-                    </Button>
-                    
-                    <Alert>
-                      <AlertTriangle className="h-4 w-4" />
-                      <AlertTitle>File Upload Notes</AlertTitle>
-                      <AlertDescription className="text-xs">
-                        After uploading, you can use the Bulk Process button to automatically categorize and tag transcripts.
-                      </AlertDescription>
-                    </Alert>
-                  </div>
-                </TabsContent>
-                
-                <TabsContent value="batch">
-                  <div className="grid gap-4">
-                    <div className="grid gap-2">
-                      <Label htmlFor="batch-source">Source Category</Label>
-                      <Select 
-                        value={source} 
-                        onValueChange={setSource}
-                      >
-                        <SelectTrigger className="w-full">
-                          <SelectValue placeholder="Select or auto-detect source" />
-                        </SelectTrigger>
-                        <SelectContent>
-                          <SelectGroup>
-                            <SelectLabel>Source Categories</SelectLabel>
-                            {getSourceCategories().map(category => (
-                              <SelectItem key={category.id} value={category.id}>
-                                {category.label}
-                              </SelectItem>
-                            ))}
-                          </SelectGroup>
-                        </SelectContent>
-                      </Select>
-                      <p className="text-xs text-muted-foreground mt-1">
-                        Source will be auto-detected if not selected (applies to all files)
-                      </p>
-                    </div>
-                    
                     <Alert variant="outline" className="bg-amber-50">
                       <Info className="h-4 w-4" />
-                      <AlertTitle>Batch Upload</AlertTitle>
+                      <AlertTitle>File Upload</AlertTitle>
                       <AlertDescription className="text-xs">
-                        Upload multiple files at once. Each file will be created as a separate transcript.
+                        Upload one or multiple files. Each file will create a separate transcript.
+                        After uploading, you can use the Bulk Process feature to automatically categorize and tag your transcripts.
                       </AlertDescription>
                     </Alert>
                     
                     <FileUploader 
-                      onFileSelect={handleBatchFileUpload}
+                      onFileSelect={handleFileSelect}
                       isUploading={isUploading}
                       uploadProgress={uploadProgress}
                       multiple={true}
                       showPreview={true}
                     />
+                    
+                    {selectedFile && (
+                      <Button 
+                        onClick={uploadFile} 
+                        disabled={isUploading} 
+                        className="w-full"
+                      >
+                        {isUploading ? (
+                          <span className="flex items-center">
+                            <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                            Uploading... {uploadProgress}%
+                          </span>
+                        ) : (
+                          <>
+                            <Upload className="mr-2 h-4 w-4" />
+                            Upload File
+                          </>
+                        )}
+                      </Button>
+                    )}
                   </div>
                 </TabsContent>
               </Tabs>

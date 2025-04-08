@@ -5,7 +5,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Progress } from "@/components/ui/progress";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
-import { Upload, Loader2, AlertTriangle, FileType } from "lucide-react";
+import { Upload, Loader2, AlertTriangle, FileType, Info } from "lucide-react";
 
 interface FileUploaderProps {
   onFileSelect: (files: FileList) => void;
@@ -14,6 +14,7 @@ interface FileUploaderProps {
   acceptedFileTypes?: string;
   multiple?: boolean;
   showPreview?: boolean;
+  className?: string;
 }
 
 const FileUploader = ({
@@ -22,7 +23,8 @@ const FileUploader = ({
   uploadProgress = null,
   acceptedFileTypes = ".pdf,.doc,.docx,.txt,.csv,.xls,.xlsx,.jpg,.jpeg,.png,.mp3,.mp4,.wav",
   multiple = true,
-  showPreview = true
+  showPreview = true,
+  className
 }: FileUploaderProps) => {
   const [selectedFiles, setSelectedFiles] = useState<File[]>([]);
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -39,6 +41,21 @@ const FileUploader = ({
     fileInputRef.current?.click();
   };
 
+  const handleDragOver = (e: React.DragEvent<HTMLDivElement>) => {
+    e.preventDefault();
+    e.stopPropagation();
+  };
+
+  const handleDrop = (e: React.DragEvent<HTMLDivElement>) => {
+    e.preventDefault();
+    e.stopPropagation();
+    
+    if (e.dataTransfer.files && e.dataTransfer.files.length > 0) {
+      setSelectedFiles(Array.from(e.dataTransfer.files));
+      onFileSelect(e.dataTransfer.files);
+    }
+  };
+
   const getFileIcon = (mimeType: string) => {
     if (mimeType.includes('pdf')) return '📄';
     if (mimeType.includes('doc')) return '📝';
@@ -50,24 +67,42 @@ const FileUploader = ({
   };
 
   return (
-    <div className="space-y-4">
-      <div className="grid gap-2">
-        <Label htmlFor="file">Select File{multiple ? '(s)' : ''}</Label>
-        <Input
+    <div className={`space-y-4 ${className}`}>
+      <div 
+        className="border-2 border-dashed border-gray-300 rounded-lg p-6 text-center hover:bg-gray-50 transition-colors cursor-pointer"
+        onClick={handleClick}
+        onDragOver={handleDragOver}
+        onDrop={handleDrop}
+      >
+        <input
           type="file"
-          id="file"
           onChange={handleFileChange}
           ref={fileInputRef}
-          className="cursor-pointer"
+          className="hidden"
           accept={acceptedFileTypes}
           multiple={multiple}
         />
+        
+        <div className="flex flex-col items-center justify-center gap-2">
+          <Upload className="h-10 w-10 text-gray-400" />
+          <div className="space-y-1">
+            <p className="text-sm font-medium">
+              {multiple ? 'Upload files' : 'Upload a file'}
+            </p>
+            <p className="text-xs text-muted-foreground">
+              Drag and drop {multiple ? 'files' : 'a file'} or click to browse
+            </p>
+            <p className="text-xs text-muted-foreground">
+              Supported formats: {acceptedFileTypes.replace(/\./g, '').split(',').join(', ')}
+            </p>
+          </div>
+        </div>
       </div>
 
       {showPreview && selectedFiles.length > 0 && (
         <div className="space-y-2">
           <Label>Selected Files ({selectedFiles.length})</Label>
-          <div className="max-h-32 overflow-y-auto border rounded-md p-2">
+          <div className="max-h-40 overflow-y-auto border rounded-md p-2">
             {selectedFiles.map((file, index) => (
               <div key={index} className="text-sm text-muted-foreground flex items-center gap-2 py-1">
                 <span>{getFileIcon(file.type)}</span>
