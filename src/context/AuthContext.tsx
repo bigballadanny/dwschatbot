@@ -48,11 +48,11 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
               .single();
             
             // Enhance user with profile data
-            const enhancedUser: UserWithExtras = {
+            const enhancedUser = {
               ...userData.user,
               avatarUrl: profileData?.avatar_url || undefined,
               displayName: profileData?.display_name || userData.user.email
-            };
+            } as UserWithExtras;
             
             setUser(enhancedUser);
           }
@@ -89,11 +89,11 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
             .single();
           
           // Enhance user with profile data
-          const enhancedUser: UserWithExtras = {
+          const enhancedUser = {
             ...newSession.user,
             avatarUrl: profileData?.avatar_url || undefined,
             displayName: profileData?.display_name || newSession.user.email
-          };
+          } as UserWithExtras;
           
           setUser(enhancedUser);
         }
