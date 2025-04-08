@@ -32,32 +32,32 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     const getCurrentUser = async () => {
       setLoading(true);
       try {
-        // Use destructuring directly without type assertion to avoid deep instantiation
-        const { data } = await supabase.auth.getSession();
-        const session = data.session;
+        // Avoid deep type instantiation by using simpler destructuring
+        const sessionResponse = await supabase.auth.getSession();
+        const currentSession = sessionResponse.data.session;
         
-        if (session) {
-          setSession(session);
-          const { data: userData, error } = await supabase.auth.getUser();
+        if (currentSession) {
+          setSession(currentSession);
+          const userResponse = await supabase.auth.getUser();
           
-          if (error) {
-            throw error;
+          if (userResponse.error) {
+            throw userResponse.error;
           }
           
-          if (userData && userData.user) {
+          if (userResponse.data && userResponse.data.user) {
             // Get profile data if available
             const { data: profileData } = await supabase
               .from('profiles')
               .select('*')
-              .eq('user_id', userData.user.id)
+              .eq('user_id', userResponse.data.user.id)
               .single();
             
             // Enhance user with profile data
             const enhancedUser: UserWithExtras = {
-              id: userData.user.id,
-              email: userData.user.email,
+              id: userResponse.data.user.id,
+              email: userResponse.data.user.email,
               avatarUrl: profileData?.avatar_url || undefined,
-              displayName: profileData?.display_name || userData.user.email
+              displayName: profileData?.display_name || userResponse.data.user.email
             };
             
             setUser(enhancedUser);
@@ -77,8 +77,8 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
 
     getCurrentUser();
 
-    // Use destructuring directly without type assertion to avoid deep instantiation
-    const { data } = supabase.auth.onAuthStateChange(
+    // Avoid excessive type instantiation with simpler approach
+    const authListener = supabase.auth.onAuthStateChange(
       async (event, newSession) => {
         setSession(newSession);
         
@@ -109,7 +109,7 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     );
 
     return () => {
-      data.subscription.unsubscribe();
+      authListener.data.subscription.unsubscribe();
     };
   }, []);
 
