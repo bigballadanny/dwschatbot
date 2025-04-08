@@ -62,33 +62,37 @@ const AIInputWithSearch = React.forwardRef<HTMLInputElement, AIInputWithSearchPr
         </div>
         
         <div className="flex items-center gap-1">
-          <input 
-            type="file" 
-            ref={fileInputRef} 
-            className="hidden" 
-            onChange={handleFileChange}
-            accept=".pdf,.doc,.docx,.txt,.csv,.xls,.xlsx"
-            multiple
-          />
-          
-          <Button
-            type="button"
-            size="icon"
-            variant="ghost"
-            disabled={uploading || props.disabled}
-            className={cn(
-              "h-10 w-10 text-muted-foreground hover:text-amber-500 transition-colors",
-              uploading && "opacity-70"
-            )}
-            onClick={handleFileClick}
-            title="Upload document"
-          >
-            {uploading ? (
-              <Loader2 className="h-4 w-4 animate-spin text-amber-500" />
-            ) : (
-              <Paperclip className="h-4 w-4" />
-            )}
-          </Button>
+          {onFileUpload && (
+            <>
+              <input 
+                type="file" 
+                ref={fileInputRef} 
+                className="hidden" 
+                onChange={handleFileChange}
+                accept=".pdf,.doc,.docx,.txt,.csv,.xls,.xlsx"
+                multiple
+              />
+              
+              <Button
+                type="button"
+                size="icon"
+                variant="ghost"
+                disabled={uploading || props.disabled}
+                className={cn(
+                  "h-10 w-10 text-muted-foreground hover:text-amber-500 transition-colors",
+                  uploading && "opacity-70"
+                )}
+                onClick={handleFileClick}
+                title="Upload document"
+              >
+                {uploading ? (
+                  <Loader2 className="h-4 w-4 animate-spin text-amber-500" />
+                ) : (
+                  <Paperclip className="h-4 w-4" />
+                )}
+              </Button>
+            </>
+          )}
           
           <Button
             type="submit"
