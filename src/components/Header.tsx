@@ -15,9 +15,9 @@ import {
 import { ModeToggle } from "@/components/ModeToggle";
 import { useAuth } from '@/context/AuthContext';
 import { useAdmin } from '@/context/AdminContext';
-import { useMobile } from '@/hooks/useMobile';
+import { useMobile } from '@/hooks/use-mobile';
 import { cn } from '@/lib/utils';
-import { LogOut, Settings } from 'lucide-react';
+import { LogOut, Settings, Home } from 'lucide-react';
 import { getUserInitials } from '@/utils/helpers';
 
 // Header component with War Room link
@@ -42,8 +42,8 @@ const Header: React.FC = () => {
       <div className="container flex h-14 items-center">
         <div className="mr-4 flex">
           <Link to="/" className="flex items-center space-x-2">
-            <span className="font-bold text-xl hidden md:inline-block">DWS AI</span>
-            <span className="font-bold text-xl md:hidden">DWS</span>
+            <span className="font-bold text-xl hidden md:inline-block text-primary">DWS AI</span>
+            <span className="font-bold text-xl md:hidden text-primary">DWS</span>
           </Link>
         </div>
         
@@ -56,6 +56,7 @@ const Header: React.FC = () => {
                   buttonVariants({ variant: location.pathname === "/" ? "default" : "ghost", size: "sm" }),
                 )}
               >
+                <Home className="h-4 w-4 mr-2" />
                 Chat
               </Link>
 
