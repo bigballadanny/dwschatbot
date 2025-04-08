@@ -64,8 +64,14 @@ export function detectSourceCategory(filename: string, content?: string): string
   // Check filename first for more specific matches
   if (lowercaseFilename.includes('summit') || 
       lowercaseFilename.includes('acquisitions_summit') || 
-      lowercaseFilename.includes('acquisition summit') ||
+      lowercaseFilename.includes('acquisition summit') || 
+      lowercaseFilename.includes('2025 summit') ||
+      lowercaseFilename.includes('2025-summit') || 
       lowercaseFilename.includes('business acquisition')) {
+    // Check specifically for 2025 summit
+    if (lowercaseFilename.includes('2025')) {
+      return 'business_acquisitions_summit_2025';
+    }
     return 'business_acquisitions_summit';
   } else if (lowercaseFilename.includes('protege')) {
     return 'protege_call';
@@ -73,6 +79,13 @@ export function detectSourceCategory(filename: string, content?: string): string
     return 'foundations_call';
   } else if (lowercaseFilename.includes('mastermind')) {
     return 'mastermind_call';
+  } else if (lowercaseFilename.includes('rlgl') || 
+             lowercaseFilename.includes('rich lose') ||
+             lowercaseFilename.includes('get lost')) {
+    return 'rlgl_call';
+  } else if (lowercaseFilename.includes('finance') || 
+             lowercaseFilename.includes('financial')) {
+    return 'finance_call';
   } else if (lowercaseFilename.includes('sba') ||
       lowercaseFilename.includes('law') || 
       lowercaseFilename.includes('regulation')) {
@@ -89,6 +102,9 @@ export function detectSourceCategory(filename: string, content?: string): string
         lowercaseContent.includes('acquisitions summit') ||
         lowercaseContent.includes('acquisition summit') || 
         lowercaseContent.includes('business acquisition summit')) {
+      if (lowercaseContent.includes('2025')) {
+        return 'business_acquisitions_summit_2025';
+      }
       return 'business_acquisitions_summit';
     } else if (lowercaseContent.includes('protege')) {
       return 'protege_call';
@@ -96,6 +112,13 @@ export function detectSourceCategory(filename: string, content?: string): string
       return 'foundations_call';
     } else if (lowercaseContent.includes('mastermind')) {
       return 'mastermind_call';
+    } else if (lowercaseContent.includes('rich lose get lost') || 
+               lowercaseContent.includes('rlgl') || 
+               lowercaseContent.includes('rich guys lose')) {
+      return 'rlgl_call';
+    } else if (lowercaseContent.includes('finance call') || 
+               lowercaseContent.includes('financial call')) {
+      return 'finance_call';
     } else if (lowercaseContent.includes('sba') ||
         lowercaseContent.includes('law') || 
         lowercaseContent.includes('regulation')) {
@@ -105,15 +128,18 @@ export function detectSourceCategory(filename: string, content?: string): string
   
   // Specific date detection for summit content
   if (filename.includes('2024-03-27') || 
-      filename.includes('2024-02-27') || 
-      filename.includes('2025-03-27') || 
-      filename.includes('2025-02-27')) {
+      filename.includes('2024-02-27')) {
     return 'business_acquisitions_summit';
+  }
+  
+  if (filename.includes('2025-03-27') || 
+      filename.includes('2025-02-27')) {
+    return 'business_acquisitions_summit_2025';
   }
   
   // If Year 2025 is mentioned, it's likely the new Business Acquisitions seminar
   if (filename.includes('2025') || (content && content.includes('2025'))) {
-    return 'business_acquisitions_summit';
+    return 'business_acquisitions_summit_2025';
   }
   
   return 'other';
@@ -348,12 +374,18 @@ export function getSourceDescription(sourceType: string): string {
       return "Carl Allen's Foundations Program call";
     case 'mastermind_call':
       return "Carl Allen's Mastermind call";
+    case 'rlgl_call':
+      return "Carl Allen's Rich Lose Get Lost call";
+    case 'finance_call':
+      return "Carl Allen's Finance call";
     case 'creative_dealmaker':
       return "Carl Allen's Creative Dealmaker book";
     case 'case_study':
       return "a case study";
     case 'business_acquisitions_summit':
       return "Carl Allen's 2024 Business Acquisitions Summit";
+    case 'business_acquisitions_summit_2025':
+      return "Carl Allen's 2025 Business Acquisitions Summit";
     case 'reference_material':
       return "Carl Allen's reference material";
     case 'educational_material':

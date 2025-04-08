@@ -8,7 +8,7 @@ import { Label } from "@/components/ui/label";
 import { useAuth } from '@/context/AuthContext';
 import { supabase } from '@/integrations/supabase/client';
 import Header from '@/components/Header';
-import { FileText, Upload, Tag as TagIcon, Loader2, X, Info, AlertTriangle, Edit, Tags, Plus } from 'lucide-react';
+import { FileText, Upload, Tag as TagIcon, Loader2, X, Info, AlertTriangle, Edit, Tags, Plus, Sparkles } from 'lucide-react';
 import { detectSourceCategory, formatTagForDisplay, suggestTagsFromContent } from '@/utils/transcriptUtils';
 import { Progress } from "@/components/ui/progress";
 import { Sheet, SheetContent, SheetDescription, SheetFooter, SheetHeader, SheetTitle, SheetTrigger } from "@/components/ui/sheet";
@@ -22,6 +22,7 @@ import { TagsInput } from "@/components/TagsInput";
 import TranscriptTagEditor from "@/components/TranscriptTagEditor";
 import TagFilter from "@/components/TagFilter";
 import { showSuccess, showError, showWarning } from "@/utils/toastUtils";
+import BulkTagProcessor from "@/components/BulkTagProcessor";
 
 interface Transcript {
   id: string;
@@ -52,6 +53,7 @@ const TranscriptsPage: React.FC = () => {
   const [tagFilters, setTagFilters] = useState<string[]>([]);
   const [filteredTranscripts, setFilteredTranscripts] = useState<Transcript[]>([]);
   const [isDiagnosticsOpen, setIsDiagnosticsOpen] = useState(false);
+  const [isBulkProcessorOpen, setIsBulkProcessorOpen] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const { toast } = useToast();
   const { user } = useAuth();
@@ -279,6 +281,19 @@ const TranscriptsPage: React.FC = () => {
     fetchTranscripts();
   };
 
+  const handleOpenBulkProcessor = () => {
+    setIsBulkProcessorOpen(true);
+  };
+
+  const handleCloseBulkProcessor = () => {
+    setIsBulkProcessorOpen(false);
+  };
+
+  const handleBulkProcessingComplete = () => {
+    fetchTranscripts();
+    setIsBulkProcessorOpen(false);
+  };
+
   return (
     <div className="container mx-auto py-6">
       <Header 
@@ -405,11 +420,22 @@ const TranscriptsPage: React.FC = () => {
                 <Tags className="w-4 h-4 mr-2" />
                 <CardTitle className="text-lg">Filter by Tags</CardTitle>
               </div>
-              {tagFilters.length > 0 && (
-                <Button variant="ghost" size="sm" onClick={clearAllTags}>
-                  Clear All
+              <div className="flex gap-2">
+                {tagFilters.length > 0 && (
+                  <Button variant="ghost" size="sm" onClick={clearAllTags}>
+                    Clear All
+                  </Button>
+                )}
+                <Button 
+                  variant="outline" 
+                  size="sm" 
+                  onClick={handleOpenBulkProcessor}
+                  className="flex items-center gap-1"
+                >
+                  <Sparkles className="w-3 h-3" />
+                  Bulk Process All Transcripts
                 </Button>
-              )}
+              </div>
             </div>
             <TagFilter onTagAdded={handleTagAdded} onTagRemoved={handleTagRemoved} />
           </CardHeader>
@@ -470,6 +496,12 @@ const TranscriptsPage: React.FC = () => {
             <TranscriptDiagnostics onComplete={handleDiagnosticsComplete} />
           </SheetContent>
         </Sheet>
+
+        <BulkTagProcessor
+          open={isBulkProcessorOpen}
+          onClose={handleCloseBulkProcessor}
+          onComplete={handleBulkProcessingComplete}
+        />
       </div>
 
       {selectedTranscript && (

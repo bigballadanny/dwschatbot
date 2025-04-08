@@ -4,7 +4,7 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { Badge } from '@/components/ui/badge';
-import { Loader2, AlertCircle, CheckCircle2, Tag } from 'lucide-react';
+import { Loader2, AlertCircle, CheckCircle2, Tag, Sparkles } from 'lucide-react';
 import { useToast } from '@/components/ui/use-toast';
 import { checkForTranscriptIssues, fixTranscriptIssues, fixTranscriptSourceTypes, updateTranscriptSourceType } from '@/utils/transcriptDiagnostics';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
