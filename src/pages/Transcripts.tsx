@@ -298,7 +298,7 @@ const TranscriptsPage: React.FC = () => {
     <div className="container mx-auto py-6">
       <Header 
         title="Transcripts" 
-        description="Manage and view your transcripts" 
+        subtitle="Manage and view your transcripts" 
       />
 
       <div className="grid gap-6 mt-6">
