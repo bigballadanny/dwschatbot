@@ -114,25 +114,6 @@ const FileUploader = ({
         </div>
       )}
 
-      <Button
-        onClick={handleClick}
-        disabled={isUploading}
-        className="w-full"
-        variant="outline"
-      >
-        {isUploading ? (
-          <span className="flex items-center">
-            <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-            Uploading... {uploadProgress !== null ? `${uploadProgress}%` : ''}
-          </span>
-        ) : (
-          <>
-            <Upload className="mr-2 h-4 w-4" />
-            {multiple ? 'Choose Files' : 'Choose File'}
-          </>
-        )}
-      </Button>
-
       {uploadProgress !== null && (
         <Progress value={uploadProgress} className="w-full" />
       )}
