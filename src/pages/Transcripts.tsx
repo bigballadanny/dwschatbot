@@ -402,6 +402,7 @@ const TranscriptsPage: React.FC = () => {
           </Button>
           
           <Button
+            variant="default"
             size="sm"
             onClick={() => setShowAddTranscript(!showAddTranscript)}
             className="flex items-center gap-1"
