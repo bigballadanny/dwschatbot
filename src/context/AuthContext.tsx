@@ -4,68 +4,78 @@ import { supabase } from '@/integrations/supabase/client';
 import { User, Session } from '@supabase/supabase-js';
 
 interface AuthContextType {
-  user: User & { displayName?: string; avatarUrl?: string } | null;
-  session: Session | null;
-  signOut: () => Promise<void>;
+  user: any | null;
   loading: boolean;
+  signIn: (email: string, password: string) => Promise<{ error: any } | undefined>;
+  signOut: () => Promise<void>;
+  signUp: (email: string, password: string) => Promise<{ error: any } | undefined>;
 }
 
 const AuthContext = createContext<AuthContextType>({
   user: null,
-  session: null,
+  loading: true,
+  signIn: async () => undefined,
   signOut: async () => {},
-  loading: true
+  signUp: async () => undefined
 });
 
 export const useAuth = () => useContext(AuthContext);
 
 export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
-  const [user, setUser] = useState<User & { displayName?: string; avatarUrl?: string } | null>(null);
-  const [session, setSession] = useState<Session | null>(null);
+  const [user, setUser] = useState<any | null>(null);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    // Set up auth state listener FIRST
-    const { data: { subscription } } = supabase.auth.onAuthStateChange(
-      (event, session) => {
-        // Only synchronous state updates here
-        setSession(session);
-        if (session?.user) {
-          // Enhance user with profile data
-          setUser({
-            ...session.user,
-            displayName: session.user.user_metadata?.full_name || session.user.email,
-            avatarUrl: session.user.user_metadata?.avatar_url || null
-          });
-        } else {
-          setUser(null);
-        }
-      }
-    );
+    // Check active sessions and sets the user
+    const getSession = async () => {
+      const { data: { session } } = await supabase.auth.getSession();
+      setUser(session?.user ?? null);
+      setLoading(false);
+    };
 
-    // THEN check for existing session
-    supabase.auth.getSession().then(({ data: { session } }) => {
-      setSession(session);
-      if (session?.user) {
-        setUser({
-          ...session.user,
-          displayName: session.user.user_metadata?.full_name || session.user.email,
-          avatarUrl: session.user.user_metadata?.avatar_url || null
-        });
-      }
+    getSession();
+
+    // Listen for changes on auth state
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
+      setUser(session?.user ?? null);
       setLoading(false);
     });
 
     return () => subscription.unsubscribe();
   }, []);
 
+  // Method to sign in
+  const signIn = async (email: string, password: string) => {
+    try {
+      const { error } = await supabase.auth.signInWithPassword({ email, password });
+      return { error };
+    } catch (error) {
+      return { error };
+    }
+  };
+
+  // Method to sign up
+  const signUp = async (email: string, password: string) => {
+    try {
+      const { error } = await supabase.auth.signUp({ email, password });
+      return { error };
+    } catch (error) {
+      return { error };
+    }
+  };
+
+  // Method to sign out
   const signOut = async () => {
     await supabase.auth.signOut();
   };
 
-  return (
-    <AuthContext.Provider value={{ user, session, signOut, loading }}>
-      {children}
-    </AuthContext.Provider>
-  );
+  const value = {
+    user,
+    loading,
+    signIn,
+    signOut,
+    signUp
+  };
+
+  return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
 };

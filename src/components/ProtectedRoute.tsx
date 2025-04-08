@@ -8,16 +8,16 @@ interface ProtectedRouteProps {
 }
 
 const ProtectedRoute: React.FC<ProtectedRouteProps> = ({ children }) => {
-  const { user, isLoading } = useAuth();
-  
-  if (isLoading) {
-    return <div className="h-screen flex items-center justify-center">Loading...</div>;
+  const { user, loading: authLoading } = useAuth();
+
+  if (authLoading) {
+    return <div>Loading...</div>;
   }
-  
+
   if (!user) {
     return <Navigate to="/auth" />;
   }
-  
+
   return <>{children}</>;
 };
 

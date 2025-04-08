@@ -1,6 +1,6 @@
 
 import React from 'react';
-import { ThemeProvider } from "@/components/theme-provider";
+import { ThemeProvider } from "./components/ThemeProvider";
 import { Toaster } from "@/components/ui/toaster";
 import { Routes, Route } from 'react-router-dom';
 import { AuthProvider } from '@/context/AuthContext';
