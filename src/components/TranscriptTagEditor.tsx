@@ -43,9 +43,13 @@ const TranscriptTagEditor: React.FC<TranscriptTagEditorProps> = ({
     try {
       setIsSaving(true);
       
+      // We need to update the schema to match what we're sending
+      // Use jsonb_set or update the column in the database
       const { error } = await supabase
         .from('transcripts')
-        .update({ tags })
+        .update({ 
+          tags: tags.length > 0 ? tags : null 
+        })
         .eq('id', transcriptId);
       
       if (error) throw error;

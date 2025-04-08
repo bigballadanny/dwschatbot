@@ -10,7 +10,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { useAuth } from '@/context/AuthContext';
 import { supabase } from '@/integrations/supabase/client';
 import Header from '@/components/Header';
-import { FileText, Upload, Tag, Loader2, X, Info, AlertTriangle, Edit, Tags } from 'lucide-react';
+import { FileText, Upload, Tag as TagIcon, Loader2, X, Info, AlertTriangle, Edit, Tags } from 'lucide-react';
 import { detectSourceCategory, formatTagForDisplay } from '@/utils/transcriptUtils';
 import { Progress } from "@/components/ui/progress";
 import { Sheet, SheetContent, SheetDescription, SheetFooter, SheetHeader, SheetTitle, SheetTrigger } from "@/components/ui/sheet";
@@ -23,7 +23,7 @@ import TranscriptDiagnostics from "@/components/TranscriptDiagnostics";
 import { TagsInput } from "@/components/TagsInput";
 import TranscriptTagEditor from "@/components/TranscriptTagEditor";
 import TagFilter from "@/components/TagFilter";
-import { showSuccess, showError, showTagAction } from "@/utils/toastUtils";
+import { showSuccess, showError, showWarning } from "@/utils/toastUtils";
 
 interface Transcript {
   id: string;
@@ -33,6 +33,9 @@ interface Transcript {
   file_path?: string;
   source?: string;
   tags?: string[];
+  is_processed?: boolean;
+  updated_at?: string;
+  user_id?: string;
 }
 
 const TranscriptsPage: React.FC = () => {

@@ -1,6 +1,6 @@
 
 import React, { useState } from 'react';
-import { Check, Filter, Tag as TagIcon } from 'lucide-react';
+import { Check, Filter, Tag as TagIcon, X } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import {
   DropdownMenu,
