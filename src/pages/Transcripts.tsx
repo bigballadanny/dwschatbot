@@ -149,7 +149,7 @@ const TranscriptsPage: React.FC = () => {
         return;
       }
 
-      const publicURL = `${process.env.NEXT_PUBLIC_SUPABASE_URL}/storage/v1/object/public/${data.Key}`;
+      const publicURL = `${process.env.NEXT_PUBLIC_SUPABASE_URL}/storage/v1/object/public/transcripts/${filePath}`;
       
       createTranscript(selectedFile.name, '', filePath, publicURL);
     } catch (error: any) {

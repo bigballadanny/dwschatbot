@@ -1,5 +1,5 @@
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Check, Filter, Tag as TagIcon, X } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import {
@@ -15,31 +15,76 @@ import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
 import { formatTagForDisplay } from '@/utils/transcriptUtils';
 import { ScrollArea } from '@/components/ui/scroll-area';
+import { supabase } from '@/integrations/supabase/client';
 
 interface TagFilterProps {
-  tags: string[];
-  selectedTags: string[];
-  onTagsChange: (tags: string[]) => void;
+  onTagAdded?: (tag: string) => void;
+  onTagRemoved?: (tag: string) => void;
 }
 
-const TagFilter: React.FC<TagFilterProps> = ({ tags, selectedTags, onTagsChange }) => {
+const TagFilter: React.FC<TagFilterProps> = ({ onTagAdded, onTagRemoved }) => {
   const [searchValue, setSearchValue] = useState('');
   const [open, setOpen] = useState(false);
+  const [allTags, setAllTags] = useState<string[]>([]);
+  const [selectedTags, setSelectedTags] = useState<string[]>([]);
+
+  // Fetch all unique tags from transcripts
+  useEffect(() => {
+    const fetchTags = async () => {
+      try {
+        const { data, error } = await supabase
+          .from('transcripts')
+          .select('tags');
+
+        if (error) {
+          console.error('Error fetching tags:', error);
+          return;
+        }
+
+        if (data) {
+          // Extract and flatten all tags from transcripts
+          const uniqueTags = Array.from(
+            new Set(
+              data
+                .filter(item => item.tags && Array.isArray(item.tags))
+                .flatMap(item => item.tags || [])
+            )
+          );
+          setAllTags(uniqueTags);
+        }
+      } catch (error) {
+        console.error('Error fetching tags:', error);
+      }
+    };
+
+    fetchTags();
+  }, []);
 
   const filteredTags = searchValue
-    ? tags.filter(tag => formatTagForDisplay(tag).toLowerCase().includes(searchValue.toLowerCase()))
-    : tags;
+    ? allTags.filter(tag => formatTagForDisplay(tag).toLowerCase().includes(searchValue.toLowerCase()))
+    : allTags;
 
   const handleTagToggle = (tag: string) => {
     if (selectedTags.includes(tag)) {
-      onTagsChange(selectedTags.filter(t => t !== tag));
+      setSelectedTags(selectedTags.filter(t => t !== tag));
+      if (onTagRemoved) {
+        onTagRemoved(tag);
+      }
     } else {
-      onTagsChange([...selectedTags, tag]);
+      setSelectedTags([...selectedTags, tag]);
+      if (onTagAdded) {
+        onTagAdded(tag);
+      }
     }
   };
 
   const clearFilters = () => {
-    onTagsChange([]);
+    selectedTags.forEach(tag => {
+      if (onTagRemoved) {
+        onTagRemoved(tag);
+      }
+    });
+    setSelectedTags([]);
     setOpen(false);
   };
 
