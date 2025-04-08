@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect, useRef } from 'react';
 import { useToast } from "@/hooks/use-toast";
 import { Button } from "@/components/ui/button";
@@ -344,8 +343,13 @@ const TranscriptsPage: React.FC = () => {
 
   return (
     <div className="container mx-auto py-6">
-      <Header title="Transcripts" subtitle="Manage and view your transcripts" />
-
+      <Header>
+        <h2 className="text-3xl font-bold tracking-tight">Transcripts</h2>
+        <p className="text-muted-foreground">
+          Manage and view your transcripts
+        </p>
+      </Header>
+      
       <div className="grid gap-6 mt-6">
         <Card>
           <CardContent className="p-6">

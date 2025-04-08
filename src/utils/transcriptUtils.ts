@@ -1,3 +1,4 @@
+
 import { Tables } from '../integrations/supabase/types';
 
 export type Transcript = {
@@ -208,6 +209,21 @@ export function getCommonTagSuggestions() {
     { id: 'case-study', label: 'Case Study' },
     { id: 'roi', label: 'ROI' },
     { id: 'marketing', label: 'Marketing' }
+  ];
+}
+
+export function getSourceCategories() {
+  return [
+    { id: 'protege_call', label: 'Protege Call' },
+    { id: 'foundations_call', label: 'Foundations Call' },
+    { id: 'mastermind_call', label: 'Mastermind Call' },
+    { id: 'rlgl_call', label: 'RLGL Call' },
+    { id: 'finance_call', label: 'Finance Call' },
+    { id: 'business_acquisitions_summit', label: '2024 Business Acquisitions Summit' },
+    { id: 'business_acquisitions_summit_2025', label: '2025 Business Acquisitions Summit' },
+    { id: 'reference_material', label: 'Reference Material' },
+    { id: 'educational_material', label: 'Educational Material' },
+    { id: 'other', label: 'Other' }
   ];
 }
 
