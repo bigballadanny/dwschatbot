@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from 'react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription, CardFooter } from '@/components/ui/card';
@@ -15,7 +14,8 @@ import {
   Play,
   Pause,
   Sparkles,
-  Settings
+  Settings,
+  FileText
 } from 'lucide-react';
 import { 
   Dialog, 
@@ -25,8 +25,9 @@ import {
   DialogDescription,
   DialogFooter
 } from '@/components/ui/dialog';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue, SelectGroup, SelectLabel } from '@/components/ui/select';
 import { supabase } from '@/integrations/supabase/client';
-import { formatTagForDisplay, suggestTagsFromContent, detectSourceCategory } from '@/utils/transcriptUtils';
+import { formatTagForDisplay, suggestTagsFromContent, detectSourceCategory, getSourceCategories } from '@/utils/transcriptUtils';
 import { showSuccess, showError, showWarning } from '@/utils/toastUtils';
 
 interface BulkTagProcessorProps {
@@ -53,6 +54,8 @@ const BulkTagProcessor: React.FC<BulkTagProcessorProps> = ({ open, onClose, onCo
   const [enableAutoTagging, setEnableAutoTagging] = useState(false);
   const [enableCategorizing, setEnableCategorizing] = useState(true);
   const [settingsOpen, setSettingsOpen] = useState(false);
+  const [defaultSourceCategory, setDefaultSourceCategory] = useState<string>('');
+  const [useDefaultSource, setUseDefaultSource] = useState(false);
 
   useEffect(() => {
     if (open) {
@@ -93,8 +96,8 @@ const BulkTagProcessor: React.FC<BulkTagProcessorProps> = ({ open, onClose, onCo
       return;
     }
     
-    if (!enableAutoTagging && !enableCategorizing) {
-      showWarning("No actions selected", "Please enable at least one action (auto-tagging or categorizing) before processing.");
+    if (!enableAutoTagging && !enableCategorizing && !useDefaultSource) {
+      showWarning("No actions selected", "Please enable at least one action (auto-tagging, categorizing, or default source) before processing.");
       return;
     }
     
@@ -138,21 +141,33 @@ const BulkTagProcessor: React.FC<BulkTagProcessorProps> = ({ open, onClose, onCo
       const updates: Record<string, any> = {};
       
       // Process source categorization if enabled
-      if (enableCategorizing) {
+      if (enableCategorizing || useDefaultSource) {
         const currentSource = transcript.source;
-        const detectedSource = detectSourceCategory(transcript.title, transcript.content);
         
-        // Only update source if needed
-        if (
-          (!currentSource || 
-          currentSource === 'other' || 
-          (detectedSource === 'business_acquisitions_summit' && currentSource !== 'business_acquisitions_summit') ||
-          (detectedSource === 'foundations_call' && currentSource === 'protege_call'))
-        ) {
-          updates.source = detectedSource;
+        // Apply default source if enabled and a default is selected
+        if (useDefaultSource && defaultSourceCategory) {
+          updates.source = defaultSourceCategory;
           wasUpdated = true;
-          addLog(`Updated source category to: ${detectedSource}`);
+          addLog(`Applied default source category: ${defaultSourceCategory}`);
           setResults(prev => ({ ...prev, categorized: prev.categorized + 1 }));
+        } 
+        // Otherwise use automatic detection if categorizing is enabled
+        else if (enableCategorizing) {
+          const detectedSource = detectSourceCategory(transcript.title, transcript.content);
+          
+          // Only update source if needed
+          if (
+            (!currentSource || 
+            currentSource === 'other' || 
+            (detectedSource === 'business_acquisitions_summit' && currentSource !== 'business_acquisitions_summit') ||
+            (detectedSource === 'foundations_call' && currentSource === 'protege_call') ||
+            (detectedSource === 'business_acquisitions_summit_2025' && currentSource !== 'business_acquisitions_summit_2025'))
+          ) {
+            updates.source = detectedSource;
+            wasUpdated = true;
+            addLog(`Auto-detected source category: ${detectedSource}`);
+            setResults(prev => ({ ...prev, categorized: prev.categorized + 1 }));
+          }
         }
       }
       
@@ -250,12 +265,13 @@ const BulkTagProcessor: React.FC<BulkTagProcessorProps> = ({ open, onClose, onCo
                 <AlertTitle>Found {transcripts.length} transcripts</AlertTitle>
                 <AlertDescription>
                   Ready to process {transcripts.length} transcripts 
-                  {enableCategorizing && enableAutoTagging 
-                    ? ' for tag detection and categorization'
-                    : enableCategorizing 
-                      ? ' for categorization only'
-                      : ' for tag detection only'
-                  }
+                  {[enableCategorizing && !useDefaultSource, enableAutoTagging, useDefaultSource].filter(Boolean).length > 0 
+                    ? ' for ' + [
+                        enableAutoTagging ? 'tag detection' : '',
+                        enableCategorizing && !useDefaultSource ? 'auto-categorization' : '',
+                        useDefaultSource ? 'default source assignment' : ''
+                      ].filter(Boolean).join(', ')
+                    : ''}
                 </AlertDescription>
               </Alert>
             )}
@@ -277,7 +293,7 @@ const BulkTagProcessor: React.FC<BulkTagProcessorProps> = ({ open, onClose, onCo
                       <p className="text-lg">{results.tagged}</p>
                     </div>
                   )}
-                  {enableCategorizing && (
+                  {(enableCategorizing || useDefaultSource) && (
                     <div className="bg-muted rounded-md p-2 text-center">
                       <p className="text-sm font-medium">Categorized</p>
                       <p className="text-lg">{results.categorized}</p>
@@ -316,8 +332,11 @@ const BulkTagProcessor: React.FC<BulkTagProcessorProps> = ({ open, onClose, onCo
                   Selected operations:
                 </p>
                 <ul className="text-sm list-disc pl-6 space-y-1 text-left">
-                  {enableCategorizing && (
-                    <li>Categorize transcripts by type (Protege, Foundations, Business Summit, etc.)</li>
+                  {useDefaultSource && (
+                    <li>Apply a default source category to all transcripts</li>
+                  )}
+                  {enableCategorizing && !useDefaultSource && (
+                    <li>Auto-categorize transcripts by type (Protege, Foundations, Business Summit, etc.)</li>
                   )}
                   {enableAutoTagging && (
                     <li>Detect and add relevant tags based on content (uses AI resources)</li>
@@ -348,7 +367,7 @@ const BulkTagProcessor: React.FC<BulkTagProcessorProps> = ({ open, onClose, onCo
                       <p className="text-lg">{results.tagged}</p>
                     </div>
                   )}
-                  {enableCategorizing && (
+                  {(enableCategorizing || useDefaultSource) && (
                     <div className="bg-muted rounded-md p-2 text-center">
                       <p className="text-sm font-medium">Categorized</p>
                       <p className="text-lg">{results.categorized}</p>
@@ -447,17 +466,69 @@ const BulkTagProcessor: React.FC<BulkTagProcessorProps> = ({ open, onClose, onCo
               </label>
             </div>
             
+            <div className="space-y-4">
+              <div className="flex items-center space-x-2">
+                <Checkbox 
+                  id="use-default-source"
+                  checked={useDefaultSource}
+                  onCheckedChange={(checked) => {
+                    const isChecked = checked === true;
+                    setUseDefaultSource(isChecked);
+                    
+                    // If enabling default source, disable auto categorization
+                    if (isChecked) {
+                      setEnableCategorizing(false);
+                    }
+                  }}
+                />
+                <label 
+                  htmlFor="use-default-source" 
+                  className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70"
+                >
+                  Apply default source category to all transcripts
+                </label>
+              </div>
+              
+              {useDefaultSource && (
+                <div className="pl-6">
+                  <div className="grid gap-2">
+                    <Label htmlFor="default-source" className="text-sm">Default Source:</Label>
+                    <Select 
+                      value={defaultSourceCategory} 
+                      onValueChange={setDefaultSourceCategory}
+                    >
+                      <SelectTrigger>
+                        <SelectValue placeholder="Select a source category" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectGroup>
+                          <SelectLabel>Source Categories</SelectLabel>
+                          {getSourceCategories().map(category => (
+                            <SelectItem key={category.id} value={category.id}>
+                              {category.label}
+                            </SelectItem>
+                          ))}
+                        </SelectGroup>
+                      </SelectContent>
+                    </Select>
+                  </div>
+                </div>
+              )}
+            </div>
+
             <div className="flex items-center space-x-2">
               <Checkbox 
                 id="enable-categorizing"
                 checked={enableCategorizing}
+                disabled={useDefaultSource}
                 onCheckedChange={(checked) => setEnableCategorizing(checked === true)}
               />
               <label 
                 htmlFor="enable-categorizing" 
-                className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70"
+                className={`text-sm font-medium leading-none peer-disabled:cursor-not-allowed ${useDefaultSource ? 'text-gray-400' : ''}`}
               >
-                Enable transcript categorization
+                Enable auto-categorization
+                {useDefaultSource && " (disabled when using default source)"}
               </label>
             </div>
 
