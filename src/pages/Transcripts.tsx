@@ -608,8 +608,8 @@ const TranscriptsPage: React.FC = () => {
                       </p>
                     </div>
                     
-                    <Alert variant="default" className="bg-amber-50 border-amber-200 text-amber-800">
-                      <Info className="h-4 w-4 text-amber-800" />
+                    <Alert variant="default" className="bg-primary/10 border-primary/20 text-primary">
+                      <Info className="h-4 w-4 text-primary" />
                       <AlertTitle>File Upload</AlertTitle>
                       <AlertDescription className="text-xs">
                         Upload one or multiple files. Each file will create a separate transcript.
