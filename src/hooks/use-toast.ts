@@ -7,7 +7,7 @@ import type {
 } from "@/components/ui/toast"
 
 const TOAST_LIMIT = 5
-const TOAST_REMOVE_DELAY = 1000000
+const TOAST_REMOVE_DELAY = 5000 
 
 type ToasterToast = ToastProps & {
   id: string
@@ -57,7 +57,7 @@ interface State {
 
 const toastTimeouts = new Map<string, ReturnType<typeof setTimeout>>()
 
-const addToRemoveQueue = (toastId: string, duration: number = 5000) => {
+const addToRemoveQueue = (toastId: string, duration: number = TOAST_REMOVE_DELAY) => {
   if (toastTimeouts.has(toastId)) {
     clearTimeout(toastTimeouts.get(toastId))
   }
@@ -163,7 +163,7 @@ function toast({ ...props }: Toast) {
 
   // Auto-dismiss based on duration
   if (props.duration !== Infinity) {
-    addToRemoveQueue(id, props.duration || 5000)
+    addToRemoveQueue(id, props.duration || TOAST_REMOVE_DELAY)
   }
 
   return {

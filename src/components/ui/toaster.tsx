@@ -29,7 +29,7 @@ export function Toaster() {
         }
 
         return (
-          <Toast key={id} {...props} variant={variant} className="group">
+          <Toast key={id} {...props} variant={variant} className="group backdrop-blur-sm">
             <div className="flex gap-3">
               {Icon && <Icon className="h-5 w-5" />}
               <div className="grid gap-1 flex-1">

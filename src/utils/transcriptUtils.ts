@@ -1,3 +1,4 @@
+
 import { Tables } from '../integrations/supabase/types';
 
 export type Transcript = {
@@ -9,6 +10,7 @@ export type Transcript = {
   file_path?: string;
   file_type?: string;
   relevanceScore?: number;
+  tags?: string[];
 };
 
 export function getTranscriptCounts(transcripts: Transcript[]) {
@@ -49,7 +51,8 @@ export function getTranscriptSummaries(transcripts: Transcript[]) {
     title: transcript.title,
     source: transcript.source,
     created_at: transcript.created_at,
-    content_length: transcript.content?.length || 0
+    content_length: transcript.content?.length || 0,
+    tags: transcript.tags || []
   }));
 }
 
@@ -160,6 +163,56 @@ export function generateFileIcon(fileType: string) {
   }
 }
 
+// New function to get common tag suggestions
+export function getCommonTagSuggestions() {
+  return [
+    { id: 'deal-sourcing', label: 'Deal Sourcing' },
+    { id: 'valuation', label: 'Valuation' },
+    { id: 'due-diligence', label: 'Due Diligence' },
+    { id: 'negotiation', label: 'Negotiation' },
+    { id: 'financing', label: 'Financing' },
+    { id: 'sba-loans', label: 'SBA Loans' },
+    { id: 'closing', label: 'Closing' },
+    { id: 'seller-financing', label: 'Seller Financing' },
+    { id: 'business-planning', label: 'Business Planning' },
+    { id: 'legal', label: 'Legal' },
+    { id: 'tax', label: 'Tax' },
+    { id: 'mindset', label: 'Mindset' },
+    { id: 'case-study', label: 'Case Study' },
+    { id: 'roi', label: 'ROI' },
+    { id: 'marketing', label: 'Marketing' }
+  ];
+}
+
+// Function to search tags by text
+export function searchTagsByText(query: string, tags: string[]) {
+  if (!query || !tags || tags.length === 0) {
+    return tags;
+  }
+  
+  const normalizedQuery = query.toLowerCase().trim();
+  return tags.filter(tag => tag.toLowerCase().includes(normalizedQuery));
+}
+
+// Function to format tags for display
+export function formatTagForDisplay(tag: string): string {
+  // Convert kebab-case to Title Case
+  return tag
+    .split('-')
+    .map(word => word.charAt(0).toUpperCase() + word.slice(1))
+    .join(' ');
+}
+
+// Function to format tag for storage
+export function formatTagForStorage(tag: string): string {
+  // Convert to lowercase kebab-case
+  return tag
+    .toLowerCase()
+    .replace(/\s+/g, '-')
+    .replace(/[^a-z0-9-]/g, '');
+}
+
+// Rest of existing functions...
 export function searchTranscriptsForQuery(query: string, transcripts: Transcript[]) {
   if (!query || !transcripts || transcripts.length === 0) {
     return null;

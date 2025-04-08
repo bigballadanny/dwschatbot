@@ -67,6 +67,37 @@ export const showInfo = (title: string, description?: string, duration: number =
 };
 
 /**
+ * Show a tag management notification
+ * @param action - The action performed (added, updated, deleted)
+ * @param tagName - The name of the tag
+ */
+export const showTagAction = (action: 'added' | 'updated' | 'deleted', tagName: string) => {
+  switch (action) {
+    case 'added':
+      success({
+        title: 'Tag Added',
+        description: `Tag "${tagName}" has been added successfully.`,
+        duration: 3000,
+      });
+      break;
+    case 'updated':
+      info({
+        title: 'Tag Updated',
+        description: `Tag "${tagName}" has been updated successfully.`,
+        duration: 3000,
+      });
+      break;
+    case 'deleted':
+      info({
+        title: 'Tag Removed',
+        description: `Tag "${tagName}" has been removed.`,
+        duration: 3000,
+      });
+      break;
+  }
+};
+
+/**
  * Show an upload progress notification
  * @param title - The title of the toast
  * @param progress - Progress percentage (0-100)

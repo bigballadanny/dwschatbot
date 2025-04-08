@@ -1,5 +1,6 @@
+
 import React, { useState, useEffect, useRef } from 'react';
-import { useToast } from "@/components/ui/use-toast";
+import { useToast } from "@/hooks/use-toast";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -9,8 +10,8 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { useAuth } from '@/context/AuthContext';
 import { supabase } from '@/integrations/supabase/client';
 import Header from '@/components/Header';
-import { FileText, Upload, Tag, Loader2, X, Info, AlertTriangle } from 'lucide-react';
-import { detectSourceCategory } from '@/utils/transcriptUtils';
+import { FileText, Upload, Tag, Loader2, X, Info, AlertTriangle, Edit, Tags } from 'lucide-react';
+import { detectSourceCategory, formatTagForDisplay } from '@/utils/transcriptUtils';
 import { Progress } from "@/components/ui/progress";
 import { Sheet, SheetContent, SheetDescription, SheetFooter, SheetHeader, SheetTitle, SheetTrigger } from "@/components/ui/sheet";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogClose } from "@/components/ui/dialog";
@@ -19,6 +20,10 @@ import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import TranscriptDiagnostics from "@/components/TranscriptDiagnostics";
+import { TagsInput } from "@/components/TagsInput";
+import TranscriptTagEditor from "@/components/TranscriptTagEditor";
+import TagFilter from "@/components/TagFilter";
+import { showSuccess, showError, showTagAction } from "@/utils/toastUtils";
 
 interface Transcript {
   id: string;
@@ -27,6 +32,7 @@ interface Transcript {
   created_at: string;
   file_path?: string;
   source?: string;
+  tags?: string[];
 }
 
 const TranscriptsPage: React.FC = () => {
@@ -63,6 +69,13 @@ const TranscriptsPage: React.FC = () => {
   const [summitUploadResults, setSummitUploadResults] = useState<{success: number, failed: number}>({success: 0, failed: 0});
   const [summitFailedFiles, setSummitFailedFiles] = useState<string[]>([]);
   const [showDiagnostics, setShowDiagnostics] = useState(false);
+  const [tags, setTags] = useState<string[]>([]);
+  const [summitTags, setSummitTags] = useState<string[]>([]);
+  const [showTagEditor, setShowTagEditor] = useState(false);
+  const [transcriptToEdit, setTranscriptToEdit] = useState<string | null>(null);
+  const [tagsToEdit, setTagsToEdit] = useState<string[]>([]);
+  const [allTags, setAllTags] = useState<string[]>([]);
+  const [filterTags, setFilterTags] = useState<string[]>([]);
 
   useEffect(() => {
     const fetchTranscripts = async () => {
@@ -75,30 +88,32 @@ const TranscriptsPage: React.FC = () => {
         if (error) throw error;
         
         setTranscripts(data || []);
+        
+        // Collect unique tags
+        const uniqueTags = new Set<string>();
+        data?.forEach(transcript => {
+          if (transcript.tags && Array.isArray(transcript.tags)) {
+            transcript.tags.forEach(tag => uniqueTags.add(tag));
+          }
+        });
+        
+        setAllTags(Array.from(uniqueTags));
       } catch (error: any) {
         console.error('Error fetching transcripts:', error);
-        toast({
-          title: 'Error fetching transcripts',
-          description: error.message,
-          variant: 'destructive',
-        });
+        showError('Error fetching transcripts', error.message);
       } finally {
         setLoading(false);
       }
     };
     
     fetchTranscripts();
-  }, [toast]);
+  }, []);
 
   const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0] || null;
     if (file) {
       if (!file.type.includes('text/plain')) {
-        toast({
-          title: 'Invalid file type',
-          description: 'Please select a TXT file',
-          variant: 'destructive',
-        });
+        showError('Invalid file type', 'Please select a TXT file');
         if (fileInputRef.current) {
           fileInputRef.current.value = '';
         }
@@ -121,17 +136,10 @@ const TranscriptsPage: React.FC = () => {
           setSource('foundations_call');
         }
         
-        toast({
-          title: 'Text file loaded',
-          description: `File "${fileName}" successfully loaded`,
-        });
+        showSuccess('Text file loaded', `File "${fileName}" successfully loaded`);
       } catch (error) {
         console.error('Error reading text file:', error);
-        toast({
-          title: 'Error reading file',
-          description: 'Could not read the file contents',
-          variant: 'destructive',
-        });
+        showError('Error reading file', 'Could not read the file contents');
       }
     }
   };
@@ -140,11 +148,7 @@ const TranscriptsPage: React.FC = () => {
     const file = e.target.files?.[0] || null;
     if (file) {
       if (!file.type.includes('text/plain')) {
-        toast({
-          title: 'Invalid file type',
-          description: 'Please select a TXT file',
-          variant: 'destructive',
-        });
+        showError('Invalid file type', 'Please select a TXT file');
         if (summitFileInputRef.current) {
           summitFileInputRef.current.value = '';
         }
@@ -160,17 +164,10 @@ const TranscriptsPage: React.FC = () => {
         const fileName = file.name.replace(/\.txt$/, '');
         setSummitTitle(fileName);
         
-        toast({
-          title: 'Text file loaded',
-          description: `File "${fileName}" successfully loaded`,
-        });
+        showSuccess('Text file loaded', `File "${fileName}" successfully loaded`);
       } catch (error) {
         console.error('Error reading text file:', error);
-        toast({
-          title: 'Error reading file',
-          description: 'Could not read the file contents',
-          variant: 'destructive',
-        });
+        showError('Error reading file', 'Could not read the file contents');
       }
     }
   };
@@ -182,11 +179,7 @@ const TranscriptsPage: React.FC = () => {
     const fileArray = Array.from(files).filter(file => file.type.includes('text/plain'));
     
     if (fileArray.length === 0) {
-      toast({
-        title: 'Invalid file type',
-        description: 'Please select TXT files only',
-        variant: 'destructive',
-      });
+      showError('Invalid file type', 'Please select TXT files only');
       if (multiFileInputRef.current) {
         multiFileInputRef.current.value = '';
       }
@@ -194,18 +187,12 @@ const TranscriptsPage: React.FC = () => {
     }
     
     if (fileArray.length < files.length) {
-      toast({
-        title: 'Some files skipped',
-        description: `${files.length - fileArray.length} non-TXT files were skipped`,
-      });
+      showWarning('Some files skipped', `${files.length - fileArray.length} non-TXT files were skipped`);
     }
     
     setSelectedFiles(fileArray);
     
-    toast({
-      title: 'Files selected',
-      description: `${fileArray.length} files ready for upload`,
-    });
+    showSuccess('Files selected', `${fileArray.length} files ready for upload`);
   };
 
   const handleSummitMultipleFilesChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -215,11 +202,7 @@ const TranscriptsPage: React.FC = () => {
     const fileArray = Array.from(files).filter(file => file.type.includes('text/plain'));
     
     if (fileArray.length === 0) {
-      toast({
-        title: 'Invalid file type',
-        description: 'Please select TXT files only',
-        variant: 'destructive',
-      });
+      showError('Invalid file type', 'Please select TXT files only');
       if (summitMultiFileInputRef.current) {
         summitMultiFileInputRef.current.value = '';
       }
@@ -227,18 +210,12 @@ const TranscriptsPage: React.FC = () => {
     }
     
     if (fileArray.length < files.length) {
-      toast({
-        title: 'Some files skipped',
-        description: `${files.length - fileArray.length} non-TXT files were skipped`,
-      });
+      showWarning('Some files skipped', `${files.length - fileArray.length} non-TXT files were skipped`);
     }
     
     setSummitSelectedFiles(fileArray);
     
-    toast({
-      title: 'Files selected',
-      description: `${fileArray.length} files ready for upload`,
-    });
+    showSuccess('Files selected', `${fileArray.length} files ready for upload`);
   };
 
   const uploadFile = async (file: File) => {
@@ -266,20 +243,12 @@ const TranscriptsPage: React.FC = () => {
     e.preventDefault();
     
     if (!title.trim()) {
-      toast({
-        title: 'Missing information',
-        description: 'Please provide a title for the transcript',
-        variant: 'destructive',
-      });
+      showError('Missing information', 'Please provide a title for the transcript');
       return;
     }
     
     if (!content.trim() && !selectedFile) {
-      toast({
-        title: 'Missing information',
-        description: 'Please provide either content or upload a file',
-        variant: 'destructive',
-      });
+      showError('Missing information', 'Please provide either content or upload a file');
       return;
     }
     
@@ -302,6 +271,7 @@ const TranscriptsPage: React.FC = () => {
             content: finalContent,
             file_path: filePath,
             source: source,
+            tags: tags.length > 0 ? tags : null,
             user_id: user?.id 
           }
         ])
@@ -311,6 +281,7 @@ const TranscriptsPage: React.FC = () => {
       
       setTitle('');
       setContent('');
+      setTags([]);
       setSelectedFile(null);
       if (fileInputRef.current) {
         fileInputRef.current.value = '';
@@ -318,19 +289,21 @@ const TranscriptsPage: React.FC = () => {
       
       if (data) {
         setTranscripts([data[0], ...transcripts]);
+        
+        // Update all tags
+        if (tags.length > 0) {
+          setAllTags(prevTags => {
+            const uniqueTags = new Set([...prevTags]);
+            tags.forEach(tag => uniqueTags.add(tag));
+            return Array.from(uniqueTags);
+          });
+        }
       }
       
-      toast({
-        title: 'Transcript saved',
-        description: `Your transcript has been successfully saved.`,
-      });
+      showSuccess('Transcript saved', `Your transcript has been successfully saved.`);
     } catch (error: any) {
       console.error('Error saving transcript:', error);
-      toast({
-        title: 'Error saving transcript',
-        description: error.message,
-        variant: 'destructive',
-      });
+      showError('Error saving transcript', error.message);
     } finally {
       setUploading(false);
     }
@@ -340,20 +313,12 @@ const TranscriptsPage: React.FC = () => {
     e.preventDefault();
     
     if (!summitTitle.trim()) {
-      toast({
-        title: 'Missing information',
-        description: 'Please provide a title for the transcript',
-        variant: 'destructive',
-      });
+      showError('Missing information', 'Please provide a title for the transcript');
       return;
     }
     
     if (!summitContent.trim() && !summitSelectedFile) {
-      toast({
-        title: 'Missing information',
-        description: 'Please provide either content or upload a file',
-        variant: 'destructive',
-      });
+      showError('Missing information', 'Please provide either content or upload a file');
       return;
     }
     
@@ -376,6 +341,7 @@ const TranscriptsPage: React.FC = () => {
             content: finalContent,
             file_path: filePath,
             source: 'business_acquisitions_summit',
+            tags: summitTags.length > 0 ? summitTags : null,
             user_id: user?.id 
           }
         ])
@@ -385,6 +351,7 @@ const TranscriptsPage: React.FC = () => {
       
       setSummitTitle('');
       setSummitContent('');
+      setSummitTags([]);
       setSummitSelectedFile(null);
       if (summitFileInputRef.current) {
         summitFileInputRef.current.value = '';
@@ -392,19 +359,21 @@ const TranscriptsPage: React.FC = () => {
       
       if (data) {
         setTranscripts([data[0], ...transcripts]);
+        
+        // Update all tags
+        if (summitTags.length > 0) {
+          setAllTags(prevTags => {
+            const uniqueTags = new Set([...prevTags]);
+            summitTags.forEach(tag => uniqueTags.add(tag));
+            return Array.from(uniqueTags);
+          });
+        }
       }
       
-      toast({
-        title: 'Summit transcript saved',
-        description: `Your Business Acquisitions Summit transcript has been successfully saved.`,
-      });
+      showSuccess('Summit transcript saved', `Your Business Acquisitions Summit transcript has been successfully saved.`);
     } catch (error: any) {
       console.error('Error saving summit transcript:', error);
-      toast({
-        title: 'Error saving transcript',
-        description: error.message,
-        variant: 'destructive',
-      });
+      showError('Error saving transcript', error.message);
     } finally {
       setSummitUploading(false);
     }
@@ -412,11 +381,7 @@ const TranscriptsPage: React.FC = () => {
 
   const handleBatchUpload = async () => {
     if (selectedFiles.length === 0) {
-      toast({
-        title: 'No files selected',
-        description: 'Please select files to upload',
-        variant: 'destructive',
-      });
+      showError('No files selected', 'Please select files to upload');
       return;
     }
     
@@ -429,6 +394,7 @@ const TranscriptsPage: React.FC = () => {
     let successCount = 0;
     let failedCount = 0;
     const failedFilesList: string[] = [];
+    const newTagsSet = new Set<string>();
     
     for (let i = 0; i < totalFiles; i++) {
       const file = selectedFiles[i];
@@ -459,12 +425,17 @@ const TranscriptsPage: React.FC = () => {
               content: text,
               file_path: filePath,
               source: fileSource,
+              tags: tags.length > 0 ? tags : null,
               user_id: user?.id
             }]);
             
           if (insertError) {
             console.error(`Error inserting transcript for file ${file.name}:`, insertError);
             throw insertError;
+          }
+          
+          if (tags.length > 0) {
+            tags.forEach(tag => newTagsSet.add(tag));
           }
           
           successCount++;
@@ -492,6 +463,15 @@ const TranscriptsPage: React.FC = () => {
     setUploadResults({success: successCount, failed: failedCount});
     setFailedFiles(failedFilesList);
     
+    // Update all tags
+    if (newTagsSet.size > 0) {
+      setAllTags(prevTags => {
+        const uniqueTags = new Set([...prevTags]);
+        newTagsSet.forEach(tag => uniqueTags.add(tag));
+        return Array.from(uniqueTags);
+      });
+    }
+    
     try {
       const { data, error } = await supabase
         .from('transcripts')
@@ -509,21 +489,14 @@ const TranscriptsPage: React.FC = () => {
     }
     setSelectedFiles([]);
     
-    toast({
-      title: 'Batch upload completed',
-      description: `Successfully uploaded ${successCount} out of ${totalFiles} files`,
-    });
+    showSuccess('Batch upload completed', `Successfully uploaded ${successCount} out of ${totalFiles} files`);
     
     setProcessingFiles(false);
   };
 
   const handleSummitBatchUpload = async () => {
     if (summitSelectedFiles.length === 0) {
-      toast({
-        title: 'No files selected',
-        description: 'Please select files to upload',
-        variant: 'destructive',
-      });
+      showError('No files selected', 'Please select files to upload');
       return;
     }
     
@@ -536,6 +509,7 @@ const TranscriptsPage: React.FC = () => {
     let successCount = 0;
     let failedCount = 0;
     const failedFilesList: string[] = [];
+    const newTagsSet = new Set<string>();
     
     for (let i = 0; i < totalFiles; i++) {
       const file = summitSelectedFiles[i];
@@ -553,12 +527,17 @@ const TranscriptsPage: React.FC = () => {
             content: text,
             file_path: filePath,
             source: 'business_acquisitions_summit',
+            tags: summitTags.length > 0 ? summitTags : null,
             user_id: user?.id
           }]);
           
         if (error) {
           console.error(`Error inserting summit transcript for file ${file.name}:`, error);
           throw error;
+        }
+        
+        if (summitTags.length > 0) {
+          summitTags.forEach(tag => newTagsSet.add(tag));
         }
         
         successCount++;
@@ -572,6 +551,15 @@ const TranscriptsPage: React.FC = () => {
     setSummitUploadProgress(100);
     setSummitUploadResults({success: successCount, failed: failedCount});
     setSummitFailedFiles(failedFilesList);
+    
+    // Update all tags
+    if (newTagsSet.size > 0) {
+      setAllTags(prevTags => {
+        const uniqueTags = new Set([...prevTags]);
+        newTagsSet.forEach(tag => uniqueTags.add(tag));
+        return Array.from(uniqueTags);
+      });
+    }
     
     try {
       const { data, error } = await supabase
@@ -590,10 +578,7 @@ const TranscriptsPage: React.FC = () => {
     }
     setSummitSelectedFiles([]);
     
-    toast({
-      title: 'Summit batch upload completed',
-      description: `Successfully uploaded ${successCount} out of ${totalFiles} Business Acquisitions Summit files`,
-    });
+    showSuccess('Summit batch upload completed', `Successfully uploaded ${successCount} out of ${totalFiles} Business Acquisitions Summit files`);
     
     setSummitProcessingFiles(false);
   };
@@ -641,24 +626,48 @@ const TranscriptsPage: React.FC = () => {
         setShowTranscriptDialog(true);
       } catch (error: any) {
         console.error('Error fetching transcript file:', error);
-        toast({
-          title: 'Error loading transcript',
-          description: error.message,
-          variant: 'destructive',
-        });
+        showError('Error loading transcript', error.message);
       } finally {
         setIsLoadingTranscript(false);
       }
     }
   };
 
-  const activeFilterSource = filterSource === 'all' 
-    ? 'all' 
-    : filterSource;
+  const openTagEditor = (transcript: Transcript) => {
+    setTranscriptToEdit(transcript.id);
+    setTagsToEdit(transcript.tags || []);
+    setShowTagEditor(true);
+  };
+
+  const handleTagsUpdated = (transcriptId: string, updatedTags: string[]) => {
+    // Update the transcript in the local state
+    setTranscripts(prev => 
+      prev.map(t => 
+        t.id === transcriptId 
+          ? { ...t, tags: updatedTags } 
+          : t
+      )
+    );
     
-  const filteredTranscripts = activeFilterSource === 'all' 
-    ? transcripts 
-    : transcripts.filter(t => t.source === activeFilterSource);
+    // Update all tags
+    setAllTags(prevTags => {
+      const uniqueTags = new Set([...prevTags]);
+      updatedTags.forEach(tag => uniqueTags.add(tag));
+      return Array.from(uniqueTags);
+    });
+  };
+
+  // Filter by source and tags
+  const filteredTranscripts = transcripts.filter(t => {
+    // Source filter
+    const sourceMatch = filterSource === 'all' ? true : t.source === filterSource;
+    
+    // Tag filter
+    const tagMatch = filterTags.length === 0 ? true : 
+      t.tags && t.tags.some(tag => filterTags.includes(tag));
+      
+    return sourceMatch && tagMatch;
+  });
 
   const getSourceColor = (source: string | undefined): string => {
     switch(source) {
@@ -685,20 +694,50 @@ const TranscriptsPage: React.FC = () => {
       if (error) throw error;
       setTranscripts(data || []);
       
-      toast({
-        title: 'Transcripts refreshed',
-        description: `Successfully refreshed transcript list`,
+      // Collect unique tags
+      const uniqueTags = new Set<string>();
+      data?.forEach(transcript => {
+        if (transcript.tags && Array.isArray(transcript.tags)) {
+          transcript.tags.forEach(tag => uniqueTags.add(tag));
+        }
       });
+      
+      setAllTags(Array.from(uniqueTags));
+      
+      showSuccess('Transcripts refreshed', `Successfully refreshed transcript list`);
     } catch (error: any) {
       console.error('Error refreshing transcripts:', error);
-      toast({
-        title: 'Error refreshing transcripts',
-        description: error.message,
-        variant: 'destructive',
-      });
+      showError('Error refreshing transcripts', error.message);
     } finally {
       setLoading(false);
     }
+  };
+
+  const showSuccess = (title: string, description?: string) => {
+    toast({
+      title,
+      description,
+      variant: "success",
+      duration: 3000,
+    });
+  };
+
+  const showError = (title: string, description?: string) => {
+    toast({
+      title,
+      description,
+      variant: "destructive",
+      duration: 5000,
+    });
+  };
+
+  const showWarning = (title: string, description?: string) => {
+    toast({
+      title,
+      description,
+      variant: "warning",
+      duration: 4000,
+    });
   };
 
   return (
@@ -803,6 +842,20 @@ const TranscriptsPage: React.FC = () => {
                       </div>
                       
                       <div className="space-y-2">
+                        <Label htmlFor="tags">Tags</Label>
+                        <TagsInput
+                          value={tags}
+                          onChange={setTags}
+                          placeholder="Add tags..."
+                        />
+                        {tags.length > 0 && (
+                          <p className="text-xs text-muted-foreground">
+                            {tags.length} tag{tags.length !== 1 ? 's' : ''} added
+                          </p>
+                        )}
+                      </div>
+                      
+                      <div className="space-y-2">
                         <Label htmlFor="file">Upload Transcript (TXT only)</Label>
                         <div className="flex items-center gap-2">
                           <Input
@@ -855,6 +908,20 @@ const TranscriptsPage: React.FC = () => {
                     </CardDescription>
                   </CardHeader>
                   <CardContent className="space-y-4">
+                    <div className="space-y-2">
+                      <Label htmlFor="batchTags">Batch Tags (applied to all files)</Label>
+                      <TagsInput
+                        value={tags}
+                        onChange={setTags}
+                        placeholder="Add tags..."
+                      />
+                      {tags.length > 0 && (
+                        <p className="text-xs text-muted-foreground">
+                          These tags will be applied to all uploaded files
+                        </p>
+                      )}
+                    </div>
+                    
                     <div className="space-y-2">
                       <Label htmlFor="multiFile">Select Multiple Files (TXT only)</Label>
                       <Input
@@ -961,6 +1028,20 @@ const TranscriptsPage: React.FC = () => {
                       </div>
                       
                       <div className="space-y-2">
+                        <Label htmlFor="summitTags">Tags</Label>
+                        <TagsInput
+                          value={summitTags}
+                          onChange={setSummitTags}
+                          placeholder="Add tags..."
+                        />
+                        {summitTags.length > 0 && (
+                          <p className="text-xs text-muted-foreground">
+                            {summitTags.length} tag{summitTags.length !== 1 ? 's' : ''} added
+                          </p>
+                        )}
+                      </div>
+                      
+                      <div className="space-y-2">
                         <Label htmlFor="summitFile">Upload Transcript (TXT only)</Label>
                         <div className="flex items-center gap-2">
                           <Input
@@ -1013,6 +1094,20 @@ const TranscriptsPage: React.FC = () => {
                     </CardDescription>
                   </CardHeader>
                   <CardContent className="space-y-4">
+                    <div className="space-y-2">
+                      <Label htmlFor="summitBatchTags">Summit Batch Tags (applied to all files)</Label>
+                      <TagsInput
+                        value={summitTags}
+                        onChange={setSummitTags}
+                        placeholder="Add tags..."
+                      />
+                      {summitTags.length > 0 && (
+                        <p className="text-xs text-muted-foreground">
+                          These tags will be applied to all uploaded summit files
+                        </p>
+                      )}
+                    </div>
+                    
                     <div className="space-y-2">
                       <Label htmlFor="summitMultiFile">Select Multiple Files (TXT only)</Label>
                       <Input
@@ -1101,7 +1196,7 @@ const TranscriptsPage: React.FC = () => {
           </div>
           
           <div className="space-y-4">
-            <div className="flex justify-between items-center">
+            <div className="flex justify-between items-center flex-wrap gap-3">
               <h2 className="text-xl font-semibold">
                 Your Transcripts
                 {filteredTranscripts.length > 0 && (
@@ -1111,20 +1206,30 @@ const TranscriptsPage: React.FC = () => {
                 )}
               </h2>
               
-              <Select 
-                value={filterSource} 
-                onValueChange={setFilterSource}
-              >
-                <SelectTrigger className="w-[220px]">
-                  <SelectValue placeholder="Filter by type" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="all">All Types</SelectItem>
-                  <SelectItem value="protege_call">Protege Calls</SelectItem>
-                  <SelectItem value="foundations_call">Foundations Calls</SelectItem>
-                  <SelectItem value="business_acquisitions_summit">Business Acquisitions Summit</SelectItem>
-                </SelectContent>
-              </Select>
+              <div className="flex flex-wrap gap-2 items-center">
+                {allTags.length > 0 && (
+                  <TagFilter 
+                    tags={allTags}
+                    selectedTags={filterTags}
+                    onTagsChange={setFilterTags}
+                  />
+                )}
+                
+                <Select 
+                  value={filterSource} 
+                  onValueChange={setFilterSource}
+                >
+                  <SelectTrigger className="w-[220px]">
+                    <SelectValue placeholder="Filter by type" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">All Types</SelectItem>
+                    <SelectItem value="protege_call">Protege Calls</SelectItem>
+                    <SelectItem value="foundations_call">Foundations Calls</SelectItem>
+                    <SelectItem value="business_acquisitions_summit">Business Acquisitions Summit</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
             </div>
             
             {loading ? (
@@ -1134,9 +1239,9 @@ const TranscriptsPage: React.FC = () => {
             ) : filteredTranscripts.length === 0 ? (
               <div className="bg-muted rounded-lg p-6 text-center">
                 <p className="text-muted-foreground">
-                  {filterSource === 'all' 
+                  {filterSource === 'all' && filterTags.length === 0
                     ? 'No transcripts found. Add your first transcript!' 
-                    : 'No transcripts found with this source filter.'}
+                    : 'No transcripts found with the selected filters.'}
                 </p>
               </div>
             ) : (
@@ -1150,15 +1255,41 @@ const TranscriptsPage: React.FC = () => {
                           {transcript.title}
                         </CardTitle>
                         
-                        <span className={`px-2 py-1 rounded-full text-xs flex items-center ${getSourceColor(transcript.source)}`}>
-                          <Tag className="h-3 w-3 mr-1" />
-                          {transcript.source === 'business_acquisitions_summit' 
-                            ? '2024 Business Acquisitions Summit'
-                            : transcript.source?.replace('_', ' ')}
-                        </span>
+                        <div className="flex flex-col items-end gap-2">
+                          <span className={`px-2 py-1 rounded-full text-xs flex items-center ${getSourceColor(transcript.source)}`}>
+                            <Tag className="h-3 w-3 mr-1" />
+                            {transcript.source === 'business_acquisitions_summit' 
+                              ? '2024 Business Acquisitions Summit'
+                              : transcript.source?.replace('_', ' ')}
+                          </span>
+                          
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            className="h-8 w-8 p-0"
+                            onClick={() => openTagEditor(transcript)}
+                            title="Manage tags"
+                          >
+                            <Tags className="h-4 w-4" />
+                            <span className="sr-only">Edit tags</span>
+                          </Button>
+                        </div>
                       </div>
                       <CardDescription>
-                        Added on {new Date(transcript.created_at).toLocaleDateString()}
+                        <div className="flex flex-col gap-2">
+                          <span>Added on {new Date(transcript.created_at).toLocaleDateString()}</span>
+                          
+                          {transcript.tags && transcript.tags.length > 0 && (
+                            <div className="flex flex-wrap gap-1 mt-1">
+                              {transcript.tags.map((tag, i) => (
+                                <Badge key={i} variant="outline" className="text-xs bg-slate-50">
+                                  <TagIcon className="h-3 w-3 mr-1 opacity-70" />
+                                  {formatTagForDisplay(tag)}
+                                </Badge>
+                              ))}
+                            </div>
+                          )}
+                        </div>
                       </CardDescription>
                     </CardHeader>
                     <CardContent>
@@ -1209,6 +1340,17 @@ const TranscriptsPage: React.FC = () => {
                     : selectedTranscript?.source?.replace('_', ' ')}
                 </span>
               )}
+              
+              {selectedTranscript?.tags && selectedTranscript.tags.length > 0 && (
+                <div className="flex flex-wrap gap-1 mt-2">
+                  {selectedTranscript.tags.map((tag, i) => (
+                    <Badge key={i} variant="outline" className="text-xs">
+                      <TagIcon className="h-3 w-3 mr-1 opacity-70" />
+                      {formatTagForDisplay(tag)}
+                    </Badge>
+                  ))}
+                </div>
+              )}
             </DialogDescription>
           </DialogHeader>
           
@@ -1231,6 +1373,14 @@ const TranscriptsPage: React.FC = () => {
           </div>
         </DialogContent>
       </Dialog>
+      
+      <TranscriptTagEditor
+        open={showTagEditor}
+        onClose={() => setShowTagEditor(false)}
+        transcriptId={transcriptToEdit || ''}
+        initialTags={tagsToEdit}
+        onTagsUpdated={handleTagsUpdated}
+      />
     </div>
   );
 };
