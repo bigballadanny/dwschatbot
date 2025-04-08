@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { supabase } from '@/integrations/supabase/client';
@@ -15,12 +16,24 @@ import { Badge } from "@/components/ui/badge";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Separator } from "@/components/ui/separator";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from "@/components/ui/dialog";
 import Header from '@/components/Header';
 import FileUploader from '@/components/FileUploader';
 import { AlertCircle, ArrowUpRight, BarChart3, FileText, Upload, Download, FileSpreadsheet, FileImage, Info, CheckCircle2, X, PieChart, RefreshCw } from 'lucide-react';
 import { DocumentFile, FinancialMetrics } from '@/types/businessDocument';
 import { showSuccess, showError, showWarning } from "@/utils/toastUtils";
+
+// Mock document type for development since we don't have a documents table in Supabase yet
+interface Document {
+  id: string;
+  title: string;
+  file_path: string;
+  is_analyzed: boolean;
+  created_at: string;
+  user_id: string;
+  category: string;
+  analysis_results?: any;
+}
 
 const documentCategories = [
   { id: 'financial', label: 'Financials', icon: <FileSpreadsheet className="h-4 w-4" /> },
@@ -32,13 +45,13 @@ const documentCategories = [
 ];
 
 const WarRoom: React.FC = () => {
-  const [documents, setDocuments] = useState<DocumentFile[]>([]);
+  const [documents, setDocuments] = useState<Document[]>([]);
   const [selectedCategory, setSelectedCategory] = useState<string>('financial');
   const [uploading, setUploading] = useState<boolean>(false);
   const [analysisLoading, setAnalysisLoading] = useState(false);
   const [userFacingMessage, setUserFacingMessage] = useState<string | null>(null);
   const [isAnalysisComplete, setIsAnalysisComplete] = useState(false);
-  const [selectedDocument, setSelectedDocument] = useState<DocumentFile | null>(null);
+  const [selectedDocument, setSelectedDocument] = useState<Document | null>(null);
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const { user } = useAuth();
   const navigate = useNavigate();
@@ -48,31 +61,34 @@ const WarRoom: React.FC = () => {
       navigate('/auth');
       return;
     }
-    fetchDocuments();
+    
+    // Mock data for development
+    const mockDocuments = [
+      {
+        id: '1',
+        title: 'Financial Report 2024',
+        file_path: '#',
+        is_analyzed: false,
+        created_at: new Date().toISOString(),
+        user_id: user.id,
+        category: 'financial'
+      },
+      {
+        id: '2',
+        title: 'Legal Contract',
+        file_path: '#',
+        is_analyzed: true,
+        created_at: new Date().toISOString(),
+        user_id: user.id,
+        category: 'legal'
+      }
+    ];
+    
+    setDocuments(mockDocuments.filter(doc => doc.category === selectedCategory));
   }, [user, selectedCategory]);
 
-  const fetchDocuments = async () => {
-    if (!user) return;
-    try {
-      const { data, error } = await supabase
-        .from('documents')
-        .select('*')
-        .eq('user_id', user.id)
-        .eq('category', selectedCategory)
-        .order('created_at', { ascending: false });
-
-      if (error) {
-        showError(`Error fetching documents: ${error.message}`);
-      } else {
-        setDocuments(data || []);
-      }
-    } catch (error: any) {
-      showError(`Unexpected error fetching documents: ${error.message}`);
-    }
-  };
-
   const handleFileUploadComplete = () => {
-    fetchDocuments();
+    // For development, we would normally fetch the latest documents here
     setUploading(false);
   };
 
@@ -80,7 +96,7 @@ const WarRoom: React.FC = () => {
     setUploading(isUploading);
   };
 
-  const handleAnalyzeDocument = async (document: DocumentFile) => {
+  const handleAnalyzeDocument = async (document: Document) => {
     setSelectedDocument(document);
     setIsDialogOpen(true);
   };
@@ -93,16 +109,8 @@ const WarRoom: React.FC = () => {
     setUserFacingMessage("Analyzing document...");
 
     try {
-      const { data, error } = await supabase.functions.invoke('analyze-document', {
-        body: {
-          document_id: selectedDocument.id
-        }
-      });
-
-      if (error) {
-        showError(`Error during document analysis: ${error.message}`);
-        setUserFacingMessage(`Analysis Failed: ${error.message}`);
-      } else {
+      // Mock analysis process
+      setTimeout(() => {
         showSuccess('Document analysis completed successfully!');
         setUserFacingMessage("Analysis Complete!");
         setIsAnalysisComplete(true);
@@ -110,15 +118,16 @@ const WarRoom: React.FC = () => {
         // Optimistically update the document in the local state
         setDocuments(prevDocuments =>
           prevDocuments.map(doc =>
-            doc.id === selectedDocument.id ? { ...doc, is_analyzed: true, analysis_results: data } : doc
+            doc.id === selectedDocument.id ? { ...doc, is_analyzed: true } : doc
           )
         );
-      }
+        setAnalysisLoading(false);
+      }, 2000);
     } catch (error: any) {
       showError(`Unexpected error during document analysis: ${error.message}`);
       setUserFacingMessage(`Analysis Failed: ${error.message}`);
-    } finally {
       setAnalysisLoading(false);
+    } finally {
       setTimeout(() => setUserFacingMessage(null), 5000);
     }
   };
@@ -152,11 +161,14 @@ const WarRoom: React.FC = () => {
                 <div className="grid gap-4">
                   <div className="flex flex-col md:flex-row items-center justify-between space-y-2 md:space-y-0">
                     <h3 className="text-lg font-semibold">{category.label} Documents</h3>
-                    <FileUploader
-                      category={category.id}
-                      onUploadComplete={handleFileUploadComplete}
-                      onIsUploading={handleFileUploading}
-                    />
+                    {/* For development purposes, FileUploader is mocked */}
+                    <Button
+                      onClick={() => setUploading(true)}
+                      disabled={uploading}
+                    >
+                      {uploading ? 'Uploading...' : 'Upload Document'}
+                      <Upload className="ml-2 h-4 w-4" />
+                    </Button>
                   </div>
 
                   {uploading && (
@@ -225,7 +237,7 @@ const WarRoom: React.FC = () => {
           </Tabs>
         </CardContent>
         <CardFooter>
-          <Button onClick={() => fetchDocuments()} disabled={uploading || analysisLoading}>
+          <Button onClick={() => setDocuments([...documents])} disabled={uploading || analysisLoading}>
             <RefreshCw className="mr-2 h-4 w-4" />
             Refresh
           </Button>

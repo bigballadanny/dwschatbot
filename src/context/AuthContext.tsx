@@ -4,7 +4,9 @@ import { supabase } from '@/integrations/supabase/client';
 import { Session, User } from '@supabase/supabase-js';
 import { toast } from '@/components/ui/use-toast';
 
-interface UserWithExtras extends User {
+interface UserWithExtras {
+  id: string;
+  email?: string;
   avatarUrl?: string;
   displayName?: string;
 }
@@ -48,11 +50,12 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
               .single();
             
             // Enhance user with profile data
-            const enhancedUser = {
-              ...userData.user,
+            const enhancedUser: UserWithExtras = {
+              id: userData.user.id,
+              email: userData.user.email,
               avatarUrl: profileData?.avatar_url || undefined,
               displayName: profileData?.display_name || userData.user.email
-            } as UserWithExtras;
+            };
             
             setUser(enhancedUser);
           }
@@ -89,11 +92,12 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
             .single();
           
           // Enhance user with profile data
-          const enhancedUser = {
-            ...newSession.user,
+          const enhancedUser: UserWithExtras = {
+            id: newSession.user.id,
+            email: newSession.user.email,
             avatarUrl: profileData?.avatar_url || undefined,
             displayName: profileData?.display_name || newSession.user.email
-          } as UserWithExtras;
+          };
           
           setUser(enhancedUser);
         }
