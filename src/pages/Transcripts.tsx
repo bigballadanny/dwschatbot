@@ -10,7 +10,7 @@ import { useAuth } from '@/context/AuthContext';
 import { supabase } from '@/integrations/supabase/client';
 import Header from '@/components/Header';
 import { FileText, Upload, Tag as TagIcon, Loader2, X, Info, AlertTriangle, Edit, Tags } from 'lucide-react';
-import { detectSourceCategory, formatTagForDisplay } from '@/utils/transcriptUtils';
+import { detectSourceCategory, formatTagForDisplay, suggestTagsFromContent } from '@/utils/transcriptUtils';
 import { Progress } from "@/components/ui/progress";
 import { Sheet, SheetContent, SheetDescription, SheetFooter, SheetHeader, SheetTitle, SheetTrigger } from "@/components/ui/sheet";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogClose } from "@/components/ui/dialog";
@@ -41,6 +41,8 @@ const TranscriptsPage: React.FC = () => {
   const [transcripts, setTranscripts] = useState<Transcript[]>([]);
   const [title, setTitle] = useState('');
   const [content, setContent] = useState('');
+  const [suggestedTags, setSuggestedTags] = useState<string[]>([]);
+  const [selectedTags, setSelectedTags] = useState<string[]>([]);
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
   const [uploadProgress, setUploadProgress] = useState<number | null>(null);
   const [source, setSource] = useState<string>('');
@@ -62,6 +64,15 @@ const TranscriptsPage: React.FC = () => {
   useEffect(() => {
     applyTagFilters();
   }, [transcripts, tagFilters]);
+
+  useEffect(() => {
+    if (content) {
+      const tags = suggestTagsFromContent(content);
+      setSuggestedTags(tags);
+    } else {
+      setSuggestedTags([]);
+    }
+  }, [content]);
 
   const fetchTranscripts = async () => {
     if (!user) return;
@@ -168,6 +179,9 @@ const TranscriptsPage: React.FC = () => {
 
     setIsProcessing(true);
     try {
+      const autoTags = content ? suggestTagsFromContent(content) : [];
+      const finalTags = [...new Set([...selectedTags, ...autoTags])];
+      
       const { data, error } = await supabase
         .from('transcripts')
         .insert([
@@ -177,6 +191,7 @@ const TranscriptsPage: React.FC = () => {
             file_path: filePath,
             user_id: user.id,
             source: detectSourceCategory(title),
+            tags: finalTags.length > 0 ? finalTags : null
           },
         ])
         .select();
@@ -196,10 +211,12 @@ const TranscriptsPage: React.FC = () => {
         setSelectedFile(null);
         setUploadProgress(null);
         setSource('');
+        setSelectedTags([]);
+        setSuggestedTags([]);
         if (fileInputRef.current) {
           fileInputRef.current.value = ''; // Reset the file input
         }
-        showSuccess("Transcript created", "Successfully created the transcript.");
+        showSuccess("Transcript created", `Successfully created the transcript with ${finalTags.length} auto-detected tags.`);
       } else {
         showWarning("No transcript created", "No transcript was created.");
       }
@@ -210,6 +227,21 @@ const TranscriptsPage: React.FC = () => {
       setIsProcessing(false);
       setIsUploading(false);
     }
+  };
+
+  const handleAddTag = (tag: string) => {
+    if (!selectedTags.includes(tag)) {
+      setSelectedTags(prev => [...prev, tag]);
+    }
+  };
+
+  const handleRemoveTag = (tag: string) => {
+    setSelectedTags(prev => prev.filter(t => t !== tag));
+  };
+
+  const handleContentChange = (e: React.ChangeEvent<HTMLTextAreaElement>) => {
+    const newContent = e.target.value;
+    setContent(newContent);
   };
 
   const handleSubmit = async (event: React.FormEvent) => {
@@ -280,9 +312,45 @@ const TranscriptsPage: React.FC = () => {
                     <Textarea
                       id="content"
                       value={content}
-                      onChange={(e) => setContent(e.target.value)}
+                      onChange={handleContentChange}
+                      className="min-h-[200px]"
                     />
                   </div>
+
+                  {suggestedTags.length > 0 && (
+                    <div className="grid gap-2">
+                      <Label>Suggested Tags</Label>
+                      <div className="flex flex-wrap gap-2">
+                        {suggestedTags.map((tag) => (
+                          <Badge 
+                            key={tag} 
+                            className={`cursor-pointer ${selectedTags.includes(tag) ? 'bg-primary' : 'bg-secondary'}`}
+                            onClick={() => selectedTags.includes(tag) ? handleRemoveTag(tag) : handleAddTag(tag)}
+                          >
+                            {formatTagForDisplay(tag)}
+                            {selectedTags.includes(tag) ? (
+                              <X className="ml-1 h-3 w-3" />
+                            ) : (
+                              <Plus className="ml-1 h-3 w-3" />
+                            )}
+                          </Badge>
+                        ))}
+                      </div>
+                      <p className="text-xs text-muted-foreground mt-1">
+                        Click to add or remove tags. These tags were automatically detected from your content.
+                      </p>
+                    </div>
+                  )}
+
+                  <div className="grid gap-2">
+                    <Label htmlFor="manual-tags">Custom Tags</Label>
+                    <TagsInput
+                      value={selectedTags}
+                      onChange={setSelectedTags}
+                      placeholder="Add custom tags..."
+                    />
+                  </div>
+
                   <Button onClick={handleSubmit} disabled={isProcessing}>
                     {isProcessing ? (
                       <>
@@ -361,6 +429,17 @@ const TranscriptsPage: React.FC = () => {
                     <CardTitle>{transcript.title}</CardTitle>
                     <CardDescription>{transcript.created_at}</CardDescription>
                   </CardHeader>
+                  {transcript.tags && transcript.tags.length > 0 && (
+                    <CardContent className="pb-3 pt-0">
+                      <div className="flex flex-wrap gap-1">
+                        {transcript.tags.map((tag) => (
+                          <Badge key={tag} variant="secondary" className="text-xs">
+                            {formatTagForDisplay(tag)}
+                          </Badge>
+                        ))}
+                      </div>
+                    </CardContent>
+                  )}
                   <CardFooter>
                     <div className="flex gap-2">
                       <Button variant="ghost" size="sm" onClick={() => handleOpenTranscriptEditor(transcript)}>

@@ -9,9 +9,9 @@ import {
   DialogFooter,
 } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
-import { Tag as TagIcon, Save, X } from "lucide-react";
+import { Tag as TagIcon, Save, X, Sparkles } from "lucide-react";
 import { TagsInput } from "./TagsInput";
-import { formatTagForDisplay } from "@/utils/transcriptUtils";
+import { formatTagForDisplay, suggestTagsFromContent } from "@/utils/transcriptUtils";
 import { showSuccess, showError } from "@/utils/toastUtils";
 import { supabase } from '@/integrations/supabase/client';
 
@@ -32,12 +32,70 @@ const TranscriptTagEditor: React.FC<TranscriptTagEditorProps> = ({
 }) => {
   const [tags, setTags] = useState<string[]>(initialTags || []);
   const [isSaving, setIsSaving] = useState(false);
+  const [content, setContent] = useState("");
+  const [isDetectingTags, setIsDetectingTags] = useState(false);
+  const [suggestedTags, setSuggestedTags] = useState<string[]>([]);
 
   useEffect(() => {
     if (open) {
       setTags(initialTags || []);
+      fetchTranscriptContent();
     }
-  }, [open, initialTags]);
+  }, [open, initialTags, transcriptId]);
+
+  const fetchTranscriptContent = async () => {
+    try {
+      const { data, error } = await supabase
+        .from('transcripts')
+        .select('content')
+        .eq('id', transcriptId)
+        .single();
+      
+      if (error) throw error;
+      
+      if (data) {
+        setContent(data.content);
+      }
+    } catch (error) {
+      console.error("Error fetching transcript content:", error);
+    }
+  };
+
+  const handleDetectTags = () => {
+    if (!content) return;
+    
+    setIsDetectingTags(true);
+    try {
+      const detected = suggestTagsFromContent(content);
+      
+      // Filter out tags that are already added
+      const newTags = detected.filter(tag => !tags.includes(tag));
+      
+      if (newTags.length > 0) {
+        setSuggestedTags(newTags);
+      } else {
+        setSuggestedTags([]);
+        showSuccess("No new tags detected", "All relevant tags are already added to this transcript.");
+      }
+    } catch (error) {
+      console.error("Error detecting tags:", error);
+    } finally {
+      setIsDetectingTags(false);
+    }
+  };
+
+  const handleAddSuggestedTag = (tag: string) => {
+    if (!tags.includes(tag)) {
+      setTags([...tags, tag]);
+      setSuggestedTags(suggestedTags.filter(t => t !== tag));
+    }
+  };
+
+  const handleAddAllSuggestedTags = () => {
+    const newTagsSet = new Set([...tags, ...suggestedTags]);
+    setTags(Array.from(newTagsSet));
+    setSuggestedTags([]);
+  };
 
   const handleSaveTags = async () => {
     try {
@@ -80,6 +138,51 @@ const TranscriptTagEditor: React.FC<TranscriptTagEditorProps> = ({
         </DialogHeader>
 
         <div className="space-y-4 py-4">
+          <Button 
+            variant="outline" 
+            onClick={handleDetectTags} 
+            disabled={isDetectingTags || !content}
+            className="w-full"
+          >
+            {isDetectingTags ? (
+              <>Detecting tags...</>
+            ) : (
+              <>
+                <Sparkles className="h-4 w-4 mr-2" />
+                Auto-detect tags from content
+              </>
+            )}
+          </Button>
+          
+          {suggestedTags.length > 0 && (
+            <div className="border rounded-md p-3 bg-muted/50">
+              <div className="flex justify-between items-center mb-2">
+                <p className="text-sm font-medium">Suggested tags:</p>
+                <Button 
+                  variant="ghost" 
+                  size="sm" 
+                  onClick={handleAddAllSuggestedTags}
+                  className="h-7 text-xs"
+                >
+                  Add all
+                </Button>
+              </div>
+              <div className="flex flex-wrap gap-1">
+                {suggestedTags.map(tag => (
+                  <Badge 
+                    key={tag} 
+                    variant="outline"
+                    className="cursor-pointer hover:bg-primary hover:text-primary-foreground transition-colors"
+                    onClick={() => handleAddSuggestedTag(tag)}
+                  >
+                    {formatTagForDisplay(tag)}
+                    <Plus className="h-3 w-3 ml-1" />
+                  </Badge>
+                ))}
+              </div>
+            </div>
+          )}
+          
           <TagsInput
             value={tags}
             onChange={setTags}

@@ -185,6 +185,47 @@ export function getCommonTagSuggestions() {
   ];
 }
 
+export function suggestTagsFromContent(content: string): string[] {
+  if (!content || content.length === 0) {
+    return [];
+  }
+
+  // Define keyword mappings for auto-tagging
+  const keywordMappings = [
+    { tag: 'deal-sourcing', keywords: ['source', 'broker', 'find deal', 'finding deals', 'lead generation', 'deal flow'] },
+    { tag: 'valuation', keywords: ['value', 'multiple', 'ebitda', 'cash flow', 'valuation', 'worth', 'price'] },
+    { tag: 'due-diligence', keywords: ['due diligence', 'investigate', 'review', 'verify', 'analysis', 'investigate', 'check'] },
+    { tag: 'negotiation', keywords: ['negotiat', 'offer', 'counter', 'terms', 'deal structure', 'agreement'] },
+    { tag: 'financing', keywords: ['loan', 'financ', 'fund', 'capital', 'money', 'investment', 'bank'] },
+    { tag: 'sba-loans', keywords: ['sba', '7a', '504', 'small business administration'] },
+    { tag: 'closing', keywords: ['close', 'sign', 'finalize', 'complete', 'purchase agreement'] },
+    { tag: 'seller-financing', keywords: ['seller financ', 'owner financ', 'vendor tak', 'earn out'] },
+    { tag: 'business-planning', keywords: ['plan', 'strategy', 'growth', 'forecast', 'projection', 'vision'] },
+    { tag: 'legal', keywords: ['attorney', 'lawyer', 'legal', 'contract', 'law', 'regulation', 'compliance'] },
+    { tag: 'tax', keywords: ['tax', 'irs', 'deduction', 'asset', 'depreciation', 'write off'] },
+    { tag: 'mindset', keywords: ['fear', 'psychology', 'confidence', 'mindset', 'attitude', 'mental'] },
+    { tag: 'case-study', keywords: ['example', 'case study', 'story', 'experience', 'deal story'] },
+    { tag: 'roi', keywords: ['roi', 'return', 'profit', 'margin', 'investment return', 'payback'] },
+    { tag: 'marketing', keywords: ['market', 'advertis', 'promotion', 'customer', 'sales', 'lead'] }
+  ];
+
+  // Normalize content for easier matching
+  const normalizedContent = content.toLowerCase();
+  const detectedTags = new Set<string>();
+
+  // Check for each tag's keywords in content
+  keywordMappings.forEach(({ tag, keywords }) => {
+    for (const keyword of keywords) {
+      if (normalizedContent.includes(keyword.toLowerCase())) {
+        detectedTags.add(tag);
+        break;
+      }
+    }
+  });
+
+  return Array.from(detectedTags);
+}
+
 export function searchTagsByText(query: string, tags: string[]) {
   if (!query || !tags || tags.length === 0) {
     return tags;
