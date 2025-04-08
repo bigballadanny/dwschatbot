@@ -9,7 +9,8 @@ import {
   DialogFooter,
 } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
-import { Tag as TagIcon, Save, X, Sparkles } from "lucide-react";
+import { Badge } from "@/components/ui/badge";
+import { Tag as TagIcon, Save, X, Sparkles, Plus } from "lucide-react";
 import { TagsInput } from "./TagsInput";
 import { formatTagForDisplay, suggestTagsFromContent } from "@/utils/transcriptUtils";
 import { showSuccess, showError } from "@/utils/toastUtils";
