@@ -59,7 +59,7 @@ const TranscriptsPage: React.FC = () => {
   const [selectedTranscriptIds, setSelectedTranscriptIds] = useState<string[]>([]);
   const [isBatchTagEditorOpen, setIsBatchTagEditorOpen] = useState(false);
   const [autoDetectTags, setAutoDetectTags] = useState(false);
-  const [showAddTranscript, setShowAddTranscript] = useState(false);
+  const [showAddTranscript, setShowAddTranscript] = useState(true);
   const [showFilters, setShowFilters] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const { user } = useAuth();
@@ -332,7 +332,8 @@ const TranscriptsPage: React.FC = () => {
 
   return (
     <div className="container mx-auto py-6">
-      <Header title="Transcripts">
+      <div className="flex justify-between items-center mb-6">
+        <h1 className="text-2xl font-bold">Transcripts</h1>
         <div className="flex items-center gap-2">
           <Button 
             variant="outline" 
@@ -353,7 +354,7 @@ const TranscriptsPage: React.FC = () => {
             className="flex items-center gap-1"
           >
             <Plus className="w-4 h-4" />
-            <span className="hidden sm:inline">Add</span>
+            <span className="hidden sm:inline">{showAddTranscript ? "Hide Form" : "Add"}</span>
           </Button>
           
           <Button 
@@ -376,10 +377,9 @@ const TranscriptsPage: React.FC = () => {
             <RefreshCw className="h-4 w-4" />
           </Button>
         </div>
-      </Header>
+      </div>
       
-      <div className="grid gap-6 mt-6">
-        {/* Filter section - only shown when filters are enabled */}
+      <div className="grid gap-6 mt-3">
         {showFilters && (
           <Card>
             <CardHeader className="pb-3">
@@ -399,7 +399,6 @@ const TranscriptsPage: React.FC = () => {
           </Card>
         )}
 
-        {/* Add Transcript section - only shown when add is clicked */}
         {showAddTranscript && (
           <Card>
             <CardHeader>
@@ -585,7 +584,7 @@ const TranscriptsPage: React.FC = () => {
                       <Progress value={uploadProgress} className="w-full" />
                     )}
                     
-                    <Alert variant="outline" className="bg-amber-50/50">
+                    <Alert>
                       <AlertTriangle className="h-4 w-4" />
                       <AlertTitle>File Upload Notes</AlertTitle>
                       <AlertDescription className="text-xs">
@@ -599,7 +598,6 @@ const TranscriptsPage: React.FC = () => {
           </Card>
         )}
 
-        {/* Transcripts List */}
         <Card>
           <CardHeader className="pb-3 flex flex-row items-center justify-between">
             <div className="flex items-center">
@@ -716,7 +714,7 @@ const TranscriptsPage: React.FC = () => {
             
             {filteredTranscripts.length >= 5 && (
               <Button
-                variant="outline"
+                variant="ghost"
                 size="sm"
                 onClick={handleOpenBulkProcessor}
                 className="text-xs flex items-center"
@@ -740,7 +738,6 @@ const TranscriptsPage: React.FC = () => {
         />
       )}
       
-      {/* Batch Tag Editor */}
       <TranscriptTagEditor
         open={isBatchTagEditorOpen}
         onClose={handleCloseBatchTagEditor}
@@ -750,14 +747,12 @@ const TranscriptsPage: React.FC = () => {
         isBatchMode={true}
       />
       
-      {/* Bulk Tag Processor */}
       <BulkTagProcessor
         open={isBulkProcessorOpen}
         onClose={handleCloseBulkProcessor}
         onComplete={handleBulkProcessingComplete}
       />
       
-      {/* Transcript Diagnostics in Dialog */}
       <Dialog open={isDiagnosticsOpen} onOpenChange={setIsDiagnosticsOpen}>
         <DialogContent className="sm:max-w-md">
           <DialogHeader>
