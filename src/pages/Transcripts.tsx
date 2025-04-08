@@ -45,7 +45,7 @@ const TranscriptsPage: React.FC = () => {
   const [uploadProgress, setUploadProgress] = useState<number | null>(null);
   const [source, setSource] = useState<string>('');
   const [isUploading, setIsUploading] = useState(false);
-	const [isProcessing, setIsProcessing] = useState(false);
+  const [isProcessing, setIsProcessing] = useState(false);
   const [selectedTranscript, setSelectedTranscript] = useState<Transcript | null>(null);
   const [isTranscriptEditorOpen, setIsTranscriptEditorOpen] = useState(false);
   const [tagFilters, setTagFilters] = useState<string[]>([]);
@@ -166,7 +166,7 @@ const TranscriptsPage: React.FC = () => {
       return;
     }
 
-		setIsProcessing(true);
+    setIsProcessing(true);
     try {
       const { data, error } = await supabase
         .from('transcripts')
@@ -179,12 +179,12 @@ const TranscriptsPage: React.FC = () => {
             source: detectSourceCategory(title),
           },
         ])
-        .select()
+        .select();
 
       if (error) {
         console.error('Error creating transcript:', error);
         showError("Failed to create transcript", "There was an error creating the transcript. Please try again.");
-				setIsProcessing(false);
+        setIsProcessing(false);
         return;
       }
 
@@ -207,7 +207,7 @@ const TranscriptsPage: React.FC = () => {
       console.error('Error creating transcript:', error.message);
       showError("Failed to create transcript", "There was an error creating the transcript. Please try again.");
     } finally {
-			setIsProcessing(false);
+      setIsProcessing(false);
       setIsUploading(false);
     }
   };
@@ -249,177 +249,150 @@ const TranscriptsPage: React.FC = () => {
   };
 
   return (
-    
-      
-        
-          Transcripts
-        
-        
-          Manage and view your transcripts
-        
-      
+    <div className="container mx-auto py-6">
+      <Header 
+        title="Transcripts" 
+        description="Manage and view your transcripts" 
+      />
 
-      
-        
-          
+      <div className="grid gap-6 mt-6">
+        <Card>
+          <CardContent className="p-6">
             <Tabs defaultValue="manual" className="w-full">
+              <TabsList className="mb-4">
+                <TabsTrigger value="manual">Manual Input</TabsTrigger>
+                <TabsTrigger value="upload">File Upload</TabsTrigger>
+              </TabsList>
               
-                
-                  Manual Input
-                
-                
-                  File Upload
-                
-              
-              
-                
-                  
-                    
-                      
-                        <Label htmlFor="title">Title</Label>
-                        <Input
-                          type="text"
-                          id="title"
-                          value={title}
-                          onChange={(e) => setTitle(e.target.value)}
-                        />
-                      
-                      
-                        <Label htmlFor="content">Content</Label>
-                        <Textarea
-                          id="content"
-                          value={content}
-                          onChange={(e) => setContent(e.target.value)}
-                        />
-                      
-                      <Button onClick={handleSubmit} disabled={isProcessing}>
-												{isProcessing ? (
-													<>
-														<Loader2 className="mr-2 h-4 w-4 animate-spin" />
-														Processing...
-													</>
-												) : (
-													'Create Transcript'
-												)}
-											</Button>
-                    
-                  
-                
-                
-                  
-                    
-                      <Label htmlFor="file">Select File</Label>
-                      <Input
-                        type="file"
-                        id="file"
-                        onChange={handleFileSelect}
-                        ref={fileInputRef}
-                      />
-                      {selectedFile && (
-                        
-                          Selected File: {selectedFile.name}
-                        
-                      )}
-                    
-                    <Button onClick={uploadFile} disabled={isUploading || !selectedFile}>
-                      {isUploading ? (
-                        
-                          Uploading... {uploadProgress}%
-                        
-                      ) : (
-                        'Upload File'
-                      )}
-                    </Button>
-                    {uploadProgress !== null && (
-                      
-                        Upload Progress: {uploadProgress}%
-                      
+              <TabsContent value="manual">
+                <div className="grid gap-4">
+                  <div className="grid gap-2">
+                    <Label htmlFor="title">Title</Label>
+                    <Input
+                      type="text"
+                      id="title"
+                      value={title}
+                      onChange={(e) => setTitle(e.target.value)}
+                    />
+                  </div>
+                  <div className="grid gap-2">
+                    <Label htmlFor="content">Content</Label>
+                    <Textarea
+                      id="content"
+                      value={content}
+                      onChange={(e) => setContent(e.target.value)}
+                    />
+                  </div>
+                  <Button onClick={handleSubmit} disabled={isProcessing}>
+                    {isProcessing ? (
+                      <>
+                        <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                        Processing...
+                      </>
+                    ) : (
+                      'Create Transcript'
                     )}
-                  
-                
+                  </Button>
+                </div>
+              </TabsContent>
               
+              <TabsContent value="upload">
+                <div className="grid gap-4">
+                  <div className="grid gap-2">
+                    <Label htmlFor="file">Select File</Label>
+                    <Input
+                      type="file"
+                      id="file"
+                      onChange={handleFileSelect}
+                      ref={fileInputRef}
+                    />
+                    {selectedFile && (
+                      <p className="text-sm text-muted-foreground">
+                        Selected File: {selectedFile.name}
+                      </p>
+                    )}
+                  </div>
+                  <Button onClick={uploadFile} disabled={isUploading || !selectedFile}>
+                    {isUploading ? (
+                      <span className="flex items-center">
+                        <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                        Uploading... {uploadProgress}%
+                      </span>
+                    ) : (
+                      'Upload File'
+                    )}
+                  </Button>
+                  {uploadProgress !== null && (
+                    <Progress value={uploadProgress} className="w-full" />
+                  )}
+                </div>
+              </TabsContent>
             </Tabs>
-          
+          </CardContent>
+        </Card>
 
-          
-            
-              
-                
-                  
-                    <Tags className="w-4 h-4 mr-2" />
-                    Filter by Tags
-                  
-                  
-                    {tagFilters.length > 0 && (
-                      <Button variant="ghost" size="sm" onClick={clearAllTags}>
-                        Clear All
+        <Card>
+          <CardHeader className="pb-3">
+            <div className="flex justify-between items-center">
+              <div className="flex items-center">
+                <Tags className="w-4 h-4 mr-2" />
+                <CardTitle className="text-lg">Filter by Tags</CardTitle>
+              </div>
+              {tagFilters.length > 0 && (
+                <Button variant="ghost" size="sm" onClick={clearAllTags}>
+                  Clear All
+                </Button>
+              )}
+            </div>
+            <TagFilter onTagAdded={handleTagAdded} onTagRemoved={handleTagRemoved} />
+          </CardHeader>
+        </Card>
+
+        <div className="grid gap-4">
+          {filteredTranscripts.length === 0 ? (
+            <Card>
+              <CardContent className="p-6 text-center">No transcripts found.</CardContent>
+            </Card>
+          ) : (
+            <div className="grid gap-4">
+              {filteredTranscripts.map((transcript) => (
+                <Card key={transcript.id}>
+                  <CardHeader className="pb-3">
+                    <CardTitle>{transcript.title}</CardTitle>
+                    <CardDescription>{transcript.created_at}</CardDescription>
+                  </CardHeader>
+                  <CardFooter>
+                    <div className="flex gap-2">
+                      <Button variant="ghost" size="sm" onClick={() => handleOpenTranscriptEditor(transcript)}>
+                        <Edit className="w-4 h-4 mr-2" />
+                        Edit Tags
                       </Button>
-                    )}
-                  
-                
-                <TagFilter onTagAdded={handleTagAdded} onTagRemoved={handleTagRemoved} />
-              
-            
-          
+                    </div>
+                  </CardFooter>
+                </Card>
+              ))}
+            </div>
+          )}
+        </div>
 
-          
-            {filteredTranscripts.length === 0 ? (
-              
-                No transcripts found.
-              
-            ) : (
-              
-                {filteredTranscripts.map((transcript) => (
-                  
-                    
-                      
-                        
-                          {transcript.title}
-                        
-                        
-                          {transcript.created_at}
-                        
-                      
-                      
-                        
-                          <Button variant="ghost" size="sm" onClick={() => handleOpenTranscriptEditor(transcript)}>
-                            <Edit className="w-4 h-4 mr-2" />
-                            Edit Tags
-                          </Button>
-                        
-                      
-                    
-                  
-                ))}
-              
-            )}
-          
-        
-
-        
-          
-            <SheetTrigger asChild>
-              <Button variant="outline" className="w-full">
-                <FileText className="w-4 h-4 mr-2" />
-                Transcript Diagnostics
-              </Button>
-            </SheetTrigger>
-            <SheetContent side="right" className="w-full sm:max-w-sm">
-              
-                
-                  
-                    Transcript Diagnostics
-                  
-                  
-                    Troubleshoot and fix issues with transcript uploads
-                  
-                
-                <TranscriptDiagnostics onComplete={handleDiagnosticsComplete} />
-              
-            </SheetContent>
-          
-        
-      
+        <Sheet>
+          <SheetTrigger asChild>
+            <Button variant="outline" className="w-full">
+              <FileText className="w-4 h-4 mr-2" />
+              Transcript Diagnostics
+            </Button>
+          </SheetTrigger>
+          <SheetContent side="right" className="w-full sm:max-w-sm">
+            <SheetHeader>
+              <SheetTitle>Transcript Diagnostics</SheetTitle>
+              <SheetDescription>
+                Troubleshoot and fix issues with transcript uploads
+              </SheetDescription>
+            </SheetHeader>
+            <TranscriptDiagnostics onComplete={handleDiagnosticsComplete} />
+          </SheetContent>
+        </Sheet>
+      </div>
 
       {selectedTranscript && (
         <TranscriptTagEditor
@@ -430,7 +403,7 @@ const TranscriptsPage: React.FC = () => {
           onTagsUpdated={handleTagsUpdated}
         />
       )}
-    
+    </div>
   );
 };
 
