@@ -39,6 +39,12 @@ const AIInputWithSearch = React.forwardRef<HTMLInputElement, AIInputWithSearchPr
       }
     }
 
+    React.useEffect(() => {
+      if (props.value !== undefined && props.value !== inputValue) {
+        setInputValue(props.value)
+      }
+    }, [props.value])
+
     return (
       <form
         className={cn(
@@ -76,10 +82,10 @@ const AIInputWithSearch = React.forwardRef<HTMLInputElement, AIInputWithSearchPr
               <Button
                 type="button"
                 size="icon"
-                variant="ghost"
+                variant="outline"
                 disabled={uploading || props.disabled}
                 className={cn(
-                  "h-10 w-10 text-muted-foreground hover:text-amber-500 transition-colors",
+                  "h-10 w-10 rounded-full text-muted-foreground hover:text-amber-500 transition-colors",
                   uploading && "opacity-70"
                 )}
                 onClick={handleFileClick}

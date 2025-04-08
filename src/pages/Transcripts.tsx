@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect, useRef } from 'react';
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardFooter, CardTitle, CardDescription } from "@/components/ui/card";
@@ -8,11 +7,12 @@ import { Label } from "@/components/ui/label";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
+import { AIInputWithSearch } from "@/components/ui/ai-input-with-search";
 import { useAuth } from '@/context/AuthContext';
 import { supabase } from '@/integrations/supabase/client';
 import Header from '@/components/Header';
-import { FileText, Upload, Tag as TagIcon, Loader2, X, Info, AlertTriangle, Edit, Tags, Plus, Sparkles, Settings, Filter } from 'lucide-react';
-import { detectSourceCategory, formatTagForDisplay, suggestTagsFromContent } from '@/utils/transcriptUtils';
+import { FileText, Upload, Tag as TagIcon, Loader2, X, Info, AlertTriangle, Edit, Tags, Plus, Sparkles, Settings, Filter, RefreshCw } from 'lucide-react';
+import { detectSourceCategory, formatTagForDisplay, suggestTagsFromContent, getSourceCategories } from '@/utils/transcriptUtils';
 import { Progress } from "@/components/ui/progress";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogClose } from "@/components/ui/dialog";
 import { Badge } from "@/components/ui/badge";
@@ -23,6 +23,7 @@ import TranscriptTagEditor from "@/components/TranscriptTagEditor";
 import TagFilter from "@/components/TagFilter";
 import { showSuccess, showError, showWarning } from "@/utils/toastUtils";
 import BulkTagProcessor from "@/components/BulkTagProcessor";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue, SelectGroup, SelectLabel } from "@/components/ui/select";
 
 interface Transcript {
   id: string;
@@ -188,6 +189,8 @@ const TranscriptsPage: React.FC = () => {
       const autoTags = (content && autoDetectTags) ? suggestTagsFromContent(content) : [];
       const finalTags = [...new Set([...selectedTags, ...autoTags])];
       
+      const transcriptSource = source || detectSourceCategory(title);
+      
       const { data, error } = await supabase
         .from('transcripts')
         .insert([
@@ -196,7 +199,7 @@ const TranscriptsPage: React.FC = () => {
             content: content,
             file_path: filePath,
             user_id: user.id,
-            source: detectSourceCategory(title),
+            source: transcriptSource,
             tags: finalTags.length > 0 ? finalTags : null
           },
         ])
@@ -258,14 +261,12 @@ const TranscriptsPage: React.FC = () => {
 
   const handleTagsUpdated = (transcriptId: string | string[], updatedTags: string[]) => {
     if (Array.isArray(transcriptId)) {
-      // Batch update
       setTranscripts(prevTranscripts =>
         prevTranscripts.map(transcript =>
           transcriptId.includes(transcript.id) ? { ...transcript, tags: updatedTags } : transcript
         )
       );
     } else {
-      // Single transcript update
       setTranscripts(prevTranscripts =>
         prevTranscripts.map(transcript =>
           transcript.id === transcriptId ? { ...transcript, tags: updatedTags } : transcript
@@ -331,41 +332,49 @@ const TranscriptsPage: React.FC = () => {
 
   return (
     <div className="container mx-auto py-6">
-      <Header>
-        <div className="flex justify-between items-center w-full">
-          <h2 className="text-3xl font-bold tracking-tight">Transcripts</h2>
-          <div className="flex space-x-2">
-            <Button 
-              variant="outline" 
-              size="sm" 
-              onClick={() => setShowFilters(!showFilters)}
-              className="flex items-center gap-1"
-            >
-              <Filter className="w-4 h-4" />
-              {tagFilters.length > 0 && (
-                <Badge variant="secondary" className="ml-1">{tagFilters.length}</Badge>
-              )}
-            </Button>
-            
-            <Button
-              size="sm"
-              onClick={() => setShowAddTranscript(!showAddTranscript)}
-              className="flex items-center gap-1"
-            >
-              <Plus className="w-4 h-4" />
-              Add Transcript
-            </Button>
-            
-            <Button 
-              variant="outline" 
-              size="sm" 
-              onClick={handleOpenBulkProcessor}
-              className="flex items-center gap-1"
-            >
-              <Sparkles className="w-4 h-4" />
-              Bulk Process
-            </Button>
-          </div>
+      <Header title="Transcripts">
+        <div className="flex items-center gap-2">
+          <Button 
+            variant="outline" 
+            size="sm" 
+            onClick={() => setShowFilters(!showFilters)}
+            className="flex items-center gap-1"
+          >
+            <Filter className="w-4 h-4" />
+            {tagFilters.length > 0 && (
+              <Badge variant="secondary" className="ml-1">{tagFilters.length}</Badge>
+            )}
+            <span className="hidden sm:inline">Filter</span>
+          </Button>
+          
+          <Button
+            size="sm"
+            onClick={() => setShowAddTranscript(!showAddTranscript)}
+            className="flex items-center gap-1"
+          >
+            <Plus className="w-4 h-4" />
+            <span className="hidden sm:inline">Add</span>
+          </Button>
+          
+          <Button 
+            variant="outline" 
+            size="sm" 
+            onClick={handleOpenBulkProcessor}
+            className="flex items-center gap-1"
+          >
+            <Sparkles className="w-4 h-4" />
+            <span className="hidden sm:inline">Bulk Process</span>
+          </Button>
+          
+          <Button
+            variant="ghost"
+            size="icon"
+            onClick={fetchTranscripts}
+            className="h-9 w-9"
+            title="Refresh transcripts"
+          >
+            <RefreshCw className="h-4 w-4" />
+          </Button>
         </div>
       </Header>
       
@@ -420,6 +429,32 @@ const TranscriptsPage: React.FC = () => {
                         placeholder="Enter transcript title"
                       />
                     </div>
+                    
+                    <div className="grid gap-2">
+                      <Label htmlFor="source">Source Category</Label>
+                      <Select 
+                        value={source} 
+                        onValueChange={setSource}
+                      >
+                        <SelectTrigger className="w-full">
+                          <SelectValue placeholder="Select or auto-detect source" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectGroup>
+                            <SelectLabel>Source Categories</SelectLabel>
+                            {getSourceCategories().map(category => (
+                              <SelectItem key={category.id} value={category.id}>
+                                {category.label}
+                              </SelectItem>
+                            ))}
+                          </SelectGroup>
+                        </SelectContent>
+                      </Select>
+                      <p className="text-xs text-muted-foreground mt-1">
+                        Source will be auto-detected if not selected
+                      </p>
+                    </div>
+                    
                     <div className="grid gap-2">
                       <Label htmlFor="content">Content</Label>
                       <Textarea
@@ -492,12 +527,38 @@ const TranscriptsPage: React.FC = () => {
                 <TabsContent value="upload">
                   <div className="grid gap-4">
                     <div className="grid gap-2">
+                      <Label htmlFor="source">Source Category</Label>
+                      <Select 
+                        value={source} 
+                        onValueChange={setSource}
+                      >
+                        <SelectTrigger className="w-full">
+                          <SelectValue placeholder="Select or auto-detect source" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectGroup>
+                            <SelectLabel>Source Categories</SelectLabel>
+                            {getSourceCategories().map(category => (
+                              <SelectItem key={category.id} value={category.id}>
+                                {category.label}
+                              </SelectItem>
+                            ))}
+                          </SelectGroup>
+                        </SelectContent>
+                      </Select>
+                      <p className="text-xs text-muted-foreground mt-1">
+                        Source will be auto-detected from filename if not selected
+                      </p>
+                    </div>
+                    
+                    <div className="grid gap-2">
                       <Label htmlFor="file">Select File</Label>
                       <Input
                         type="file"
                         id="file"
                         onChange={handleFileSelect}
                         ref={fileInputRef}
+                        className="cursor-pointer"
                       />
                       {selectedFile && (
                         <p className="text-sm text-muted-foreground">
@@ -505,19 +566,32 @@ const TranscriptsPage: React.FC = () => {
                         </p>
                       )}
                     </div>
-                    <Button onClick={uploadFile} disabled={isUploading || !selectedFile}>
+                    
+                    <Button onClick={uploadFile} disabled={isUploading || !selectedFile} className="w-full">
                       {isUploading ? (
                         <span className="flex items-center">
                           <Loader2 className="mr-2 h-4 w-4 animate-spin" />
                           Uploading... {uploadProgress}%
                         </span>
                       ) : (
-                        'Upload File'
+                        <>
+                          <Upload className="mr-2 h-4 w-4" />
+                          Upload File
+                        </>
                       )}
                     </Button>
+                    
                     {uploadProgress !== null && (
                       <Progress value={uploadProgress} className="w-full" />
                     )}
+                    
+                    <Alert variant="outline" className="bg-amber-50/50">
+                      <AlertTriangle className="h-4 w-4" />
+                      <AlertTitle>File Upload Notes</AlertTitle>
+                      <AlertDescription className="text-xs">
+                        After uploading, you can use the Bulk Process button to automatically categorize and tag multiple transcripts at once.
+                      </AlertDescription>
+                    </Alert>
                   </div>
                 </TabsContent>
               </Tabs>
@@ -661,6 +735,7 @@ const TranscriptsPage: React.FC = () => {
           onClose={handleCloseTranscriptEditor}
           transcriptId={selectedTranscript.id}
           initialTags={selectedTranscript.tags || []}
+          initialSource={selectedTranscript.source}
           onTagsUpdated={handleTagsUpdated}
         />
       )}

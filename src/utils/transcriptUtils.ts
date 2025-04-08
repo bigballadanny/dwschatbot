@@ -1,4 +1,3 @@
-
 import { Tables } from '../integrations/supabase/types';
 
 export type Transcript = {
@@ -59,6 +58,13 @@ export function getTranscriptSummaries(transcripts: Transcript[]) {
   }));
 }
 
+/**
+ * Detects the most likely source category for a transcript based on its title and content.
+ * 
+ * @param filename The title of the transcript
+ * @param content Optional content of the transcript for additional context
+ * @returns The detected source category identifier
+ */
 export function detectSourceCategory(filename: string, content?: string): string {
   const lowercaseFilename = filename.toLowerCase();
   
@@ -212,6 +218,10 @@ export function getCommonTagSuggestions() {
   ];
 }
 
+/**
+ * Returns all available source categories for transcripts.
+ * This centralized function ensures consistency across the application.
+ */
 export function getSourceCategories() {
   return [
     { id: 'protege_call', label: 'Protege Call' },
@@ -343,7 +353,8 @@ export function searchTranscriptsForQuery(query: string, transcripts: Transcript
       });
       
       // Boost relevance for business_acquisitions_summit as it's the newest content
-      const sourceBoost = transcript.source === 'business_acquisitions_summit' ? 2.0 :
+      const sourceBoost = transcript.source === 'business_acquisitions_summit_2025' ? 2.5 : 
+                          transcript.source === 'business_acquisitions_summit' ? 2.0 :
                           transcript.source === 'mastermind_call' ? 1.2 : 
                           1.0;
       
