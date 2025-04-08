@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect, useRef } from 'react';
 import { useToast } from "@/hooks/use-toast";
 import { Button } from "@/components/ui/button";
@@ -92,7 +91,6 @@ const TranscriptsPage: React.FC = () => {
         
         setTranscripts(data || []);
         
-        // Collect unique tags
         const uniqueTags = new Set<string>();
         data?.forEach(transcript => {
           if (transcript.tags && Array.isArray(transcript.tags)) {
@@ -293,7 +291,6 @@ const TranscriptsPage: React.FC = () => {
       if (data) {
         setTranscripts([data[0], ...transcripts]);
         
-        // Update all tags
         if (tags.length > 0) {
           setAllTags(prevTags => {
             const uniqueTags = new Set([...prevTags]);
@@ -363,7 +360,6 @@ const TranscriptsPage: React.FC = () => {
       if (data) {
         setTranscripts([data[0], ...transcripts]);
         
-        // Update all tags
         if (summitTags.length > 0) {
           setAllTags(prevTags => {
             const uniqueTags = new Set([...prevTags]);
@@ -466,7 +462,6 @@ const TranscriptsPage: React.FC = () => {
     setUploadResults({success: successCount, failed: failedCount});
     setFailedFiles(failedFilesList);
     
-    // Update all tags
     if (newTagsSet.size > 0) {
       setAllTags(prevTags => {
         const uniqueTags = new Set([...prevTags]);
@@ -555,7 +550,6 @@ const TranscriptsPage: React.FC = () => {
     setSummitUploadResults({success: successCount, failed: failedCount});
     setSummitFailedFiles(failedFilesList);
     
-    // Update all tags
     if (newTagsSet.size > 0) {
       setAllTags(prevTags => {
         const uniqueTags = new Set([...prevTags]);
@@ -643,7 +637,6 @@ const TranscriptsPage: React.FC = () => {
   };
 
   const handleTagsUpdated = (transcriptId: string, updatedTags: string[]) => {
-    // Update the transcript in the local state
     setTranscripts(prev => 
       prev.map(t => 
         t.id === transcriptId 
@@ -652,7 +645,6 @@ const TranscriptsPage: React.FC = () => {
       )
     );
     
-    // Update all tags
     setAllTags(prevTags => {
       const uniqueTags = new Set([...prevTags]);
       updatedTags.forEach(tag => uniqueTags.add(tag));
@@ -660,12 +652,9 @@ const TranscriptsPage: React.FC = () => {
     });
   };
 
-  // Filter by source and tags
   const filteredTranscripts = transcripts.filter(t => {
-    // Source filter
     const sourceMatch = filterSource === 'all' ? true : t.source === filterSource;
     
-    // Tag filter
     const tagMatch = filterTags.length === 0 ? true : 
       t.tags && t.tags.some(tag => filterTags.includes(tag));
       
@@ -697,7 +686,6 @@ const TranscriptsPage: React.FC = () => {
       if (error) throw error;
       setTranscripts(data || []);
       
-      // Collect unique tags
       const uniqueTags = new Set<string>();
       data?.forEach(transcript => {
         if (transcript.tags && Array.isArray(transcript.tags)) {
@@ -1260,7 +1248,7 @@ const TranscriptsPage: React.FC = () => {
                         
                         <div className="flex flex-col items-end gap-2">
                           <span className={`px-2 py-1 rounded-full text-xs flex items-center ${getSourceColor(transcript.source)}`}>
-                            <Tag className="h-3 w-3 mr-1" />
+                            <TagIcon className="h-3 w-3 mr-1" />
                             {transcript.source === 'business_acquisitions_summit' 
                               ? '2024 Business Acquisitions Summit'
                               : transcript.source?.replace('_', ' ')}
@@ -1337,7 +1325,7 @@ const TranscriptsPage: React.FC = () => {
             <DialogDescription>
               {selectedTranscript?.source && (
                 <span className={`px-2 py-1 rounded-full text-xs inline-flex items-center ${getSourceColor(selectedTranscript?.source)}`}>
-                  <Tag className="h-3 w-3 mr-1" />
+                  <TagIcon className="h-3 w-3 mr-1" />
                   {selectedTranscript?.source === 'business_acquisitions_summit'
                     ? '2024 Business Acquisitions Summit'
                     : selectedTranscript?.source?.replace('_', ' ')}
