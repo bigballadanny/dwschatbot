@@ -7,23 +7,22 @@ import { Label } from "@/components/ui/label";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
-import { AIInputWithSearch } from "@/components/ui/ai-input-with-search";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
+import { Badge } from "@/components/ui/badge";
+import { ScrollArea } from "@/components/ui/scroll-area";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue, SelectGroup, SelectLabel } from "@/components/ui/select";
 import { useAuth } from '@/context/AuthContext';
 import { supabase } from '@/integrations/supabase/client';
 import Header from '@/components/Header';
 import { FileText, Upload, Tag as TagIcon, Loader2, X, Info, AlertTriangle, Edit, Tags, Plus, Sparkles, Settings, Filter, RefreshCw } from 'lucide-react';
 import { detectSourceCategory, formatTagForDisplay, suggestTagsFromContent, getSourceCategories } from '@/utils/transcriptUtils';
-import { Progress } from "@/components/ui/progress";
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogClose } from "@/components/ui/dialog";
-import { Badge } from "@/components/ui/badge";
-import { ScrollArea } from "@/components/ui/scroll-area";
 import TranscriptDiagnostics from "@/components/TranscriptDiagnostics";
 import { TagsInput } from "@/components/TagsInput";
 import TranscriptTagEditor from "@/components/TranscriptTagEditor";
 import TagFilter from "@/components/TagFilter";
 import { showSuccess, showError, showWarning } from "@/utils/toastUtils";
 import BulkTagProcessor from "@/components/BulkTagProcessor";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue, SelectGroup, SelectLabel } from "@/components/ui/select";
+import FileUploader from "@/components/FileUploader";
 
 interface Transcript {
   id: string;
@@ -105,9 +104,63 @@ const TranscriptsPage: React.FC = () => {
     }
   };
 
-  const handleFileSelect = (event: React.ChangeEvent<HTMLInputElement>) => {
-    const file = event.target.files && event.target.files[0];
-    setSelectedFile(file || null);
+  const handleFileSelect = (files: FileList) => {
+    setSelectedFile(files[0] || null);
+  };
+
+  const handleBatchFileUpload = async (files: FileList) => {
+    if (!user) {
+      showWarning("Not authenticated", "You must be logged in to upload files.");
+      return;
+    }
+
+    if (files.length === 0) {
+      showWarning("No files selected", "Please select files to upload.");
+      return;
+    }
+
+    setIsUploading(true);
+    setUploadProgress(0);
+    
+    try {
+      let successCount = 0;
+      
+      for (let i = 0; i < files.length; i++) {
+        const file = files[i];
+        const filePath = `transcripts/${user.id}/${Date.now()}_${file.name}`;
+        
+        setUploadProgress(Math.round((i / files.length) * 100));
+        
+        const { data, error } = await supabase.storage
+          .from('transcripts')
+          .upload(filePath, file, {
+            cacheControl: '3600',
+            upsert: false
+          });
+
+        if (error) {
+          console.error(`Error uploading file ${file.name}:`, error);
+          continue;
+        }
+
+        const publicURL = `${process.env.NEXT_PUBLIC_SUPABASE_URL}/storage/v1/object/public/transcripts/${filePath}`;
+        
+        await createTranscript(file.name, '', filePath, publicURL);
+        successCount++;
+      }
+      
+      if (successCount > 0) {
+        showSuccess("Files uploaded", `Successfully uploaded ${successCount} out of ${files.length} files.`);
+      } else {
+        showError("Upload failed", "Failed to upload any files. Please try again.");
+      }
+    } catch (error: any) {
+      console.error('Error during upload:', error);
+      showError("File upload failed", "There was an error uploading the files. Please try again.");
+    } finally {
+      setIsUploading(false);
+      setUploadProgress(null);
+    }
   };
 
   const handleTagAdded = (tag: string) => {
@@ -411,9 +464,10 @@ const TranscriptsPage: React.FC = () => {
             </CardHeader>
             <CardContent>
               <Tabs defaultValue="manual" className="w-full">
-                <TabsList className="grid grid-cols-2 mb-4">
+                <TabsList className="grid grid-cols-3 mb-4">
                   <TabsTrigger value="manual">Manual Input</TabsTrigger>
-                  <TabsTrigger value="upload">File Upload</TabsTrigger>
+                  <TabsTrigger value="upload">Single Upload</TabsTrigger>
+                  <TabsTrigger value="batch">Batch Upload</TabsTrigger>
                 </TabsList>
                 
                 <TabsContent value="manual">
@@ -550,23 +604,18 @@ const TranscriptsPage: React.FC = () => {
                       </p>
                     </div>
                     
-                    <div className="grid gap-2">
-                      <Label htmlFor="file">Select File</Label>
-                      <Input
-                        type="file"
-                        id="file"
-                        onChange={handleFileSelect}
-                        ref={fileInputRef}
-                        className="cursor-pointer"
-                      />
-                      {selectedFile && (
-                        <p className="text-sm text-muted-foreground">
-                          Selected File: {selectedFile.name}
-                        </p>
-                      )}
-                    </div>
+                    <FileUploader 
+                      onFileSelect={handleFileSelect}
+                      isUploading={isUploading}
+                      uploadProgress={uploadProgress}
+                      multiple={false}
+                    />
                     
-                    <Button onClick={uploadFile} disabled={isUploading || !selectedFile} className="w-full">
+                    <Button 
+                      onClick={uploadFile} 
+                      disabled={isUploading || !selectedFile} 
+                      className="w-full"
+                    >
                       {isUploading ? (
                         <span className="flex items-center">
                           <Loader2 className="mr-2 h-4 w-4 animate-spin" />
@@ -580,17 +629,58 @@ const TranscriptsPage: React.FC = () => {
                       )}
                     </Button>
                     
-                    {uploadProgress !== null && (
-                      <Progress value={uploadProgress} className="w-full" />
-                    )}
-                    
                     <Alert>
                       <AlertTriangle className="h-4 w-4" />
                       <AlertTitle>File Upload Notes</AlertTitle>
                       <AlertDescription className="text-xs">
-                        After uploading, you can use the Bulk Process button to automatically categorize and tag multiple transcripts at once.
+                        After uploading, you can use the Bulk Process button to automatically categorize and tag transcripts.
                       </AlertDescription>
                     </Alert>
+                  </div>
+                </TabsContent>
+                
+                <TabsContent value="batch">
+                  <div className="grid gap-4">
+                    <div className="grid gap-2">
+                      <Label htmlFor="batch-source">Source Category</Label>
+                      <Select 
+                        value={source} 
+                        onValueChange={setSource}
+                      >
+                        <SelectTrigger className="w-full">
+                          <SelectValue placeholder="Select or auto-detect source" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectGroup>
+                            <SelectLabel>Source Categories</SelectLabel>
+                            {getSourceCategories().map(category => (
+                              <SelectItem key={category.id} value={category.id}>
+                                {category.label}
+                              </SelectItem>
+                            ))}
+                          </SelectGroup>
+                        </SelectContent>
+                      </Select>
+                      <p className="text-xs text-muted-foreground mt-1">
+                        Source will be auto-detected if not selected (applies to all files)
+                      </p>
+                    </div>
+                    
+                    <Alert variant="outline" className="bg-amber-50">
+                      <Info className="h-4 w-4" />
+                      <AlertTitle>Batch Upload</AlertTitle>
+                      <AlertDescription className="text-xs">
+                        Upload multiple files at once. Each file will be created as a separate transcript.
+                      </AlertDescription>
+                    </Alert>
+                    
+                    <FileUploader 
+                      onFileSelect={handleBatchFileUpload}
+                      isUploading={isUploading}
+                      uploadProgress={uploadProgress}
+                      multiple={true}
+                      showPreview={true}
+                    />
                   </div>
                 </TabsContent>
               </Tabs>
@@ -728,30 +818,42 @@ const TranscriptsPage: React.FC = () => {
       </div>
 
       {selectedTranscript && (
-        <TranscriptTagEditor
-          open={isTranscriptEditorOpen}
-          onClose={handleCloseTranscriptEditor}
-          transcriptId={selectedTranscript.id}
-          initialTags={selectedTranscript.tags || []}
-          initialSource={selectedTranscript.source}
-          onTagsUpdated={handleTagsUpdated}
-        />
+        <Dialog open={isTranscriptEditorOpen} onOpenChange={setIsTranscriptEditorOpen}>
+          <DialogContent>
+            <TranscriptTagEditor
+              open={isTranscriptEditorOpen}
+              onClose={handleCloseTranscriptEditor}
+              transcriptId={selectedTranscript.id}
+              initialTags={selectedTranscript.tags || []}
+              initialSource={selectedTranscript.source}
+              onTagsUpdated={handleTagsUpdated}
+            />
+          </DialogContent>
+        </Dialog>
       )}
       
-      <TranscriptTagEditor
-        open={isBatchTagEditorOpen}
-        onClose={handleCloseBatchTagEditor}
-        transcriptId={selectedTranscriptIds}
-        initialTags={[]}
-        onTagsUpdated={handleTagsUpdated}
-        isBatchMode={true}
-      />
+      <Dialog open={isBatchTagEditorOpen} onOpenChange={setIsBatchTagEditorOpen}>
+        <DialogContent>
+          <TranscriptTagEditor
+            open={isBatchTagEditorOpen}
+            onClose={handleCloseBatchTagEditor}
+            transcriptId={selectedTranscriptIds}
+            initialTags={[]}
+            onTagsUpdated={handleTagsUpdated}
+            isBatchMode={true}
+          />
+        </DialogContent>
+      </Dialog>
       
-      <BulkTagProcessor
-        open={isBulkProcessorOpen}
-        onClose={handleCloseBulkProcessor}
-        onComplete={handleBulkProcessingComplete}
-      />
+      <Dialog open={isBulkProcessorOpen} onOpenChange={setIsBulkProcessorOpen}>
+        <DialogContent className="sm:max-w-md">
+          <BulkTagProcessor
+            open={isBulkProcessorOpen}
+            onClose={handleCloseBulkProcessor}
+            onComplete={handleBulkProcessingComplete}
+          />
+        </DialogContent>
+      </Dialog>
       
       <Dialog open={isDiagnosticsOpen} onOpenChange={setIsDiagnosticsOpen}>
         <DialogContent className="sm:max-w-md">

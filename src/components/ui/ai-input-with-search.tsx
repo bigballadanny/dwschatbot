@@ -14,10 +14,23 @@ export interface AIInputWithSearchProps
   uploading?: boolean
   className?: string
   containerClassName?: string
+  allowMultipleFiles?: boolean
+  acceptFileTypes?: string
 }
 
 const AIInputWithSearch = React.forwardRef<HTMLInputElement, AIInputWithSearchProps>(
-  ({ className, containerClassName, onSend, onFileUpload, loading = false, uploading = false, buttonClassName, ...props }, ref) => {
+  ({ 
+    className, 
+    containerClassName, 
+    onSend, 
+    onFileUpload, 
+    loading = false, 
+    uploading = false, 
+    buttonClassName, 
+    allowMultipleFiles = true,
+    acceptFileTypes = ".pdf,.doc,.docx,.txt,.csv,.xls,.xlsx,.jpg,.jpeg,.png,.mp3,.mp4,.wav",
+    ...props 
+  }, ref) => {
     const [inputValue, setInputValue] = React.useState(props.value || '')
     const fileInputRef = React.useRef<HTMLInputElement>(null)
     
@@ -75,8 +88,8 @@ const AIInputWithSearch = React.forwardRef<HTMLInputElement, AIInputWithSearchPr
                 ref={fileInputRef} 
                 className="hidden" 
                 onChange={handleFileChange}
-                accept=".pdf,.doc,.docx,.txt,.csv,.xls,.xlsx"
-                multiple
+                accept={acceptFileTypes}
+                multiple={allowMultipleFiles}
               />
               
               <Button
