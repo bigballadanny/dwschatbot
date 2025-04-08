@@ -20,6 +20,7 @@ export interface AuthContextType {
   signOut: () => Promise<void>;
 }
 
+// Create the context with undefined as default value
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
 export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) => {
@@ -31,7 +32,9 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     const getCurrentUser = async () => {
       setLoading(true);
       try {
-        const { data: { session } } = await supabase.auth.getSession();
+        // Use destructuring directly without type assertion to avoid deep instantiation
+        const { data } = await supabase.auth.getSession();
+        const session = data.session;
         
         if (session) {
           setSession(session);
@@ -74,7 +77,8 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
 
     getCurrentUser();
 
-    const { data: { subscription } } = supabase.auth.onAuthStateChange(
+    // Use destructuring directly without type assertion to avoid deep instantiation
+    const { data } = supabase.auth.onAuthStateChange(
       async (event, newSession) => {
         setSession(newSession);
         
@@ -105,7 +109,7 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     );
 
     return () => {
-      subscription.unsubscribe();
+      data.subscription.unsubscribe();
     };
   }, []);
 
