@@ -10,18 +10,20 @@ import {
 } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
+import { Checkbox } from "@/components/ui/checkbox";
 import { Tag as TagIcon, Save, X, Sparkles, Plus } from "lucide-react";
 import { TagsInput } from "./TagsInput";
-import { formatTagForDisplay, suggestTagsFromContent } from "@/utils/transcriptUtils";
+import { formatTagForDisplay, suggestTagsFromContent, getCommonTagSuggestions } from "@/utils/transcriptUtils";
 import { showSuccess, showError } from "@/utils/toastUtils";
 import { supabase } from '@/integrations/supabase/client';
 
 interface TranscriptTagEditorProps {
   open: boolean;
   onClose: () => void;
-  transcriptId: string;
+  transcriptId: string | string[];  // Support for single or multiple IDs
   initialTags: string[];
-  onTagsUpdated: (transcriptId: string, tags: string[]) => void;
+  onTagsUpdated: (transcriptId: string | string[], tags: string[]) => void;
+  isBatchMode?: boolean;
 }
 
 const TranscriptTagEditor: React.FC<TranscriptTagEditorProps> = ({
@@ -29,22 +31,37 @@ const TranscriptTagEditor: React.FC<TranscriptTagEditorProps> = ({
   onClose,
   transcriptId,
   initialTags,
-  onTagsUpdated
+  onTagsUpdated,
+  isBatchMode = false
 }) => {
   const [tags, setTags] = useState<string[]>(initialTags || []);
   const [isSaving, setIsSaving] = useState(false);
   const [content, setContent] = useState("");
   const [isDetectingTags, setIsDetectingTags] = useState(false);
   const [suggestedTags, setSuggestedTags] = useState<string[]>([]);
+  const [autoDetectEnabled, setAutoDetectEnabled] = useState(false);
+  const [commonTags, setCommonTags] = useState<{id: string, label: string, checked: boolean}[]>([]);
 
   useEffect(() => {
     if (open) {
       setTags(initialTags || []);
-      fetchTranscriptContent();
+      
+      // Set up common tags with checked state based on initialTags
+      const suggestions = getCommonTagSuggestions().map(tag => ({
+        ...tag,
+        checked: initialTags?.includes(tag.id) || false
+      }));
+      setCommonTags(suggestions);
+      
+      if (!isBatchMode) {
+        fetchTranscriptContent();
+      }
     }
-  }, [open, initialTags, transcriptId]);
+  }, [open, initialTags, transcriptId, isBatchMode]);
 
   const fetchTranscriptContent = async () => {
+    if (Array.isArray(transcriptId)) return; // Don't fetch content in batch mode
+    
     try {
       const { data, error } = await supabase
         .from('transcripts')
@@ -63,7 +80,7 @@ const TranscriptTagEditor: React.FC<TranscriptTagEditorProps> = ({
   };
 
   const handleDetectTags = () => {
-    if (!content) return;
+    if (!content || !autoDetectEnabled) return;
     
     setIsDetectingTags(true);
     try {
@@ -98,6 +115,29 @@ const TranscriptTagEditor: React.FC<TranscriptTagEditorProps> = ({
     setSuggestedTags([]);
   };
 
+  const handleCommonTagToggle = (tagId: string) => {
+    setCommonTags(prev => prev.map(tag => 
+      tag.id === tagId ? { ...tag, checked: !tag.checked } : tag
+    ));
+
+    // Also update the main tags array for consistency
+    if (tags.includes(tagId)) {
+      setTags(tags.filter(t => t !== tagId));
+    } else {
+      setTags([...tags, tagId]);
+    }
+  };
+
+  const handleApplyCommonTags = () => {
+    // Get all checked tag IDs
+    const checkedTagIds = commonTags
+      .filter(tag => tag.checked)
+      .map(tag => tag.id);
+
+    // Update the tags list with all checked tags
+    setTags(checkedTagIds);
+  };
+  
   const handleSaveTags = async () => {
     try {
       setIsSaving(true);
@@ -107,15 +147,37 @@ const TranscriptTagEditor: React.FC<TranscriptTagEditorProps> = ({
         tags: tags.length > 0 ? tags : null
       };
       
-      const { error } = await supabase
-        .from('transcripts')
-        .update(updateData)
-        .eq('id', transcriptId);
+      // Handle single vs batch update
+      if (!Array.isArray(transcriptId)) {
+        // Single transcript update
+        const { error } = await supabase
+          .from('transcripts')
+          .update(updateData)
+          .eq('id', transcriptId);
+        
+        if (error) throw error;
+        
+        onTagsUpdated(transcriptId, tags);
+        showSuccess("Tags updated", `Successfully updated tags for this transcript`);
+      } else {
+        // Batch update for multiple transcripts
+        if (transcriptId.length === 0) {
+          showError("No transcripts selected", "Please select at least one transcript to update tags.");
+          setIsSaving(false);
+          return;
+        }
+        
+        const { error } = await supabase
+          .from('transcripts')
+          .update(updateData)
+          .in('id', transcriptId);
+        
+        if (error) throw error;
+        
+        onTagsUpdated(transcriptId, tags);
+        showSuccess("Tags updated", `Successfully updated tags for ${transcriptId.length} transcripts`);
+      }
       
-      if (error) throw error;
-      
-      onTagsUpdated(transcriptId, tags);
-      showSuccess("Tags updated", `Successfully updated tags for this transcript`);
       onClose();
     } catch (error) {
       console.error("Error updating tags:", error);
@@ -131,34 +193,84 @@ const TranscriptTagEditor: React.FC<TranscriptTagEditorProps> = ({
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
             <TagIcon className="h-5 w-5" />
-            Edit Tags
+            {isBatchMode ? `Batch Edit Tags (${Array.isArray(transcriptId) ? transcriptId.length : 1} transcripts)` : 'Edit Tags'}
           </DialogTitle>
           <DialogDescription>
-            Add or remove tags for this transcript to help with organization and search.
+            {isBatchMode 
+              ? "Apply tags to multiple transcripts at once." 
+              : "Add or remove tags for this transcript to help with organization and search."}
           </DialogDescription>
         </DialogHeader>
 
         <div className="space-y-4 py-4">
-          <Button 
-            variant="outline" 
-            onClick={handleDetectTags} 
-            disabled={isDetectingTags || !content}
-            className="w-full"
-          >
-            {isDetectingTags ? (
-              <>Detecting tags...</>
-            ) : (
-              <>
-                <Sparkles className="h-4 w-4 mr-2" />
-                Auto-detect tags from content
-              </>
-            )}
-          </Button>
+          {!isBatchMode && (
+            <div className="flex items-center space-x-2">
+              <Checkbox 
+                id="auto-detect" 
+                checked={autoDetectEnabled} 
+                onCheckedChange={() => setAutoDetectEnabled(!autoDetectEnabled)} 
+              />
+              <label 
+                htmlFor="auto-detect" 
+                className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70"
+              >
+                Enable auto-detection (uses AI resources)
+              </label>
+            </div>
+          )}
+
+          {!isBatchMode && autoDetectEnabled && (
+            <Button 
+              variant="outline" 
+              onClick={handleDetectTags} 
+              disabled={isDetectingTags || !content}
+              className="w-full"
+            >
+              {isDetectingTags ? (
+                <>Detecting tags...</>
+              ) : (
+                <>
+                  <Sparkles className="h-4 w-4 mr-2" />
+                  Auto-detect tags from content
+                </>
+              )}
+            </Button>
+          )}
+          
+          {/* Common tags with checkboxes for quick selection */}
+          <div className="border rounded-md p-3 bg-muted/30">
+            <p className="text-sm font-medium mb-2">Common Tags:</p>
+            <div className="grid grid-cols-2 gap-2">
+              {commonTags.map(tag => (
+                <div key={tag.id} className="flex items-center space-x-2">
+                  <Checkbox 
+                    id={`tag-${tag.id}`} 
+                    checked={tag.checked || tags.includes(tag.id)}
+                    onCheckedChange={() => handleCommonTagToggle(tag.id)}
+                  />
+                  <label 
+                    htmlFor={`tag-${tag.id}`}
+                    className="text-sm leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70"
+                  >
+                    {tag.label}
+                  </label>
+                </div>
+              ))}
+            </div>
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={handleApplyCommonTags}
+              className="mt-2 w-full text-xs"
+            >
+              Apply Selected Tags
+            </Button>
+          </div>
           
           {suggestedTags.length > 0 && (
             <div className="border rounded-md p-3 bg-muted/50">
               <div className="flex justify-between items-center mb-2">
-                <p className="text-sm font-medium">Suggested tags:</p>
+                <p className="text-sm font-medium">Auto-suggested tags:</p>
                 <Button 
                   variant="ghost" 
                   size="sm" 
@@ -187,7 +299,7 @@ const TranscriptTagEditor: React.FC<TranscriptTagEditorProps> = ({
           <TagsInput
             value={tags}
             onChange={setTags}
-            placeholder="Add tags..."
+            placeholder="Add custom tags..."
           />
           
           {tags.length > 0 && (
@@ -214,7 +326,7 @@ const TranscriptTagEditor: React.FC<TranscriptTagEditorProps> = ({
             {isSaving ? "Saving..." : (
               <>
                 <Save className="h-4 w-4" />
-                Save Tags
+                {isBatchMode ? `Save Tags to ${Array.isArray(transcriptId) ? transcriptId.length : 1} Transcripts` : 'Save Tags'}
               </>
             )}
           </Button>

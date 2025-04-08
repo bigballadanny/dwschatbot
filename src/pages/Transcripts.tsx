@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect, useRef } from 'react';
 import { useToast } from "@/hooks/use-toast";
 import { Button } from "@/components/ui/button";
@@ -5,6 +6,7 @@ import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle }
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
+import { Checkbox } from "@/components/ui/checkbox";
 import { useAuth } from '@/context/AuthContext';
 import { supabase } from '@/integrations/supabase/client';
 import Header from '@/components/Header';
@@ -54,6 +56,10 @@ const TranscriptsPage: React.FC = () => {
   const [filteredTranscripts, setFilteredTranscripts] = useState<Transcript[]>([]);
   const [isDiagnosticsOpen, setIsDiagnosticsOpen] = useState(false);
   const [isBulkProcessorOpen, setIsBulkProcessorOpen] = useState(false);
+  const [isBatchTaggingMode, setIsBatchTaggingMode] = useState(false);
+  const [selectedTranscriptIds, setSelectedTranscriptIds] = useState<string[]>([]);
+  const [isBatchTagEditorOpen, setIsBatchTagEditorOpen] = useState(false);
+  const [autoDetectTags, setAutoDetectTags] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const { toast } = useToast();
   const { user } = useAuth();
@@ -67,13 +73,13 @@ const TranscriptsPage: React.FC = () => {
   }, [transcripts, tagFilters]);
 
   useEffect(() => {
-    if (content) {
+    if (content && autoDetectTags) {
       const tags = suggestTagsFromContent(content);
       setSuggestedTags(tags);
     } else {
       setSuggestedTags([]);
     }
-  }, [content]);
+  }, [content, autoDetectTags]);
 
   const fetchTranscripts = async () => {
     if (!user) return;
@@ -180,7 +186,7 @@ const TranscriptsPage: React.FC = () => {
 
     setIsProcessing(true);
     try {
-      const autoTags = content ? suggestTagsFromContent(content) : [];
+      const autoTags = (content && autoDetectTags) ? suggestTagsFromContent(content) : [];
       const finalTags = [...new Set([...selectedTags, ...autoTags])];
       
       const { data, error } = await supabase
@@ -217,7 +223,7 @@ const TranscriptsPage: React.FC = () => {
         if (fileInputRef.current) {
           fileInputRef.current.value = ''; // Reset the file input
         }
-        showSuccess("Transcript created", `Successfully created the transcript with ${finalTags.length} auto-detected tags.`);
+        showSuccess("Transcript created", `Successfully created the transcript${autoTags.length > 0 ? ` with ${autoTags.length} auto-detected tags` : ''}.`);
       } else {
         showWarning("No transcript created", "No transcript was created.");
       }
@@ -237,7 +243,7 @@ const TranscriptsPage: React.FC = () => {
   };
 
   const handleRemoveTag = (tag: string) => {
-    setSelectedTags(prev => prev.filter(t => t !== tag));
+    setSelectedTags(prev => prev.filter(t => t !== t));
   };
 
   const handleContentChange = (e: React.ChangeEvent<HTMLTextAreaElement>) => {
@@ -250,16 +256,27 @@ const TranscriptsPage: React.FC = () => {
     createTranscript(title, content);
   };
 
-  const handleTagsUpdated = (transcriptId: string, updatedTags: string[]) => {
-    setTranscripts(prevTranscripts =>
-      prevTranscripts.map(transcript =>
-        transcript.id === transcriptId ? { ...transcript, tags: updatedTags } : transcript
-      )
-    );
+  const handleTagsUpdated = (transcriptId: string | string[], updatedTags: string[]) => {
+    if (Array.isArray(transcriptId)) {
+      // Batch update
+      setTranscripts(prevTranscripts =>
+        prevTranscripts.map(transcript =>
+          transcriptId.includes(transcript.id) ? { ...transcript, tags: updatedTags } : transcript
+        )
+      );
+    } else {
+      // Single transcript update
+      setTranscripts(prevTranscripts =>
+        prevTranscripts.map(transcript =>
+          transcript.id === transcriptId ? { ...transcript, tags: updatedTags } : transcript
+        )
+      );
+    }
   };
 
   const handleOpenTranscriptEditor = (transcript: Transcript) => {
     setSelectedTranscript(transcript);
+    setIsBatchTaggingMode(false);
     setIsTranscriptEditorOpen(true);
   };
 
@@ -293,13 +310,41 @@ const TranscriptsPage: React.FC = () => {
     fetchTranscripts();
     setIsBulkProcessorOpen(false);
   };
+  
+  const toggleTranscriptSelection = (transcriptId: string) => {
+    setSelectedTranscriptIds(prev => {
+      if (prev.includes(transcriptId)) {
+        return prev.filter(id => id !== transcriptId);
+      } else {
+        return [...prev, transcriptId];
+      }
+    });
+  };
+  
+  const toggleSelectAll = () => {
+    if (selectedTranscriptIds.length === filteredTranscripts.length) {
+      setSelectedTranscriptIds([]);
+    } else {
+      setSelectedTranscriptIds(filteredTranscripts.map(t => t.id));
+    }
+  };
+  
+  const handleOpenBatchTagEditor = () => {
+    if (selectedTranscriptIds.length === 0) {
+      showWarning("No transcripts selected", "Please select at least one transcript to batch edit tags.");
+      return;
+    }
+    
+    setIsBatchTagEditorOpen(true);
+  };
+  
+  const handleCloseBatchTagEditor = () => {
+    setIsBatchTagEditorOpen(false);
+  };
 
   return (
     <div className="container mx-auto py-6">
-      <Header 
-        title="Transcripts" 
-        subtitle="Manage and view your transcripts" 
-      />
+      <Header title="Transcripts" subtitle="Manage and view your transcripts" />
 
       <div className="grid gap-6 mt-6">
         <Card>
@@ -329,6 +374,20 @@ const TranscriptsPage: React.FC = () => {
                       onChange={handleContentChange}
                       className="min-h-[200px]"
                     />
+                  </div>
+
+                  <div className="flex items-center space-x-2 mb-2">
+                    <Checkbox
+                      id="auto-detect-tags" 
+                      checked={autoDetectTags}
+                      onCheckedChange={(checked) => setAutoDetectTags(checked === true)}
+                    />
+                    <label
+                      htmlFor="auto-detect-tags"
+                      className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70"
+                    >
+                      Auto-detect tags (uses AI resources)
+                    </label>
                   </div>
 
                   {suggestedTags.length > 0 && (
@@ -433,7 +492,7 @@ const TranscriptsPage: React.FC = () => {
                   className="flex items-center gap-1"
                 >
                   <Sparkles className="w-3 h-3" />
-                  Bulk Process All Transcripts
+                  Process All Transcripts
                 </Button>
               </div>
             </div>
@@ -441,43 +500,84 @@ const TranscriptsPage: React.FC = () => {
           </CardHeader>
         </Card>
 
-        <div className="grid gap-4">
-          {filteredTranscripts.length === 0 ? (
-            <Card>
-              <CardContent className="p-6 text-center">No transcripts found.</CardContent>
-            </Card>
-          ) : (
-            <div className="grid gap-4">
-              {filteredTranscripts.map((transcript) => (
-                <Card key={transcript.id}>
-                  <CardHeader className="pb-3">
-                    <CardTitle>{transcript.title}</CardTitle>
-                    <CardDescription>{transcript.created_at}</CardDescription>
-                  </CardHeader>
-                  {transcript.tags && transcript.tags.length > 0 && (
-                    <CardContent className="pb-3 pt-0">
-                      <div className="flex flex-wrap gap-1">
-                        {transcript.tags.map((tag) => (
-                          <Badge key={tag} variant="secondary" className="text-xs">
-                            {formatTagForDisplay(tag)}
-                          </Badge>
-                        ))}
+        <Card>
+          <CardHeader className="pb-3">
+            <div className="flex justify-between items-center">
+              <CardTitle className="text-lg">Transcripts</CardTitle>
+              <div className="flex gap-2">
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={toggleSelectAll}
+                  className="flex items-center gap-1"
+                >
+                  {selectedTranscriptIds.length === filteredTranscripts.length ? 'Deselect All' : 'Select All'}
+                </Button>
+                
+                <Button
+                  variant="default"
+                  size="sm"
+                  onClick={handleOpenBatchTagEditor}
+                  disabled={selectedTranscriptIds.length === 0}
+                  className="flex items-center gap-1"
+                >
+                  <TagIcon className="w-3 h-3 mr-1" />
+                  Batch Edit Tags ({selectedTranscriptIds.length})
+                </Button>
+              </div>
+            </div>
+          </CardHeader>
+          
+          <CardContent>
+            {filteredTranscripts.length === 0 ? (
+              <div className="text-center p-6">No transcripts found.</div>
+            ) : (
+              <div className="space-y-4">
+                {filteredTranscripts.map((transcript) => (
+                  <Card key={transcript.id} className={`border ${selectedTranscriptIds.includes(transcript.id) ? 'border-primary' : 'border-border'}`}>
+                    <CardHeader className="pb-2 flex flex-row items-start">
+                      <div className="flex-1">
+                        <div className="flex items-center gap-2">
+                          <Checkbox
+                            checked={selectedTranscriptIds.includes(transcript.id)}
+                            onCheckedChange={() => toggleTranscriptSelection(transcript.id)}
+                            className="mr-1"
+                          />
+                          <CardTitle className="text-base">{transcript.title}</CardTitle>
+                        </div>
+                        <CardDescription>{new Date(transcript.created_at).toLocaleString()}</CardDescription>
                       </div>
-                    </CardContent>
-                  )}
-                  <CardFooter>
-                    <div className="flex gap-2">
+                      {transcript.source && (
+                        <Badge variant="outline" className="ml-2">
+                          {transcript.source.replace(/_/g, ' ')}
+                        </Badge>
+                      )}
+                    </CardHeader>
+                    
+                    {transcript.tags && transcript.tags.length > 0 && (
+                      <CardContent className="pb-2 pt-0">
+                        <div className="flex flex-wrap gap-1">
+                          {transcript.tags.map((tag) => (
+                            <Badge key={tag} variant="secondary" className="text-xs">
+                              {formatTagForDisplay(tag)}
+                            </Badge>
+                          ))}
+                        </div>
+                      </CardContent>
+                    )}
+                    
+                    <CardFooter>
                       <Button variant="ghost" size="sm" onClick={() => handleOpenTranscriptEditor(transcript)}>
                         <Edit className="w-4 h-4 mr-2" />
                         Edit Tags
                       </Button>
-                    </div>
-                  </CardFooter>
-                </Card>
-              ))}
-            </div>
-          )}
-        </div>
+                    </CardFooter>
+                  </Card>
+                ))}
+              </div>
+            )}
+          </CardContent>
+        </Card>
 
         <Sheet>
           <SheetTrigger asChild>
@@ -513,6 +613,16 @@ const TranscriptsPage: React.FC = () => {
           onTagsUpdated={handleTagsUpdated}
         />
       )}
+      
+      {/* Batch Tag Editor */}
+      <TranscriptTagEditor
+        open={isBatchTagEditorOpen}
+        onClose={handleCloseBatchTagEditor}
+        transcriptId={selectedTranscriptIds}
+        initialTags={[]}
+        onTagsUpdated={handleTagsUpdated}
+        isBatchMode={true}
+      />
     </div>
   );
 };

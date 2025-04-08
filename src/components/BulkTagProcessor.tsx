@@ -5,6 +5,7 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription, CardFooter }
 import { Badge } from '@/components/ui/badge';
 import { Progress } from '@/components/ui/progress';
 import { Alert, AlertTitle, AlertDescription } from '@/components/ui/alert';
+import { Checkbox } from "@/components/ui/checkbox";
 import { 
   Tag as TagIcon, 
   Loader2, 
@@ -13,7 +14,8 @@ import {
   AlertCircle,
   Play,
   Pause,
-  Sparkles
+  Sparkles,
+  Settings
 } from 'lucide-react';
 import { 
   Dialog, 
@@ -48,6 +50,9 @@ const BulkTagProcessor: React.FC<BulkTagProcessorProps> = ({ open, onClose, onCo
   const [processingStatus, setProcessingStatus] = useState<string | null>(null);
   const [detailsOpen, setDetailsOpen] = useState(false);
   const [processingLogs, setProcessingLogs] = useState<string[]>([]);
+  const [enableAutoTagging, setEnableAutoTagging] = useState(false);
+  const [enableCategorizing, setEnableCategorizing] = useState(true);
+  const [settingsOpen, setSettingsOpen] = useState(false);
 
   useEffect(() => {
     if (open) {
@@ -85,6 +90,11 @@ const BulkTagProcessor: React.FC<BulkTagProcessorProps> = ({ open, onClose, onCo
   const startProcessing = () => {
     if (transcripts.length === 0) {
       showWarning("No transcripts to process", "There are no transcripts available for processing.");
+      return;
+    }
+    
+    if (!enableAutoTagging && !enableCategorizing) {
+      showWarning("No actions selected", "Please enable at least one action (auto-tagging or categorizing) before processing.");
       return;
     }
     
@@ -127,25 +137,27 @@ const BulkTagProcessor: React.FC<BulkTagProcessorProps> = ({ open, onClose, onCo
       let wasUpdated = false;
       const updates: Record<string, any> = {};
       
-      // Process source categorization
-      const currentSource = transcript.source;
-      const detectedSource = detectSourceCategory(transcript.title, transcript.content);
-      
-      // Only update source if needed
-      if (
-        (!currentSource || 
-        currentSource === 'other' || 
-        (detectedSource === 'business_acquisitions_summit' && currentSource !== 'business_acquisitions_summit') ||
-        (detectedSource === 'foundations_call' && currentSource === 'protege_call'))
-      ) {
-        updates.source = detectedSource;
-        wasUpdated = true;
-        addLog(`Updated source category to: ${detectedSource}`);
-        setResults(prev => ({ ...prev, categorized: prev.categorized + 1 }));
+      // Process source categorization if enabled
+      if (enableCategorizing) {
+        const currentSource = transcript.source;
+        const detectedSource = detectSourceCategory(transcript.title, transcript.content);
+        
+        // Only update source if needed
+        if (
+          (!currentSource || 
+          currentSource === 'other' || 
+          (detectedSource === 'business_acquisitions_summit' && currentSource !== 'business_acquisitions_summit') ||
+          (detectedSource === 'foundations_call' && currentSource === 'protege_call'))
+        ) {
+          updates.source = detectedSource;
+          wasUpdated = true;
+          addLog(`Updated source category to: ${detectedSource}`);
+          setResults(prev => ({ ...prev, categorized: prev.categorized + 1 }));
+        }
       }
       
-      // Process tags
-      if (transcript.content) {
+      // Process tags if enabled
+      if (enableAutoTagging && transcript.content) {
         const suggestedTags = suggestTagsFromContent(transcript.content);
         const existingTags = transcript.tags || [];
         
@@ -178,6 +190,8 @@ const BulkTagProcessor: React.FC<BulkTagProcessorProps> = ({ open, onClose, onCo
           updated[currentIndex] = { ...updated[currentIndex], ...updates };
           return updated;
         });
+      } else {
+        addLog(`No changes needed for: ${transcript.title}`);
       }
       
       setResults(prev => ({ ...prev, processed: prev.processed + 1 }));
@@ -206,156 +220,187 @@ const BulkTagProcessor: React.FC<BulkTagProcessorProps> = ({ open, onClose, onCo
   };
 
   return (
-    <Dialog open={open} onOpenChange={(isOpen) => !isOpen && onClose()}>
-      <DialogContent className="sm:max-w-md">
-        <DialogHeader>
-          <DialogTitle className="flex items-center gap-2">
-            <Sparkles className="h-5 w-5" />
-            Bulk Tag & Categorize Transcripts
-          </DialogTitle>
-          <DialogDescription>
-            Automatically detect tags and categories for all your transcripts
-          </DialogDescription>
-        </DialogHeader>
-
-        <div className="space-y-6 py-4">
-          {transcripts.length > 0 && (
-            <Alert>
-              <AlertTitle>Found {transcripts.length} transcripts</AlertTitle>
-              <AlertDescription>
-                Ready to process {transcripts.length} transcripts for tag and category detection
-              </AlertDescription>
-            </Alert>
-          )}
-
-          {isProcessing && (
-            <div className="space-y-4">
-              <div className="space-y-2">
-                <p className="text-sm font-medium">{processingStatus}</p>
-                <Progress value={progress} className="h-2" />
-                <p className="text-xs text-muted-foreground">
-                  {currentIndex} of {transcripts.length} ({progress}% complete)
-                </p>
+    <>
+      <Dialog open={open} onOpenChange={(isOpen) => !isOpen && onClose()}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-2">
+                <Sparkles className="h-5 w-5" />
+                <DialogTitle>Bulk Process Transcripts</DialogTitle>
               </div>
-              
-              <div className="grid grid-cols-2 gap-2">
-                <div className="bg-muted rounded-md p-2 text-center">
-                  <p className="text-sm font-medium">Tagged</p>
-                  <p className="text-lg">{results.tagged}</p>
-                </div>
-                <div className="bg-muted rounded-md p-2 text-center">
-                  <p className="text-sm font-medium">Categorized</p>
-                  <p className="text-lg">{results.categorized}</p>
-                </div>
-              </div>
-              
-              <div className="flex justify-center">
-                {isPaused ? (
-                  <Button onClick={resumeProcessing} variant="outline" size="sm" className="w-full">
-                    <Play className="w-4 h-4 mr-2" />
-                    Resume Processing
-                  </Button>
-                ) : (
-                  <Button onClick={pauseProcessing} variant="outline" size="sm" className="w-full">
-                    <Pause className="w-4 h-4 mr-2" />
-                    Pause Processing
-                  </Button>
-                )}
-              </div>
-              
-              <Button 
-                onClick={() => setDetailsOpen(true)} 
-                variant="ghost" 
-                size="sm" 
-                className="w-full"
+              <Button
+                variant="ghost"
+                size="icon"
+                onClick={() => setSettingsOpen(true)}
+                className="h-8 w-8"
               >
-                View Processing Details
+                <Settings className="h-4 w-4" />
+                <span className="sr-only">Settings</span>
               </Button>
             </div>
-          )}
+            <DialogDescription>
+              Automatically process multiple transcripts at once
+            </DialogDescription>
+          </DialogHeader>
 
-          {!isProcessing && !results.processed && (
-            <div className="text-center space-y-4">
-              <p className="text-sm text-muted-foreground">
-                This process will scan all your transcripts and automatically:
-              </p>
-              <ul className="text-sm list-disc pl-6 space-y-1 text-left">
-                <li>Detect and add relevant tags based on content</li>
-                <li>Categorize transcripts by type (Protege, Foundations, Business Summit, etc.)</li>
-                <li>Only add new information without overwriting existing customizations</li>
-              </ul>
-            </div>
-          )}
-
-          {!isProcessing && results.processed > 0 && (
-            <div className="space-y-4">
-              <Alert variant="default" className="bg-green-50 border-green-100">
-                <CheckCircle2 className="h-4 w-4 text-green-600" />
-                <AlertTitle>Processing Complete</AlertTitle>
+          <div className="space-y-6 py-4">
+            {transcripts.length > 0 && (
+              <Alert>
+                <AlertTitle>Found {transcripts.length} transcripts</AlertTitle>
                 <AlertDescription>
-                  Successfully processed {results.processed} transcripts
+                  Ready to process {transcripts.length} transcripts 
+                  {enableCategorizing && enableAutoTagging 
+                    ? ' for tag detection and categorization'
+                    : enableCategorizing 
+                      ? ' for categorization only'
+                      : ' for tag detection only'
+                  }
                 </AlertDescription>
               </Alert>
-              
-              <div className="grid grid-cols-3 gap-2">
-                <div className="bg-muted rounded-md p-2 text-center">
-                  <p className="text-sm font-medium">Processed</p>
-                  <p className="text-lg">{results.processed}</p>
+            )}
+
+            {isProcessing && (
+              <div className="space-y-4">
+                <div className="space-y-2">
+                  <p className="text-sm font-medium">{processingStatus}</p>
+                  <Progress value={progress} className="h-2" />
+                  <p className="text-xs text-muted-foreground">
+                    {currentIndex} of {transcripts.length} ({progress}% complete)
+                  </p>
                 </div>
-                <div className="bg-muted rounded-md p-2 text-center">
-                  <p className="text-sm font-medium">Tagged</p>
-                  <p className="text-lg">{results.tagged}</p>
+                
+                <div className="grid grid-cols-2 gap-2">
+                  {enableAutoTagging && (
+                    <div className="bg-muted rounded-md p-2 text-center">
+                      <p className="text-sm font-medium">Tagged</p>
+                      <p className="text-lg">{results.tagged}</p>
+                    </div>
+                  )}
+                  {enableCategorizing && (
+                    <div className="bg-muted rounded-md p-2 text-center">
+                      <p className="text-sm font-medium">Categorized</p>
+                      <p className="text-lg">{results.categorized}</p>
+                    </div>
+                  )}
                 </div>
-                <div className="bg-muted rounded-md p-2 text-center">
-                  <p className="text-sm font-medium">Categorized</p>
-                  <p className="text-lg">{results.categorized}</p>
+                
+                <div className="flex justify-center">
+                  {isPaused ? (
+                    <Button onClick={resumeProcessing} variant="outline" size="sm" className="w-full">
+                      <Play className="w-4 h-4 mr-2" />
+                      Resume Processing
+                    </Button>
+                  ) : (
+                    <Button onClick={pauseProcessing} variant="outline" size="sm" className="w-full">
+                      <Pause className="w-4 h-4 mr-2" />
+                      Pause Processing
+                    </Button>
+                  )}
                 </div>
+                
+                <Button 
+                  onClick={() => setDetailsOpen(true)} 
+                  variant="ghost" 
+                  size="sm" 
+                  className="w-full"
+                >
+                  View Processing Details
+                </Button>
               </div>
-              
-              {results.errors > 0 && (
-                <Alert variant="destructive">
-                  <AlertCircle className="h-4 w-4" />
-                  <AlertTitle>Processing Errors</AlertTitle>
+            )}
+
+            {!isProcessing && !results.processed && (
+              <div className="text-center space-y-4">
+                <p className="text-sm text-muted-foreground">
+                  Selected operations:
+                </p>
+                <ul className="text-sm list-disc pl-6 space-y-1 text-left">
+                  {enableCategorizing && (
+                    <li>Categorize transcripts by type (Protege, Foundations, Business Summit, etc.)</li>
+                  )}
+                  {enableAutoTagging && (
+                    <li>Detect and add relevant tags based on content (uses AI resources)</li>
+                  )}
+                  <li>Only add new information without overwriting existing customizations</li>
+                </ul>
+              </div>
+            )}
+
+            {!isProcessing && results.processed > 0 && (
+              <div className="space-y-4">
+                <Alert variant="default" className="bg-green-50 border-green-100">
+                  <CheckCircle2 className="h-4 w-4 text-green-600" />
+                  <AlertTitle>Processing Complete</AlertTitle>
                   <AlertDescription>
-                    Encountered {results.errors} errors during processing
+                    Successfully processed {results.processed} transcripts
                   </AlertDescription>
                 </Alert>
-              )}
-            </div>
-          )}
-        </div>
+                
+                <div className="grid grid-cols-3 gap-2">
+                  <div className="bg-muted rounded-md p-2 text-center">
+                    <p className="text-sm font-medium">Processed</p>
+                    <p className="text-lg">{results.processed}</p>
+                  </div>
+                  {enableAutoTagging && (
+                    <div className="bg-muted rounded-md p-2 text-center">
+                      <p className="text-sm font-medium">Tagged</p>
+                      <p className="text-lg">{results.tagged}</p>
+                    </div>
+                  )}
+                  {enableCategorizing && (
+                    <div className="bg-muted rounded-md p-2 text-center">
+                      <p className="text-sm font-medium">Categorized</p>
+                      <p className="text-lg">{results.categorized}</p>
+                    </div>
+                  )}
+                </div>
+                
+                {results.errors > 0 && (
+                  <Alert variant="destructive">
+                    <AlertCircle className="h-4 w-4" />
+                    <AlertTitle>Processing Errors</AlertTitle>
+                    <AlertDescription>
+                      Encountered {results.errors} errors during processing
+                    </AlertDescription>
+                  </Alert>
+                )}
+              </div>
+            )}
+          </div>
 
-        <DialogFooter className="sm:justify-between">
-          <Button
-            variant="outline"
-            onClick={results.processed > 0 ? handleComplete : onClose}
-            disabled={isProcessing && !isPaused}
-          >
-            {results.processed > 0 ? 'Done' : 'Cancel'}
-          </Button>
-          
-          {!isProcessing && !results.processed && (
-            <Button 
-              onClick={startProcessing}
-              className="flex items-center gap-2"
-            >
-              <Sparkles className="h-4 w-4" />
-              Start Processing
-            </Button>
-          )}
-          
-          {!isProcessing && results.processed > 0 && (
-            <Button 
-              onClick={startProcessing}
+          <DialogFooter className="sm:justify-between">
+            <Button
               variant="outline"
-              className="flex items-center gap-2"
+              onClick={results.processed > 0 ? handleComplete : onClose}
+              disabled={isProcessing && !isPaused}
             >
-              <Sparkles className="h-4 w-4" />
-              Process Again
+              {results.processed > 0 ? 'Done' : 'Cancel'}
             </Button>
-          )}
-        </DialogFooter>
-      </DialogContent>
+            
+            {!isProcessing && !results.processed && (
+              <Button 
+                onClick={startProcessing}
+                className="flex items-center gap-2"
+              >
+                <Sparkles className="h-4 w-4" />
+                Start Processing
+              </Button>
+            )}
+            
+            {!isProcessing && results.processed > 0 && (
+              <Button 
+                onClick={startProcessing}
+                variant="outline"
+                className="flex items-center gap-2"
+              >
+                <Sparkles className="h-4 w-4" />
+                Process Again
+              </Button>
+            )}
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
 
       {/* Processing details dialog */}
       <Dialog open={detailsOpen} onOpenChange={setDetailsOpen}>
@@ -376,7 +421,64 @@ const BulkTagProcessor: React.FC<BulkTagProcessorProps> = ({ open, onClose, onCo
           </DialogFooter>
         </DialogContent>
       </Dialog>
-    </Dialog>
+
+      {/* Settings dialog */}
+      <Dialog open={settingsOpen} onOpenChange={setSettingsOpen}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle>Processing Settings</DialogTitle>
+            <DialogDescription>
+              Configure which operations to run on your transcripts
+            </DialogDescription>
+          </DialogHeader>
+          
+          <div className="space-y-4 py-4">
+            <div className="flex items-center space-x-2">
+              <Checkbox 
+                id="enable-auto-tagging"
+                checked={enableAutoTagging}
+                onCheckedChange={(checked) => setEnableAutoTagging(checked === true)}
+              />
+              <label 
+                htmlFor="enable-auto-tagging" 
+                className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70"
+              >
+                Enable auto-tagging (uses AI resources)
+              </label>
+            </div>
+            
+            <div className="flex items-center space-x-2">
+              <Checkbox 
+                id="enable-categorizing"
+                checked={enableCategorizing}
+                onCheckedChange={(checked) => setEnableCategorizing(checked === true)}
+              />
+              <label 
+                htmlFor="enable-categorizing" 
+                className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70"
+              >
+                Enable transcript categorization
+              </label>
+            </div>
+
+            <Alert className="mt-4">
+              <AlertCircle className="h-4 w-4" />
+              <AlertTitle>Resource Usage</AlertTitle>
+              <AlertDescription className="text-xs">
+                Auto-tagging analyzes transcript content and may use more resources. 
+                Categorization is lightweight and primarily based on transcript titles.
+              </AlertDescription>
+            </Alert>
+          </div>
+          
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setSettingsOpen(false)}>
+              Save Settings
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+    </>
   );
 };
 
