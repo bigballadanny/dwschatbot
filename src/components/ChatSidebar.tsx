@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
 import { supabase } from '@/integrations/supabase/client';
@@ -142,7 +143,24 @@ const ChatSidebar = () => {
       <SidebarRail />
       <SidebarHeader className="border-b">
         <div className="flex items-center gap-2 px-2 py-3">
-          <h2 className="text-lg font-bold flex-1 text-yellow-400">DWS AI</h2>
+          {/* Use the logo as the toggle button */}
+          <Button 
+            variant="ghost" 
+            className="font-bold text-xl flex items-center cursor-pointer transition-all hover:scale-105 flex-1"
+            onClick={toggleSidebar}
+          >
+            <div className="relative p-2 rounded-lg mr-2 overflow-hidden futuristic-glow">
+              <div className="absolute inset-0 animate-pulse-subtle bg-gradient-to-r from-blue-400 via-cyan-300 to-blue-400 opacity-70 blur-md"></div>
+              <img 
+                src="/lovable-uploads/d2cda96a-7427-49e3-86f0-42ecd63d9982.png" 
+                alt="DealMaker Wealth Society" 
+                className="h-8 w-8 relative z-10" 
+              />
+            </div>
+            <span className="bg-gradient-to-r from-amber-300 via-yellow-400 to-amber-300 bg-clip-text text-transparent font-bold">
+              DWS AI
+            </span>
+          </Button>
           <Button variant="ghost" size="icon" className="h-8 w-8" onClick={handleNewChat} title="New chat">
             <PlusCircle className="h-5 w-5" />
           </Button>
