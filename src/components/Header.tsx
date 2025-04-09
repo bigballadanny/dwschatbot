@@ -1,8 +1,7 @@
-
 import React from 'react';
 import { Link, useLocation } from 'react-router-dom';
 import { Button } from "@/components/ui/button";
-import { Headphones, Menu } from 'lucide-react';
+import { Headphones, Menu, Home } from 'lucide-react';
 import { useAuth } from '@/context/AuthContext';
 import { useAdmin } from '@/context/AdminContext';
 import { useSidebar } from "@/components/ui/sidebar";
@@ -40,6 +39,38 @@ const Header: React.FC = () => {
     // If not on home page, the Link component will navigate to home
   };
   
+  const renderHomeLogo = () => (
+    <Link to="/" className="font-bold text-xl flex items-center cursor-pointer transition-all hover:scale-105">
+      <div className="relative p-2 rounded-lg mr-2 overflow-hidden futuristic-glow">
+        <div className="absolute inset-0 animate-pulse-subtle bg-gradient-to-r from-blue-400 via-cyan-300 to-blue-400 opacity-70 blur-md"></div>
+        <img 
+          src="/lovable-uploads/d2cda96a-7427-49e3-86f0-42ecd63d9982.png" 
+          alt="DealMaker Wealth Society" 
+          className="h-8 w-8 relative z-10" 
+        />
+      </div>
+      <span className="bg-gradient-to-r from-amber-300 via-yellow-400 to-amber-300 bg-clip-text text-transparent font-bold">
+        DWS AI
+      </span>
+    </Link>
+  );
+
+  const renderMobileHomeButton = () => (
+    <Tooltip>
+      <TooltipTrigger asChild>
+        <Button 
+          variant="ghost" 
+          size="icon" 
+          className="mr-2" 
+          onClick={() => location.pathname !== '/' ? window.location.href = '/' : toggleSidebar()}
+        >
+          <Home className="h-5 w-5" />
+        </Button>
+      </TooltipTrigger>
+      <TooltipContent>Go to Home</TooltipContent>
+    </Tooltip>
+  );
+
   return <header className="border-b shadow-sm bg-background/95 backdrop-blur-sm sticky top-0 z-50">
       <div className="container mx-auto px-4 py-3 flex items-center justify-between">
         <div className="flex items-center gap-2">
@@ -47,23 +78,8 @@ const Header: React.FC = () => {
             <Menu className="h-5 w-5" />
           </Button>
           
-          {isHomePage ? <button onClick={handleLogoClick} className="font-bold text-xl flex items-center cursor-pointer transition-all hover:scale-105">
-              <div className="relative p-2 rounded-lg mr-2 overflow-hidden futuristic-glow">
-                <div className="absolute inset-0 animate-pulse-subtle bg-gradient-to-r from-blue-400 via-cyan-300 to-blue-400 opacity-70 blur-md"></div>
-                <img src="/lovable-uploads/d2cda96a-7427-49e3-86f0-42ecd63d9982.png" alt="DealMaker Wealth Society" className="h-8 w-8 relative z-10" />
-              </div>
-              <span className="bg-gradient-to-r from-amber-300 via-yellow-400 to-amber-300 bg-clip-text text-transparent font-bold">
-                DWS AI
-              </span>
-            </button> : <Link to="/" className="font-bold text-xl flex items-center cursor-pointer transition-all hover:scale-105">
-              <div className="relative p-2 rounded-lg mr-2 overflow-hidden futuristic-glow">
-                <div className="absolute inset-0 animate-pulse-subtle bg-gradient-to-r from-blue-400 via-cyan-300 to-blue-400 opacity-70 blur-md"></div>
-                <img src="/lovable-uploads/d2cda96a-7427-49e3-86f0-42ecd63d9982.png" alt="DealMaker Wealth Society" className="h-8 w-8 relative z-10" />
-              </div>
-              <span className="bg-gradient-to-r from-amber-300 via-yellow-400 to-amber-300 bg-clip-text text-transparent font-bold">
-                DWS AI
-              </span>
-            </Link>}
+          {renderMobileHomeButton()}
+          {renderHomeLogo()}
         </div>
         
         <div className="flex items-center space-x-3">
