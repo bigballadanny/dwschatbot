@@ -388,450 +388,453 @@ const TranscriptsPage: React.FC = () => {
   };
 
   return (
-    <div className="container mx-auto py-6">
-      <div className="flex justify-between items-center mb-6">
-        <h1 className="text-2xl font-bold">Transcripts</h1>
-        <div className="flex items-center gap-2">
-          <Button 
-            variant="outline" 
-            size="sm" 
-            onClick={() => setShowFilters(!showFilters)}
-            className="flex items-center gap-1"
-          >
-            <Filter className="w-4 h-4" />
-            {tagFilters.length > 0 && (
-              <Badge variant="secondary" className="ml-1">{tagFilters.length}</Badge>
-            )}
-            <span className="hidden sm:inline">Filter</span>
-          </Button>
-          
-          <Button
-            variant="default"
-            size="sm"
-            onClick={() => setShowAddTranscript(!showAddTranscript)}
-            className="flex items-center gap-1"
-          >
-            <Plus className="w-4 h-4" />
-            <span className="hidden sm:inline">{showAddTranscript ? "Hide Form" : "Add"}</span>
-          </Button>
-          
-          <Button 
-            variant="outline" 
-            size="sm" 
-            onClick={handleOpenBulkProcessor}
-            className="flex items-center gap-1"
-          >
-            <Sparkles className="w-4 h-4" />
-            <span className="hidden sm:inline">Bulk Process</span>
-          </Button>
-          
-          <Button
-            variant="ghost"
-            size="icon"
-            onClick={fetchTranscripts}
-            className="h-9 w-9"
-            title="Refresh transcripts"
-          >
-            <RefreshCw className="h-4 w-4" />
-          </Button>
-        </div>
-      </div>
-      
-      <div className="grid gap-6 mt-3">
-        {showFilters && (
-          <Card>
-            <CardHeader className="pb-3">
-              <div className="flex justify-between items-center">
-                <div className="flex items-center">
-                  <Tags className="w-4 h-4 mr-2" />
-                  <CardTitle className="text-lg">Filter by Tags</CardTitle>
-                </div>
-                {tagFilters.length > 0 && (
-                  <Button variant="ghost" size="sm" onClick={clearAllTags}>
-                    Clear All
-                  </Button>
-                )}
-              </div>
-              <TagFilter onTagAdded={handleTagAdded} onTagRemoved={handleTagRemoved} />
-            </CardHeader>
-          </Card>
-        )}
-
-        {showAddTranscript && (
-          <Card>
-            <CardHeader>
-              <div className="flex justify-between items-center">
-                <CardTitle>Add New Transcript</CardTitle>
-                <Button variant="ghost" size="sm" onClick={() => setShowAddTranscript(false)}>
-                  <X className="h-4 w-4" />
-                </Button>
-              </div>
-            </CardHeader>
-            <CardContent>
-              <Tabs defaultValue="manual" className="w-full">
-                <TabsList className="grid grid-cols-2 mb-4">
-                  <TabsTrigger value="manual">Manual Input</TabsTrigger>
-                  <TabsTrigger value="upload">File Upload</TabsTrigger>
-                </TabsList>
-                
-                <TabsContent value="manual">
-                  <div className="grid gap-4">
-                    <div className="grid gap-2">
-                      <Label htmlFor="title">Title</Label>
-                      <Input
-                        type="text"
-                        id="title"
-                        value={title}
-                        onChange={(e) => setTitle(e.target.value)}
-                        placeholder="Enter transcript title"
-                      />
-                    </div>
-                    
-                    <div className="grid gap-2">
-                      <Label htmlFor="source">Source Category</Label>
-                      <Select 
-                        value={source} 
-                        onValueChange={setSource}
-                      >
-                        <SelectTrigger className="w-full">
-                          <SelectValue placeholder="Select or auto-detect source" />
-                        </SelectTrigger>
-                        <SelectContent>
-                          <SelectGroup>
-                            <SelectLabel>Source Categories</SelectLabel>
-                            {getSourceCategories().map(category => (
-                              <SelectItem key={category.id} value={category.id}>
-                                {category.label}
-                              </SelectItem>
-                            ))}
-                          </SelectGroup>
-                        </SelectContent>
-                      </Select>
-                      <p className="text-xs text-muted-foreground mt-1">
-                        Source will be auto-detected if not selected
-                      </p>
-                    </div>
-                    
-                    <div className="grid gap-2">
-                      <Label htmlFor="content">Content</Label>
-                      <Textarea
-                        id="content"
-                        value={content}
-                        onChange={handleContentChange}
-                        className="min-h-[200px]"
-                        placeholder="Enter transcript content"
-                      />
-                    </div>
-
-                    <div className="flex items-center space-x-2 mb-2">
-                      <Checkbox
-                        id="auto-detect-tags" 
-                        checked={autoDetectTags}
-                        onCheckedChange={(checked) => setAutoDetectTags(checked === true)}
-                      />
-                      <label
-                        htmlFor="auto-detect-tags"
-                        className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70"
-                      >
-                        Auto-detect tags (uses AI resources)
-                      </label>
-                    </div>
-
-                    {suggestedTags.length > 0 && (
-                      <div className="grid gap-2">
-                        <Label>Suggested Tags</Label>
-                        <div className="flex flex-wrap gap-2">
-                          {suggestedTags.map((tag) => (
-                            <Badge 
-                              key={tag} 
-                              className={`cursor-pointer ${selectedTags.includes(tag) ? 'bg-primary' : 'bg-secondary'}`}
-                              onClick={() => selectedTags.includes(tag) ? handleRemoveTag(tag) : handleAddTag(tag)}
-                            >
-                              {formatTagForDisplay(tag)}
-                              {selectedTags.includes(tag) ? (
-                                <X className="ml-1 h-3 w-3" />
-                              ) : (
-                                <Plus className="ml-1 h-3 w-3" />
-                              )}
-                            </Badge>
-                          ))}
-                        </div>
-                      </div>
-                    )}
-
-                    <div className="grid gap-2">
-                      <Label htmlFor="manual-tags">Custom Tags</Label>
-                      <TagsInput
-                        value={selectedTags}
-                        onChange={setSelectedTags}
-                        placeholder="Add custom tags..."
-                      />
-                    </div>
-
-                    <Button onClick={handleSubmit} disabled={isProcessing}>
-                      {isProcessing ? (
-                        <>
-                          <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                          Processing...
-                        </>
-                      ) : (
-                        'Create Transcript'
-                      )}
-                    </Button>
-                  </div>
-                </TabsContent>
-                
-                <TabsContent value="upload">
-                  <div className="grid gap-4">
-                    <div className="grid gap-2">
-                      <Label htmlFor="source">Source Category</Label>
-                      <Select 
-                        value={source} 
-                        onValueChange={setSource}
-                      >
-                        <SelectTrigger className="w-full">
-                          <SelectValue placeholder="Select or auto-detect source" />
-                        </SelectTrigger>
-                        <SelectContent>
-                          <SelectGroup>
-                            <SelectLabel>Source Categories</SelectLabel>
-                            {getSourceCategories().map(category => (
-                              <SelectItem key={category.id} value={category.id}>
-                                {category.label}
-                              </SelectItem>
-                            ))}
-                          </SelectGroup>
-                        </SelectContent>
-                      </Select>
-                      <p className="text-xs text-muted-foreground mt-1">
-                        Source will be auto-detected from filename if not selected
-                      </p>
-                    </div>
-                    
-                    <Alert variant="default" className="bg-amber-50 border-amber-200 text-amber-800">
-                      <Info className="h-4 w-4 text-amber-800" />
-                      <AlertTitle>File Upload</AlertTitle>
-                      <AlertDescription className="text-xs">
-                        Upload one or multiple files. Each file will create a separate transcript.
-                        After uploading, you can use the Bulk Process feature to automatically categorize and tag your transcripts.
-                      </AlertDescription>
-                    </Alert>
-                    
-                    <FileUploader 
-                      onFileSelect={handleFileSelect}
-                      isUploading={isUploading}
-                      uploadProgress={uploadProgress}
-                      multiple={true}
-                      showPreview={true}
-                    />
-                    
-                    {selectedFile && (
-                      <Button 
-                        onClick={uploadFile} 
-                        disabled={isUploading} 
-                        className="w-full"
-                      >
-                        {isUploading ? (
-                          <span className="flex items-center">
-                            <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                            Uploading... {uploadProgress}%
-                          </span>
-                        ) : (
-                          <>
-                            <Upload className="mr-2 h-4 w-4" />
-                            Upload File
-                          </>
-                        )}
-                      </Button>
-                    )}
-                  </div>
-                </TabsContent>
-              </Tabs>
-            </CardContent>
-          </Card>
-        )}
-
-        <Card>
-          <CardHeader className="pb-3 flex flex-row items-center justify-between">
-            <div className="flex items-center">
-              <FileText className="w-5 h-5 mr-2 text-muted-foreground" />
-              <div>
-                <CardTitle>My Transcripts</CardTitle>
-                <CardDescription className="mt-1">
-                  {filteredTranscripts.length} transcript{filteredTranscripts.length !== 1 ? 's' : ''}
-                  {tagFilters.length > 0 ? ' (filtered)' : ''}
-                </CardDescription>
-              </div>
-            </div>
-            
-            <div className="flex gap-2">
-              {filteredTranscripts.length > 0 && (
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={toggleSelectAll}
-                  className="flex items-center gap-1"
-                >
-                  {selectedTranscriptIds.length === filteredTranscripts.length ? 'Deselect All' : 'Select All'}
-                </Button>
-              )}
-              
-              <Button
-                variant={selectedTranscriptIds.length > 0 ? "default" : "outline"}
-                size="sm"
-                onClick={handleOpenBatchTagEditor}
-                disabled={selectedTranscriptIds.length === 0}
-                className="flex items-center gap-1"
-              >
-                <TagIcon className="w-3 h-3 mr-1" />
-                Edit Tags ({selectedTranscriptIds.length})
-              </Button>
-            </div>
-          </CardHeader>
-          
-          <CardContent>
-            {filteredTranscripts.length === 0 ? (
-              <div className="text-center p-6 space-y-4">
-                <div className="text-muted-foreground">No transcripts found</div>
-                {tagFilters.length > 0 && (
-                  <Button variant="outline" size="sm" onClick={clearAllTags}>
-                    Clear Filters
-                  </Button>
-                )}
-                {tagFilters.length === 0 && (
-                  <Button onClick={() => setShowAddTranscript(true)}>
-                    <Plus className="w-4 h-4 mr-2" />
-                    Add Your First Transcript
-                  </Button>
-                )}
-              </div>
-            ) : (
-              <div className="space-y-3">
-                {filteredTranscripts.map((transcript) => (
-                  <div 
-                    key={transcript.id} 
-                    className={`p-4 border rounded-lg ${selectedTranscriptIds.includes(transcript.id) ? 'border-primary bg-primary/5' : 'border-border'}`}
-                  >
-                    <div className="flex items-start justify-between">
-                      <div className="flex items-center gap-3">
-                        <Checkbox
-                          checked={selectedTranscriptIds.includes(transcript.id)}
-                          onCheckedChange={() => toggleTranscriptSelection(transcript.id)}
-                        />
-                        <div>
-                          <h3 className="font-medium">{transcript.title}</h3>
-                          <p className="text-xs text-muted-foreground">
-                            {new Date(transcript.created_at).toLocaleDateString()} · 
-                            {transcript.source ? ` ${transcript.source.replace(/_/g, ' ')}` : ' No source'}
-                          </p>
-                        </div>
-                      </div>
-                      <Button 
-                        variant="ghost" 
-                        size="sm" 
-                        className="h-8 w-8 p-0" 
-                        onClick={() => handleOpenTranscriptEditor(transcript)}
-                      >
-                        <Edit className="h-4 w-4" />
-                        <span className="sr-only">Edit</span>
-                      </Button>
-                    </div>
-                    
-                    {transcript.tags && transcript.tags.length > 0 && (
-                      <div className="mt-2 ml-9">
-                        <div className="flex flex-wrap gap-1">
-                          {transcript.tags.map((tag) => (
-                            <Badge key={tag} variant="secondary" className="text-xs">
-                              {formatTagForDisplay(tag)}
-                            </Badge>
-                          ))}
-                        </div>
-                      </div>
-                    )}
-                  </div>
-                ))}
-              </div>
-            )}
-          </CardContent>
-          
-          <CardFooter className="flex justify-between pt-2 border-t">
+    <div className="min-h-screen flex flex-col">
+      <Header />
+      <div className="container mx-auto py-6 flex-1">
+        <div className="flex justify-between items-center mb-6">
+          <h1 className="text-2xl font-bold">Transcripts</h1>
+          <div className="flex items-center gap-2">
             <Button 
-              variant="ghost" 
-              size="sm"
-              onClick={() => setIsDiagnosticsOpen(true)} 
-              className="text-xs flex items-center"
+              variant="outline" 
+              size="sm" 
+              onClick={() => setShowFilters(!showFilters)}
+              className="flex items-center gap-1"
             >
-              <AlertTriangle className="w-3 h-3 mr-1" />
-              Run Diagnostics
+              <Filter className="w-4 h-4" />
+              {tagFilters.length > 0 && (
+                <Badge variant="secondary" className="ml-1">{tagFilters.length}</Badge>
+              )}
+              <span className="hidden sm:inline">Filter</span>
             </Button>
             
-            {filteredTranscripts.length >= 5 && (
-              <Button
-                variant="ghost"
+            <Button
+              variant="default"
+              size="sm"
+              onClick={() => setShowAddTranscript(!showAddTranscript)}
+              className="flex items-center gap-1"
+            >
+              <Plus className="w-4 h-4" />
+              <span className="hidden sm:inline">{showAddTranscript ? "Hide Form" : "Add"}</span>
+            </Button>
+            
+            <Button 
+              variant="outline" 
+              size="sm" 
+              onClick={handleOpenBulkProcessor}
+              className="flex items-center gap-1"
+            >
+              <Sparkles className="w-4 h-4" />
+              <span className="hidden sm:inline">Bulk Process</span>
+            </Button>
+            
+            <Button
+              variant="ghost"
+              size="icon"
+              onClick={fetchTranscripts}
+              className="h-9 w-9"
+              title="Refresh transcripts"
+            >
+              <RefreshCw className="h-4 w-4" />
+            </Button>
+          </div>
+        </div>
+        
+        <div className="grid gap-6 mt-3">
+          {showFilters && (
+            <Card>
+              <CardHeader className="pb-3">
+                <div className="flex justify-between items-center">
+                  <div className="flex items-center">
+                    <Tags className="w-4 h-4 mr-2" />
+                    <CardTitle className="text-lg">Filter by Tags</CardTitle>
+                  </div>
+                  {tagFilters.length > 0 && (
+                    <Button variant="ghost" size="sm" onClick={clearAllTags}>
+                      Clear All
+                    </Button>
+                  )}
+                </div>
+                <TagFilter onTagAdded={handleTagAdded} onTagRemoved={handleTagRemoved} />
+              </CardHeader>
+            </Card>
+          )}
+
+          {showAddTranscript && (
+            <Card>
+              <CardHeader>
+                <div className="flex justify-between items-center">
+                  <CardTitle>Add New Transcript</CardTitle>
+                  <Button variant="ghost" size="sm" onClick={() => setShowAddTranscript(false)}>
+                    <X className="h-4 w-4" />
+                  </Button>
+                </div>
+              </CardHeader>
+              <CardContent>
+                <Tabs defaultValue="manual" className="w-full">
+                  <TabsList className="grid grid-cols-2 mb-4">
+                    <TabsTrigger value="manual">Manual Input</TabsTrigger>
+                    <TabsTrigger value="upload">File Upload</TabsTrigger>
+                  </TabsList>
+                  
+                  <TabsContent value="manual">
+                    <div className="grid gap-4">
+                      <div className="grid gap-2">
+                        <Label htmlFor="title">Title</Label>
+                        <Input
+                          type="text"
+                          id="title"
+                          value={title}
+                          onChange={(e) => setTitle(e.target.value)}
+                          placeholder="Enter transcript title"
+                        />
+                      </div>
+                      
+                      <div className="grid gap-2">
+                        <Label htmlFor="source">Source Category</Label>
+                        <Select 
+                          value={source} 
+                          onValueChange={setSource}
+                        >
+                          <SelectTrigger className="w-full">
+                            <SelectValue placeholder="Select or auto-detect source" />
+                          </SelectTrigger>
+                          <SelectContent>
+                            <SelectGroup>
+                              <SelectLabel>Source Categories</SelectLabel>
+                              {getSourceCategories().map(category => (
+                                <SelectItem key={category.id} value={category.id}>
+                                  {category.label}
+                                </SelectItem>
+                              ))}
+                            </SelectGroup>
+                          </SelectContent>
+                        </Select>
+                        <p className="text-xs text-muted-foreground mt-1">
+                          Source will be auto-detected if not selected
+                        </p>
+                      </div>
+                      
+                      <div className="grid gap-2">
+                        <Label htmlFor="content">Content</Label>
+                        <Textarea
+                          id="content"
+                          value={content}
+                          onChange={handleContentChange}
+                          className="min-h-[200px]"
+                          placeholder="Enter transcript content"
+                        />
+                      </div>
+
+                      <div className="flex items-center space-x-2 mb-2">
+                        <Checkbox
+                          id="auto-detect-tags" 
+                          checked={autoDetectTags}
+                          onCheckedChange={(checked) => setAutoDetectTags(checked === true)}
+                        />
+                        <label
+                          htmlFor="auto-detect-tags"
+                          className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70"
+                        >
+                          Auto-detect tags (uses AI resources)
+                        </label>
+                      </div>
+
+                      {suggestedTags.length > 0 && (
+                        <div className="grid gap-2">
+                          <Label>Suggested Tags</Label>
+                          <div className="flex flex-wrap gap-2">
+                            {suggestedTags.map((tag) => (
+                              <Badge 
+                                key={tag} 
+                                className={`cursor-pointer ${selectedTags.includes(tag) ? 'bg-primary' : 'bg-secondary'}`}
+                                onClick={() => selectedTags.includes(tag) ? handleRemoveTag(tag) : handleAddTag(tag)}
+                              >
+                                {formatTagForDisplay(tag)}
+                                {selectedTags.includes(tag) ? (
+                                  <X className="ml-1 h-3 w-3" />
+                                ) : (
+                                  <Plus className="ml-1 h-3 w-3" />
+                                )}
+                              </Badge>
+                            ))}
+                          </div>
+                        </div>
+                      )}
+
+                      <div className="grid gap-2">
+                        <Label htmlFor="manual-tags">Custom Tags</Label>
+                        <TagsInput
+                          value={selectedTags}
+                          onChange={setSelectedTags}
+                          placeholder="Add custom tags..."
+                        />
+                      </div>
+
+                      <Button onClick={handleSubmit} disabled={isProcessing}>
+                        {isProcessing ? (
+                          <>
+                            <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                            Processing...
+                          </>
+                        ) : (
+                          'Create Transcript'
+                        )}
+                      </Button>
+                    </div>
+                  </TabsContent>
+                  
+                  <TabsContent value="upload">
+                    <div className="grid gap-4">
+                      <div className="grid gap-2">
+                        <Label htmlFor="source">Source Category</Label>
+                        <Select 
+                          value={source} 
+                          onValueChange={setSource}
+                        >
+                          <SelectTrigger className="w-full">
+                            <SelectValue placeholder="Select or auto-detect source" />
+                          </SelectTrigger>
+                          <SelectContent>
+                            <SelectGroup>
+                              <SelectLabel>Source Categories</SelectLabel>
+                              {getSourceCategories().map(category => (
+                                <SelectItem key={category.id} value={category.id}>
+                                  {category.label}
+                                </SelectItem>
+                              ))}
+                            </SelectGroup>
+                          </SelectContent>
+                        </Select>
+                        <p className="text-xs text-muted-foreground mt-1">
+                          Source will be auto-detected from filename if not selected
+                        </p>
+                      </div>
+                      
+                      <Alert variant="default" className="bg-amber-50 border-amber-200 text-amber-800">
+                        <Info className="h-4 w-4 text-amber-800" />
+                        <AlertTitle>File Upload</AlertTitle>
+                        <AlertDescription className="text-xs">
+                          Upload one or multiple files. Each file will create a separate transcript.
+                          After uploading, you can use the Bulk Process feature to automatically categorize and tag your transcripts.
+                        </AlertDescription>
+                      </Alert>
+                      
+                      <FileUploader 
+                        onFileSelect={handleFileSelect}
+                        isUploading={isUploading}
+                        uploadProgress={uploadProgress}
+                        multiple={true}
+                        showPreview={true}
+                      />
+                      
+                      {selectedFile && (
+                        <Button 
+                          onClick={uploadFile} 
+                          disabled={isUploading} 
+                          className="w-full"
+                        >
+                          {isUploading ? (
+                            <span className="flex items-center">
+                              <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                              Uploading... {uploadProgress}%
+                            </span>
+                          ) : (
+                            <>
+                              <Upload className="mr-2 h-4 w-4" />
+                              Upload File
+                            </>
+                          )}
+                        </Button>
+                      )}
+                    </div>
+                  </TabsContent>
+                </Tabs>
+              </CardContent>
+            </Card>
+          )}
+
+          <Card>
+            <CardHeader className="pb-3 flex flex-row items-center justify-between">
+              <div className="flex items-center">
+                <FileText className="w-5 h-5 mr-2 text-muted-foreground" />
+                <div>
+                  <CardTitle>My Transcripts</CardTitle>
+                  <CardDescription className="mt-1">
+                    {filteredTranscripts.length} transcript{filteredTranscripts.length !== 1 ? 's' : ''}
+                    {tagFilters.length > 0 ? ' (filtered)' : ''}
+                  </CardDescription>
+                </div>
+              </div>
+              
+              <div className="flex gap-2">
+                {filteredTranscripts.length > 0 && (
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={toggleSelectAll}
+                    className="flex items-center gap-1"
+                  >
+                    {selectedTranscriptIds.length === filteredTranscripts.length ? 'Deselect All' : 'Select All'}
+                  </Button>
+                )}
+                
+                <Button
+                  variant={selectedTranscriptIds.length > 0 ? "default" : "outline"}
+                  size="sm"
+                  onClick={handleOpenBatchTagEditor}
+                  disabled={selectedTranscriptIds.length === 0}
+                  className="flex items-center gap-1"
+                >
+                  <TagIcon className="w-3 h-3 mr-1" />
+                  Edit Tags ({selectedTranscriptIds.length})
+                </Button>
+              </div>
+            </CardHeader>
+            
+            <CardContent>
+              {filteredTranscripts.length === 0 ? (
+                <div className="text-center p-6 space-y-4">
+                  <div className="text-muted-foreground">No transcripts found</div>
+                  {tagFilters.length > 0 && (
+                    <Button variant="outline" size="sm" onClick={clearAllTags}>
+                      Clear Filters
+                    </Button>
+                  )}
+                  {tagFilters.length === 0 && (
+                    <Button onClick={() => setShowAddTranscript(true)}>
+                      <Plus className="w-4 h-4 mr-2" />
+                      Add Your First Transcript
+                    </Button>
+                  )}
+                </div>
+              ) : (
+                <div className="space-y-3">
+                  {filteredTranscripts.map((transcript) => (
+                    <div 
+                      key={transcript.id} 
+                      className={`p-4 border rounded-lg ${selectedTranscriptIds.includes(transcript.id) ? 'border-primary bg-primary/5' : 'border-border'}`}
+                    >
+                      <div className="flex items-start justify-between">
+                        <div className="flex items-center gap-3">
+                          <Checkbox
+                            checked={selectedTranscriptIds.includes(transcript.id)}
+                            onCheckedChange={() => toggleTranscriptSelection(transcript.id)}
+                          />
+                          <div>
+                            <h3 className="font-medium">{transcript.title}</h3>
+                            <p className="text-xs text-muted-foreground">
+                              {new Date(transcript.created_at).toLocaleDateString()} · 
+                              {transcript.source ? ` ${transcript.source.replace(/_/g, ' ')}` : ' No source'}
+                            </p>
+                          </div>
+                        </div>
+                        <Button 
+                          variant="ghost" 
+                          size="sm" 
+                          className="h-8 w-8 p-0" 
+                          onClick={() => handleOpenTranscriptEditor(transcript)}
+                        >
+                          <Edit className="h-4 w-4" />
+                          <span className="sr-only">Edit</span>
+                        </Button>
+                      </div>
+                      
+                      {transcript.tags && transcript.tags.length > 0 && (
+                        <div className="mt-2 ml-9">
+                          <div className="flex flex-wrap gap-1">
+                            {transcript.tags.map((tag) => (
+                              <Badge key={tag} variant="secondary" className="text-xs">
+                                {formatTagForDisplay(tag)}
+                              </Badge>
+                            ))}
+                          </div>
+                        </div>
+                      )}
+                    </div>
+                  ))}
+                </div>
+              )}
+            </CardContent>
+            
+            <CardFooter className="flex justify-between pt-2 border-t">
+              <Button 
+                variant="ghost" 
                 size="sm"
-                onClick={handleOpenBulkProcessor}
+                onClick={() => setIsDiagnosticsOpen(true)} 
                 className="text-xs flex items-center"
               >
-                <Sparkles className="w-3 h-3 mr-1" />
-                Bulk Process All
+                <AlertTriangle className="w-3 h-3 mr-1" />
+                Run Diagnostics
               </Button>
-            )}
-          </CardFooter>
-        </Card>
-      </div>
+              
+              {filteredTranscripts.length >= 5 && (
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={handleOpenBulkProcessor}
+                  className="text-xs flex items-center"
+                >
+                  <Sparkles className="w-3 h-3 mr-1" />
+                  Bulk Process All
+                </Button>
+              )}
+            </CardFooter>
+          </Card>
+        </div>
 
-      {selectedTranscript && (
-        <Dialog open={isTranscriptEditorOpen} onOpenChange={setIsTranscriptEditorOpen}>
+        {selectedTranscript && (
+          <Dialog open={isTranscriptEditorOpen} onOpenChange={setIsTranscriptEditorOpen}>
+            <DialogContent>
+              <TranscriptTagEditor
+                open={isTranscriptEditorOpen}
+                onClose={handleCloseTranscriptEditor}
+                transcriptId={selectedTranscript.id}
+                initialTags={selectedTranscript.tags || []}
+                initialSource={selectedTranscript.source}
+                onTagsUpdated={handleTagsUpdated}
+              />
+            </DialogContent>
+          </Dialog>
+        )}
+        
+        <Dialog open={isBatchTagEditorOpen} onOpenChange={setIsBatchTagEditorOpen}>
           <DialogContent>
             <TranscriptTagEditor
-              open={isTranscriptEditorOpen}
-              onClose={handleCloseTranscriptEditor}
-              transcriptId={selectedTranscript.id}
-              initialTags={selectedTranscript.tags || []}
-              initialSource={selectedTranscript.source}
+              open={isBatchTagEditorOpen}
+              onClose={handleCloseBatchTagEditor}
+              transcriptId={selectedTranscriptIds}
+              initialTags={[]}
               onTagsUpdated={handleTagsUpdated}
+              isBatchMode={true}
             />
           </DialogContent>
         </Dialog>
-      )}
-      
-      <Dialog open={isBatchTagEditorOpen} onOpenChange={setIsBatchTagEditorOpen}>
-        <DialogContent>
-          <TranscriptTagEditor
-            open={isBatchTagEditorOpen}
-            onClose={handleCloseBatchTagEditor}
-            transcriptId={selectedTranscriptIds}
-            initialTags={[]}
-            onTagsUpdated={handleTagsUpdated}
-            isBatchMode={true}
-          />
-        </DialogContent>
-      </Dialog>
-      
-      <Dialog open={isBulkProcessorOpen} onOpenChange={setIsBulkProcessorOpen}>
-        <DialogContent className="sm:max-w-md">
-          <BulkTagProcessor
-            open={isBulkProcessorOpen}
-            onClose={handleCloseBulkProcessor}
-            onComplete={handleBulkProcessingComplete}
-          />
-        </DialogContent>
-      </Dialog>
-      
-      <Dialog open={isDiagnosticsOpen} onOpenChange={setIsDiagnosticsOpen}>
-        <DialogContent className="sm:max-w-md">
-          <DialogHeader>
-            <DialogTitle>Transcript Diagnostics</DialogTitle>
-            <DialogDescription>
-              Troubleshoot and fix issues with transcript uploads
-            </DialogDescription>
-          </DialogHeader>
-          <TranscriptDiagnostics onComplete={() => {
-            setIsDiagnosticsOpen(false);
-            fetchTranscripts();
-          }} />
-        </DialogContent>
-      </Dialog>
+        
+        <Dialog open={isBulkProcessorOpen} onOpenChange={setIsBulkProcessorOpen}>
+          <DialogContent className="sm:max-w-md">
+            <BulkTagProcessor
+              open={isBulkProcessorOpen}
+              onClose={handleCloseBulkProcessor}
+              onComplete={handleBulkProcessingComplete}
+            />
+          </DialogContent>
+        </Dialog>
+        
+        <Dialog open={isDiagnosticsOpen} onOpenChange={setIsDiagnosticsOpen}>
+          <DialogContent className="sm:max-w-md">
+            <DialogHeader>
+              <DialogTitle>Transcript Diagnostics</DialogTitle>
+              <DialogDescription>
+                Troubleshoot and fix issues with transcript uploads
+              </DialogDescription>
+            </DialogHeader>
+            <TranscriptDiagnostics onComplete={() => {
+              setIsDiagnosticsOpen(false);
+              fetchTranscripts();
+            }} />
+          </DialogContent>
+        </Dialog>
+      </div>
     </div>
   );
 };
