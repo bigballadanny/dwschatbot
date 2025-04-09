@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
 import { supabase } from '@/integrations/supabase/client';
@@ -9,7 +8,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Settings, PlusCircle, BarChart3, LogOut, Search, ChevronLeft, ChevronRight, UserCog, Home, FileText, Moon, Sun, Shield, Building } from 'lucide-react';
 import { toast } from '@/components/ui/use-toast';
-import { Sidebar, SidebarContent, SidebarFooter, SidebarHeader, SidebarMenu, SidebarMenuButton, SidebarMenuItem, SidebarProvider, SidebarTrigger, SidebarSeparator } from "@/components/ui/sidebar";
+import { Sidebar, SidebarContent, SidebarFooter, SidebarHeader, SidebarMenu, SidebarMenuButton, SidebarMenuItem, SidebarRail, SidebarSeparator } from "@/components/ui/sidebar";
 import { Sheet, SheetContent, SheetDescription, SheetFooter, SheetHeader, SheetTitle, SheetTrigger } from "@/components/ui/sheet";
 import { useTheme } from "next-themes";
 import { Switch } from "@/components/ui/switch";
@@ -27,13 +26,8 @@ interface Conversation {
 
 const ChatSidebar = () => {
   const { theme, setTheme } = useTheme();
-  const {
-    user,
-    signOut
-  } = useAuth();
-  const {
-    isAdmin
-  } = useAdmin();
+  const { user, signOut } = useAuth();
+  const { isAdmin } = useAdmin();
   const [conversations, setConversations] = useState<Conversation[]>([]);
   const [searchQuery, setSearchQuery] = useState('');
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
@@ -41,10 +35,7 @@ const ChatSidebar = () => {
   const [settingsOpen, setSettingsOpen] = useState(false);
   const location = useLocation();
   const navigate = useNavigate();
-  const {
-    state: sidebarState,
-    toggleSidebar
-  } = useSidebar();
+  const { state: sidebarState, toggleSidebar } = useSidebar();
   const urlParams = new URLSearchParams(location.search);
   const conversationId = urlParams.get('conversation');
 
@@ -146,7 +137,9 @@ const ChatSidebar = () => {
     setTheme(theme === "dark" ? "light" : "dark");
   };
 
-  return <Sidebar>
+  return (
+    <Sidebar variant="sidebar" collapsible="icon">
+      <SidebarRail />
       <SidebarHeader className="border-b">
         <div className="flex items-center gap-2 px-2 py-3">
           <h2 className="text-lg font-bold flex-1 text-yellow-400">DWS AI</h2>
@@ -260,7 +253,6 @@ const ChatSidebar = () => {
                       </Label>
                     </div>
                   </div>
-                  {/* Additional settings can be added here */}
                 </div>
                 <SheetFooter>
                   <Button variant="outline" onClick={() => setSettingsOpen(false)}>
@@ -282,7 +274,8 @@ const ChatSidebar = () => {
       </SidebarFooter>
       
       <DeleteConversationDialog open={deleteDialogOpen} onOpenChange={setDeleteDialogOpen} onConfirmDelete={handleDeleteConversation} />
-    </Sidebar>;
+    </Sidebar>
+  );
 };
 
 export default ChatSidebar;

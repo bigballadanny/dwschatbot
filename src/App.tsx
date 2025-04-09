@@ -3,9 +3,11 @@ import { BrowserRouter as Router, Routes, Route } from 'react-router-dom';
 import { ThemeProvider } from "@/components/ThemeProvider";
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { Toaster } from "@/components/ui/toaster";
-import { Sidebar, SidebarProvider } from "@/components/ui/sidebar";
+import { SidebarProvider } from "@/components/ui/sidebar";
+import ChatSidebar from "@/components/ChatSidebar";
 import { AuthProvider } from '@/context/AuthContext';
 import { AdminProvider } from '@/context/AdminContext';
+import Header from "@/components/Header";
 import Index from '@/pages/Index';
 import Auth from '@/pages/Auth';
 import Analytics from '@/pages/Analytics';
@@ -27,50 +29,59 @@ function App() {
           <ThemeProvider defaultTheme="light">
             <SidebarProvider>
               <Router>
-                <Routes>
-                  <Route path="/auth" element={<Auth />} />
-                  <Route 
-                    path="/" 
-                    element={
-                      <ProtectedRoute>
-                        <Index />
-                      </ProtectedRoute>
-                    } 
-                  />
-                  <Route 
-                    path="/analytics" 
-                    element={
-                      <ManagementRoute adminRequired={true}>
-                        <Analytics />
-                      </ManagementRoute>
-                    } 
-                  />
-                  <Route 
-                    path="/admin" 
-                    element={
-                      <ManagementRoute adminRequired={true}>
-                        <AdminManagement />
-                      </ManagementRoute>
-                    } 
-                  />
-                  <Route 
-                    path="/transcripts" 
-                    element={
-                      <ManagementRoute adminRequired={true}>
-                        <Transcripts />
-                      </ManagementRoute>
-                    } 
-                  />
-                  <Route 
-                    path="/war-room" 
-                    element={
-                      <ProtectedRoute>
-                        <WarRoom />
-                      </ProtectedRoute>
-                    } 
-                  />
-                  <Route path="*" element={<NotFound />} />
-                </Routes>
+                {/* Layout wrapper that includes sidebar with all routes */}
+                <div className="flex h-screen w-full">
+                  <ChatSidebar />
+                  <div className="flex flex-col w-full min-h-screen overflow-auto">
+                    <Header />
+                    <main className="flex-1">
+                      <Routes>
+                        <Route path="/auth" element={<Auth />} />
+                        <Route 
+                          path="/" 
+                          element={
+                            <ProtectedRoute>
+                              <Index />
+                            </ProtectedRoute>
+                          } 
+                        />
+                        <Route 
+                          path="/analytics" 
+                          element={
+                            <ManagementRoute adminRequired={true}>
+                              <Analytics />
+                            </ManagementRoute>
+                          } 
+                        />
+                        <Route 
+                          path="/admin" 
+                          element={
+                            <ManagementRoute adminRequired={true}>
+                              <AdminManagement />
+                            </ManagementRoute>
+                          } 
+                        />
+                        <Route 
+                          path="/transcripts" 
+                          element={
+                            <ManagementRoute adminRequired={true}>
+                              <Transcripts />
+                            </ManagementRoute>
+                          } 
+                        />
+                        <Route 
+                          path="/war-room" 
+                          element={
+                            <ProtectedRoute>
+                              <WarRoom />
+                            </ProtectedRoute>
+                          } 
+                        />
+                        <Route path="*" element={<NotFound />} />
+                      </Routes>
+                    </main>
+                  </div>
+                </div>
               </Router>
               <Toaster />
             </SidebarProvider>
