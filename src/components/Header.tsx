@@ -20,32 +20,35 @@ const Header: React.FC = () => {
   const { user, signOut } = useAuth();
   const { isAdmin } = useAdmin();
 
-  return <header className="border-b shadow-sm bg-background/95 backdrop-blur-sm sticky top-0 z-50">
+  return (
+    <header className="border-b shadow-sm bg-background/95 backdrop-blur-sm sticky top-0 z-50">
       <div className="container mx-auto px-4 py-3 flex items-center justify-end">
         <div className="flex items-center space-x-3">
-          {user && <>
-              <TooltipProvider>
-                <Tooltip>
-                  <TooltipTrigger asChild>
-                    <Button variant="ghost" size="sm" className="text-xs hidden sm:flex items-center transition-all hover:bg-primary/10">
-                      <Headphones className="mr-1 h-4 w-4 text-primary" />
-                      <span className="hidden sm:inline">Text-to-Speech</span>
-                      <span className="inline sm:hidden">TTS</span>
-                      <span className="ml-1 px-1.5 py-0.5 text-[10px] bg-green-500 text-white rounded-full animate-pulse">
-                        New
-                      </span>
-                    </Button>
-                  </TooltipTrigger>
-                  <TooltipContent>
-                    <p>Listen to AI responses with text-to-speech</p>
-                  </TooltipContent>
-                </Tooltip>
-              </TooltipProvider>
-            </>}
+          {user && (
+            <TooltipProvider>
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <Button variant="ghost" size="sm" className="text-xs hidden sm:flex items-center transition-all hover:bg-primary/10">
+                    <Headphones className="mr-1 h-4 w-4 text-primary" />
+                    <span className="hidden sm:inline">Text-to-Speech</span>
+                    <span className="inline sm:hidden">TTS</span>
+                    <span className="ml-1 px-1.5 py-0.5 text-[10px] bg-green-500 text-white rounded-full animate-pulse">
+                      New
+                    </span>
+                  </Button>
+                </TooltipTrigger>
+                <TooltipContent>
+                  <p>Listen to AI responses with text-to-speech</p>
+                </TooltipContent>
+              </Tooltip>
+            </TooltipProvider>
+          )}
           
-          {!user ? <Button asChild size="sm" className="ml-2 bg-gradient-to-r from-primary to-primary/80 hover:from-primary/90 hover:to-primary/70 transition-all">
+          {!user ? (
+            <Button asChild size="sm" className="ml-2 bg-gradient-to-r from-primary to-primary/80 hover:from-primary/90 hover:to-primary/70 transition-all">
               <Link to="/auth">Sign In</Link>
-            </Button> : 
+            </Button>
+          ) : (
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
                 <Avatar className="h-8 w-8 transition-all hover:ring-2 hover:ring-primary/50 cursor-pointer">
@@ -74,10 +77,12 @@ const Header: React.FC = () => {
                   Sign out
                 </DropdownMenuItem>
               </DropdownMenuContent>
-            </DropdownMenu>}
+            </DropdownMenu>
+          )}
         </div>
       </div>
-    </header>;
+    </header>
+  );
 };
 
 export default Header;

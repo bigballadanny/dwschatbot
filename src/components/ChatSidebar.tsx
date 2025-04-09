@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
 import { supabase } from '@/integrations/supabase/client';
@@ -148,7 +149,7 @@ const ChatSidebar = () => {
             onClick={toggleSidebar}
             title="Toggle Sidebar"
           >
-            <div className="relative p-2 rounded-lg mr-2 overflow-hidden futuristic-glow">
+            <div className="relative p-2 rounded-lg mr-2 overflow-hidden futuristic-glow z-10">
               <div className="absolute inset-0 animate-pulse-subtle bg-gradient-to-r from-blue-400 via-cyan-300 to-blue-400 opacity-70 blur-md"></div>
               <img 
                 src="/lovable-uploads/d2cda96a-7427-49e3-86f0-42ecd63d9982.png" 
@@ -156,21 +157,21 @@ const ChatSidebar = () => {
                 className="h-8 w-8 relative z-10" 
               />
             </div>
-            <span className="bg-gradient-to-r from-amber-300 via-yellow-400 to-amber-300 bg-clip-text text-transparent font-bold">
+            <span className={`bg-gradient-to-r from-amber-300 via-yellow-400 to-amber-300 bg-clip-text text-transparent font-bold ${sidebarState === "collapsed" ? "hidden" : "block"}`}>
               DWS AI
             </span>
           </Button>
-          <Button variant="ghost" size="icon" className="h-8 w-8" onClick={handleNewChat} title="New chat">
+          <Button variant="ghost" size="icon" className={`h-8 w-8 ${sidebarState === "collapsed" ? "hidden" : "block"}`} onClick={handleNewChat} title="New chat">
             <PlusCircle className="h-5 w-5" />
           </Button>
         </div>
-        <div className="relative px-2 pb-2">
+        <div className={`relative px-2 pb-2 ${sidebarState === "collapsed" ? "hidden" : "block"}`}>
           <Search className="absolute left-4 top-2.5 h-4 w-4 text-muted-foreground" />
           <Input placeholder="Search conversations..." className="pl-8" value={searchQuery} onChange={e => setSearchQuery(e.target.value)} />
         </div>
       </SidebarHeader>
       
-      <SidebarContent>
+      <SidebarContent className={sidebarState === "collapsed" ? "hidden" : "block"}>
         <SidebarMenu className="px-2 pt-2">
           <SidebarMenuItem>
             <Button variant="ghost" className="w-full justify-start" onClick={() => navigate('/')}>
@@ -217,7 +218,7 @@ const ChatSidebar = () => {
         <ConversationList conversations={conversations} activeConversationId={conversationId} onDeleteConversation={confirmDelete} searchQuery={searchQuery} />
       </SidebarContent>
       
-      <SidebarFooter className="border-t">
+      <SidebarFooter className={`border-t ${sidebarState === "collapsed" ? "hidden" : "block"}`}>
         <SidebarMenu>
           {isAdmin && <SidebarMenuItem>
               <Button variant="ghost" className="w-full justify-start" onClick={() => navigate('/admin')}>

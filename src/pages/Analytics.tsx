@@ -7,8 +7,6 @@ import { Input } from '@/components/ui/input';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { fetchAnalyticsData, getTopQueries, generateSourceDistribution, calculateSuccessRate, generateResponseTimeData, getFrequentlyUsedTranscripts, generateKeywordFrequency, trackNonTranscriptSources, analyzeUserSegments, generateQueryVolumeTrend } from '@/utils/analyticsUtils';
 import { checkAnalyticsTable } from '@/utils/analyticsDbCheck';
-import Header from '@/components/Header';
-import ChatSidebar from '@/components/ChatSidebar';
 import { LineChart, BarChart, PieChart } from '@/components/ui/charts';
 
 interface AnalyticsData {
@@ -183,345 +181,337 @@ const Analytics = () => {
   };
 
   return (
-    <div className="flex h-screen">
-      <ChatSidebar />
-      <div className="flex-1 flex flex-col h-screen overflow-hidden">
-        <Header />
-        <div className="flex-1 overflow-auto">
-          <div className="container mx-auto py-8">
-            <Card>
-              <CardHeader>
-                <CardTitle className="text-2xl font-bold">Analytics Dashboard</CardTitle>
-                <CardDescription>Overview of chat analytics and usage patterns.</CardDescription>
-              </CardHeader>
-              <CardContent>
-                <div className="mb-4 flex items-center justify-between">
-                  <Tabs defaultValue={dateRange} className="w-[300px]">
-                    <TabsList>
-                      <TabsTrigger value="7d" onClick={() => setDateRange('7d')}>Last 7 Days</TabsTrigger>
-                      <TabsTrigger value="30d" onClick={() => setDateRange('30d')}>Last 30 Days</TabsTrigger>
-                      <TabsTrigger value="all" onClick={() => setDateRange('all')}>All Time</TabsTrigger>
-                    </TabsList>
-                  </Tabs>
-                  <div className="flex items-center space-x-2">
-                    <Input
-                      type="text"
-                      placeholder="Search queries..."
-                      value={searchQuery}
-                      onChange={(e) => setSearchQuery(e.target.value)}
-                    />
-                    <Button variant="outline" size="icon" onClick={handleRefresh} disabled={loading}>
-                      <RefreshCw className="h-4 w-4" />
-                    </Button>
-                    <Button variant="outline" size="sm" onClick={handleDownload} disabled={loading || analyticsData.length === 0}>
-                      <Download className="h-4 w-4 mr-2" />
-                      Download CSV
-                    </Button>
-                  </div>
-                </div>
-
-                {loading ? (
-                  <Alert>
-                    <AlertDescription>Loading analytics data...</AlertDescription>
-                  </Alert>
-                ) : analyticsData.length === 0 ? (
-                  <Alert>
-                    <AlertDescription>No analytics data available for the selected range.</AlertDescription>
-                  </Alert>
-                ) : (
-                  <Tabs defaultValue="overview" className="space-y-4">
-                    <TabsList>
-                      <TabsTrigger value="overview">Overview</TabsTrigger>
-                      <TabsTrigger value="usage">Usage Patterns</TabsTrigger>
-                      <TabsTrigger value="queries">Top Queries</TabsTrigger>
-                      <TabsTrigger value="sources">Source Distribution</TabsTrigger>
-                      <TabsTrigger value="transcripts">Frequent Transcripts</TabsTrigger>
-                      <TabsTrigger value="keywords">Keyword Frequency</TabsTrigger>
-                      <TabsTrigger value="external">External Sources</TabsTrigger>
-                      <TabsTrigger value="user-segments">User Segments</TabsTrigger>
-                    </TabsList>
-                    <TabsContent value="overview" className="space-y-4">
-                      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                        <Card>
-                          <CardHeader>
-                            <CardTitle>Total Queries</CardTitle>
-                            <CardDescription>Number of queries in the selected range.</CardDescription>
-                          </CardHeader>
-                          <CardContent>
-                            <div className="text-4xl font-bold">{analyticsData.length}</div>
-                          </CardContent>
-                        </Card>
-                        <Card>
-                          <CardHeader>
-                            <CardTitle>Success Rate</CardTitle>
-                            <CardDescription>Percentage of successful queries.</CardDescription>
-                          </CardHeader>
-                          <CardContent>
-                            <div className="text-4xl font-bold">{successRate.rate}%</div>
-                            <div className="text-sm text-muted-foreground">
-                              {successRate.success} successful / {analyticsData.length} total
-                            </div>
-                          </CardContent>
-                        </Card>
-                        <Card>
-                          <CardHeader>
-                            <CardTitle>Average Response Time</CardTitle>
-                            <CardDescription>Average time for a response (ms).</CardDescription>
-                          </CardHeader>
-                          <CardContent>
-                            <div className="text-4xl font-bold">
-                              {responseTimeData.length > 0
-                                ? Math.round(responseTimeData.reduce((acc, curr) => acc + curr["Average Response Time (ms)"], 0) / responseTimeData.length)
-                                : 0} ms
-                            </div>
-                          </CardContent>
-                        </Card>
-                      </div>
-                      <Card>
-                        <CardHeader>
-                          <CardTitle>Daily Query Volume</CardTitle>
-                          <CardDescription>Number of queries per day over time.</CardDescription>
-                        </CardHeader>
-                        <CardContent className="h-80">
-                          <LineChart
-                            data={generateDailyQueryVolumeData()}
-                            index="date"
-                            categories={["queries"]}
-                            colors={["#f59e0b"]}
-                            valueFormatter={(value: number) => `${value} queries`}
-                            showLegend={false}
-                            className="h-80"
-                          />
-                        </CardContent>
-                      </Card>
-                    </TabsContent>
-                    
-                    <TabsContent value="usage" className="space-y-4">
-                      <Card>
-                        <CardHeader>
-                          <CardTitle>Usage by Hour of Day</CardTitle>
-                          <CardDescription>When users are most active during the day.</CardDescription>
-                        </CardHeader>
-                        <CardContent className="h-80">
-                          <BarChart
-                            data={generateUsageByHourData()}
-                            index="hour"
-                            categories={["queries"]}
-                            colors={["#82ca9d"]}
-                            valueFormatter={(value: number) => `${value} queries`}
-                            showLegend={false}
-                            className="h-80"
-                          />
-                        </CardContent>
-                      </Card>
-                      
-                      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                        <Card>
-                          <CardHeader>
-                            <CardTitle>Conversation Length Distribution</CardTitle>
-                            <CardDescription>How many messages users typically exchange per conversation.</CardDescription>
-                          </CardHeader>
-                          <CardContent className="h-[300px]">
-                            {userSegments && (
-                              <PieChart
-                                data={generateUserSegmentsPieData('engagement')}
-                                index="name"
-                                categories={["value"]}
-                                colors={['#0088FE', '#00C49F', '#FFBB28']}
-                                className="h-[280px]"
-                              />
-                            )}
-                          </CardContent>
-                        </Card>
-                        
-                        <Card>
-                          <CardHeader>
-                            <CardTitle>Query Types Breakdown</CardTitle>
-                            <CardDescription>Technical vs. conceptual query distribution.</CardDescription>
-                          </CardHeader>
-                          <CardContent className="h-[300px]">
-                            {userSegments && (
-                              <PieChart
-                                data={generateUserSegmentsPieData('queryTypes')}
-                                index="name"
-                                categories={["value"]}
-                                colors={['#FF8042', '#8884d8', '#FFBB28']}
-                                className="h-[280px]"
-                              />
-                            )}
-                          </CardContent>
-                        </Card>
-                      </div>
-                    </TabsContent>
-                    
-                    <TabsContent value="queries" className="space-y-4">
-                      <Card>
-                        <CardHeader>
-                          <CardTitle>Top Queries</CardTitle>
-                          <CardDescription>Most frequent queries in the selected range.</CardDescription>
-                        </CardHeader>
-                        <CardContent>
-                          <ul>
-                            {topQueries.map((item, index) => (
-                              <li key={index} className="py-2">
-                                {item.query} - {item.count} times
-                              </li>
-                            ))}
-                          </ul>
-                        </CardContent>
-                      </Card>
-                    </TabsContent>
-                    <TabsContent value="sources" className="space-y-4">
-                      <Card>
-                        <CardHeader>
-                          <CardTitle>Source Distribution</CardTitle>
-                          <CardDescription>Distribution of response sources.</CardDescription>
-                        </CardHeader>
-                        <CardContent className="h-[300px]">
-                          <PieChart
-                            data={generatePieChartData(sourceDistribution)}
-                            index="name"
-                            categories={["value"]}
-                            colors={['#0088FE', '#00C49F', '#FFBB28', '#FF8042', '#8884d8']}
-                            className="h-[280px]"
-                          />
-                        </CardContent>
-                      </Card>
-                    </TabsContent>
-                    <TabsContent value="transcripts" className="space-y-4">
-                      <Card>
-                        <CardHeader>
-                          <CardTitle>Frequently Used Transcripts</CardTitle>
-                          <CardDescription>Most frequently referenced transcripts.</CardDescription>
-                        </CardHeader>
-                        <CardContent>
-                          <ul>
-                            {frequentTranscripts.map((item, index) => (
-                              <li key={index} className="py-2">
-                                {item.title} ({item.source}) - {item.count} times
-                              </li>
-                            ))}
-                          </ul>
-                        </CardContent>
-                      </Card>
-                    </TabsContent>
-                    <TabsContent value="keywords" className="space-y-4">
-                      <Card>
-                        <CardHeader>
-                          <CardTitle>Keyword Frequency</CardTitle>
-                          <CardDescription>Most frequent keywords in user queries.</CardDescription>
-                        </CardHeader>
-                        <CardContent>
-                          <ul>
-                            {keywordFrequency.map((item, index) => (
-                              <li key={index} className="py-2">
-                                {item.word} - {item.count} times
-                              </li>
-                            ))}
-                          </ul>
-                        </CardContent>
-                      </Card>
-                    </TabsContent>
-                    <TabsContent value="external" className="space-y-4">
-                      <Card>
-                        <CardHeader>
-                          <CardTitle>External Source Usage</CardTitle>
-                          <CardDescription>Usage of sources outside of transcripts.</CardDescription>
-                        </CardHeader>
-                        <CardContent>
-                          <p>
-                            External sources were used {nonTranscriptSources.count} times (
-                            {nonTranscriptSources.percentage}%)
-                          </p>
-                          <p>Top queries using external sources:</p>
-                          <ul>
-                            {nonTranscriptSources.topQueries.map((item, index) => (
-                              <li key={index} className="py-2">
-                                {item.query} - {item.count} times
-                              </li>
-                            ))}
-                          </ul>
-                        </CardContent>
-                      </Card>
-                    </TabsContent>
-                    
-                    <TabsContent value="user-segments" className="space-y-4">
-                      <Card>
-                        <CardHeader>
-                          <CardTitle>User Segments Analysis</CardTitle>
-                          <CardDescription>Understanding how users interact with the AI assistant.</CardDescription>
-                        </CardHeader>
-                        <CardContent>
-                          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                            <div className="bg-muted rounded-lg p-4">
-                              <h3 className="text-lg font-medium mb-2">Engagement Level</h3>
-                              <ul className="space-y-2">
-                                <li className="flex justify-between">
-                                  <span>Basic (1-2 queries):</span>
-                                  <span className="font-medium">{userSegments.basic}</span>
-                                </li>
-                                <li className="flex justify-between">
-                                  <span>Engaged (3-5 queries):</span>
-                                  <span className="font-medium">{userSegments.engaged}</span>
-                                </li>
-                                <li className="flex justify-between">
-                                  <span>Power (6+ queries):</span>
-                                  <span className="font-medium">{userSegments.power}</span>
-                                </li>
-                              </ul>
-                            </div>
-                            
-                            <div className="bg-muted rounded-lg p-4">
-                              <h3 className="text-lg font-medium mb-2">Query Types</h3>
-                              <ul className="space-y-2">
-                                <li className="flex justify-between">
-                                  <span>Technical Queries:</span>
-                                  <span className="font-medium">{userSegments.technical}</span>
-                                </li>
-                                <li className="flex justify-between">
-                                  <span>Conceptual Queries:</span>
-                                  <span className="font-medium">{userSegments.conceptual}</span>
-                                </li>
-                              </ul>
-                            </div>
-                            
-                            <div className="bg-muted rounded-lg p-4">
-                              <h3 className="text-lg font-medium mb-2">Suggestion</h3>
-                              <p className="text-sm">
-                                {userSegments.technical > userSegments.conceptual ? 
-                                  "Users are asking more technical questions. Consider enhancing technical content." : 
-                                  "Users are asking more conceptual questions. Consider improving educational content."}
-                              </p>
-                            </div>
-                          </div>
-                          
-                          <div className="mt-6">
-                            <h3 className="text-lg font-medium mb-2">Insights & Recommendations</h3>
-                            <div className="bg-muted rounded-lg p-4">
-                              <ul className="list-disc pl-5 space-y-2">
-                                <li>
-                                  {userSegments.power > (userSegments.basic + userSegments.engaged) / 4 ? 
-                                    "High proportion of power users suggests strong engagement. Consider adding advanced features." : 
-                                    "Low power user count. Consider simplifying the interface or adding more guided experiences."}
-                                </li>
-                                <li>
-                                  {nonTranscriptSources.percentage > 30 ? 
-                                    "High external source usage (>30%). Consider expanding your transcript database." : 
-                                    "Low external source usage. Your transcript content appears to be comprehensive."}
-                                </li>
-                              </ul>
-                            </div>
-                          </div>
-                        </CardContent>
-                      </Card>
-                    </TabsContent>
-                  </Tabs>
-                )}
-              </CardContent>
-            </Card>
+    <div className="container mx-auto py-8 px-4">
+      <Card>
+        <CardHeader>
+          <CardTitle className="text-2xl font-bold">Analytics Dashboard</CardTitle>
+          <CardDescription>Overview of chat analytics and usage patterns.</CardDescription>
+        </CardHeader>
+        <CardContent>
+          <div className="mb-4 flex items-center justify-between">
+            <Tabs defaultValue={dateRange} className="w-[300px]">
+              <TabsList>
+                <TabsTrigger value="7d" onClick={() => setDateRange('7d')}>Last 7 Days</TabsTrigger>
+                <TabsTrigger value="30d" onClick={() => setDateRange('30d')}>Last 30 Days</TabsTrigger>
+                <TabsTrigger value="all" onClick={() => setDateRange('all')}>All Time</TabsTrigger>
+              </TabsList>
+            </Tabs>
+            <div className="flex items-center space-x-2">
+              <Input
+                type="text"
+                placeholder="Search queries..."
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+              />
+              <Button variant="outline" size="icon" onClick={handleRefresh} disabled={loading}>
+                <RefreshCw className="h-4 w-4" />
+              </Button>
+              <Button variant="outline" size="sm" onClick={handleDownload} disabled={loading || analyticsData.length === 0}>
+                <Download className="h-4 w-4 mr-2" />
+                Download CSV
+              </Button>
+            </div>
           </div>
-        </div>
-      </div>
+
+          {loading ? (
+            <Alert>
+              <AlertDescription>Loading analytics data...</AlertDescription>
+            </Alert>
+          ) : analyticsData.length === 0 ? (
+            <Alert>
+              <AlertDescription>No analytics data available for the selected range.</AlertDescription>
+            </Alert>
+          ) : (
+            <Tabs defaultValue="overview" className="space-y-4">
+              <TabsList>
+                <TabsTrigger value="overview">Overview</TabsTrigger>
+                <TabsTrigger value="usage">Usage Patterns</TabsTrigger>
+                <TabsTrigger value="queries">Top Queries</TabsTrigger>
+                <TabsTrigger value="sources">Source Distribution</TabsTrigger>
+                <TabsTrigger value="transcripts">Frequent Transcripts</TabsTrigger>
+                <TabsTrigger value="keywords">Keyword Frequency</TabsTrigger>
+                <TabsTrigger value="external">External Sources</TabsTrigger>
+                <TabsTrigger value="user-segments">User Segments</TabsTrigger>
+              </TabsList>
+              <TabsContent value="overview" className="space-y-4">
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                  <Card>
+                    <CardHeader>
+                      <CardTitle>Total Queries</CardTitle>
+                      <CardDescription>Number of queries in the selected range.</CardDescription>
+                    </CardHeader>
+                    <CardContent>
+                      <div className="text-4xl font-bold">{analyticsData.length}</div>
+                    </CardContent>
+                  </Card>
+                  <Card>
+                    <CardHeader>
+                      <CardTitle>Success Rate</CardTitle>
+                      <CardDescription>Percentage of successful queries.</CardDescription>
+                    </CardHeader>
+                    <CardContent>
+                      <div className="text-4xl font-bold">{successRate.rate}%</div>
+                      <div className="text-sm text-muted-foreground">
+                        {successRate.success} successful / {analyticsData.length} total
+                      </div>
+                    </CardContent>
+                  </Card>
+                  <Card>
+                    <CardHeader>
+                      <CardTitle>Average Response Time</CardTitle>
+                      <CardDescription>Average time for a response (ms).</CardDescription>
+                    </CardHeader>
+                    <CardContent>
+                      <div className="text-4xl font-bold">
+                        {responseTimeData.length > 0
+                          ? Math.round(responseTimeData.reduce((acc, curr) => acc + curr["Average Response Time (ms)"], 0) / responseTimeData.length)
+                          : 0} ms
+                      </div>
+                    </CardContent>
+                  </Card>
+                </div>
+                <Card>
+                  <CardHeader>
+                    <CardTitle>Daily Query Volume</CardTitle>
+                    <CardDescription>Number of queries per day over time.</CardDescription>
+                  </CardHeader>
+                  <CardContent className="h-80">
+                    <LineChart
+                      data={generateDailyQueryVolumeData()}
+                      index="date"
+                      categories={["queries"]}
+                      colors={["#f59e0b"]}
+                      valueFormatter={(value: number) => `${value} queries`}
+                      showLegend={false}
+                      className="h-80"
+                    />
+                  </CardContent>
+                </Card>
+              </TabsContent>
+              
+              <TabsContent value="usage" className="space-y-4">
+                <Card>
+                  <CardHeader>
+                    <CardTitle>Usage by Hour of Day</CardTitle>
+                    <CardDescription>When users are most active during the day.</CardDescription>
+                  </CardHeader>
+                  <CardContent className="h-80">
+                    <BarChart
+                      data={generateUsageByHourData()}
+                      index="hour"
+                      categories={["queries"]}
+                      colors={["#82ca9d"]}
+                      valueFormatter={(value: number) => `${value} queries`}
+                      showLegend={false}
+                      className="h-80"
+                    />
+                  </CardContent>
+                </Card>
+                
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <Card>
+                    <CardHeader>
+                      <CardTitle>Conversation Length Distribution</CardTitle>
+                      <CardDescription>How many messages users typically exchange per conversation.</CardDescription>
+                    </CardHeader>
+                    <CardContent className="h-[300px]">
+                      {userSegments && (
+                        <PieChart
+                          data={generateUserSegmentsPieData('engagement')}
+                          index="name"
+                          categories={["value"]}
+                          colors={['#0088FE', '#00C49F', '#FFBB28']}
+                          className="h-[280px]"
+                        />
+                      )}
+                    </CardContent>
+                  </Card>
+                  
+                  <Card>
+                    <CardHeader>
+                      <CardTitle>Query Types Breakdown</CardTitle>
+                      <CardDescription>Technical vs. conceptual query distribution.</CardDescription>
+                    </CardHeader>
+                    <CardContent className="h-[300px]">
+                      {userSegments && (
+                        <PieChart
+                          data={generateUserSegmentsPieData('queryTypes')}
+                          index="name"
+                          categories={["value"]}
+                          colors={['#FF8042', '#8884d8', '#FFBB28']}
+                          className="h-[280px]"
+                        />
+                      )}
+                    </CardContent>
+                  </Card>
+                </div>
+              </TabsContent>
+              
+              <TabsContent value="queries" className="space-y-4">
+                <Card>
+                  <CardHeader>
+                    <CardTitle>Top Queries</CardTitle>
+                    <CardDescription>Most frequent queries in the selected range.</CardDescription>
+                  </CardHeader>
+                  <CardContent>
+                    <ul>
+                      {topQueries.map((item, index) => (
+                        <li key={index} className="py-2">
+                          {item.query} - {item.count} times
+                        </li>
+                      ))}
+                    </ul>
+                  </CardContent>
+                </Card>
+              </TabsContent>
+              <TabsContent value="sources" className="space-y-4">
+                <Card>
+                  <CardHeader>
+                    <CardTitle>Source Distribution</CardTitle>
+                    <CardDescription>Distribution of response sources.</CardDescription>
+                  </CardHeader>
+                  <CardContent className="h-[300px]">
+                    <PieChart
+                      data={generatePieChartData(sourceDistribution)}
+                      index="name"
+                      categories={["value"]}
+                      colors={['#0088FE', '#00C49F', '#FFBB28', '#FF8042', '#8884d8']}
+                      className="h-[280px]"
+                    />
+                  </CardContent>
+                </Card>
+              </TabsContent>
+              <TabsContent value="transcripts" className="space-y-4">
+                <Card>
+                  <CardHeader>
+                    <CardTitle>Frequently Used Transcripts</CardTitle>
+                    <CardDescription>Most frequently referenced transcripts.</CardDescription>
+                  </CardHeader>
+                  <CardContent>
+                    <ul>
+                      {frequentTranscripts.map((item, index) => (
+                        <li key={index} className="py-2">
+                          {item.title} ({item.source}) - {item.count} times
+                        </li>
+                      ))}
+                    </ul>
+                  </CardContent>
+                </Card>
+              </TabsContent>
+              <TabsContent value="keywords" className="space-y-4">
+                <Card>
+                  <CardHeader>
+                    <CardTitle>Keyword Frequency</CardTitle>
+                    <CardDescription>Most frequent keywords in user queries.</CardDescription>
+                  </CardHeader>
+                  <CardContent>
+                    <ul>
+                      {keywordFrequency.map((item, index) => (
+                        <li key={index} className="py-2">
+                          {item.word} - {item.count} times
+                        </li>
+                      ))}
+                    </ul>
+                  </CardContent>
+                </Card>
+              </TabsContent>
+              <TabsContent value="external" className="space-y-4">
+                <Card>
+                  <CardHeader>
+                    <CardTitle>External Source Usage</CardTitle>
+                    <CardDescription>Usage of sources outside of transcripts.</CardDescription>
+                  </CardHeader>
+                  <CardContent>
+                    <p>
+                      External sources were used {nonTranscriptSources.count} times (
+                      {nonTranscriptSources.percentage}%)
+                    </p>
+                    <p>Top queries using external sources:</p>
+                    <ul>
+                      {nonTranscriptSources.topQueries.map((item, index) => (
+                        <li key={index} className="py-2">
+                          {item.query} - {item.count} times
+                        </li>
+                      ))}
+                    </ul>
+                  </CardContent>
+                </Card>
+              </TabsContent>
+              
+              <TabsContent value="user-segments" className="space-y-4">
+                <Card>
+                  <CardHeader>
+                    <CardTitle>User Segments Analysis</CardTitle>
+                    <CardDescription>Understanding how users interact with the AI assistant.</CardDescription>
+                  </CardHeader>
+                  <CardContent>
+                    <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                      <div className="bg-muted rounded-lg p-4">
+                        <h3 className="text-lg font-medium mb-2">Engagement Level</h3>
+                        <ul className="space-y-2">
+                          <li className="flex justify-between">
+                            <span>Basic (1-2 queries):</span>
+                            <span className="font-medium">{userSegments.basic}</span>
+                          </li>
+                          <li className="flex justify-between">
+                            <span>Engaged (3-5 queries):</span>
+                            <span className="font-medium">{userSegments.engaged}</span>
+                          </li>
+                          <li className="flex justify-between">
+                            <span>Power (6+ queries):</span>
+                            <span className="font-medium">{userSegments.power}</span>
+                          </li>
+                        </ul>
+                      </div>
+                      
+                      <div className="bg-muted rounded-lg p-4">
+                        <h3 className="text-lg font-medium mb-2">Query Types</h3>
+                        <ul className="space-y-2">
+                          <li className="flex justify-between">
+                            <span>Technical Queries:</span>
+                            <span className="font-medium">{userSegments.technical}</span>
+                          </li>
+                          <li className="flex justify-between">
+                            <span>Conceptual Queries:</span>
+                            <span className="font-medium">{userSegments.conceptual}</span>
+                          </li>
+                        </ul>
+                      </div>
+                      
+                      <div className="bg-muted rounded-lg p-4">
+                        <h3 className="text-lg font-medium mb-2">Suggestion</h3>
+                        <p className="text-sm">
+                          {userSegments.technical > userSegments.conceptual ? 
+                            "Users are asking more technical questions. Consider enhancing technical content." : 
+                            "Users are asking more conceptual questions. Consider improving educational content."}
+                        </p>
+                      </div>
+                    </div>
+                    
+                    <div className="mt-6">
+                      <h3 className="text-lg font-medium mb-2">Insights & Recommendations</h3>
+                      <div className="bg-muted rounded-lg p-4">
+                        <ul className="list-disc pl-5 space-y-2">
+                          <li>
+                            {userSegments.power > (userSegments.basic + userSegments.engaged) / 4 ? 
+                              "High proportion of power users suggests strong engagement. Consider adding advanced features." : 
+                              "Low power user count. Consider simplifying the interface or adding more guided experiences."}
+                          </li>
+                          <li>
+                            {nonTranscriptSources.percentage > 30 ? 
+                              "High external source usage (>30%). Consider expanding your transcript database." : 
+                              "Low external source usage. Your transcript content appears to be comprehensive."}
+                          </li>
+                        </ul>
+                      </div>
+                    </div>
+                  </CardContent>
+                </Card>
+              </TabsContent>
+            </Tabs>
+          )}
+        </CardContent>
+      </Card>
     </div>
   );
 };
