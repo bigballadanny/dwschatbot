@@ -32,34 +32,34 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     const getCurrentUser = async () => {
       setLoading(true);
       try {
-        // Get session without excessive destructuring
-        const sessionResult = await supabase.auth.getSession();
-        const currentSession = sessionResult.data.session;
+        // Get session data
+        const { data: sessionData } = await supabase.auth.getSession();
+        const currentSession = sessionData.session;
         
         if (currentSession) {
           setSession(currentSession);
           
-          // Get user data without excessive destructuring
-          const userResult = await supabase.auth.getUser();
+          // Get user data
+          const { data: userData, error: userError } = await supabase.auth.getUser();
           
-          if (userResult.error) {
-            throw userResult.error;
+          if (userError) {
+            throw userError;
           }
           
-          if (userResult.data.user) {
+          if (userData && userData.user) {
             // Get profile data if available
-            const profileResult = await supabase
+            const { data: profileData } = await supabase
               .from('profiles')
               .select('*')
-              .eq('user_id', userResult.data.user.id)
+              .eq('user_id', userData.user.id)
               .single();
             
             // Enhance user with profile data
             const enhancedUser: UserWithExtras = {
-              id: userResult.data.user.id,
-              email: userResult.data.user.email,
-              avatarUrl: profileResult.data?.avatar_url || undefined,
-              displayName: profileResult.data?.display_name || userResult.data.user.email
+              id: userData.user.id,
+              email: userData.user.email,
+              avatarUrl: profileData?.avatar_url || undefined,
+              displayName: profileData?.display_name || userData.user.email
             };
             
             setUser(enhancedUser);
@@ -79,8 +79,8 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
 
     getCurrentUser();
 
-    // Set up auth state listener with simplified approach
-    const authListener = supabase.auth.onAuthStateChange(
+    // Set up auth state listener
+    const { data: authListener } = supabase.auth.onAuthStateChange(
       async (event, newSession) => {
         setSession(newSession);
         
@@ -91,7 +91,7 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
         
         if (newSession?.user) {
           // Get profile data if available
-          const profileResult = await supabase
+          const { data: profileData } = await supabase
             .from('profiles')
             .select('*')
             .eq('user_id', newSession.user.id)
@@ -101,8 +101,8 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
           const enhancedUser: UserWithExtras = {
             id: newSession.user.id,
             email: newSession.user.email,
-            avatarUrl: profileResult.data?.avatar_url || undefined,
-            displayName: profileResult.data?.display_name || newSession.user.email
+            avatarUrl: profileData?.avatar_url || undefined,
+            displayName: profileData?.display_name || newSession.user.email
           };
           
           setUser(enhancedUser);
@@ -111,13 +111,13 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     );
 
     return () => {
-      authListener.data.subscription.unsubscribe();
+      authListener.subscription.unsubscribe();
     };
   }, []);
 
   const signIn = async (email: string, password: string) => {
     try {
-      const { data, error } = await supabase.auth.signInWithPassword({ email, password });
+      const { error } = await supabase.auth.signInWithPassword({ email, password });
       
       if (error) {
         throw error;
@@ -139,7 +139,7 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
 
   const signUp = async (email: string, password: string) => {
     try {
-      const { data, error } = await supabase.auth.signUp({ email, password });
+      const { error } = await supabase.auth.signUp({ email, password });
       
       if (error) {
         throw error;

@@ -20,10 +20,10 @@ import WarRoom from './pages/WarRoom';
 function App() {
   return (
     <ThemeProvider defaultTheme="system" storageKey="vite-ui-theme">
-      <Toaster />
       <AuthProvider>
         <AdminProvider>
           <SidebarProvider>
+            <Toaster />
             <Routes>
               <Route path="/" element={<Index />} />
               <Route path="/auth" element={<Auth />} />

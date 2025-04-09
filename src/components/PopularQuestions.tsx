@@ -20,23 +20,33 @@ const PopularQuestions: React.FC<PopularQuestionsProps> = ({
   limit = 5,
   timeRange = 'week'
 }) => {
-  const { data: popularQueries, isLoading } = useQuery({
-    queryKey: ['popular-queries', timeRange],
-    queryFn: async () => {
-      const { data, error } = await supabase.rpc('get_top_queries', { 
-        time_period: timeRange === 'all' ? null : timeRange,
-        limit_count: limit
-      });
-      
-      if (error) {
-        console.error('Error fetching popular queries:', error);
-        return [];
-      }
-      
-      return data || [];
-    },
-    refetchInterval: 60000, // Refetch every minute instead of 5 minutes
-  });
+  // Wrap the useQuery hook in a try-catch to handle case where QueryClientProvider is not available
+  let queryData = { isLoading: true, data: undefined };
+  try {
+    const result = useQuery({
+      queryKey: ['popular-queries', timeRange],
+      queryFn: async () => {
+        const { data, error } = await supabase.rpc('get_top_queries', { 
+          time_period: timeRange === 'all' ? null : timeRange,
+          limit_count: limit
+        });
+        
+        if (error) {
+          console.error('Error fetching popular queries:', error);
+          return [];
+        }
+        
+        return data || [];
+      },
+      refetchInterval: 60000, // Refetch every minute
+    });
+    
+    queryData = result;
+  } catch (e) {
+    console.error("Error with useQuery, QueryClientProvider might be missing:", e);
+  }
+
+  const { isLoading, data: popularQueries } = queryData;
 
   // Fallback questions if no popular questions are available yet
   const fallbackQuestions = [
@@ -79,6 +89,7 @@ const PopularQuestions: React.FC<PopularQuestionsProps> = ({
             {displayQuestions.map((question, index) => (
               <Button
                 key={index}
+                type="button"
                 variant="outline"
                 className="w-full justify-start text-left h-auto py-3 px-4 font-normal hover:bg-primary/10 active:scale-[0.98] transition-all"
                 onClick={() => handleQuestionClick(question)}

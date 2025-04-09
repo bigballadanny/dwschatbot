@@ -5,7 +5,7 @@ import Header from '@/components/Header';
 import WelcomeScreen from '@/components/WelcomeScreen';
 import PopularQuestions from '@/components/PopularQuestions';
 import ChatSidebar from '@/components/ChatSidebar';
-import { SidebarProvider, SidebarInset, useSidebar } from "@/components/ui/sidebar";
+import { SidebarInset, useSidebar } from "@/components/ui/sidebar";
 import { Button } from "@/components/ui/button";
 import { PanelLeft } from 'lucide-react';
 import { ScrollArea } from "@/components/ui/scroll-area";
@@ -413,76 +413,74 @@ const Index = () => {
   };
 
   return (
-    <SidebarProvider>
-      <div className="flex h-screen w-full overflow-hidden">
-        <ChatSidebar />
-        <SidebarOpenButton />
-        <SidebarInset>
-          <div className="flex flex-col h-full">
-            <Header />
-            
-            {showWelcome ? (
-              <div className="flex-1 overflow-y-auto">
-                <div className="container mx-auto px-4 py-8">
-                  <WelcomeScreen 
-                    onStartChat={() => setShowWelcome(false)} 
-                    onSelectQuestion={handleAskQuestion}
-                  />
-                  <PopularQuestions 
-                    onSelectQuestion={handleAskQuestion} 
-                    className="mt-8" 
-                  />
+    <div className="flex h-screen w-full overflow-hidden">
+      <ChatSidebar />
+      <SidebarOpenButton />
+      <SidebarInset>
+        <div className="flex flex-col h-full">
+          <Header />
+          
+          {showWelcome ? (
+            <div className="flex-1 overflow-y-auto">
+              <div className="container mx-auto px-4 py-8">
+                <WelcomeScreen 
+                  onStartChat={() => setShowWelcome(false)} 
+                  onSelectQuestion={handleAskQuestion}
+                />
+                <PopularQuestions 
+                  onSelectQuestion={handleAskQuestion} 
+                  className="mt-8" 
+                />
+              </div>
+            </div>
+          ) : (
+            <div className="flex-1 overflow-hidden flex flex-col">
+              <div className="flex-1 overflow-y-auto px-4 py-6 pb-28">
+                <div className="mx-auto max-w-3xl">
+                  {messages.map((message, index) => (
+                    <MessageItem
+                      key={index}
+                      content={message.content}
+                      source={message.source}
+                      citation={message.citation}
+                      timestamp={message.timestamp}
+                      isLoading={message.isLoading}
+                    />
+                  ))}
+                  <div ref={messagesEndRef} />
                 </div>
               </div>
-            ) : (
-              <div className="flex-1 overflow-hidden flex flex-col">
-                <div className="flex-1 overflow-y-auto px-4 py-6 pb-28">
-                  <div className="mx-auto max-w-3xl">
-                    {messages.map((message, index) => (
-                      <MessageItem
-                        key={index}
-                        content={message.content}
-                        source={message.source}
-                        citation={message.citation}
-                        timestamp={message.timestamp}
-                        isLoading={message.isLoading}
-                      />
-                    ))}
-                    <div ref={messagesEndRef} />
-                  </div>
-                </div>
-                
-                <div className={cn(
-                  "border-t fixed bottom-0 left-0 right-0 bg-background/80 backdrop-blur-sm z-10 pb-6 pt-4",
-                  sidebarState === "expanded" ? "ml-[16rem]" : ""
-                )}>
-                  <div className="max-w-3xl mx-auto px-4">
-                    <div className="flex items-center gap-3 justify-between">
-                      <UnifiedInputBar
-                        onSend={handleSendMessage}
-                        onFileUpload={handleFileUpload}
-                        loading={isLoading}
-                        disabled={false}
-                        enableAudio={audioEnabled}
-                        onToggleAudio={toggleAudio}
-                        placeholder="Ask about deal structuring, financing, due diligence..."
-                        className="flex-1"
-                      />
-                      
-                      <SearchModeToggle 
-                        enableOnlineSearch={enableOnlineSearch} 
-                        onToggle={handleToggleOnlineSearch}
-                        className="text-xs"
-                      />
-                    </div>
+              
+              <div className={cn(
+                "border-t fixed bottom-0 left-0 right-0 bg-background/80 backdrop-blur-sm z-10 pb-6 pt-4",
+                sidebarState === "expanded" ? "ml-[16rem]" : ""
+              )}>
+                <div className="max-w-3xl mx-auto px-4">
+                  <div className="flex items-center gap-3 justify-between">
+                    <UnifiedInputBar
+                      onSend={handleSendMessage}
+                      onFileUpload={handleFileUpload}
+                      loading={isLoading}
+                      disabled={false}
+                      enableAudio={audioEnabled}
+                      onToggleAudio={toggleAudio}
+                      placeholder="Ask about deal structuring, financing, due diligence..."
+                      className="flex-1"
+                    />
+                    
+                    <SearchModeToggle 
+                      enableOnlineSearch={enableOnlineSearch} 
+                      onToggle={handleToggleOnlineSearch}
+                      className="text-xs"
+                    />
                   </div>
                 </div>
               </div>
-            )}
-          </div>
-        </SidebarInset>
-      </div>
-    </SidebarProvider>
+            </div>
+          )}
+        </div>
+      </SidebarInset>
+    </div>
   );
 };
 
