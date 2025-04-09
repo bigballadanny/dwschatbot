@@ -136,7 +136,8 @@ const WarRoom = () => {
             {getFileIcon(selectedFile.type)}
             <span className="font-medium">{selectedFile.name}</span>
           </div>
-          <Badge variant={selectedFile.analysis?.score && selectedFile.analysis.score > 70 ? "success" : "warning"}>
+          <Badge variant={selectedFile.analysis?.score && selectedFile.analysis.score > 70 ? "default" : "outline"} 
+                className={selectedFile.analysis?.score && selectedFile.analysis.score > 70 ? "bg-green-500 hover:bg-green-600 text-white" : "bg-amber-100 hover:bg-amber-200 text-amber-800"}>
             Score: {selectedFile.analysis?.score || 'N/A'}
           </Badge>
         </div>
