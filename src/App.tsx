@@ -29,7 +29,6 @@ function App() {
           <ThemeProvider defaultTheme="light">
             <SidebarProvider>
               <Router>
-                {/* Layout wrapper that includes sidebar with all routes */}
                 <div className="flex h-screen w-full">
                   <ChatSidebar />
                   <div className="flex flex-col w-full min-h-screen overflow-auto">

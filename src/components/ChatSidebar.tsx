@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
 import { supabase } from '@/integrations/supabase/client';
@@ -143,11 +142,11 @@ const ChatSidebar = () => {
       <SidebarRail />
       <SidebarHeader className="border-b">
         <div className="flex items-center gap-2 px-2 py-3">
-          {/* Use the logo as the toggle button */}
           <Button 
             variant="ghost" 
             className="font-bold text-xl flex items-center cursor-pointer transition-all hover:scale-105 flex-1"
             onClick={toggleSidebar}
+            title="Toggle Sidebar"
           >
             <div className="relative p-2 rounded-lg mr-2 overflow-hidden futuristic-glow">
               <div className="absolute inset-0 animate-pulse-subtle bg-gradient-to-r from-blue-400 via-cyan-300 to-blue-400 opacity-70 blur-md"></div>
@@ -246,7 +245,6 @@ const ChatSidebar = () => {
                   </SheetDescription>
                 </SheetHeader>
                 <div className="py-4 space-y-4">
-                  {/* Theme toggle in settings */}
                   <div className="space-y-2">
                     <h3 className="text-sm font-medium">Appearance</h3>
                     <div className="flex items-center gap-2">
