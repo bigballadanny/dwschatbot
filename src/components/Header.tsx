@@ -1,7 +1,8 @@
+
 import React from 'react';
 import { Link, useLocation } from 'react-router-dom';
 import { Button } from "@/components/ui/button";
-import { Headphones, Menu, Home } from 'lucide-react';
+import { Headphones } from 'lucide-react';
 import { useAuth } from '@/context/AuthContext';
 import { useAdmin } from '@/context/AdminContext';
 import { useSidebar } from "@/components/ui/sidebar";
@@ -29,18 +30,18 @@ const Header: React.FC = () => {
   } = useSidebar();
   const location = useLocation();
 
-  // Check if we're on the homepage
-  const isHomePage = location.pathname === '/';
-  const handleLogoClick = () => {
-    if (isHomePage) {
-      // Toggle sidebar if we're already on the home page
-      toggleSidebar();
-    }
-    // If not on home page, the Link component will navigate to home
-  };
-  
   const renderHomeLogo = () => (
-    <Link to="/" className="font-bold text-xl flex items-center cursor-pointer transition-all hover:scale-105">
+    <Button 
+      variant="ghost" 
+      className="font-bold text-xl flex items-center cursor-pointer transition-all hover:scale-105"
+      onClick={() => {
+        if (location.pathname !== '/') {
+          window.location.href = '/';
+        } else {
+          toggleSidebar();
+        }
+      }}
+    >
       <div className="relative p-2 rounded-lg mr-2 overflow-hidden futuristic-glow">
         <div className="absolute inset-0 animate-pulse-subtle bg-gradient-to-r from-blue-400 via-cyan-300 to-blue-400 opacity-70 blur-md"></div>
         <img 
@@ -52,25 +53,11 @@ const Header: React.FC = () => {
       <span className="bg-gradient-to-r from-amber-300 via-yellow-400 to-amber-300 bg-clip-text text-transparent font-bold">
         DWS AI
       </span>
-    </Link>
+    </Button>
   );
 
-  const renderMobileHomeButton = () => (
-    <Tooltip>
-      <TooltipTrigger asChild>
-        <Button 
-          variant="ghost" 
-          size="icon" 
-          className="mr-2" 
-          onClick={() => location.pathname !== '/' ? window.location.href = '/' : toggleSidebar()}
-        >
-          <Home className="h-5 w-5" />
-        </Button>
-      </TooltipTrigger>
-      <TooltipContent>Go to Home</TooltipContent>
-    </Tooltip>
-  );
-
+  // Remove renderMobileHomeButton as it's now replaced by the main logo button
+  
   return <header className="border-b shadow-sm bg-background/95 backdrop-blur-sm sticky top-0 z-50">
       <div className="container mx-auto px-4 py-3 flex items-center justify-between">
         <div className="flex items-center gap-2">
@@ -78,7 +65,6 @@ const Header: React.FC = () => {
             <Menu className="h-5 w-5" />
           </Button>
           
-          {renderMobileHomeButton()}
           {renderHomeLogo()}
         </div>
         
@@ -102,8 +88,6 @@ const Header: React.FC = () => {
                 </Tooltip>
               </TooltipProvider>
             </>}
-          
-          {/* Theme toggle has been moved to settings */}
           
           {!user ? <Button asChild size="sm" className="ml-2 bg-gradient-to-r from-primary to-primary/80 hover:from-primary/90 hover:to-primary/70 transition-all">
               <Link to="/auth">Sign In</Link>
