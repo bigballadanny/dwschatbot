@@ -14,18 +14,26 @@ interface PopularQuestionsProps {
   timeRange?: 'day' | 'week' | 'month' | 'all';
 }
 
+// Simple interface for our query data
+interface PopularQuery {
+  query: string;
+  count: number;
+}
+
 const PopularQuestions: React.FC<PopularQuestionsProps> = ({ 
   onSelectQuestion, 
   className,
   limit = 5,
   timeRange = 'week'
 }) => {
-  // Wrap the useQuery hook in a try-catch to handle case where QueryClientProvider is not available
-  let queryData = { isLoading: true, data: undefined };
-  try {
-    const result = useQuery({
-      queryKey: ['popular-queries', timeRange],
-      queryFn: async () => {
+  // Define default state for our query
+  const [isLoading, setIsLoading] = React.useState(true);
+  const [popularQueries, setPopularQueries] = React.useState<PopularQuery[]>([]);
+  
+  React.useEffect(() => {
+    // Attempt to fetch popular queries without relying on React Query
+    const fetchPopularQueries = async () => {
+      try {
         const { data, error } = await supabase.rpc('get_top_queries', { 
           time_period: timeRange === 'all' ? null : timeRange,
           limit_count: limit
@@ -33,20 +41,20 @@ const PopularQuestions: React.FC<PopularQuestionsProps> = ({
         
         if (error) {
           console.error('Error fetching popular queries:', error);
-          return [];
+          setPopularQueries([]);
+        } else {
+          setPopularQueries(data || []);
         }
-        
-        return data || [];
-      },
-      refetchInterval: 60000, // Refetch every minute
-    });
+      } catch (e) {
+        console.error("Error fetching queries:", e);
+        setPopularQueries([]);
+      } finally {
+        setIsLoading(false);
+      }
+    };
     
-    queryData = result;
-  } catch (e) {
-    console.error("Error with useQuery, QueryClientProvider might be missing:", e);
-  }
-
-  const { isLoading, data: popularQueries } = queryData;
+    fetchPopularQueries();
+  }, [timeRange, limit]);
 
   // Fallback questions if no popular questions are available yet
   const fallbackQuestions = [

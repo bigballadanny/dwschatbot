@@ -23,42 +23,44 @@ function App() {
       <AuthProvider>
         <AdminProvider>
           <SidebarProvider>
-            <Toaster />
-            <Routes>
-              <Route path="/" element={<Index />} />
-              <Route path="/auth" element={<Auth />} />
-              <Route path="/wavy" element={<Wavy />} />
-              
-              <Route
-                path="/transcripts"
-                element={<ProtectedRoute><Transcripts /></ProtectedRoute>}
-              />
-              
-              <Route
-                path="/war-room"
-                element={<ProtectedRoute><WarRoom /></ProtectedRoute>}
-              />
+            <div className="min-h-screen w-full">
+              <Toaster />
+              <Routes>
+                <Route path="/" element={<Index />} />
+                <Route path="/auth" element={<Auth />} />
+                <Route path="/wavy" element={<Wavy />} />
+                
+                <Route
+                  path="/transcripts"
+                  element={<ProtectedRoute><Transcripts /></ProtectedRoute>}
+                />
+                
+                <Route
+                  path="/war-room"
+                  element={<ProtectedRoute><WarRoom /></ProtectedRoute>}
+                />
 
-              <Route
-                path="/analytics"
-                element={
-                  <ManagementRoute adminRequired>
-                    <Analytics />
-                  </ManagementRoute>
-                }
-              />
-              
-              <Route
-                path="/admin"
-                element={
-                  <ManagementRoute adminRequired>
-                    <AdminManagement />
-                  </ManagementRoute>
-                }
-              />
+                <Route
+                  path="/analytics"
+                  element={
+                    <ManagementRoute adminRequired>
+                      <Analytics />
+                    </ManagementRoute>
+                  }
+                />
+                
+                <Route
+                  path="/admin"
+                  element={
+                    <ManagementRoute adminRequired>
+                      <AdminManagement />
+                    </ManagementRoute>
+                  }
+                />
 
-              <Route path="*" element={<NotFound />} />
-            </Routes>
+                <Route path="*" element={<NotFound />} />
+              </Routes>
+            </div>
           </SidebarProvider>
         </AdminProvider>
       </AuthProvider>

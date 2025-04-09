@@ -4,11 +4,12 @@ import { supabase } from '@/integrations/supabase/client';
 import { Session } from '@supabase/supabase-js';
 import { toast } from '@/components/ui/use-toast';
 
+// Simple type definition to avoid excessive nesting
 interface UserWithExtras {
   id: string;
-  email?: string;
-  avatarUrl?: string;
-  displayName?: string;
+  email?: string | null;
+  avatarUrl?: string | null;
+  displayName?: string | null;
 }
 
 export interface AuthContextType {
@@ -20,7 +21,7 @@ export interface AuthContextType {
   signOut: () => Promise<void>;
 }
 
-// Create the context with undefined as default value
+// Create the context with an undefined initial value
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
 export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) => {
@@ -54,14 +55,12 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
               .single();
             
             // Enhance user with profile data
-            const enhancedUser: UserWithExtras = {
+            setUser({
               id: userData.user.id,
               email: userData.user.email,
-              avatarUrl: profileData?.avatar_url || undefined,
+              avatarUrl: profileData?.avatar_url || null,
               displayName: profileData?.display_name || userData.user.email
-            };
-            
-            setUser(enhancedUser);
+            });
           }
         } else {
           setUser(null);
@@ -89,22 +88,24 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
         }
         
         if (newSession?.user) {
-          // Get profile data if available
-          const { data: profileData } = await supabase
-            .from('profiles')
-            .select('*')
-            .eq('user_id', newSession.user.id)
-            .single();
-          
-          // Enhance user with profile data
-          const enhancedUser: UserWithExtras = {
-            id: newSession.user.id,
-            email: newSession.user.email,
-            avatarUrl: profileData?.avatar_url || undefined,
-            displayName: profileData?.display_name || newSession.user.email
-          };
-          
-          setUser(enhancedUser);
+          try {
+            // Get profile data if available
+            const { data: profileData } = await supabase
+              .from('profiles')
+              .select('*')
+              .eq('user_id', newSession.user.id)
+              .single();
+            
+            // Enhance user with profile data
+            setUser({
+              id: newSession.user.id,
+              email: newSession.user.email,
+              avatarUrl: profileData?.avatar_url || null,
+              displayName: profileData?.display_name || newSession.user.email
+            });
+          } catch (error) {
+            console.error('Error fetching user profile:', error);
+          }
         }
       }
     );
