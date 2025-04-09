@@ -1,7 +1,7 @@
 
 import React, { createContext, useContext, useState, useEffect, ReactNode } from 'react';
 import { supabase } from '@/integrations/supabase/client';
-import { Session, User } from '@supabase/supabase-js';
+import { Session } from '@supabase/supabase-js';
 import { toast } from '@/components/ui/use-toast';
 
 interface UserWithExtras {
@@ -34,10 +34,9 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
       try {
         // Get session data
         const { data: sessionData } = await supabase.auth.getSession();
-        const currentSession = sessionData.session;
         
-        if (currentSession) {
-          setSession(currentSession);
+        if (sessionData && sessionData.session) {
+          setSession(sessionData.session);
           
           // Get user data
           const { data: userData, error: userError } = await supabase.auth.getUser();
