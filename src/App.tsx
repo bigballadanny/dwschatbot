@@ -20,9 +20,9 @@ import WarRoom from './pages/WarRoom';
 function App() {
   return (
     <ThemeProvider defaultTheme="system" storageKey="vite-ui-theme">
-      <AuthProvider>
-        <AdminProvider>
-          <SidebarProvider>
+      <SidebarProvider>
+        <AuthProvider>
+          <AdminProvider>
             <div className="min-h-screen w-full">
               <Toaster />
               <Routes>
@@ -61,9 +61,9 @@ function App() {
                 <Route path="*" element={<NotFound />} />
               </Routes>
             </div>
-          </SidebarProvider>
-        </AdminProvider>
-      </AuthProvider>
+          </AdminProvider>
+        </AuthProvider>
+      </SidebarProvider>
     </ThemeProvider>
   );
 }
