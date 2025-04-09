@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
@@ -298,8 +299,16 @@ const Auth = () => {
   
   if (confirmationSent) {
     return (
-      <WavyBackground>
-        <div className="min-h-screen bg-slate-950 flex items-center justify-center p-4">
+      <WavyBackground 
+        colors={darkWaveColors}
+        waveOpacity={0.3}
+        backgroundFill="#030712" 
+        blur={2}
+        speed="slow"
+        waveWidth={100}
+        containerClassName="min-h-screen w-full"
+      >
+        <div className="min-h-screen flex items-center justify-center p-4">
           <Card className="w-full max-w-md bg-slate-900/60 backdrop-blur-md border-slate-800">
             <CardHeader className="space-y-1">
               <div className="flex justify-center mb-4">
@@ -340,8 +349,16 @@ const Auth = () => {
   const params = new URLSearchParams(window.location.search);
   if (params.get('type') === 'recovery') {
     return (
-      <WavyBackground>
-        <div className="min-h-screen bg-slate-950 flex items-center justify-center p-4">
+      <WavyBackground 
+        colors={darkWaveColors}
+        waveOpacity={0.3}
+        backgroundFill="#030712" 
+        blur={2}
+        speed="slow"
+        waveWidth={100}
+        containerClassName="min-h-screen w-full"
+      >
+        <div className="min-h-screen flex items-center justify-center p-4">
           <Card className="w-full max-w-md bg-slate-900/60 backdrop-blur-md border-slate-800">
             <CardHeader className="space-y-1">
               <div className="flex justify-center mb-4">
@@ -399,8 +416,16 @@ const Auth = () => {
   
   if (resetPassword) {
     return (
-      <WavyBackground>
-        <div className="min-h-screen bg-slate-950 flex items-center justify-center p-4">
+      <WavyBackground 
+        colors={darkWaveColors}
+        waveOpacity={0.3}
+        backgroundFill="#030712" 
+        blur={2}
+        speed="slow"
+        waveWidth={100}
+        containerClassName="min-h-screen w-full"
+      >
+        <div className="min-h-screen flex items-center justify-center p-4">
           <Card className="w-full max-w-md bg-slate-900/60 backdrop-blur-md border-slate-800">
             <CardHeader className="space-y-1">
               <div className="flex justify-center mb-4">
@@ -472,8 +497,16 @@ const Auth = () => {
   }
   
   return (
-    <WavyBackground>
-      <div className="min-h-screen bg-slate-950 flex items-center justify-center p-4">
+    <WavyBackground 
+      colors={darkWaveColors}
+      waveOpacity={0.3}
+      backgroundFill="#030712" 
+      blur={2}
+      speed="slow"
+      waveWidth={100}
+      containerClassName="min-h-screen w-full"
+    >
+      <div className="min-h-screen flex items-center justify-center p-4">
         <Card className="w-full max-w-md bg-slate-900/60 backdrop-blur-md border-slate-800">
           <CardHeader className="space-y-1">
             <div className="flex justify-center mb-4">
