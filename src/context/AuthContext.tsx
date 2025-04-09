@@ -32,32 +32,34 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     const getCurrentUser = async () => {
       setLoading(true);
       try {
-        // Avoid deep type instantiation by using simpler destructuring
-        const sessionResponse = await supabase.auth.getSession();
-        const currentSession = sessionResponse.data.session;
+        // Get session without excessive destructuring
+        const sessionResult = await supabase.auth.getSession();
+        const currentSession = sessionResult.data.session;
         
         if (currentSession) {
           setSession(currentSession);
-          const userResponse = await supabase.auth.getUser();
           
-          if (userResponse.error) {
-            throw userResponse.error;
+          // Get user data without excessive destructuring
+          const userResult = await supabase.auth.getUser();
+          
+          if (userResult.error) {
+            throw userResult.error;
           }
           
-          if (userResponse.data && userResponse.data.user) {
+          if (userResult.data.user) {
             // Get profile data if available
-            const { data: profileData } = await supabase
+            const profileResult = await supabase
               .from('profiles')
               .select('*')
-              .eq('user_id', userResponse.data.user.id)
+              .eq('user_id', userResult.data.user.id)
               .single();
             
             // Enhance user with profile data
             const enhancedUser: UserWithExtras = {
-              id: userResponse.data.user.id,
-              email: userResponse.data.user.email,
-              avatarUrl: profileData?.avatar_url || undefined,
-              displayName: profileData?.display_name || userResponse.data.user.email
+              id: userResult.data.user.id,
+              email: userResult.data.user.email,
+              avatarUrl: profileResult.data?.avatar_url || undefined,
+              displayName: profileResult.data?.display_name || userResult.data.user.email
             };
             
             setUser(enhancedUser);
@@ -77,7 +79,7 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
 
     getCurrentUser();
 
-    // Avoid excessive type instantiation with simpler approach
+    // Set up auth state listener with simplified approach
     const authListener = supabase.auth.onAuthStateChange(
       async (event, newSession) => {
         setSession(newSession);
@@ -89,7 +91,7 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
         
         if (newSession?.user) {
           // Get profile data if available
-          const { data: profileData } = await supabase
+          const profileResult = await supabase
             .from('profiles')
             .select('*')
             .eq('user_id', newSession.user.id)
@@ -99,8 +101,8 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
           const enhancedUser: UserWithExtras = {
             id: newSession.user.id,
             email: newSession.user.email,
-            avatarUrl: profileData?.avatar_url || undefined,
-            displayName: profileData?.display_name || newSession.user.email
+            avatarUrl: profileResult.data?.avatar_url || undefined,
+            displayName: profileResult.data?.display_name || newSession.user.email
           };
           
           setUser(enhancedUser);

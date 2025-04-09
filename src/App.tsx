@@ -5,6 +5,7 @@ import { Toaster } from "@/components/ui/toaster";
 import { Routes, Route } from 'react-router-dom';
 import { AuthProvider } from '@/context/AuthContext';
 import { AdminProvider } from '@/context/AdminContext';
+import { SidebarProvider } from '@/components/ui/sidebar';
 import Index from './pages/Index';
 import Auth from './pages/Auth';
 import NotFound from './pages/NotFound';
@@ -22,41 +23,43 @@ function App() {
       <Toaster />
       <AuthProvider>
         <AdminProvider>
-          <Routes>
-            <Route path="/" element={<Index />} />
-            <Route path="/auth" element={<Auth />} />
-            <Route path="/wavy" element={<Wavy />} />
-            
-            <Route
-              path="/transcripts"
-              element={<ProtectedRoute><Transcripts /></ProtectedRoute>}
-            />
-            
-            <Route
-              path="/war-room"
-              element={<ProtectedRoute><WarRoom /></ProtectedRoute>}
-            />
+          <SidebarProvider>
+            <Routes>
+              <Route path="/" element={<Index />} />
+              <Route path="/auth" element={<Auth />} />
+              <Route path="/wavy" element={<Wavy />} />
+              
+              <Route
+                path="/transcripts"
+                element={<ProtectedRoute><Transcripts /></ProtectedRoute>}
+              />
+              
+              <Route
+                path="/war-room"
+                element={<ProtectedRoute><WarRoom /></ProtectedRoute>}
+              />
 
-            <Route
-              path="/analytics"
-              element={
-                <ManagementRoute adminRequired>
-                  <Analytics />
-                </ManagementRoute>
-              }
-            />
-            
-            <Route
-              path="/admin"
-              element={
-                <ManagementRoute adminRequired>
-                  <AdminManagement />
-                </ManagementRoute>
-              }
-            />
+              <Route
+                path="/analytics"
+                element={
+                  <ManagementRoute adminRequired>
+                    <Analytics />
+                  </ManagementRoute>
+                }
+              />
+              
+              <Route
+                path="/admin"
+                element={
+                  <ManagementRoute adminRequired>
+                    <AdminManagement />
+                  </ManagementRoute>
+                }
+              />
 
-            <Route path="*" element={<NotFound />} />
-          </Routes>
+              <Route path="*" element={<NotFound />} />
+            </Routes>
+          </SidebarProvider>
         </AdminProvider>
       </AuthProvider>
     </ThemeProvider>
