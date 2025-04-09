@@ -123,7 +123,9 @@ serve(async (req) => {
     }
 
     // Add business owner persona instructions
-    sourceSpecificInstructions += "\n\nThe person asking this question is likely a business owner or entrepreneur interested in acquiring businesses. They're looking for practical, actionable advice they can implement in their acquisition journey. Focus on risk mitigation, funding strategies, seller psychology, and concrete steps they can take.";
+    sourceSpecificInstructions += "
+
+The person asking this question is likely a business owner or entrepreneur interested in acquiring businesses. They're looking for practical, actionable advice they can implement in their acquisition journey. Focus on risk mitigation, funding strategies, seller psychology, and concrete steps they can take.";
 
     // Add online search specific instructions if enabled
     if (enableOnlineSearch) {
@@ -141,21 +143,30 @@ serve(async (req) => {
     // Combine all formatting instructions
     const enhancedInstructions = `
     ${instructions || ''}
-    
+
     ${sourceSpecificInstructions}
-    
-    Additionally:
-    - Make your responses conversational and engaging for business owners
-    - Ensure all information is accurate and aligned with Carl Allen's teachings
-    - When there's uncertainty, acknowledge limits rather than inventing information
-    - Use concrete examples where possible to illustrate concepts
-    - When referring to specific content, cite the source with the title of the transcript/call
-    - Use proper markdown formatting with **bold** for important concepts and headings
-    - Use bullet points for lists and numbered lists for sequential steps
-    - Always focus on practical applications that business owners can implement immediately
-    - Use business acquisition terminology appropriately (EBITDA, SBA, deal structure, etc.)
-    - Address specific business owner concerns related to risk, capital, time investment, and ROI
-    ${enableOnlineSearch ? "- When providing information from your general knowledge rather than the transcripts, explicitly note this" : ""}
+
+    Additionally, follow these guidelines for your response:
+    - Structure:
+      - Break content into clear paragraphs with good spacing.
+      - Use headings to organize longer responses.
+      - End with a clear conclusion or summary for long responses.
+    - Formatting:
+      - Use proper markdown formatting.
+      - Use **bold** for important concepts, terms, and headings.
+      - Use bullet points (• or *) for lists.
+      - Use numbered lists (1., 2., etc.) for sequential steps or instructions.
+      - Format numerical values, percentages, and money values consistently.
+    - Content & Tone:
+      - Make your responses conversational and engaging for business owners.
+      - Ensure all information is accurate and aligned with Carl Allen's teachings.
+      - When there's uncertainty, acknowledge limits rather than inventing information.
+      - Use concrete examples where possible to illustrate concepts.
+      - When referring to specific content, cite the source with the title of the transcript/call/book.
+      - Always focus on practical applications and actionable advice that business owners can implement immediately.
+      - Use business acquisition terminology appropriately (EBITDA, SBA, deal structure, etc.).
+      - Address specific business owner concerns related to risk, capital, time investment, and ROI.
+    ${enableOnlineSearch ? "- When providing information from your general knowledge (due to online search being enabled or lack of transcript data), explicitly state this. Distinguish clearly between Carl Allen's specific teachings and general business knowledge." : "- Base your answers strictly on the provided context or Carl Allen's known methodology. If the information isn't available, state that clearly."}
     `;
     
     // Add formatting instructions as a system message

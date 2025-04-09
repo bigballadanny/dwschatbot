@@ -81,7 +81,9 @@ export const generateGeminiResponse = async (
             score: suppTranscript.relevanceScore || 0
           });
           
-          supplementaryContent += `\n\nAdditional information from ${suppSourceDesc} (${suppTranscript.title}): "${suppExtract}"`;
+          supplementaryContent += `
+
+Additional information from ${suppSourceDesc} (${suppTranscript.title}): "${suppExtract}"`;
         }
         
         contextPrompt += supplementaryContent;
@@ -100,29 +102,15 @@ export const generateGeminiResponse = async (
     }
     
     // Add business owner focus to the context
-    contextPrompt += `\n\nRemember that the person asking this question is a business owner or entrepreneur interested in acquiring businesses using Carl Allen's methodology. Focus on practical, actionable advice they can implement in their acquisition journey. Emphasize risk mitigation, funding strategies, and seller psychology where relevant.`;
+    contextPrompt += `
+
+Remember that the person asking this question is a business owner or entrepreneur interested in acquiring businesses using Carl Allen's methodology. Focus on practical, actionable advice they can implement in their acquisition journey. Emphasize risk mitigation, funding strategies, and seller psychology where relevant.`;
     
     // Prepare conversation history for the API
     const messages = chatHistory.map(msg => ({
       content: msg.content,
       source: msg.source
     }));
-
-    // Add additional instructions to format the response well
-    const formattingInstructions = `
-    When formatting your response:
-    1. Use bullet points (•) for lists
-    2. Use numbered lists (1., 2., etc.) for step-by-step instructions
-    3. Use bold (**text**) for important concepts, terms, and headings
-    4. Break content into clear paragraphs with good spacing
-    5. If you're referencing "The Creative Dealmaker" book or other sources, mention it explicitly
-    6. If you don't have specific information from the book about a topic, acknowledge this clearly
-    7. Use headings to organize long responses
-    8. Format numerical values, percentages, and money values consistently
-    9. End with a clear conclusion or summary for long responses
-    10. Focus on practical, actionable advice for business owners looking to acquire companies
-    11. Use business acquisition terminology appropriately (EBITDA, SBA, deal structure, etc.)
-    `;
 
     const apiStartTime = Date.now();
     
@@ -132,7 +120,7 @@ export const generateGeminiResponse = async (
         query,
         messages,
         context: contextPrompt,
-        instructions: formattingInstructions,
+        // instructions: formattingInstructions, // Removed redundant instructions
         sourceType: sourceType,
         enableOnlineSearch: enableOnlineSearch
       }
@@ -180,10 +168,14 @@ export const generateGeminiResponse = async (
       }
       
       // Create detailed source information
-      detailedSourceInfo = "\n\n**Sources:**\n";
+      detailedSourceInfo = "
+
+**Sources:**
+";
       matchedTranscriptInfo.forEach((info, index) => {
         const sourceDesc = getSourceDescription(info.source);
-        detailedSourceInfo += `${index + 1}. ${info.title} (${sourceDesc}) - Relevance: ${info.score}\n`;
+        detailedSourceInfo += `${index + 1}. ${info.title} (${sourceDesc}) - Relevance: ${info.score}
+`;
       });
     } else if (enableOnlineSearch) {
       citation = ["Based on general knowledge about business acquisitions - Online search mode enabled"];
