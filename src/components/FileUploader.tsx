@@ -6,6 +6,7 @@ import { Label } from "@/components/ui/label";
 import { Progress } from "@/components/ui/progress";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Upload, Loader2, AlertTriangle, FileType, Info } from "lucide-react";
+import { cn } from "@/lib/utils";
 
 interface FileUploaderProps {
   onFileSelect: (files: FileList) => void;
@@ -69,7 +70,11 @@ const FileUploader = ({
   return (
     <div className={`space-y-4 ${className}`}>
       <div 
-        className="border-2 border-dashed border-gray-300 rounded-lg p-6 text-center hover:bg-gray-50 transition-colors cursor-pointer"
+        className={cn(
+          "border-2 border-dashed rounded-lg p-6 text-center hover:bg-amber-50/10 transition-colors cursor-pointer",
+          "border-amber-200 dark:border-amber-700/50",
+          className
+        )}
         onClick={handleClick}
         onDragOver={handleDragOver}
         onDrop={handleDrop}
@@ -84,7 +89,7 @@ const FileUploader = ({
         />
         
         <div className="flex flex-col items-center justify-center gap-2">
-          <Upload className="h-10 w-10 text-gray-400" />
+          <Upload className="h-10 w-10 text-amber-500" />
           <div className="space-y-1">
             <p className="text-sm font-medium">
               {multiple ? 'Upload files' : 'Upload a file'}
@@ -102,7 +107,7 @@ const FileUploader = ({
       {showPreview && selectedFiles.length > 0 && (
         <div className="space-y-2">
           <Label>Selected Files ({selectedFiles.length})</Label>
-          <div className="max-h-40 overflow-y-auto border rounded-md p-2">
+          <div className="max-h-40 overflow-y-auto border rounded-md p-2 border-amber-200 dark:border-amber-800">
             {selectedFiles.map((file, index) => (
               <div key={index} className="text-sm text-muted-foreground flex items-center gap-2 py-1">
                 <span>{getFileIcon(file.type)}</span>
@@ -115,7 +120,7 @@ const FileUploader = ({
       )}
 
       {uploadProgress !== null && (
-        <Progress value={uploadProgress} className="w-full" />
+        <Progress value={uploadProgress} className="w-full bg-amber-100 dark:bg-amber-900/20" />
       )}
     </div>
   );

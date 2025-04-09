@@ -15,6 +15,7 @@ import NotFound from '@/pages/NotFound';
 import ProtectedRoute from '@/components/ProtectedRoute';
 import ManagementRoute from '@/components/ManagementRoute';
 import WavyPage from '@/pages/Wavy';
+import WarRoom from '@/pages/WarRoom';
 
 // Create a client for React Query
 const queryClient = new QueryClient();
@@ -60,6 +61,14 @@ function App() {
                       <ManagementRoute adminRequired={true}>
                         <Transcripts />
                       </ManagementRoute>
+                    } 
+                  />
+                  <Route 
+                    path="/war-room" 
+                    element={
+                      <ProtectedRoute>
+                        <WarRoom />
+                      </ProtectedRoute>
                     } 
                   />
                   <Route path="*" element={<NotFound />} />

@@ -7,7 +7,7 @@ import { useAdmin } from '@/context/AdminContext';
 import { useSidebar } from "@/components/ui/sidebar";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Settings, PlusCircle, BarChart3, LogOut, Search, ChevronLeft, ChevronRight, UserCog, Home, FileText, Moon, Sun } from 'lucide-react';
+import { Settings, PlusCircle, BarChart3, LogOut, Search, ChevronLeft, ChevronRight, UserCog, Home, FileText, Moon, Sun, Shield, Building } from 'lucide-react';
 import { toast } from '@/components/ui/use-toast';
 import { Sidebar, SidebarContent, SidebarFooter, SidebarHeader, SidebarMenu, SidebarMenuButton, SidebarMenuItem, SidebarProvider, SidebarTrigger, SidebarSeparator } from "@/components/ui/sidebar";
 import { Sheet, SheetContent, SheetDescription, SheetFooter, SheetHeader, SheetTitle, SheetTrigger } from "@/components/ui/sheet";
@@ -170,6 +170,16 @@ const ChatSidebar = () => {
               </SidebarMenuButton>
             </Button>
           </SidebarMenuItem>
+          
+          <SidebarMenuItem>
+            <Button variant="ghost" className="w-full justify-start" onClick={() => navigate('/war-room')}>
+              <SidebarMenuButton>
+                <Building className="h-4 w-4" />
+                <span>War Room</span>
+              </SidebarMenuButton>
+            </Button>
+          </SidebarMenuItem>
+          
           {isAdmin && (
             <>
               <SidebarMenuItem>
