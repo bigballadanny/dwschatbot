@@ -1,70 +1,76 @@
 
-import React from 'react';
-import { ThemeProvider } from "./components/ThemeProvider";
+import { BrowserRouter as Router, Routes, Route } from 'react-router-dom';
+import { ThemeProvider } from "@/components/ThemeProvider";
+import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { Toaster } from "@/components/ui/toaster";
-import { Routes, Route } from 'react-router-dom';
+import { Sidebar, SidebarProvider } from "@/components/ui/sidebar";
 import { AuthProvider } from '@/context/AuthContext';
 import { AdminProvider } from '@/context/AdminContext';
-import { SidebarProvider } from '@/components/ui/sidebar';
-import Index from './pages/Index';
-import Auth from './pages/Auth';
-import NotFound from './pages/NotFound';
-import ProtectedRoute from './components/ProtectedRoute';
-import AdminManagement from './pages/AdminManagement';
-import ManagementRoute from './components/ManagementRoute';
-import Analytics from './pages/Analytics';
-import Wavy from './pages/Wavy';
-import Transcripts from './pages/Transcripts';
-import WarRoom from './pages/WarRoom';
+import Index from '@/pages/Index';
+import Auth from '@/pages/Auth';
+import Analytics from '@/pages/Analytics';
+import Transcripts from '@/pages/Transcripts';
+import AdminManagement from '@/pages/AdminManagement';
+import NotFound from '@/pages/NotFound';
+import ProtectedRoute from '@/components/ProtectedRoute';
+import ManagementRoute from '@/components/ManagementRoute';
+import WavyPage from '@/pages/Wavy';
+
+// Create a client for React Query
+const queryClient = new QueryClient();
 
 function App() {
   return (
-    <ThemeProvider defaultTheme="system" storageKey="vite-ui-theme">
-      <SidebarProvider>
-        <AuthProvider>
-          <AdminProvider>
-            <div className="min-h-screen w-full">
+    <QueryClientProvider client={queryClient}>
+      <AuthProvider>
+        <AdminProvider>
+          <ThemeProvider defaultTheme="light">
+            <SidebarProvider>
+              <Router>
+                <Routes>
+                  <Route path="/auth" element={<Auth />} />
+                  <Route 
+                    path="/" 
+                    element={
+                      <ProtectedRoute>
+                        <Index />
+                      </ProtectedRoute>
+                    } 
+                  />
+                  <Route path="/wavy" element={<WavyPage />} />
+                  <Route 
+                    path="/analytics" 
+                    element={
+                      <ManagementRoute adminRequired={true}>
+                        <Analytics />
+                      </ManagementRoute>
+                    } 
+                  />
+                  <Route 
+                    path="/admin" 
+                    element={
+                      <ManagementRoute adminRequired={true}>
+                        <AdminManagement />
+                      </ManagementRoute>
+                    } 
+                  />
+                  <Route 
+                    path="/transcripts" 
+                    element={
+                      <ManagementRoute adminRequired={true}>
+                        <Transcripts />
+                      </ManagementRoute>
+                    } 
+                  />
+                  <Route path="*" element={<NotFound />} />
+                </Routes>
+              </Router>
               <Toaster />
-              <Routes>
-                <Route path="/" element={<Index />} />
-                <Route path="/auth" element={<Auth />} />
-                <Route path="/wavy" element={<Wavy />} />
-                
-                <Route
-                  path="/transcripts"
-                  element={<ProtectedRoute><Transcripts /></ProtectedRoute>}
-                />
-                
-                <Route
-                  path="/war-room"
-                  element={<ProtectedRoute><WarRoom /></ProtectedRoute>}
-                />
-
-                <Route
-                  path="/analytics"
-                  element={
-                    <ManagementRoute adminRequired>
-                      <Analytics />
-                    </ManagementRoute>
-                  }
-                />
-                
-                <Route
-                  path="/admin"
-                  element={
-                    <ManagementRoute adminRequired>
-                      <AdminManagement />
-                    </ManagementRoute>
-                  }
-                />
-
-                <Route path="*" element={<NotFound />} />
-              </Routes>
-            </div>
-          </AdminProvider>
-        </AuthProvider>
-      </SidebarProvider>
-    </ThemeProvider>
+            </SidebarProvider>
+          </ThemeProvider>
+        </AdminProvider>
+      </AuthProvider>
+    </QueryClientProvider>
   );
 }
 

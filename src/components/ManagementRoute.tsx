@@ -9,29 +9,33 @@ interface ManagementRouteProps {
   adminRequired?: boolean;
 }
 
-const ManagementRoute: React.FC<ManagementRouteProps> = ({
+const ManagementRoute: React.FC<ManagementRouteProps> = ({ 
   children,
-  adminRequired = false,
+  adminRequired = false
 }) => {
-  const { user, loading: authLoading } = useAuth();
-  const { isAdmin, loading: adminLoading } = useAdmin();
+  const { user, isLoading: authLoading } = useAuth();
+  const { isAdmin, isLoading: adminLoading } = useAdmin();
 
-  // If still loading authentication or admin status, show nothing or a loading spinner
+  console.log("ManagementRoute - adminRequired:", adminRequired, "isAdmin:", isAdmin, "user:", !!user);
+  
+  // If still loading, show a loading indicator
   if (authLoading || adminLoading) {
-    return <div>Loading...</div>;
+    return <div className="h-screen flex items-center justify-center">Loading...</div>;
   }
 
-  // If not authenticated, redirect to login
+  // If not logged in, redirect to auth page
   if (!user) {
-    return <Navigate to="/auth" />;
+    console.log("User not authenticated, redirecting to auth");
+    return <Navigate to="/auth" replace />;
   }
 
-  // If admin access required but user is not admin, redirect to home
+  // If admin is required and user is not admin, redirect to home
   if (adminRequired && !isAdmin) {
-    return <Navigate to="/" />;
+    console.log("Admin access required but user is not admin, redirecting to home");
+    return <Navigate to="/" replace />;
   }
 
-  // If all checks pass, render the children
+  // If user is logged in and meets admin requirements, render the protected component
   return <>{children}</>;
 };
 

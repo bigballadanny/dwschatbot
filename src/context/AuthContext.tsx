@@ -1,195 +1,131 @@
 
-import React, { createContext, useContext, useState, useEffect, ReactNode } from 'react';
+import React, { createContext, useContext, useEffect, useState } from 'react';
+import { Session, User } from '@supabase/supabase-js';
 import { supabase } from '@/integrations/supabase/client';
-import { Session, User as SupabaseUser } from '@supabase/supabase-js';
-import { toast } from '@/components/ui/use-toast';
+import { useToast } from '@/components/ui/use-toast';
 
-// Simple type definition to avoid excessive nesting
-interface UserWithExtras {
-  id: string;
-  email?: string | null;
-  avatarUrl?: string | null;
-  displayName?: string | null;
-}
-
-export interface AuthContextType {
-  user: UserWithExtras | null;
+interface AuthContextType {
   session: Session | null;
-  loading: boolean;
-  signIn: (email: string, password: string) => Promise<void>;
-  signUp: (email: string, password: string) => Promise<void>;
+  user: User | null;
   signOut: () => Promise<void>;
+  isLoading: boolean;
+  refreshSession: () => Promise<void>;
 }
 
-// Create the context with an undefined initial value
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
-export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) => {
-  const [user, setUser] = useState<UserWithExtras | null>(null);
+export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const [session, setSession] = useState<Session | null>(null);
-  const [loading, setLoading] = useState<boolean>(true);
+  const [user, setUser] = useState<User | null>(null);
+  const [isLoading, setIsLoading] = useState(true);
+  const { toast } = useToast();
+
+  const refreshSession = async () => {
+    try {
+      console.log('Refreshing session...');
+      const { data, error } = await supabase.auth.refreshSession();
+      if (error) {
+        console.error('Error refreshing session:', error);
+        return;
+      }
+      
+      setSession(data.session);
+      setUser(data.session?.user ?? null);
+      console.log('Session refreshed successfully');
+    } catch (error) {
+      console.error('Error in refreshSession:', error);
+    }
+  };
 
   useEffect(() => {
-    const getCurrentUser = async () => {
-      setLoading(true);
-      try {
-        // Get session data
-        const { data: sessionData } = await supabase.auth.getSession();
+    // Set up auth state listener FIRST
+    const { data: { subscription } } = supabase.auth.onAuthStateChange(
+      (event, session) => {
+        console.log('Auth event:', event);
+        setSession(session);
+        setUser(session?.user ?? null);
+        setIsLoading(false);
         
-        if (sessionData && sessionData.session) {
-          setSession(sessionData.session);
+        // Show toast for certain auth events
+        if (event === 'SIGNED_IN') {
+          // Check if this is a quick login user
+          const isQuickLogin = session?.user?.user_metadata?.is_quick_login;
           
-          // Get user data
-          const { data: userData, error: userError } = await supabase.auth.getUser();
-          
-          if (userError) {
-            throw userError;
-          }
-          
-          if (userData && userData.user) {
-            // Get profile data if available
-            const { data: profileData } = await supabase
-              .from('profiles')
-              .select('*')
-              .eq('user_id', userData.user.id)
-              .single();
-            
-            // Enhance user with profile data
-            setUser({
-              id: userData.user.id,
-              email: userData.user.email,
-              avatarUrl: profileData?.avatar_url || null,
-              displayName: profileData?.display_name || userData.user.email
-            });
-          }
-        } else {
-          setUser(null);
-          setSession(null);
-        }
-      } catch (error: any) {
-        console.error('Error getting auth user:', error.message);
-        setUser(null);
-        setSession(null);
-      } finally {
-        setLoading(false);
-      }
-    };
-
-    getCurrentUser();
-
-    // Set up auth state listener
-    const { data: authListener } = supabase.auth.onAuthStateChange(
-      async (event, newSession) => {
-        setSession(newSession);
-        
-        if (event === 'SIGNED_OUT' || !newSession) {
-          setUser(null);
-          return;
-        }
-        
-        if (newSession?.user) {
-          try {
-            // Get profile data if available
-            const { data: profileData } = await supabase
-              .from('profiles')
-              .select('*')
-              .eq('user_id', newSession.user.id)
-              .single();
-            
-            // Enhance user with profile data
-            setUser({
-              id: newSession.user.id,
-              email: newSession.user.email,
-              avatarUrl: profileData?.avatar_url || null,
-              displayName: profileData?.display_name || newSession.user.email
-            });
-          } catch (error) {
-            console.error('Error fetching user profile:', error);
-          }
+          toast({
+            title: "Signed in successfully",
+            description: isQuickLogin 
+              ? "Welcome! You're using quick login access."
+              : `Welcome${session?.user?.email ? ' ' + session.user.email : ''}!`,
+            className: "bg-primary text-primary-foreground dark:bg-primary dark:text-primary-foreground",
+          });
+        } else if (event === 'SIGNED_OUT') {
+          toast({
+            title: "Signed out",
+            description: "You have been signed out successfully",
+            className: "bg-primary text-primary-foreground dark:bg-primary dark:text-primary-foreground",
+          });
+        } else if (event === 'USER_UPDATED') {
+          toast({
+            title: "Profile updated",
+            description: "Your profile has been updated successfully",
+            className: "bg-primary text-primary-foreground dark:bg-primary dark:text-primary-foreground",
+          });
+        } else if (event === 'PASSWORD_RECOVERY') {
+          toast({
+            title: "Password reset",
+            description: "Please enter your new password",
+            className: "bg-primary text-primary-foreground dark:bg-primary dark:text-primary-foreground",
+          });
+        } else if (event === 'TOKEN_REFRESHED') {
+          console.log('Auth token refreshed successfully');
         }
       }
     );
 
-    return () => {
-      authListener.subscription.unsubscribe();
+    // THEN check for existing session
+    supabase.auth.getSession().then(({ data: { session } }) => {
+      setSession(session);
+      setUser(session?.user ?? null);
+      setIsLoading(false);
+    });
+
+    // Set up token refresh
+    const setupTokenRefresh = () => {
+      // Set up periodic token refresh (every 30 minutes)
+      const refreshInterval = setInterval(() => {
+        refreshSession();
+      }, 30 * 60 * 1000); // 30 minutes
+      
+      return () => clearInterval(refreshInterval);
     };
-  }, []);
+    
+    const refreshCleanup = setupTokenRefresh();
 
-  const signIn = async (email: string, password: string) => {
-    try {
-      const { error } = await supabase.auth.signInWithPassword({ email, password });
-      
-      if (error) {
-        throw error;
-      }
-      
-      toast({
-        title: "Success!",
-        description: "You've successfully signed in.",
-      });
-    } catch (error: any) {
-      toast({
-        variant: "destructive",
-        title: "Sign in failed",
-        description: error.message || "Please check your credentials and try again.",
-      });
-      throw error;
-    }
-  };
-
-  const signUp = async (email: string, password: string) => {
-    try {
-      const { error } = await supabase.auth.signUp({ email, password });
-      
-      if (error) {
-        throw error;
-      }
-      
-      toast({
-        title: "Account created!",
-        description: "Please check your email for a confirmation link.",
-      });
-    } catch (error: any) {
-      toast({
-        variant: "destructive",
-        title: "Sign up failed",
-        description: error.message || "Please try again with a different email.",
-      });
-      throw error;
-    }
-  };
+    return () => {
+      subscription.unsubscribe();
+      refreshCleanup();
+    };
+  }, [toast]);
 
   const signOut = async () => {
     try {
-      const { error } = await supabase.auth.signOut();
-      
-      if (error) {
-        throw error;
-      }
-      
-      setUser(null);
-      setSession(null);
-    } catch (error: any) {
+      setIsLoading(true);
+      await supabase.auth.signOut();
+      // The onAuthStateChange listener will update the state
+    } catch (error) {
+      console.error('Error signing out:', error);
       toast({
-        variant: "destructive",
-        title: "Sign out failed",
-        description: error.message || "An error occurred while signing out.",
+        title: "Error signing out",
+        description: "An error occurred while signing out",
+        variant: "destructive"
       });
-      throw error;
+    } finally {
+      setIsLoading(false);
     }
   };
 
-  const contextValue: AuthContextType = {
-    user,
-    session,
-    loading,
-    signIn,
-    signUp,
-    signOut
-  };
-
   return (
-    <AuthContext.Provider value={contextValue}>
+    <AuthContext.Provider value={{ session, user, signOut, isLoading, refreshSession }}>
       {children}
     </AuthContext.Provider>
   );
@@ -197,10 +133,8 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
 
 export const useAuth = (): AuthContextType => {
   const context = useContext(AuthContext);
-  
-  if (context === undefined) {
-    throw new Error("useAuth must be used within an AuthProvider");
+  if (!context) {
+    throw new Error('useAuth must be used within an AuthProvider');
   }
-  
   return context;
 };

@@ -1,5 +1,6 @@
 
-import React, { useState, useEffect } from 'react';
+import React from 'react';
+import { useQuery } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -13,47 +14,29 @@ interface PopularQuestionsProps {
   timeRange?: 'day' | 'week' | 'month' | 'all';
 }
 
-// Simple interface for our query data
-interface PopularQuery {
-  query: string;
-  count: number;
-}
-
 const PopularQuestions: React.FC<PopularQuestionsProps> = ({ 
   onSelectQuestion, 
   className,
   limit = 5,
   timeRange = 'week'
 }) => {
-  // Define default state for our query
-  const [isLoading, setIsLoading] = React.useState(true);
-  const [popularQueries, setPopularQueries] = React.useState<PopularQuery[]>([]);
-  
-  React.useEffect(() => {
-    // Attempt to fetch popular queries without relying on React Query
-    const fetchPopularQueries = async () => {
-      try {
-        const { data, error } = await supabase.rpc('get_top_queries', { 
-          time_period: timeRange === 'all' ? null : timeRange,
-          limit_count: limit
-        });
-        
-        if (error) {
-          console.error('Error fetching popular queries:', error);
-          setPopularQueries([]);
-        } else {
-          setPopularQueries(data || []);
-        }
-      } catch (e) {
-        console.error("Error fetching queries:", e);
-        setPopularQueries([]);
-      } finally {
-        setIsLoading(false);
+  const { data: popularQueries, isLoading } = useQuery({
+    queryKey: ['popular-queries', timeRange],
+    queryFn: async () => {
+      const { data, error } = await supabase.rpc('get_top_queries', { 
+        time_period: timeRange === 'all' ? null : timeRange,
+        limit_count: limit
+      });
+      
+      if (error) {
+        console.error('Error fetching popular queries:', error);
+        return [];
       }
-    };
-    
-    fetchPopularQueries();
-  }, [timeRange, limit]);
+      
+      return data || [];
+    },
+    refetchInterval: 60000, // Refetch every minute instead of 5 minutes
+  });
 
   // Fallback questions if no popular questions are available yet
   const fallbackQuestions = [
@@ -96,7 +79,6 @@ const PopularQuestions: React.FC<PopularQuestionsProps> = ({
             {displayQuestions.map((question, index) => (
               <Button
                 key={index}
-                type="button"
                 variant="outline"
                 className="w-full justify-start text-left h-auto py-3 px-4 font-normal hover:bg-primary/10 active:scale-[0.98] transition-all"
                 onClick={() => handleQuestionClick(question)}

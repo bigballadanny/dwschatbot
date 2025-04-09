@@ -1,144 +1,129 @@
 
 import React from 'react';
-import { Link, useNavigate, useLocation } from 'react-router-dom';
-import { Button, buttonVariants } from "@/components/ui/button";
+import { Link, useLocation } from 'react-router-dom';
+import { Button } from "@/components/ui/button";
+import { Headphones, Menu } from 'lucide-react';
+import { useAuth } from '@/context/AuthContext';
+import { useAdmin } from '@/context/AdminContext';
+import { useSidebar } from "@/components/ui/sidebar";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import {
   DropdownMenu,
   DropdownMenuContent,
-  DropdownMenuGroup,
   DropdownMenuItem,
   DropdownMenuLabel,
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-import { ModeToggle } from "@/components/ModeToggle";
-import { useAuth } from '@/context/AuthContext';
-import { useAdmin } from '@/context/AdminContext';
-import { useMobile } from '@/hooks/use-mobile';
-import { cn } from '@/lib/utils';
-import { LogOut, Settings, Home } from 'lucide-react';
-import { getUserInitials } from '@/utils/helpers';
 
-// Header component with War Room link
 const Header: React.FC = () => {
-  const { user, signOut } = useAuth();
-  const navigate = useNavigate();
-  const { isAdmin } = useAdmin();
+  const {
+    user,
+    signOut
+  } = useAuth();
+  const {
+    isAdmin
+  } = useAdmin();
+  const {
+    toggleSidebar
+  } = useSidebar();
   const location = useLocation();
-  const isMobile = useMobile();
 
-  const handleSignOut = async () => {
-    try {
-      await signOut();
-      navigate('/auth');
-    } catch (error) {
-      console.error('Error signing out:', error);
+  // Check if we're on the homepage
+  const isHomePage = location.pathname === '/';
+  const handleLogoClick = () => {
+    if (isHomePage) {
+      // Toggle sidebar if we're already on the home page
+      toggleSidebar();
     }
+    // If not on home page, the Link component will navigate to home
   };
-
-  return (
-    <header className="sticky top-0 w-full border-b bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60 z-10">
-      <div className="container flex h-14 items-center">
-        <div className="mr-4 flex">
-          <Link to="/" className="flex items-center space-x-2">
-            <span className="font-bold text-xl hidden md:inline-block text-primary">DWS AI</span>
-            <span className="font-bold text-xl md:hidden text-primary">DWS</span>
-          </Link>
-        </div>
-        
-        <div className="flex items-center space-x-1 md:space-x-2">
-          {user && (
-            <>
-              <Link
-                to="/"
-                className={cn(
-                  buttonVariants({ variant: location.pathname === "/" ? "default" : "ghost", size: "sm" }),
-                )}
-              >
-                <Home className="h-4 w-4 mr-2" />
-                Chat
-              </Link>
-
-              <Link
-                to="/transcripts"
-                className={cn(
-                  buttonVariants({ variant: location.pathname === "/transcripts" ? "default" : "ghost", size: "sm" }),
-                )}
-              >
-                Transcripts
-              </Link>
-              
-              <Link
-                to="/war-room"
-                className={cn(
-                  buttonVariants({ variant: location.pathname === "/war-room" ? "default" : "ghost", size: "sm" }),
-                )}
-              >
-                War Room
-              </Link>
-
-              {isAdmin && (
-                <Link
-                  to="/analytics"
-                  className={cn(
-                    buttonVariants({ variant: location.pathname === "/analytics" ? "default" : "ghost", size: "sm" }),
-                  )}
-                >
-                  Analytics
-                </Link>
-              )}
-            </>
-          )}
-        </div>
-        
-        <div className="ml-auto flex items-center space-x-2">
-          <ModeToggle />
+  
+  return <header className="border-b shadow-sm bg-background/95 backdrop-blur-sm sticky top-0 z-50">
+      <div className="container mx-auto px-4 py-3 flex items-center justify-between">
+        <div className="flex items-center gap-2">
+          <Button variant="ghost" size="icon" onClick={toggleSidebar} className="mr-1 md:hidden">
+            <Menu className="h-5 w-5" />
+          </Button>
           
-          {!user ? (
-            <Button size="sm" onClick={() => navigate("/auth")}>
-              Login
-            </Button>
-          ) : (
+          {isHomePage ? <button onClick={handleLogoClick} className="font-bold text-xl flex items-center cursor-pointer transition-all hover:scale-105">
+              <div className="relative p-2 rounded-lg mr-2 overflow-hidden futuristic-glow">
+                <div className="absolute inset-0 animate-pulse-subtle bg-gradient-to-r from-blue-400 via-cyan-300 to-blue-400 opacity-70 blur-md"></div>
+                <img src="/lovable-uploads/d2cda96a-7427-49e3-86f0-42ecd63d9982.png" alt="DealMaker Wealth Society" className="h-8 w-8 relative z-10" />
+              </div>
+              <span className="bg-gradient-to-r from-amber-300 via-yellow-400 to-amber-300 bg-clip-text text-transparent font-bold">
+                DWS AI
+              </span>
+            </button> : <Link to="/" className="font-bold text-xl flex items-center cursor-pointer transition-all hover:scale-105">
+              <div className="relative p-2 rounded-lg mr-2 overflow-hidden futuristic-glow">
+                <div className="absolute inset-0 animate-pulse-subtle bg-gradient-to-r from-blue-400 via-cyan-300 to-blue-400 opacity-70 blur-md"></div>
+                <img src="/lovable-uploads/d2cda96a-7427-49e3-86f0-42ecd63d9982.png" alt="DealMaker Wealth Society" className="h-8 w-8 relative z-10" />
+              </div>
+              <span className="bg-gradient-to-r from-amber-300 via-yellow-400 to-amber-300 bg-clip-text text-transparent font-bold">
+                DWS AI
+              </span>
+            </Link>}
+        </div>
+        
+        <div className="flex items-center space-x-3">
+          {user && <>
+              <TooltipProvider>
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <Button variant="ghost" size="sm" className="text-xs hidden sm:flex items-center transition-all hover:bg-primary/10">
+                      <Headphones className="mr-1 h-4 w-4 text-primary" />
+                      <span className="hidden sm:inline">Text-to-Speech</span>
+                      <span className="inline sm:hidden">TTS</span>
+                      <span className="ml-1 px-1.5 py-0.5 text-[10px] bg-green-500 text-white rounded-full animate-pulse">
+                        New
+                      </span>
+                    </Button>
+                  </TooltipTrigger>
+                  <TooltipContent>
+                    <p>Listen to AI responses with text-to-speech</p>
+                  </TooltipContent>
+                </Tooltip>
+              </TooltipProvider>
+            </>}
+          
+          {/* Theme toggle has been moved to settings */}
+          
+          {!user ? <Button asChild size="sm" className="ml-2 bg-gradient-to-r from-primary to-primary/80 hover:from-primary/90 hover:to-primary/70 transition-all">
+              <Link to="/auth">Sign In</Link>
+            </Button> : 
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
-                <Button variant="ghost" size="sm" className="relative h-8 w-8 rounded-full">
-                  <Avatar className="h-8 w-8">
-                    <AvatarImage src={user.avatarUrl} alt={user.displayName || "User"} />
-                    <AvatarFallback>{getUserInitials(user)}</AvatarFallback>
-                  </Avatar>
-                </Button>
+                <Avatar className="h-8 w-8 transition-all hover:ring-2 hover:ring-primary/50 cursor-pointer">
+                  <AvatarFallback>
+                    {user.email?.substring(0, 2).toUpperCase() || 'U'}
+                  </AvatarFallback>
+                </Avatar>
               </DropdownMenuTrigger>
-              <DropdownMenuContent className="w-56" align="end" forceMount>
-                <DropdownMenuLabel className="font-normal">
-                  <div className="flex flex-col space-y-1">
-                    <p className="text-sm font-medium leading-none">{user.displayName || "User"}</p>
-                    <p className="text-xs leading-none text-muted-foreground">
-                      {user.email}
-                    </p>
-                  </div>
-                </DropdownMenuLabel>
+              <DropdownMenuContent align="end">
+                <DropdownMenuLabel>Account</DropdownMenuLabel>
+                <DropdownMenuItem className="text-sm">
+                  {user.email || 'User'}
+                </DropdownMenuItem>
                 <DropdownMenuSeparator />
-                <DropdownMenuGroup>
-                  {isAdmin && (
-                    <DropdownMenuItem onClick={() => navigate("/admin")}>
-                      <Settings className="mr-2 h-4 w-4" />
-                      <span>Admin Settings</span>
+                {isAdmin && (
+                  <>
+                    <DropdownMenuItem asChild>
+                      <Link to="/admin">Admin Dashboard</Link>
                     </DropdownMenuItem>
-                  )}
-                </DropdownMenuGroup>
-                <DropdownMenuSeparator />
-                <DropdownMenuItem onClick={handleSignOut}>
-                  <LogOut className="mr-2 h-4 w-4" />
-                  <span>Log out</span>
+                    <DropdownMenuItem asChild>
+                      <Link to="/transcripts">Manage Transcripts</Link>
+                    </DropdownMenuItem>
+                  </>
+                )}
+                <DropdownMenuItem onClick={signOut} className="text-red-500 hover:text-red-700 hover:bg-red-50 dark:hover:bg-red-950/30">
+                  Sign out
                 </DropdownMenuItem>
               </DropdownMenuContent>
-            </DropdownMenu>
-          )}
+            </DropdownMenu>}
         </div>
       </div>
-    </header>
-  );
+    </header>;
 };
 
 export default Header;
