@@ -16,6 +16,20 @@ export type AnalyticsData = {
   used_online_search: boolean | null;
 };
 
+// Define M&A Themes and associated keywords
+const maThemes: Record<string, string[]> = {
+  'Valuation & Pricing': ['valuation', 'ebitda', 'multiple', 'pricing', 'value', 'worth', 'appraisal'],
+  'Due Diligence': ['due diligence', 'dd', 'investigation', 'audit', 'verification', 'red flags'],
+  'Financing & Funding': ['financing', 'funding', 'loan', 'sba', 'debt', 'equity', 'investment', 'capital', 'leverage'],
+  'Legal & Contracts': ['legal', 'contract', 'agreement', 'loi', 'letter of intent', 'term sheet', 'purchase agreement', 'nda', 'liability', 'compliance'],
+  'Deal Structuring': ['deal structure', 'structuring', 'terms', 'earn-out', 'payment', 'rollover', 'asset purchase', 'stock purchase'],
+  'Negotiation Tactics': ['negotiation', 'negotiate', 'deal points', 'concessions', 'offers', 'counter-offer'],
+  'Integration Planning': ['integration', 'post-acquisition', 'synergies', 'merge', 'post-merger', 'onboarding'],
+  'Market & Strategy': ['market', 'strategy', 'sourcing', 'industry', 'competitive', 'growth', 'target', 'pipeline'],
+  'Taxes': ['tax', 'taxes', 'tax implications', 'depreciation', 'amortization'],
+  'General M&A': ['m&a', 'acquisition', 'merger', 'buy', 'sell', 'exit', 'business'], // Catch-all for general terms
+};
+
 /**
  * Fetches analytics data based on date range and optional search query
  */
@@ -25,28 +39,27 @@ export async function fetchAnalyticsData(
 ): Promise<AnalyticsData[]> {
   try {
     console.log(`Fetching analytics data for range: ${dateRange}, search: ${searchQuery || 'none'}`);
-    
-    let query = supabase
+
+    let queryBuilder = supabase
       .from('chat_analytics')
       .select('*')
       .order('created_at', { ascending: false });
 
     if (dateRange === '7d') {
-      // Use longer time range for testing when table might be empty
       const sevenDaysAgo = new Date();
       sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 7);
-      query = query.gte('created_at', sevenDaysAgo.toISOString());
+      queryBuilder = queryBuilder.gte('created_at', sevenDaysAgo.toISOString());
     } else if (dateRange === '30d') {
       const thirtyDaysAgo = new Date();
       thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
-      query = query.gte('created_at', thirtyDaysAgo.toISOString());
+      queryBuilder = queryBuilder.gte('created_at', thirtyDaysAgo.toISOString());
     }
 
     if (searchQuery && searchQuery.trim() !== '') {
-      query = query.ilike('query', `%${searchQuery}%`);
+      queryBuilder = queryBuilder.ilike('query', `%${searchQuery}%`);
     }
 
-    const { data, error } = await query;
+    const { data, error } = await queryBuilder;
 
     if (error) {
       console.error('Error fetching analytics data:', error);
@@ -54,22 +67,21 @@ export async function fetchAnalyticsData(
     }
 
     console.log(`Retrieved ${data?.length || 0} analytics records`);
-    
-    // If no data, let's add debug logging
+
     if (!data || data.length === 0) {
-      console.log('No analytics data found, checking table exists...');
+      console.log('No analytics data found, checking table info...');
       const { count, error: countError } = await supabase
         .from('chat_analytics')
         .select('*', { count: 'exact', head: true });
-      
+
       if (countError) {
         console.error('Error checking chat_analytics table:', countError);
       } else {
-        console.log(`Total records in chat_analytics table: ${count}`);
+        console.log(`Total records in chat_analytics table: ${count ?? 'N/A'}`);
       }
     }
-    
-    return data as AnalyticsData[];
+
+    return data as AnalyticsData[] || []; // Ensure returning an array
   } catch (err) {
     console.error('Error in fetchAnalyticsData:', err);
     return [];
@@ -85,8 +97,8 @@ export async function getTopQueries(
 ): Promise<{ query: string; count: number }[]> {
   try {
     console.log(`Fetching top queries for period: ${timePeriod}, limit: ${limit}`);
-    
-    // First check if we have the get_top_queries function available
+
+    // Use RPC function if available (preferred)
     try {
       const { data, error } = await supabase.rpc('get_top_queries', {
         time_period: timePeriod,
@@ -94,55 +106,53 @@ export async function getTopQueries(
       });
 
       if (error) {
-        console.warn('RPC get_top_queries failed, falling back to client-side calculation:', error);
-        throw error; // Fall through to the catch block
+        console.warn('RPC get_top_queries failed, falling back to client-side calculation:', error.message);
+        throw error; // Trigger fallback
       }
-
-      console.log(`Retrieved ${data?.length || 0} top queries using RPC`);
-      return data || [];
+      // Ensure data is an array, handle potential null
+      const result = (data || []).map((item: any) => ({ query: item.query, count: item.query_count }));
+      console.log(`Retrieved ${result.length} top queries using RPC`);
+      return result;
     } catch (rpcErr) {
-      // Fallback: calculate top queries client-side if the RPC fails
-      console.log('Calculating top queries client-side');
-      
-      // Get all analytics data for the period
-      let query = supabase
+      console.log('Calculating top queries client-side due to RPC failure or unavailability.');
+
+      // Fallback: Client-side calculation
+      let queryBuilder = supabase
         .from('chat_analytics')
         .select('query')
         .eq('successful', true);
-      
-      if (timePeriod === 'day') {
-        const oneDayAgo = new Date();
-        oneDayAgo.setDate(oneDayAgo.getDate() - 1);
-        query = query.gte('created_at', oneDayAgo.toISOString());
-      } else if (timePeriod === 'week') {
-        const sevenDaysAgo = new Date();
-        sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 7);
-        query = query.gte('created_at', sevenDaysAgo.toISOString());
-      } else if (timePeriod === 'month') {
-        const thirtyDaysAgo = new Date();
-        thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
-        query = query.gte('created_at', thirtyDaysAgo.toISOString());
+
+      if (timePeriod !== 'all') {
+        const startDate = new Date();
+        if (timePeriod === 'day') startDate.setDate(startDate.getDate() - 1);
+        else if (timePeriod === 'week') startDate.setDate(startDate.getDate() - 7);
+        else if (timePeriod === 'month') startDate.setDate(startDate.getDate() - 30);
+        queryBuilder = queryBuilder.gte('created_at', startDate.toISOString());
       }
-      
-      const { data, error } = await query;
-      
-      if (error) {
-        console.error('Error fetching query data:', error);
+
+      const { data: queryData, error: queryError } = await queryBuilder;
+
+      if (queryError) {
+        console.error('Error fetching query data for client-side calculation:', queryError);
         return [];
       }
-      
-      // Count occurrences of each query
+
+      if (!queryData || queryData.length === 0) {
+          return [];
+      }
+
       const queryCounts: Record<string, number> = {};
-      data.forEach(item => {
-        queryCounts[item.query] = (queryCounts[item.query] || 0) + 1;
+      queryData.forEach(item => {
+        if (item.query) { // Ensure query is not null
+          queryCounts[item.query] = (queryCounts[item.query] || 0) + 1;
+        }
       });
-      
-      // Sort by count and take the top N
+
       const result = Object.entries(queryCounts)
         .map(([query, count]) => ({ query, count }))
         .sort((a, b) => b.count - a.count)
         .slice(0, limit);
-      
+
       console.log(`Calculated ${result.length} top queries client-side`);
       return result;
     }
@@ -159,12 +169,10 @@ export function generateSourceDistribution(
   analyticsData: AnalyticsData[]
 ): { name: string; value: number }[] {
   const sourceCounts: Record<string, number> = {};
-
   analyticsData.forEach((item) => {
     const source = item.source_type || 'unknown';
     sourceCounts[source] = (sourceCounts[source] || 0) + 1;
   });
-
   return Object.entries(sourceCounts).map(([name, value]) => ({
     name: formatSourceName(name),
     value,
@@ -175,36 +183,21 @@ export function generateSourceDistribution(
  * Formats source name for display
  */
 function formatSourceName(source: string): string {
-  switch (source) {
-    case 'protege_call':
-      return 'Protege Call';
-    case 'foundations_call':
-      return 'Foundations Call';
-    case 'mastermind_call':
-      return 'Mastermind Call';
-    case 'business_acquisitions_summit':
-      return '2024 Summit';
-    case 'fallback':
-      return 'API Fallback';
-    case 'web':
-      return 'Web Search';
-    case 'system':
-      return 'System Message';
-    case 'error':
-      return 'Error';
-    default:
-      return source.charAt(0).toUpperCase() + source.slice(1).replace(/_/g, ' ');
-  }
+  // Improved formatting for readability
+  return (source.charAt(0).toUpperCase() + source.slice(1))
+         .replace(/_/g, ' ')
+         .replace(/ call$/i, ' Call') // Ensure proper casing for Call types
+         .replace(/^Sba$/i, 'SBA'); // Correct acronym casing
 }
 
 /**
  * Calculates success rate stats
  */
 export function calculateSuccessRate(analyticsData: AnalyticsData[]) {
+  if (analyticsData.length === 0) return { success: 0, failure: 0, rate: 0 };
   const success = analyticsData.filter((item) => item.successful === true).length;
   const failure = analyticsData.length - success;
-  const rate = analyticsData.length > 0 ? Math.round((success / analyticsData.length) * 100) : 0;
-
+  const rate = Math.round((success / analyticsData.length) * 100);
   return { success, failure, rate };
 }
 
@@ -213,22 +206,19 @@ export function calculateSuccessRate(analyticsData: AnalyticsData[]) {
  */
 export function generateResponseTimeData(analyticsData: AnalyticsData[]) {
   const timeDataMap: Record<string, { total: number; count: number }> = {};
-
-  // Sort data by date first
   const sortedData = [...analyticsData].sort(
     (a, b) => new Date(a.created_at).getTime() - new Date(b.created_at).getTime()
   );
 
   sortedData.forEach((item) => {
-    if (item.api_time_ms !== null && item.search_time_ms !== null) {
-      const date = new Date(item.created_at).toLocaleDateString();
-      
+    // Use combined time if available, otherwise estimate based on available data
+    const responseTime = (item.api_time_ms ?? 0) + (item.search_time_ms ?? 0);
+    if (responseTime > 0) { // Only include if we have some time data
+      const date = new Date(item.created_at).toLocaleDateString([], { year: 'numeric', month: 'short', day: 'numeric' });
       if (!timeDataMap[date]) {
         timeDataMap[date] = { total: 0, count: 0 };
       }
-      
-      const totalTime = item.api_time_ms + item.search_time_ms;
-      timeDataMap[date].total += totalTime;
+      timeDataMap[date].total += responseTime;
       timeDataMap[date].count += 1;
     }
   });
@@ -240,18 +230,16 @@ export function generateResponseTimeData(analyticsData: AnalyticsData[]) {
 }
 
 /**
- * Generates usage by time of day data 
+ * Generates usage by time of day data
  */
 export function generateUsageByTimeOfDay(analyticsData: AnalyticsData[]) {
   const hourCounts = Array(24).fill(0);
-  
   analyticsData.forEach(item => {
     const hour = new Date(item.created_at).getHours();
     hourCounts[hour]++;
   });
-  
   return hourCounts.map((count, hour) => ({
-    hour: hour.toString(),
+    hour: `${hour}:00`, // Format hour
     queries: count
   }));
 }
@@ -261,93 +249,48 @@ export function generateUsageByTimeOfDay(analyticsData: AnalyticsData[]) {
  */
 export function generateDailyQueryVolume(analyticsData: AnalyticsData[]) {
   const dailyData: Record<string, number> = {};
-  
   analyticsData.forEach(item => {
-    const date = new Date(item.created_at).toLocaleDateString();
+    const date = new Date(item.created_at).toLocaleDateString([], { year: 'numeric', month: 'short', day: 'numeric' });
     dailyData[date] = (dailyData[date] || 0) + 1;
   });
-  
-  // Sort by date
   return Object.entries(dailyData)
     .sort((a, b) => new Date(a[0]).getTime() - new Date(b[0]).getTime())
-    .map(([date, count]) => ({
-      date,
-      queries: count
-    }));
+    .map(([date, count]) => ({ date, queries: count }));
 }
 
-/**
- * Generates query volume trend data
- */
-export function generateQueryVolumeTrend(analyticsData: AnalyticsData[]) {
-  const volumeByDate: Record<string, number> = {};
-  
-  analyticsData.forEach(item => {
-    const date = new Date(item.created_at).toLocaleDateString();
-    volumeByDate[date] = (volumeByDate[date] || 0) + 1;
-  });
-  
-  return Object.entries(volumeByDate)
-    .sort((a, b) => new Date(a[0]).getTime() - new Date(b[0]).getTime())
-    .map(([date, count]) => ({
-      date,
-      volume: count
-    }));
-}
 
 /**
  * Analyzes conversation length distribution
  */
 export function analyzeConversationLengths(analyticsData: AnalyticsData[]) {
   const conversationQueryCounts: Record<string, number> = {};
-  
   analyticsData.forEach(item => {
     if (item.conversation_id) {
-      conversationQueryCounts[item.conversation_id] = 
+      conversationQueryCounts[item.conversation_id] =
         (conversationQueryCounts[item.conversation_id] || 0) + 1;
     }
   });
-  
   const lengths = Object.values(conversationQueryCounts);
-  
-  // Calculate distribution
+  if (lengths.length === 0) return { short: 0, medium: 0, long: 0, total: 0, averageLength: 0 };
+
   const shortConvs = lengths.filter(length => length <= 2).length;
   const mediumConvs = lengths.filter(length => length > 2 && length <= 5).length;
   const longConvs = lengths.filter(length => length > 5).length;
-  
-  return {
-    short: shortConvs,
-    medium: mediumConvs,
-    long: longConvs,
-    total: lengths.length,
-    averageLength: lengths.length > 0 
-      ? Math.round(lengths.reduce((sum, length) => sum + length, 0) / lengths.length) 
-      : 0
-  };
+  const total = lengths.length;
+  const averageLength = Math.round(lengths.reduce((sum, length) => sum + length, 0) / total);
+
+  return { short: shortConvs, medium: mediumConvs, long: longConvs, total, averageLength };
 }
 
 /**
  * Tracks transcript sources by type
  */
 export function getTranscriptSourceStats(analyticsData: AnalyticsData[]) {
-  const stats = {
-    protege_call: 0,
-    foundations_call: 0,
-    mastermind_call: 0,
-    business_acquisitions_summit: 0,
-    other: 0
-  };
-  
+  const stats: Record<string, number> = {};
   analyticsData.forEach(item => {
     const sourceType = item.source_type || 'other';
-    
-    if (sourceType in stats) {
-      stats[sourceType as keyof typeof stats] += 1;
-    } else {
-      stats.other += 1;
-    }
+    stats[sourceType] = (stats[sourceType] || 0) + 1;
   });
-  
   return stats;
 }
 
@@ -355,25 +298,21 @@ export function getTranscriptSourceStats(analyticsData: AnalyticsData[]) {
  * Gets the most frequently used transcripts
  */
 export function getFrequentlyUsedTranscripts(
-  analyticsData: AnalyticsData[], 
+  analyticsData: AnalyticsData[],
   limit: number = 5
 ): { title: string; count: number; source: string | null }[] {
   const transcriptCounts: Record<string, { count: number; source: string | null }> = {};
-  
   analyticsData.forEach(item => {
     if (item.transcript_title) {
-      if (!transcriptCounts[item.transcript_title]) {
-        transcriptCounts[item.transcript_title] = { 
-          count: 0, 
-          source: item.source_type 
-        };
+      const key = item.transcript_title; // Use title as the primary key
+      if (!transcriptCounts[key]) {
+        transcriptCounts[key] = { count: 0, source: item.source_type };
       }
-      transcriptCounts[item.transcript_title].count += 1;
+      transcriptCounts[key].count += 1;
     }
   });
-  
   return Object.entries(transcriptCounts)
-    .map(([title, { count, source }]) => ({ title, count, source }))
+    .map(([title, { count, source }]) => ({ title, count, source: source ? formatSourceName(source) : 'Unknown' }))
     .sort((a, b) => b.count - a.count)
     .slice(0, limit);
 }
@@ -381,38 +320,33 @@ export function getFrequentlyUsedTranscripts(
 /**
  * Generates keyword frequency data from user queries
  */
-export function generateKeywordFrequency(analyticsData: AnalyticsData[], limit: number = 10) {
-  // Common words to exclude
+export function generateKeywordFrequency(analyticsData: AnalyticsData[], limit: number = 20) { // Increased limit slightly
   const stopWords = new Set([
-    'a', 'an', 'the', 'and', 'or', 'but', 'is', 'are', 'was', 'were', 
-    'be', 'been', 'being', 'have', 'has', 'had', 'do', 'does', 'did',
-    'to', 'from', 'in', 'out', 'on', 'off', 'over', 'under', 'again',
-    'for', 'of', 'by', 'with', 'about', 'against', 'between', 'into',
-    'through', 'during', 'before', 'after', 'above', 'below', 'how',
-    'why', 'what', 'when', 'where', 'who', 'which', 'if', 'then', 'that',
-    'this', 'these', 'those', 'can', 'will', 'should', 'could', 'would',
-    'i', 'you', 'he', 'she', 'it', 'we', 'they', 'me', 'him', 'her', 'us'
+    'a', 'an', 'the', 'is', 'are', 'was', 'were', 'be', 'has', 'had', 'do', 'does',
+    'i', 'me', 'my', 'myself', 'we', 'our', 'ours', 'ourselves', 'you', 'your', 'yours',
+    'he', 'him', 'his', 'she', 'her', 'hers', 'it', 'its', 'they', 'them', 'their', 'theirs',
+    'what', 'which', 'who', 'whom', 'this', 'that', 'these', 'those', 'am', 'is', 'are',
+    'was', 'were', 'be', 'been', 'being', 'have', 'has', 'had', 'having', 'do', 'does',
+    'did', 'doing', 'a', 'an', 'the', 'and', 'but', 'if', 'or', 'because', 'as', 'until',
+    'while', 'of', 'at', 'by', 'for', 'with', 'about', 'against', 'between', 'into',
+    'through', 'during', 'before', 'after', 'above', 'below', 'to', 'from', 'up', 'down',
+    'in', 'out', 'on', 'off', 'over', 'under', 'again', 'further', 'then', 'once', 'here',
+    'there', 'when', 'where', 'why', 'how', 'all', 'any', 'both', 'each', 'few', 'more',
+    'most', 'other', 'some', 'such', 'no', 'nor', 'not', 'only', 'own', 'same', 'so',
+    'than', 'too', 'very', 's', 't', 'can', 'will', 'just', 'don', 'should', 'now', 'll', 'm', 're', 've'
   ]);
-  
+
   const wordFrequency: Record<string, number> = {};
-  
   analyticsData.forEach(item => {
     if (!item.query) return;
-    
-    // Extract words, convert to lowercase and remove punctuation
     const words = item.query.toLowerCase()
-      .replace(/[.,\/#!$%\^&\*;:{}=\-_`~()]/g, '')
+      .replace(/[.,\/#!$%\^&\*;:{}=\-_`~()?]/g, ' ') // Replace punctuation with space
       .split(/\s+/);
-    
     words.forEach(word => {
-      // Ignore short words and stop words
-      if (word.length <= 2 || stopWords.has(word)) return;
-      
+      if (!word || word.length <= 2 || stopWords.has(word) || !isNaN(Number(word))) return;
       wordFrequency[word] = (wordFrequency[word] || 0) + 1;
     });
   });
-  
-  // Convert to array, sort by frequency and take top N
   return Object.entries(wordFrequency)
     .map(([word, count]) => ({ word, count }))
     .sort((a, b) => b.count - a.count)
@@ -420,83 +354,218 @@ export function generateKeywordFrequency(analyticsData: AnalyticsData[], limit: 
 }
 
 /**
+ * Generates M&A query theme distribution data
+ */
+export function generateQueryThemes(
+  analyticsData: AnalyticsData[]
+): { theme: string; count: number }[] {
+  const themeCounts: Record<string, number> = {};
+  Object.keys(maThemes).forEach(theme => { themeCounts[theme] = 0; });
+  themeCounts['Other'] = 0;
+
+  analyticsData.forEach(item => {
+    if (!item.query) return;
+    const lowerCaseQuery = item.query.toLowerCase();
+    let themeAssigned = false;
+
+    for (const [theme, keywords] of Object.entries(maThemes)) {
+      if (keywords.some(keyword => lowerCaseQuery.includes(keyword))) {
+        themeCounts[theme]++;
+        themeAssigned = true;
+        break; // Assign only the first matched theme
+      }
+    }
+    if (!themeAssigned) {
+      themeCounts['Other']++;
+    }
+  });
+
+  return Object.entries(themeCounts)
+    .map(([theme, count]) => ({ theme, count }))
+    .filter(item => item.count > 0) // Filter out themes with 0 count for cleaner charts
+    .sort((a, b) => b.count - a.count);
+}
+
+/**
  * Tracks when sources outside of transcripts were used
  */
 export function trackNonTranscriptSources(analyticsData: AnalyticsData[]) {
-  const externalSourceCount = analyticsData.filter(item => 
-    item.source_type === 'web' || item.source_type === 'fallback'
-  ).length;
-  
-  const topExternalQueries = analyticsData
-    .filter(item => item.source_type === 'web' || item.source_type === 'fallback')
-    .map(item => item.query)
-    .reduce((acc: Record<string, number>, query) => {
-      acc[query] = (acc[query] || 0) + 1;
-      return acc;
-    }, {});
-  
+  const externalSourceData = analyticsData.filter(item =>
+    item.used_online_search === true || item.source_type === 'fallback' // More explicit check
+  );
+  const externalSourceCount = externalSourceData.length;
+
+  const topExternalQueries: Record<string, number> = {};
+  externalSourceData.forEach(item => {
+    if (item.query) {
+      topExternalQueries[item.query] = (topExternalQueries[item.query] || 0) + 1;
+    }
+  });
+
   const topExternalQueriesList = Object.entries(topExternalQueries)
     .map(([query, count]) => ({ query, count }))
     .sort((a, b) => b.count - a.count)
     .slice(0, 5);
-  
+
   return {
     count: externalSourceCount,
-    percentage: analyticsData.length > 0 
-      ? Math.round((externalSourceCount / analyticsData.length) * 100) 
+    percentage: analyticsData.length > 0
+      ? Math.round((externalSourceCount / analyticsData.length) * 100)
       : 0,
     topQueries: topExternalQueriesList
   };
 }
 
 /**
- * Creates segments of users based on their query types
+ * Creates segments of users based on their query patterns
  */
 export function analyzeUserSegments(analyticsData: AnalyticsData[]) {
-  // Group queries by conversation
   const conversationQueries: Record<string, string[]> = {};
-  
   analyticsData.forEach(item => {
-    if (item.conversation_id) {
+    if (item.conversation_id && item.query) {
       if (!conversationQueries[item.conversation_id]) {
         conversationQueries[item.conversation_id] = [];
       }
       conversationQueries[item.conversation_id].push(item.query);
     }
   });
-  
-  // Analyze segments
+
   const segments = {
-    basic: 0,      // 1-2 queries
-    engaged: 0,    // 3-5 queries
-    power: 0,      // 6+ queries
-    technical: 0,  // Contains technical terms
-    conceptual: 0  // Contains conceptual questions
+    basic: 0, engaged: 0, power: 0, // Engagement levels
+    technical: 0, conceptual: 0, otherType: 0 // Query types
   };
-  
-  const technicalTerms = ['sba', 'loan', 'financing', 'ebitda', 'valuation', 'due diligence', 
-    'leverage', 'acquisition', 'balance sheet', 'cash flow', 'liability'];
-  
-  const conceptualPhrases = ['how to', 'what is', 'why would', 'explain', 'difference between',
-    'compared to', 'strategy', 'approach', 'methodology'];
-  
+
+  const technicalKeywords = new Set([
+    ...maThemes['Valuation & Pricing'], ...maThemes['Financing & Funding'],
+    ...maThemes['Legal & Contracts'], ...maThemes['Deal Structuring'],
+    ...maThemes['Taxes'], 'ebitda', 'sba', 'loi' // Ensure key acronyms are included
+  ]);
+
+  const conceptualPhrases = ['how to', 'what is', 'why', 'explain', 'difference', 'compare', 'strategy', 'approach', 'methodology', 'consider', 'should i', 'benefit', 'risk'];
+
   Object.values(conversationQueries).forEach(queries => {
-    // Segment by engagement level
+    if (!queries || queries.length === 0) return;
+
+    // Engagement segmentation
     if (queries.length <= 2) segments.basic++;
     else if (queries.length <= 5) segments.engaged++;
     else segments.power++;
-    
-    // Segment by query type
+
+    // Query type segmentation (based on *dominant* type in conversation)
+    let techScore = 0;
+    let conceptualScore = 0;
     const allQueriesText = queries.join(' ').toLowerCase();
-    
-    if (technicalTerms.some(term => allQueriesText.includes(term))) {
+
+    queries.forEach(query => {
+      const lowerQuery = query.toLowerCase();
+      if (conceptualPhrases.some(phrase => lowerQuery.includes(phrase))) {
+        conceptualScore++;
+      }
+      // Check against technical keywords set for efficiency
+      if ([...technicalKeywords].some(term => lowerQuery.includes(term))) {
+          techScore++;
+      }
+    });
+
+    if (techScore > conceptualScore) {
       segments.technical++;
-    }
-    
-    if (conceptualPhrases.some(phrase => allQueriesText.includes(phrase))) {
+    } else if (conceptualScore > techScore) {
       segments.conceptual++;
+    } else if (techScore > 0) { // If equal, but non-zero, classify as technical or mixed
+        segments.technical++; // Or could add a mixed category
+    } else {
+        segments.otherType++;
     }
   });
-  
+
   return segments;
+}
+
+/**
+ * Identifies potentially insightful queries based on defined criteria.
+ */
+export function identifyInsightfulQueries(
+  analyticsData: AnalyticsData[],
+  limit: number = 15 // Increased limit slightly
+): { query: string; reason: string; score: number; source?: string | null }[] {
+  console.log("Identifying insightful queries...");
+  const insightfulList: { query: string; reason: string; score: number; source?: string | null }[] = [];
+  const queryScores: Record<string, { score: number; reasons: Set<string>; source?: string | null }> = {};
+
+  // Calculate average query length
+  const validQueries = analyticsData.filter(item => item.query);
+  const avgLength = validQueries.length > 0
+    ? validQueries.reduce((sum, item) => sum + (item.query?.length || 0), 0) / validQueries.length
+    : 0;
+
+  analyticsData.forEach(item => {
+    if (!item.query) return;
+
+    const query = item.query;
+    const lowerCaseQuery = query.toLowerCase();
+    let score = 0;
+    const reasons = new Set<string>();
+
+    // Reason 1: Used External Search (High weight)
+    if (item.used_online_search === true || item.source_type === 'fallback') {
+      score += 3;
+      reasons.add('Used external search/fallback');
+    }
+
+    // Reason 2: Mentions Multiple Themes
+    let themesMentionedCount = 0;
+    for (const keywords of Object.values(maThemes)) {
+      if (keywords.some(keyword => lowerCaseQuery.includes(keyword))) {
+        themesMentionedCount++;
+      }
+    }
+    if (themesMentionedCount >= 2) {
+      score += 2;
+      reasons.add(`Mentioned ${themesMentionedCount} M&A themes`);
+    }
+
+    // Reason 3: Longer than Average Query
+    if (query.length > avgLength * 1.5) { // Significantly longer
+      score += 1;
+      reasons.add('Longer than average');
+    }
+
+    // Reason 4: Contains Question Keywords (Conceptual)
+     const conceptualPhrases = ['how to', 'what is', 'why', 'explain', 'difference', 'compare', 'strategy', 'should i', 'risk', 'benefit'];
+     if (conceptualPhrases.some(phrase => lowerCaseQuery.includes(phrase))) {
+       score += 1;
+       reasons.add('Conceptual question');
+     }
+
+    // Reason 5: Failed query (might indicate complex/unanswerable question)
+    if (item.successful === false && item.error_message) {
+        score += 1;
+        reasons.add(`Failed (${item.error_message.substring(0, 30)}...)`);
+    }
+
+    // Aggregate scores for identical queries
+    if (score > 0) {
+      if (!queryScores[query]) {
+        queryScores[query] = { score: 0, reasons: new Set<string>(), source: item.source_type };
+      }
+      queryScores[query].score += score;
+      reasons.forEach(reason => queryScores[query].reasons.add(reason));
+      // Keep the source type of the first occurrence (or potentially the highest scored one)
+    }
+  });
+
+  // Convert scored queries into the final list format
+  for (const [query, data] of Object.entries(queryScores)) {
+    insightfulList.push({
+      query,
+      reason: Array.from(data.reasons).join(', '),
+      score: data.score,
+      source: data.source ? formatSourceName(data.source) : 'Unknown'
+    });
+  }
+
+  // Sort by score (descending) and take the top N
+  const sortedList = insightfulList.sort((a, b) => b.score - a.score).slice(0, limit);
+  console.log(`Identified ${sortedList.length} insightful queries.`);
+  return sortedList;
 }

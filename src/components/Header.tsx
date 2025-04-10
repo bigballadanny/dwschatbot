@@ -2,10 +2,10 @@
 import React from 'react';
 import { Link } from 'react-router-dom';
 import { Button } from "@/components/ui/button";
-import { Headphones } from 'lucide-react';
+import { Headphones } from 'lucide-react'; // Keep if used elsewhere, remove if only for the banner
 import { useAuth } from '@/context/AuthContext';
 import { useAdmin } from '@/context/AdminContext';
-import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
+import { Avatar, AvatarFallback } from "@/components/ui/avatar"; // Removed AvatarImage as it wasn't used
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import {
   DropdownMenu,
@@ -24,6 +24,7 @@ const Header: React.FC = () => {
     <header className="border-b shadow-sm bg-background/95 backdrop-blur-sm sticky top-0 z-50">
       <div className="container mx-auto px-4 py-3 flex items-center justify-end">
         <div className="flex items-center space-x-3">
+          {/* Text-to-Speech Button Removed
           {user && (
             <TooltipProvider>
               <Tooltip>
@@ -43,7 +44,8 @@ const Header: React.FC = () => {
               </Tooltip>
             </TooltipProvider>
           )}
-          
+          */} {/* End of Removed TTS Button */}
+
           {!user ? (
             <Button asChild size="sm" className="ml-2 bg-gradient-to-r from-primary to-primary/80 hover:from-primary/90 hover:to-primary/70 transition-all">
               <Link to="/auth">Sign In</Link>
@@ -66,14 +68,19 @@ const Header: React.FC = () => {
                 {isAdmin && (
                   <>
                     <DropdownMenuItem asChild>
-                      <Link to="/admin">Admin Dashboard</Link>
+                      {/* Link to the new analytics page */}
+                      <Link to="/analytics">Analytics Dashboard</Link>
                     </DropdownMenuItem>
                     <DropdownMenuItem asChild>
                       <Link to="/transcripts">Manage Transcripts</Link>
                     </DropdownMenuItem>
+                     {/* Optionally add other admin links like user management here */}
+                     <DropdownMenuItem asChild>
+                       <Link to="/admin">Admin Management</Link>
+                     </DropdownMenuItem>
                   </>
                 )}
-                <DropdownMenuItem onClick={signOut} className="text-red-500 hover:text-red-700 hover:bg-red-50 dark:hover:bg-red-950/30">
+                <DropdownMenuItem onClick={signOut} className="text-red-500 focus:text-red-700 focus:bg-red-50 dark:focus:bg-red-950/50 cursor-pointer">
                   Sign out
                 </DropdownMenuItem>
               </DropdownMenuContent>
