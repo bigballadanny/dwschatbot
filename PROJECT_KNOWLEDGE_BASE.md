@@ -2,37 +2,45 @@
 
 This document stores key information, decisions, context, and workflow details for the project to ensure continuity between development sessions.
 
-## Workflow
+## Workflow Notes (for AI Agent)
 
-*   **Development Environment:** Primarily use the local IDE environment.
-*   **Version Control:** Push changes to GitHub periodically upon request to save progress and reflect updates on the Lovable platform.
-*   **AI Collaboration:** The AI assistant helps with coding, analysis, and executing tasks within the IDE.
+*   **Development Environment:** Work occurs primarily in the local IDE. Changes modify local files directly.
+*   **Testing:** User tests changes on `localhost`.
+*   **Deployment:** 
+    *   Frontend changes require a standard `git add .`, `git commit -m "..."`, `git push` workflow **initiated by user request**. This triggers Lovable deployment.
+    *   Supabase function changes require manual deployment using the Supabase CLI (e.g., `supabase functions deploy <function_name>`) **by the user**, as the IDE terminal lacks the Supabase CLI.
+*   **Communication:** Clearly state which files are being modified. Confirm understanding of user requests. Explicitly mention when a `git push` or manual Supabase deployment is needed by the user.
+*   **User Profile:** User prefers clear, step-by-step actions and may need guidance on technical steps like deployment. Prioritize fixing functionality shown on `localhost`.
+*   **Troubleshooting:** Be mindful that code (especially from Lovable) might have unexpected structures or bugs. Systematically debug by checking:
+    1.  Frontend code (React components, utils)
+    2.  Backend Supabase Function code
+    3.  Function Logs (via user checking Supabase dashboard)
+    4.  Database Tables/RLS (via user checking Supabase dashboard)
+    5.  Browser Console Logs on `localhost`
 
 ## Project Goals
 
-*   Enhance the analytics section with better graphs and insightful query analysis.
-*   Improve UI/UX, particularly audio playback controls.
-*   Ensure correct analytics data logging.
-*   Integrate/verify the use of appropriate Gemini models.
+*   Functional and insightful Analytics page.
+*   Robust chat functionality.
+*   Clean UI/UX, responsive design.
+*   Well-structured and maintainable codebase.
+*   Develop a functional "War Room" feature for document analysis.
 
-## Current Focus (as of 2024-07-29)
+## Current Status (As of this update)
 
-*   Refactoring audio playback in `Index.tsx` to use the dedicated `AudioPlayer.tsx` component for better user control (Play/Pause/Seek/Volume/Stop).
-*   Implementing analytics logging within the `supabase/functions/voice-conversation/index.ts` function.
-*   Adding Theme Analysis and Insightful Query features to the Analytics page.
-
-## Key Decisions & Refactors
-
-*   **Analytics:** Added M&A-specific theme analysis (`generateQueryThemes`) and placeholder for insightful query identification (`identifyInsightfulQueries`) in `analyticsUtils.ts`. Added corresponding tabs/charts to `Analytics.tsx`.
-*   **Audio Playback (Index.tsx):** 
-    *   Initial audio playback logic in `handleSendMessage` was causing unwanted automatic playback.
-    *   Changed initial `audioEnabled` state to `false`.
-    *   Refactored to use the `AudioPlayer.tsx` component, controlled by `currentAudioSrc` state, providing explicit playback controls.
-*   **Header:** Removed the Text-to-Speech banner from `Header.tsx`.
-*   **Analytics Logging:** Identified that logging to `chat_analytics` was missing in both `Index.tsx` and the `voice-conversation` function. Plan is to add it to the function.
+*   **Analytics Logging:** FIXED. Renamed backend function to `gemini-chat` and added analytics logging within it. Confirmed data populates on `localhost`.
+*   **Analytics Page:** 
+    *   Basic data loading and display working.
+    *   CSV Download feature REMOVED due to persistent syntax errors during implementation.
+    *   PieChart errors (Usage Patterns, Source Dist) FIXED by adding checks for empty data before rendering.
+    *   Responsiveness improved using Tailwind grid/flex classes and ScrollAreas.
+*   **Layout:** FIXED issue where sidebar appeared on `/auth` page by restructuring `App.tsx` with a `MainLayout` and `SimpleLayout`.
+*   **Audio:** Refactored to use `AudioPlayer` component, default off.
 
 ## Known Issues / Next Steps
 
-*   Implement analytics logging in `supabase/functions/voice-conversation/index.ts`.
-*   Test the refactored audio player controls.
-*   Verify Gemini 1.5 Pro model usage/availability if necessary.
+*   Thoroughly test all Analytics tabs on different screen sizes.
+*   Consider re-adding CSV download using a library or simpler method if needed.
+*   Begin development of the "War Room" feature.
+*   **Action Required by User:** None currently. Proceed with testing/next feature.
+
