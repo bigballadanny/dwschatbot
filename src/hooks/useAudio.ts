@@ -83,7 +83,7 @@ export function useAudio(isEnabled = false) {
     
     // Revoke object URL if exists to free up memory
     if (audioSrc) {
-      URL.revoObjectURL(audioSrc);
+      URL.revokeObjectURL(audioSrc);
       setAudioSrc(null);
     }
     
