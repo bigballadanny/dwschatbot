@@ -1,3 +1,4 @@
+
 import React, { useEffect, useState } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
 import Header from '@/components/Header';
@@ -9,7 +10,7 @@ import { useAuth } from '@/context/AuthContext';
 import SidebarOpenButton from '@/components/sidebar/SidebarOpenButton';
 import ChatContainer from '@/components/chat/ChatContainer';
 import ChatSidebar from '@/components/ChatSidebar';
-import { useChatMessages } from '@/hooks/useChatMessages';
+import { useChatController } from '@/hooks/useChatController';
 
 const Index = () => {
   const { user } = useAuth();
@@ -24,14 +25,17 @@ const Index = () => {
   const {
     messages,
     isLoading,
-    currentAudioSrc,
+    audioSrc,
+    isAudioEnabled,
     enableOnlineSearch,
     hasInteracted,
     sendMessage,
     createNewConversation,
+    resetChat,
     toggleOnlineSearch,
-    handleAudioStop
-  } = useChatMessages({
+    toggleAudio,
+    stopAudio
+  } = useChatController({
     user,
     conversationId,
     audioEnabled
@@ -56,6 +60,10 @@ const Index = () => {
     }
   }, [location.search, user]);
 
+  useEffect(() => {
+    setAudioEnabled(isAudioEnabled);
+  }, [isAudioEnabled]);
+
   const handleAskQuestion = (question: string) => {
     if (!user) {
       toast({ title: "Please sign in to start chatting", variant: "default" });
@@ -77,15 +85,6 @@ const Index = () => {
     }
     
     await createNewConversation();
-  };
-
-  const toggleAudio = () => {
-    const willBeEnabled = !audioEnabled;
-    setAudioEnabled(willBeEnabled);
-    toast({
-      title: willBeEnabled ? "Audio Enabled" : "Audio Disabled",
-      description: willBeEnabled ? "Voice responses will play." : "Voice responses muted.",
-    });
   };
 
   const handleFileUpload = async (files: FileList) => {
@@ -128,7 +127,7 @@ const Index = () => {
                 messages={messages}
                 isLoading={isLoading}
                 audioEnabled={audioEnabled}
-                currentAudioSrc={currentAudioSrc}
+                currentAudioSrc={audioSrc}
                 enableOnlineSearch={enableOnlineSearch}
                 conversationId={conversationId}
                 user={user}
@@ -136,7 +135,7 @@ const Index = () => {
                 onToggleAudio={toggleAudio}
                 onToggleOnlineSearch={toggleOnlineSearch}
                 onFileUpload={handleFileUpload}
-                onAudioStop={handleAudioStop}
+                onAudioStop={stopAudio}
               />
             )}
           </div>

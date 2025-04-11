@@ -11,7 +11,7 @@ export interface MessageData {
   isLoading?: boolean;
 }
 
-// Define API message format completely separate from MessageData
+// Define API message format - completely separated from UI message format
 export interface ApiMessage {
   role: 'user' | 'assistant' | 'system';
   content: string;
@@ -133,35 +133,41 @@ export function useMessages({ userId, conversationId }: UseMessagesProps) {
     ]);
   };
 
-  // Completely rewritten to avoid any recursive type issues
+  // Using primitive types and avoiding recursion to fix type issue
   const formatMessagesForApi = (newMessageContent: string): ApiMessage[] => {
-    // Create a brand new array from scratch instead of modifying
-    const result: ApiMessage[] = [];
+    // Create a brand new array (don't use messages state directly)
+    const apiMessages: ApiMessage[] = [];
     
-    // Map existing messages to the simple API format
-    for (const msg of messages) {
+    // Process each message into the API format
+    for (let i = 0; i < messages.length; i++) {
+      const msg = messages[i];
+      
       // Skip loading messages
       if (msg.isLoading) continue;
       
-      // Map our UI message format to the API format
-      const role: 'user' | 'assistant' | 'system' = 
-        msg.source === 'user' ? 'user' : 
-        msg.source === 'system' ? 'system' : 'assistant';
+      // Map source to role using simple conditionals instead of complex mapping
+      let role: 'user' | 'assistant' | 'system';
+      if (msg.source === 'user') {
+        role = 'user';
+      } else if (msg.source === 'system') {
+        role = 'system';
+      } else {
+        role = 'assistant';
+      }
       
-      // Push to our new array
-      result.push({
-        role: role, 
+      apiMessages.push({
+        role: role,
         content: msg.content
       });
     }
     
-    // Add the new message separately
-    result.push({
-      role: 'user',
+    // Add the new message
+    apiMessages.push({
+      role: 'user', 
       content: newMessageContent
     });
     
-    return result;
+    return apiMessages;
   };
 
   return {
