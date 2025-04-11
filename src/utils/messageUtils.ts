@@ -29,17 +29,19 @@ export interface MessageData {
 
 /**
  * Converts UI messages to API format for sending to backend
+ * Extracted as a utility function to avoid circular dependencies
  */
-export function convertToApiMessages(messages: MessageData[], newUserContent: string): ApiMessage[] {
+export function convertMessagesToApi(
+  messages: MessageData[],
+  newUserContent: string
+): ApiMessage[] {
   const apiMessages: ApiMessage[] = [];
   
-  // Process existing messages
-  for (const message of messages) {
-    // Skip loading messages
-    if (message.isLoading) continue;
+  // Process existing messages (excluding loading messages)
+  for (const message of messages.filter(msg => !msg.isLoading)) {
+    let role: 'user' | 'assistant' | 'system';
     
     // Map the source to role
-    let role: 'user' | 'assistant' | 'system';
     switch (message.source) {
       case 'user':
         role = 'user';

@@ -2,7 +2,7 @@
 import { useState } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/components/ui/use-toast';
-import { MessageData, ApiMessage, MessageSource } from '@/utils/messageUtils';
+import { MessageData, MessageSource, convertMessagesToApi } from '@/utils/messageUtils';
 
 interface UseMessagesProps {
   userId: string | undefined;
@@ -10,16 +10,19 @@ interface UseMessagesProps {
 }
 
 export function useMessages({ userId, conversationId }: UseMessagesProps) {
+  // Initialize messages state with a default welcome message
   const [messages, setMessages] = useState<MessageData[]>([{
     content: "Hello! I'm Carl Allen's Expert Bot. Ask me anything about M&A based on Carl's teachings.",
     source: 'system',
     timestamp: new Date(),
   }]);
+  
   const [isLoading, setIsLoading] = useState(false);
   const [hasInteracted, setHasInteracted] = useState(false);
   
   const { toast } = useToast();
 
+  // Reset messages to initial state
   const resetMessages = () => {
     setMessages([{
       content: "Hello! I'm Carl Allen's Expert Bot. Ask me anything...",
@@ -29,20 +32,23 @@ export function useMessages({ userId, conversationId }: UseMessagesProps) {
     setHasInteracted(false);
   };
 
-  const loadMessages = async (conversationId: string, userId: string) => {
+  // Load messages for a conversation from the database
+  const loadMessages = async (convId: string, uid: string) => {
     setIsLoading(true);
     
     try {
+      // Fetch messages from the database
       const { data, error } = await supabase
         .from('messages')
         .select('*')
-        .eq('conversation_id', conversationId)
-        .eq('user_id', userId)
+        .eq('conversation_id', convId)
+        .eq('user_id', uid)
         .order('created_at', { ascending: true });
         
       if (error) throw error;
       
       if (data && data.length > 0) {
+        // Transform database messages to UI message format
         const formattedMessages = data.map((msg: any): MessageData => ({
           content: msg.content,
           source: msg.is_user ? 'user' : ((msg.metadata?.source as MessageSource) || 'gemini'),
@@ -54,14 +60,16 @@ export function useMessages({ userId, conversationId }: UseMessagesProps) {
         setHasInteracted(true);
         return true;
       } else {
+        // Check if the conversation exists but has no messages
         const { data: convoData } = await supabase
           .from('conversations')
           .select('id')
-          .eq('id', conversationId)
-          .eq('user_id', userId)
+          .eq('id', convId)
+          .eq('user_id', uid)
           .maybeSingle();
           
         if (convoData) {
+          // Initialize with empty state
           setMessages([{
             content: "Ask me anything...", 
             source: 'system', 
@@ -81,6 +89,7 @@ export function useMessages({ userId, conversationId }: UseMessagesProps) {
     }
   };
 
+  // Add a user message to the UI
   const addUserMessage = (content: string): MessageData => {
     const userMessage: MessageData = { 
       content, 
@@ -97,6 +106,7 @@ export function useMessages({ userId, conversationId }: UseMessagesProps) {
     return userMessage;
   };
 
+  // Add a system/AI message to the UI
   const addSystemMessage = (content: string, source: MessageSource = 'gemini', citation?: string[]): MessageData => {
     const message: MessageData = {
       content,
@@ -105,10 +115,12 @@ export function useMessages({ userId, conversationId }: UseMessagesProps) {
       citation
     };
     
+    // Remove any loading messages and add the new message
     setMessages(prev => [...prev.filter(msg => !msg.isLoading), message]);
     return message;
   };
 
+  // Add an error message
   const addErrorMessage = (errorText: string): void => {
     setMessages(prev => [
       ...prev.filter(msg => !msg.isLoading),
@@ -120,36 +132,9 @@ export function useMessages({ userId, conversationId }: UseMessagesProps) {
     ]);
   };
 
-  const formatMessagesForApi = (newUserContent: string): ApiMessage[] => {
-    const filteredMessages = messages.filter(msg => !msg.isLoading);
-    
-    const apiMessages: ApiMessage[] = filteredMessages.map(msg => {
-      let role: 'user' | 'assistant' | 'system';
-      
-      switch (msg.source) {
-        case 'user':
-          role = 'user';
-          break;
-        case 'system':
-          role = 'system';
-          break;
-        default:
-          role = 'assistant';
-      }
-      
-      return {
-        role,
-        content: msg.content
-      };
-    });
-    
-    // Add the new user message
-    apiMessages.push({
-      role: 'user',
-      content: newUserContent
-    });
-    
-    return apiMessages;
+  // Format messages for API calls using the utility function
+  const formatMessagesForApi = (newUserContent: string) => {
+    return convertMessagesToApi(messages, newUserContent);
   };
 
   return {
