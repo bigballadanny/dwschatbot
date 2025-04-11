@@ -55,16 +55,15 @@ export function useConversation({ userId }: UseConversationProps) {
     responseMessage: { content: string, source: 'gemini' | 'system', citation?: string[] }
   ) => {
     try {
+      // Structure follows database schema - removed user_id from the messages and added metadata
       await supabase.from('messages').insert([
         { 
           conversation_id: conversationId, 
-          user_id: userId, 
           content: userMessage, 
           is_user: true 
         },
         {
-          conversation_id: conversationId, 
-          user_id: userId,
+          conversation_id: conversationId,
           content: responseMessage.content, 
           is_user: false,
           metadata: { 

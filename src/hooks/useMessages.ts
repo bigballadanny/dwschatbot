@@ -37,20 +37,19 @@ export function useMessages({ userId, conversationId }: UseMessagesProps) {
     setIsLoading(true);
     
     try {
-      // Fetch messages from the database
+      // Fetch messages from the database - IMPORTANT: removed user_id filter since this column doesn't exist
       const { data, error } = await supabase
         .from('messages')
         .select('*')
         .eq('conversation_id', convId)
-        .eq('user_id', uid)
         .order('created_at', { ascending: true });
         
       if (error) throw error;
       
       if (data && data.length > 0) {
         // Transform database messages to UI message format using the utility function
-        // Use explicit typing to avoid deep instantiation
-        const dbMessages = data as unknown as DbMessage[];
+        // Cast data to DbMessage[] to avoid type instantiation issues
+        const dbMessages = data as DbMessage[];
         const formattedMessages = dbMessages.map(msg => dbMessageToUiMessage(msg));
         
         setMessages(formattedMessages);
