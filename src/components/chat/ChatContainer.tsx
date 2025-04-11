@@ -38,11 +38,13 @@ const ChatContainer: React.FC<ChatContainerProps> = ({
   onTogglePlayback,
 }) => {
   return (
-    <div className="flex-1 overflow-hidden flex flex-col relative">
-      <MessageList 
-        messages={messages} 
-        showNewestOnTop={false}
-      />
+    <div className="flex-1 overflow-hidden flex flex-col relative bg-black/20">
+      <div className="flex-1 overflow-hidden relative">
+        <MessageList 
+          messages={messages} 
+          showNewestOnTop={false}
+        />
+      </div>
       
       <ChatInputBar
         onSendMessage={onSendMessage}
@@ -55,6 +57,8 @@ const ChatContainer: React.FC<ChatContainerProps> = ({
         enableOnlineSearch={enableOnlineSearch}
         currentAudioSrc={currentAudioSrc}
         onAudioStop={onAudioStop}
+        isPlaying={isPlaying}
+        onTogglePlayback={onTogglePlayback}
         placeholder={user ? "Ask anything..." : "Please sign in to chat"}
       />
     </div>

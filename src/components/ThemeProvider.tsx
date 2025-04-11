@@ -10,7 +10,7 @@ interface ThemeProviderProps {
 
 export function ThemeProvider({
   children,
-  defaultTheme = "dark", // Default is set to dark
+  defaultTheme = "dark", // Set default to dark
   storageKey = "vite-ui-theme",
   ...props
 }: ThemeProviderProps) {
@@ -19,7 +19,7 @@ export function ThemeProvider({
       attribute="class"
       defaultTheme={defaultTheme}
       storageKey={storageKey}
-      forcedTheme="dark" // Adding forcedTheme to ensure dark mode is applied initially
+      forcedTheme="dark" // Force dark mode
       {...props}
     >
       {children}

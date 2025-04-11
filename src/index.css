@@ -46,42 +46,43 @@
   }
 
   .dark {
-    --background: 222 47% 5%;
-    --foreground: 210 40% 98%;
+    /* Solid Black Theme */
+    --background: 0 0% 0%; /* Pure black background */
+    --foreground: 0 0% 100%; /* Pure white text */
 
-    --card: 222 47% 8%;
-    --card-foreground: 210 40% 98%;
+    --card: 0 0% 3%; /* Very dark card background */
+    --card-foreground: 0 0% 100%; /* White card text */
 
-    --popover: 222 47% 8%;
-    --popover-foreground: 210 40% 98%;
+    --popover: 0 0% 3%; /* Very dark popover */
+    --popover-foreground: 0 0% 100%; /* White popover text */
 
-    --primary: 217 91% 60%;
-    --primary-foreground: 210 40% 98%;
+    --primary: 217 91% 60%; /* Keep blue accent */
+    --primary-foreground: 0 0% 100%; /* White on primary */
 
-    --secondary: 222 47% 12%;
-    --secondary-foreground: 210 40% 98%;
+    --secondary: 0 0% 10%; /* Very dark secondary */
+    --secondary-foreground: 0 0% 100%; /* White secondary text */
 
-    --muted: 222 47% 12%;
-    --muted-foreground: 217 10% 70%;
+    --muted: 0 0% 10%; /* Very dark muted */
+    --muted-foreground: 0 0% 70%; /* Light gray muted text */
 
-    --accent: 222 47% 12%;
-    --accent-foreground: 210 40% 98%;
+    --accent: 0 0% 12%; /* Very dark accent */
+    --accent-foreground: 0 0% 100%; /* White accent text */
 
     --destructive: 0 62.8% 30.6%;
-    --destructive-foreground: 210 40% 98%;
+    --destructive-foreground: 0 0% 100%;
 
-    --border: 222 47% 15%;
-    --input: 222 47% 15%;
-    --ring: 224 76% 48%;
+    --border: 0 0% 15%; /* Dark border */
+    --input: 0 0% 15%; /* Dark input */
+    --ring: 217 91% 60%; /* Blue ring */
 
-    --sidebar-background: 222 47% 8%;
-    --sidebar-foreground: 210 40% 98%;
-    --sidebar-primary: 217 91% 60%;
-    --sidebar-primary-foreground: 0 0% 100%;
-    --sidebar-accent: 222 47% 12%;
-    --sidebar-accent-foreground: 210 40% 98%;
-    --sidebar-border: 222 47% 15%;
-    --sidebar-ring: 217 91% 60%;
+    --sidebar-background: 0 0% 3%; /* Very dark sidebar */
+    --sidebar-foreground: 0 0% 100%; /* White sidebar text */
+    --sidebar-primary: 217 91% 60%; /* Blue sidebar primary */
+    --sidebar-primary-foreground: 0 0% 100%; /* White on primary */
+    --sidebar-accent: 0 0% 12%; /* Very dark sidebar accent */
+    --sidebar-accent-foreground: 0 0% 100%; /* White accent text */
+    --sidebar-border: 0 0% 15%; /* Dark sidebar border */
+    --sidebar-ring: 217 91% 60%; /* Blue sidebar ring */
   }
 }
 
@@ -164,6 +165,27 @@
   
   .btn-modern:hover::after {
     @apply translate-x-0;
+  }
+
+  /* Solid black theme specific classes */
+  .dark .neo-card {
+    @apply bg-black border border-zinc-800 shadow-lg;
+  }
+  
+  .dark .neo-input {
+    @apply bg-zinc-900 border-zinc-800 text-white placeholder:text-zinc-500;
+  }
+
+  .dark .message-bubble-user {
+    @apply bg-blue-950/40 border border-blue-800/30 text-white;
+  }
+  
+  .dark .message-bubble-ai {
+    @apply bg-zinc-900/90 border border-zinc-800/60 text-white;
+  }
+
+  .dark .hover-glow {
+    @apply hover:shadow-[0_0_10px_rgba(59,130,246,0.5)] transition-shadow duration-300;
   }
 }
 
