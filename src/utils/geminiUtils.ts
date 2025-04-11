@@ -182,7 +182,6 @@ export const logAnalytics = async (
       tool_use_llm_success: data.toolUseLlmSuccess,
       tool_use_llm_model: data.toolUseLlmModel,
       tool_use_llm_api_key: data.toolUseLlmApiKey ? true : false
-      // Nested tool use data can be added if needed in the future
     }]);
   } catch (error) {
     console.error('Error logging analytics:', error);

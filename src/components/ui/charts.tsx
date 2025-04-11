@@ -21,6 +21,7 @@ interface LineChartProps {
   className?: string;
   showLegend?: boolean;
   valueFormatter?: (value: number) => string;
+  yAxisWidth?: number;
 }
 
 export const LineChart: React.FC<LineChartProps> = ({
@@ -30,7 +31,8 @@ export const LineChart: React.FC<LineChartProps> = ({
   colors = ['#f59e0b', '#fbbf24', '#fcd34d', '#10b981', '#8b5cf6'], // Default colors with gold/amber as primary
   className,
   showLegend = true,
-  valueFormatter = (value) => value.toString()
+  valueFormatter = (value) => value.toString(),
+  yAxisWidth = 40
 }) => {
   return (
     <ChartContainer
@@ -59,6 +61,7 @@ export const LineChart: React.FC<LineChartProps> = ({
           tickMargin={10}
           className="text-xs"
           tickFormatter={valueFormatter}
+          width={yAxisWidth}
         />
         <ChartTooltip
           content={({ active, payload, label }) => (
@@ -96,6 +99,7 @@ interface BarChartProps {
   showLegend?: boolean;
   valueFormatter?: (value: number) => string;
   layout?: 'vertical' | 'horizontal';
+  yAxisWidth?: number;
 }
 
 export const BarChart: React.FC<BarChartProps> = ({
@@ -106,7 +110,8 @@ export const BarChart: React.FC<BarChartProps> = ({
   className,
   showLegend = true,
   valueFormatter = (value) => value.toString(),
-  layout = 'vertical'
+  layout = 'vertical',
+  yAxisWidth = 40
 }) => {
   return (
     <ChartContainer
@@ -142,6 +147,7 @@ export const BarChart: React.FC<BarChartProps> = ({
           tickMargin={10}
           className="text-xs"
           tickFormatter={layout === 'vertical' ? valueFormatter : undefined}
+          width={layout === 'vertical' ? yAxisWidth : undefined}
         />
         <ChartTooltip
           content={({ active, payload, label }) => (
@@ -198,17 +204,17 @@ export const PieChart: React.FC<PieChartProps> = ({
   
   // Prepare pie data safely
   const pieData = data.map((item) => ({
-    name: item[index]?.toString() || 'Unknown',
-    value: Number(item[category]) || 0
+    name: String(item[index] || 'Unknown'),
+    value: Number(item[category] || 0)
   }));
 
   return (
     <ChartContainer
       config={{
         ...Object.fromEntries(
-          data.map((item, i) => [
-            item[index] || `item-${i}`,
-            { color: colors[i % colors.length], label: item[index] || `Item ${i+1}` }
+          pieData.map((entry, i) => [
+            entry.name || `item-${i}`,
+            { color: colors[i % colors.length], label: entry.name || `Item ${i+1}` }
           ])
         )
       }}

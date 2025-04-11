@@ -1,6 +1,6 @@
 import React, { useRef, useEffect, useState } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
-import MessageItem, { MessageProps } from '@/components/MessageItem';
+import MessageItem, { MessageProps, MessageSource } from '@/components/MessageItem';
 import Header from '@/components/Header';
 import WelcomeScreen from '@/components/WelcomeScreen';
 import PopularQuestions from '@/components/PopularQuestions';
@@ -14,8 +14,23 @@ import { useToast } from "@/components/ui/use-toast";
 import { useAuth } from '@/context/AuthContext';
 import SearchModeToggle from '@/components/SearchModeToggle';
 import UnifiedInputBar from '@/components/UnifiedInputBar';
-import AudioPlayer from '@/components/AudioPlayer'; // Import the AudioPlayer component
+import AudioPlayer from '@/components/AudioPlayer';
 import { cn } from "@/lib/utils";
+
+interface MessageMetadata {
+  source?: string;
+  citation?: string;
+}
+
+interface SupabaseMessage {
+  content: string;
+  conversation_id: string;
+  created_at: string;
+  id: string;
+  is_user: boolean;
+  metadata?: MessageMetadata;
+  user_id?: string;
+}
 
 const SidebarOpenButton = () => {
   const { state, toggleSidebar } = useSidebar();
@@ -40,7 +55,7 @@ const Index = () => {
   const [audioEnabled, setAudioEnabled] = useState(false); // Default audio off
   const [messages, setMessages] = useState<MessageProps[]>([{
     content: "Hello! I'm Carl Allen's Expert Bot. Ask me anything about M&A based on Carl's teachings.", // Simplified
-    source: 'system',
+    source: 'system' as MessageSource,
     timestamp: new Date(),
   }]);
   const [conversationId, setConversationId] = useState<string | null>(null);
@@ -56,7 +71,6 @@ const Index = () => {
   const { toast } = useToast();
   const { state: sidebarState } = useSidebar();
 
-  // --- Effect Hooks ---
   useEffect(() => {
     const params = new URLSearchParams(location.search);
     const urlConversationId = params.get('conversation');
@@ -69,10 +83,10 @@ const Index = () => {
       setConversationId(urlConversationId);
       loadConversationMessages(urlConversationId);
     } else if (!user && !question) {
-       // Reset for logged-out user on base path
        setMessages([{
            content: "Hello! I'm Carl Allen's Expert Bot. Ask me anything...",
-           source: 'system', timestamp: new Date(),
+           source: 'system' as MessageSource, 
+           timestamp: new Date(),
        }]);
        setConversationId(null);
        setHasInteracted(false);
@@ -88,7 +102,6 @@ const Index = () => {
 
   }, [location.search, user]);
 
-  // Conversation delete watcher
   useEffect(() => {
     if (!user) return;
     const channel = supabase
@@ -99,7 +112,8 @@ const Index = () => {
           setConversationId(null);
           setMessages([{
             content: "Hello! I'm Carl Allen's Expert Bot...",
-            source: 'system', timestamp: new Date(),
+            source: 'system' as MessageSource, 
+            timestamp: new Date(),
           }]);
           setHasInteracted(false);
           setShowWelcome(true);
@@ -109,12 +123,10 @@ const Index = () => {
     return () => { supabase.removeChannel(channel); };
   }, [user, conversationId, navigate]);
 
-  // Scroll view
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
   }, [messages]);
 
-  // --- Data Loading ---
   const loadConversationMessages = async (id: string) => {
     if (!user) {
         navigate('/'); return;
@@ -130,9 +142,9 @@ const Index = () => {
         .order('created_at', { ascending: true });
       if (error) throw error;
       if (data && data.length > 0) {
-        const formattedMessages = data.map((msg): MessageProps => ({
+        const formattedMessages = data.map((msg: SupabaseMessage): MessageProps => ({
           content: msg.content,
-          source: msg.is_user ? 'user' : (msg.metadata?.source || 'gemini'),
+          source: msg.is_user ? 'user' : ((msg.metadata?.source as MessageSource) || 'gemini'),
           timestamp: new Date(msg.created_at),
           citation: msg.metadata?.citation
         }));
@@ -143,7 +155,9 @@ const Index = () => {
         const { data: convoData } = await supabase.from('conversations').select('id').eq('id', id).eq('user_id', user.id).maybeSingle();
         if (convoData) {
             setMessages([{
-                content: "Ask me anything...", source: 'system', timestamp: new Date(),
+                content: "Ask me anything...", 
+                source: 'system' as MessageSource, 
+                timestamp: new Date(),
             }]);
             setHasInteracted(false);
             setShowWelcome(false);
@@ -161,7 +175,6 @@ const Index = () => {
     }
   };
 
-  // --- Conversation Creation ---
   const createNewConversation = async () => {
     if (!user) return null;
     setIsLoading(true);
@@ -171,9 +184,19 @@ const Index = () => {
       if (error) throw error;
       if (data) {
         setConversationId(data.id);
-        const initialMsg = { content: "Hello! Ask me anything about M&A.", source: 'system', timestamp: new Date() };
+        const initialMsg = { 
+          content: "Hello! Ask me anything about M&A.", 
+          source: 'system' as MessageSource, 
+          timestamp: new Date() 
+        };
         setMessages([initialMsg]);
-        await supabase.from('messages').insert([{ conversation_id: data.id, user_id: user.id, content: initialMsg.content, is_user: false, metadata: { source: 'system' } }]);
+        await supabase.from('messages').insert([{ 
+          conversation_id: data.id, 
+          user_id: user.id, 
+          content: initialMsg.content, 
+          is_user: false, 
+          metadata: { source: 'system' } 
+        }]);
         setHasInteracted(false);
         setShowWelcome(false);
         navigate(`/?conversation=${data.id}`, { replace: true });
@@ -190,7 +213,6 @@ const Index = () => {
     }
   };
 
-  // --- Sending Messages ---
   const handleAskQuestion = (question: string) => {
       if (!user) {
           toast({ title: "Please sign in to start chatting", variant: "default" });
@@ -219,8 +241,17 @@ const Index = () => {
       isFirstUserInteraction = true;
     }
 
-    const userMessage: MessageProps = { content: trimmedMessage, source: 'user', timestamp: new Date() };
-    setMessages(prev => [...prev, userMessage, { content: '', source: 'system', isLoading: true, timestamp: new Date() }]);
+    const userMessage: MessageProps = { 
+      content: trimmedMessage, 
+      source: 'user' as MessageSource, 
+      timestamp: new Date() 
+    };
+    setMessages(prev => [...prev, userMessage, { 
+      content: '', 
+      source: 'system' as MessageSource, 
+      isLoading: true, 
+      timestamp: new Date() 
+    }]);
     setIsLoading(true);
 
     try {
@@ -228,9 +259,8 @@ const Index = () => {
         .filter(msg => !msg.isLoading)
         .map(msg => ({ content: msg.content, source: msg.source }))
         .slice(-10);
-      messageHistory.push({ content: trimmedMessage, source: 'user' });
+      messageHistory.push({ content: trimmedMessage, source: 'user' as MessageSource });
 
-      // Use the new function name 'gemini-chat'
       const { data, error } = await supabase.functions.invoke('gemini-chat', {
         body: {
           query: trimmedMessage,
@@ -247,14 +277,13 @@ const Index = () => {
 
       const responseMessage: MessageProps = {
         content: data.content,
-        source: data.source || 'gemini',
+        source: (data.source || 'gemini') as MessageSource,
         timestamp: new Date(),
         citation: data.citation
       };
 
       setMessages(prev => [...prev.filter(msg => !msg.isLoading), responseMessage]);
 
-      // Save messages
       await supabase.from('messages').insert([
         { conversation_id: currentConvId, user_id: user.id, content: trimmedMessage, is_user: true },
         {
@@ -264,7 +293,6 @@ const Index = () => {
         }
       ]);
 
-      // Set audio source for the player *if* audio is enabled globally and content was returned
       if (audioEnabled && data.audioContent) {
         setCurrentAudioSrc(`data:audio/mp3;base64,${data.audioContent}`);
       } else {
@@ -279,7 +307,7 @@ const Index = () => {
       console.error('Error in handleSendMessage:', error);
       setMessages(prev => [
         ...prev.filter(msg => !msg.isLoading),
-        { content: `Error: ${error instanceof Error ? error.message : 'Request failed.'}`, source: 'system', timestamp: new Date() }
+        { content: `Error: ${error instanceof Error ? error.message : 'Request failed.'}`, source: 'system' as MessageSource, timestamp: new Date() }
       ]);
       toast({ title: "Error Processing Message", description: error instanceof Error ? error.message : "Please try again.", variant: "destructive" });
       setCurrentAudioSrc(null);
@@ -288,7 +316,6 @@ const Index = () => {
     }
   };
 
-  // --- Audio Controls ---
   const toggleAudio = () => {
     const willBeEnabled = !audioEnabled;
     setAudioEnabled(willBeEnabled);
@@ -301,13 +328,11 @@ const Index = () => {
     });
   };
 
-  // Called by the AudioPlayer component when its internal stop button is pressed
   const handleAudioPlayerStop = () => {
       setCurrentAudioSrc(null);
   };
 
-  // --- Other Handlers ---
-   const handleToggleOnlineSearch = (enabled: boolean) => {
+  const handleToggleOnlineSearch = (enabled: boolean) => {
      setEnableOnlineSearch(enabled);
      toast({ title: enabled ? "Online Search Enabled" : "Online Search Disabled" });
    };
@@ -317,7 +342,6 @@ const Index = () => {
      toast({ title: "File Upload Note", description: `File "${files[0].name}" selected. Analysis feature not implemented.` });
    };
 
-  // --- Render Logic ---
   return (
     <SidebarProvider>
       <div className="flex h-screen w-full overflow-hidden">
@@ -333,7 +357,6 @@ const Index = () => {
            onCreateNew={() => {
                 setCurrentAudioSrc(null);
                 if (user) {
-                    // Create new convo optimistically, useEffect will load it
                     createNewConversation();
                 } else {
                     navigate('/', { replace: true });
@@ -371,18 +394,15 @@ const Index = () => {
                    </div>
                  </ScrollArea>
 
-                 {/* Input Bar & Audio Player Area */} 
                  <div className={cn(
                    "absolute bottom-0 left-0 right-0 border-t bg-background/80 backdrop-blur-sm z-10",
                  )}>
                    <div className="max-w-3xl mx-auto px-4 pt-3 pb-4 space-y-3">
-                        {/* Conditionally render AudioPlayer */} 
                         {currentAudioSrc && (
                             <AudioPlayer
                                 audioSrc={currentAudioSrc}
                                 onStop={handleAudioPlayerStop} // Function to call when player stops itself
                                 className="mb-2"
-                                // Consider adding isPlayingExternally={audioEnabled} if needed for sync
                             />
                         )}
 

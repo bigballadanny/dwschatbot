@@ -19,7 +19,7 @@ import {
   identifyInsightfulQueries
 } from '@/utils/analyticsUtils';
 import { checkAnalyticsTable } from '@/utils/analyticsDbCheck';
-import { LineChart, BarChart, PieChart } from '@/components/ui/charts';
+import { LineChart, BarChart, PieChart, DataPoint } from '@/components/ui/charts';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { useToast } from "@/components/ui/use-toast";
 
@@ -39,7 +39,11 @@ interface AnalyticsData {
   used_online_search: boolean | null;
 }
 
-interface QueryThemeData { theme: string; count: number; }
+interface QueryThemeData { 
+  theme: string; 
+  count: number; 
+  [key: string]: string | number;
+}
 interface InsightfulQuery { query: string; reason: string; score: number; source?: string | null; }
 interface UserEngagement { 
   uniqueConversations: number; 
@@ -178,13 +182,21 @@ const Analytics = () => {
 
   const handleRefresh = () => loadAnalyticsData();
 
-  const generateUsageByHourData = () => {
+  const generateUsageByHourData = (): DataPoint[] => {
     const hourCounts = Array(24).fill(0);
-    analyticsData.forEach(item => { hourCounts[new Date(item.created_at).getHours()]++; });
-    return hourCounts.map((count, hour) => ({ hour: `${hour}:00`, queries: count }));
+    analyticsData.forEach(item => { 
+      const hour = new Date(item.created_at).getHours();
+      if (hour >= 0 && hour < 24) {
+        hourCounts[hour]++;
+      }
+    });
+    return hourCounts.map((count, hour) => ({ 
+      hour: `${hour}:00`, 
+      queries: count 
+    }));
   };
   
-  const generateDailyQueryVolumeData = () => {
+  const generateDailyQueryVolumeData = (): DataPoint[] => {
     const dailyData: Record<string, number> = {};
     analyticsData.forEach(item => {
       const date = new Date(item.created_at).toLocaleDateString([], { year: 'numeric', month: 'short', day: 'numeric' });
@@ -195,10 +207,13 @@ const Analytics = () => {
       .map(([date, count]) => ({ date, queries: count }));
   };
   
-  const getPieData = (generatorFn: () => { name: string; value: number }[]) => {
+  const getPieData = (generatorFn: () => { name: string; value: number }[]): DataPoint[] => {
     try {
       const data = generatorFn();
-      return data && data.length > 0 ? data.filter(item => item.value > 0) : [];
+      return data && data.length > 0 ? data.filter(item => item.value > 0).map(item => ({
+        name: item.name,
+        value: item.value
+      })) : [];
     } catch (error) {
       console.error('Error generating pie chart data:', error);
       return []; // Return empty array on error
@@ -301,7 +316,15 @@ const Analytics = () => {
                     <CardDescription className="text-sm">Queries per day.</CardDescription>
                   </CardHeader>
                   <CardContent className="h-[300px] sm:h-[350px]">
-                    <LineChart data={generateDailyQueryVolumeData()} index="date" categories={["queries"]} colors={["#f59e0b"]} valueFormatter={(v) => `${v}`} showLegend={false} yAxisWidth={30} className="h-full" />
+                    <LineChart 
+                      data={generateDailyQueryVolumeData()} 
+                      index="date" 
+                      categories={["queries"]} 
+                      colors={["#f59e0b"]} 
+                      valueFormatter={(v) => `${v}`} 
+                      showLegend={false} 
+                      className="h-full" 
+                    />
                   </CardContent>
                 </Card>
               </TabsContent>
@@ -391,14 +414,13 @@ const Analytics = () => {
                    </CardHeader>
                    <CardContent className="h-[350px] sm:h-[400px]">
                      <BarChart 
-                       data={queryThemesData} 
+                       data={queryThemesData as DataPoint[]}
                        index="theme" 
                        categories={["count"]} 
                        colors={["#1E88E5"]} 
                        layout="vertical" 
                        valueFormatter={(v) => `${v}`} 
                        showLegend={false} 
-                       yAxisWidth={140} 
                        className="h-full" 
                      />
                    </CardContent>
@@ -439,7 +461,15 @@ const Analytics = () => {
                     <CardDescription className="text-sm">Activity pattern (user's local time).</CardDescription>
                   </CardHeader>
                   <CardContent className="h-[300px] sm:h-[350px]">
-                    <BarChart data={generateUsageByHourData()} index="hour" categories={["queries"]} colors={["#82ca9d"]} valueFormatter={(v) => `${v}`} showLegend={false} yAxisWidth={30} className="h-full" />
+                    <BarChart 
+                      data={generateUsageByHourData()} 
+                      index="hour" 
+                      categories={["queries"]} 
+                      colors={["#82ca9d"]} 
+                      valueFormatter={(v) => `${v}`} 
+                      showLegend={false} 
+                      className="h-full" 
+                    />
                   </CardContent>
                 </Card>
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
