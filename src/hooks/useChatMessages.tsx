@@ -1,4 +1,3 @@
-
 import { useState, useEffect } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/components/ui/use-toast';
@@ -26,7 +25,7 @@ interface SupabaseMessage {
   user_id?: string;
 }
 
-// Define a completely separate, non-recursive type for API communication
+// Separate type for API communication to avoid recursive type references
 interface ApiMessage {
   role: 'user' | 'assistant' | 'system';
   content: string;
@@ -91,7 +90,7 @@ export function useChatMessages({
 
   const loadConversationMessages = async (id: string) => {
     if (!user) {
-        navigate('/'); 
+        navigate('/');
         return;
     }
     setIsLoading(true);
@@ -218,11 +217,10 @@ export function useChatMessages({
     setIsLoading(true);
 
     try {
-      // Create a completely separate message array for API communication
-      // This breaks the recursive type reference that causes the TS error
+      // Create a flat array of API messages to avoid recursive references
       const apiMessages: ApiMessage[] = [];
       
-      // Convert existing messages to the simplified API format
+      // Convert existing messages to the API format
       messages.filter(msg => !msg.isLoading).forEach(msg => {
         apiMessages.push({
           role: msg.source === 'user' ? 'user' : 'assistant',
@@ -230,7 +228,7 @@ export function useChatMessages({
         });
       });
       
-      // Add the new message
+      // Add the new user message
       apiMessages.push({ 
         role: 'user', 
         content: trimmedMessage 
