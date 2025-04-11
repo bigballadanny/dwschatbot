@@ -11,7 +11,7 @@ export interface MessageData {
   isLoading?: boolean;
 }
 
-// Separate type for API communication with simpler structure
+// Define API message format completely separate from MessageData
 export interface ApiMessage {
   role: 'user' | 'assistant' | 'system';
   content: string;
@@ -133,28 +133,35 @@ export function useMessages({ userId, conversationId }: UseMessagesProps) {
     ]);
   };
 
-  // Fixed function to avoid recursive type problems
+  // Completely rewritten to avoid any recursive type issues
   const formatMessagesForApi = (newMessageContent: string): ApiMessage[] => {
-    // Start with a clean array of API format messages
-    const apiMessages: ApiMessage[] = [];
+    // Create a brand new array from scratch instead of modifying
+    const result: ApiMessage[] = [];
     
-    // Convert existing messages
+    // Map existing messages to the simple API format
     for (const msg of messages) {
-      if (!msg.isLoading) {
-        apiMessages.push({
-          role: msg.source === 'user' ? 'user' : 'assistant',
-          content: msg.content
-        });
-      }
+      // Skip loading messages
+      if (msg.isLoading) continue;
+      
+      // Map our UI message format to the API format
+      const role: 'user' | 'assistant' | 'system' = 
+        msg.source === 'user' ? 'user' : 
+        msg.source === 'system' ? 'system' : 'assistant';
+      
+      // Push to our new array
+      result.push({
+        role: role, 
+        content: msg.content
+      });
     }
     
-    // Add the new message
-    apiMessages.push({
+    // Add the new message separately
+    result.push({
       role: 'user',
       content: newMessageContent
     });
-
-    return apiMessages;
+    
+    return result;
   };
 
   return {
