@@ -1,382 +1,190 @@
+
 import { SupabaseClient } from '@supabase/supabase-js';
 
+// Define types for our analytics data
+interface BaseAnalyticsData {
+  userId?: string;
+  query: string;
+  response: string;
+  conversationId?: string;
+  source: string;
+  responseTime: number;
+  tokensUsed: number;
+  cost: number;
+  isAudioEnabled: boolean;
+}
+
+interface AudioAnalyticsData {
+  audioDuration: number | null;
+  audioCost: number | null;
+  audioTokens: number | null;
+}
+
+interface ModelData {
+  geminiModel: string;
+  geminiApiKey?: string;
+  geminiEmbeddingModel?: string;
+  geminiEmbeddingApiKey?: string;
+}
+
+interface EmbeddingData {
+  embeddingTime: number | null;
+  embeddingTokens: number | null;
+  embeddingCost: number | null;
+}
+
+interface VectorSearchData {
+  isVectorSearch: boolean;
+  vectorSearchTime: number | null;
+  vectorSearchCost: number | null;
+  vectorSearchResults: number | null;
+}
+
+interface RagData {
+  isRagEnabled: boolean;
+  ragTime: number | null;
+  ragCost: number | null;
+  ragResults: number | null;
+}
+
+interface ToolUseData {
+  isToolUse: boolean;
+  toolUseTime: number | null;
+  toolUseCost: number | null;
+  toolUseResults: number | null;
+  toolUseTokens: number | null;
+  toolUseName: string | null;
+  toolUseDescription: string | null;
+  toolUseInput: string | null;
+  toolUseOutput: string | null;
+  toolUseError: string | null;
+  toolUseSuccess: boolean | null;
+  toolUseModel: string | null;
+  toolUseApiKey: string | null;
+}
+
+interface ToolEmbeddingData {
+  toolUseEmbeddingModel: string | null;
+  toolUseEmbeddingApiKey: string | null;
+  toolUseEmbeddingTime: number | null;
+  toolUseEmbeddingCost: number | null;
+  toolUseEmbeddingTokens: number | null;
+}
+
+interface ToolVectorData {
+  toolUseVectorSearch: boolean | null;
+  toolUseVectorSearchTime: number | null;
+  toolUseVectorSearchCost: number | null;
+  toolUseVectorSearchResults: number | null;
+}
+
+interface ToolRagData {
+  toolUseRag: boolean | null;
+  toolUseRagTime: number | null;
+  toolUseRagCost: number | null;
+  toolUseRagResults: number | null;
+}
+
+interface ToolLlmData {
+  toolUseLlm: string | null;
+  toolUseLlmTime: number | null;
+  toolUseLlmCost: number | null;
+  toolUseLlmTokens: number | null;
+  toolUseLlmError: string | null;
+  toolUseLlmSuccess: boolean | null;
+  toolUseLlmModel: string | null;
+  toolUseLlmApiKey: string | null;
+}
+
+// Combined analytics data interface
+export interface AnalyticsData extends 
+  BaseAnalyticsData, 
+  AudioAnalyticsData, 
+  ModelData, 
+  EmbeddingData, 
+  VectorSearchData, 
+  RagData, 
+  ToolUseData, 
+  ToolEmbeddingData, 
+  ToolVectorData, 
+  ToolRagData, 
+  ToolLlmData {}
+
+/**
+ * Log analytics data to Supabase
+ * @param supabase Supabase client
+ * @param data Analytics data object containing all parameters
+ */
 export const logAnalytics = async (
   supabase: SupabaseClient,
-  userId: string | undefined,
-  query: string,
-  response: string,
-  conversationId: string | undefined,
-  source: string,
-  responseTime: number,
-  tokensUsed: number,
-  cost: number,
-  isAudioEnabled: boolean,
-  audioDuration: number | null,
-  audioCost: number | null,
-  audioTokens: number | null,
-  geminiModel: string,
-  geminiApiKey: string | undefined,
-  geminiEmbeddingModel: string | undefined,
-  geminiEmbeddingApiKey: string | undefined,
-  embeddingTime: number | null,
-  embeddingTokens: number | null,
-  embeddingCost: number | null,
-  isVectorSearch: boolean,
-  vectorSearchTime: number | null,
-  vectorSearchCost: number | null,
-  vectorSearchResults: number | null,
-  isRagEnabled: boolean,
-  ragTime: number | null,
-  ragCost: number | null,
-  ragResults: number | null,
-  isToolUse: boolean,
-  toolUseTime: number | null,
-  toolUseCost: number | null,
-  toolUseResults: number | null,
-  toolUseTokens: number | null,
-  toolUseName: string | null,
-  toolUseDescription: string | null,
-  toolUseInput: string | null,
-  toolUseOutput: string | null,
-  toolUseError: string | null,
-  toolUseSuccess: boolean | null,
-  toolUseModel: string | null,
-  toolUseApiKey: string | null,
-  toolUseEmbeddingModel: string | null,
-  toolUseEmbeddingApiKey: string | null,
-  toolUseEmbeddingTime: number | null,
-  toolUseEmbeddingCost: number | null,
-  toolUseEmbeddingTokens: number | null,
-  toolUseVectorSearch: boolean | null,
-  toolUseVectorSearchTime: number | null,
-  toolUseVectorSearchCost: number | null,
-  toolUseVectorSearchResults: number | null,
-  toolUseRag: boolean | null,
-  toolUseRagTime: number | null,
-  toolUseRagCost: number | null,
-  toolUseRagResults: number | null,
-  toolUseLlm: string | null,
-  toolUseLlmTime: number | null,
-  toolUseLlmCost: number | null,
-  toolUseLlmTokens: number | null,
-  toolUseLlmError: string | null,
-  toolUseLlmSuccess: boolean | null,
-  toolUseLlmModel: string | null,
-  toolUseLlmApiKey: string | null,
-  toolUseLlmEmbeddingModel: string | null,
-  toolUseLlmEmbeddingApiKey: string | null,
-  toolUseLlmEmbeddingTime: number | null,
-  toolUseLlmEmbeddingCost: number | null,
-  toolUseLlmEmbeddingTokens: number | null,
-  toolUseLlmVectorSearch: boolean | null,
-  toolUseLlmVectorSearchTime: number | null,
-  toolUseLlmVectorSearchCost: number | null,
-  toolUseLlmVectorSearchResults: number | null,
-  toolUseLlmRag: boolean | null,
-  toolUseLlmRagTime: number | null,
-  toolUseLlmRagCost: number | null,
-  toolUseLlmRagResults: number | null,
-  toolUseLlmName: string | null,
-  toolUseLlmDescription: string | null,
-  toolUseLlmInput: string | null,
-  toolUseLlmOutput: string | null,
-  toolUseLlmError: string | null,
-  toolUseLlmSuccess: boolean | null,
-  toolUseLlmModel: string | null,
-  toolUseLlmApiKey: string | null,
-  toolUseLlmEmbeddingModel: string | null,
-  toolUseLlmEmbeddingApiKey: string | null,
-  toolUseLlmEmbeddingTime: number | null,
-  toolUseLlmEmbeddingCost: number | null,
-  toolUseLlmEmbeddingTokens: number | null,
-  toolUseLlmVectorSearch: boolean | null,
-  toolUseLlmVectorSearchTime: number | null,
-  toolUseLlmVectorSearchCost: number | null,
-  toolUseLlmVectorSearchResults: number | null,
-  toolUseLlmRag: boolean | null,
-  toolUseLlmRagTime: number | null,
-  toolUseLlmRagCost: number | null,
-  toolUseLlmRagResults: number | null,
-  toolUseLlmLlm: string | null,
-  toolUseLlmLlmTime: number | null,
-  toolUseLlmLlmCost: number | null,
-  toolUseLlmLlmTokens: number | null,
-  toolUseLlmLlmError: string | null,
-  toolUseLlmLlmSuccess: boolean | null,
-  toolUseLlmLlmModel: string | null,
-  toolUseLlmLlmApiKey: string | null,
-  toolUseLlmLlmEmbeddingModel: string | null,
-  toolUseLlmLlmEmbeddingApiKey: string | null,
-  toolUseLlmLlmEmbeddingTime: number | null,
-  toolUseLlmLlmEmbeddingCost: number | null,
-  toolUseLlmLlmEmbeddingTokens: number | null,
-  toolUseLlmLlmVectorSearch: boolean | null,
-  toolUseLlmLlmVectorSearchTime: number | null,
-  toolUseLlmLlmVectorSearchCost: number | null,
-  toolUseLlmLlmVectorSearchResults: number | null,
-  toolUseLlmLlmRag: boolean | null,
-  toolUseLlmLlmRagTime: number | null,
-  toolUseLlmLlmRagCost: number | null,
-  toolUseLlmLlmRagResults: number | null,
-  toolUseLlmLlmLlm: string | null,
-  toolUseLlmLlmTime: number | null,
-  toolUseLlmLlmCost: number | null,
-  toolUseLlmLlmTokens: number | null,
-  toolUseLlmLlmError: string | null,
-  toolUseLlmLlmSuccess: boolean | null,
-  toolUseLlmLlmModel: string | null,
-  toolUseLlmLlmApiKey: string | null,
-  toolUseLlmLlmEmbeddingModel: string | null,
-  toolUseLlmLlmEmbeddingApiKey: string | null,
-  toolUseLlmLlmEmbeddingTime: number | null,
-  toolUseLlmLlmEmbeddingCost: number | null,
-  toolUseLlmLlmEmbeddingTokens: number | null,
-  toolUseLlmLlmVectorSearch: boolean | null,
-  toolUseLlmLlmVectorSearchTime: number | null,
-  toolUseLlmLlmVectorSearchCost: number | null,
-  toolUseLlmLlmVectorSearchResults: number | null,
-  toolUseLlmLlmRag: boolean | null,
-  toolUseLlmLlmRagTime: number | null,
-  toolUseLlmLlmRagCost: number | null,
-  toolUseLlmLlmRagResults: number | null,
-  toolUseLlmLlmLlm: string | null,
-  toolUseLlmLlmLlmTime: number | null,
-  toolUseLlmLlmLlmCost: number | null,
-  toolUseLlmLlmLlmTokens: number | null,
-  toolUseLlmLlmLlmError: string | null,
-  toolUseLlmLlmLlmSuccess: boolean | null,
-  toolUseLlmLlmLlmModel: string | null,
-  toolUseLlmLlmLlmApiKey: string | null,
-  toolUseLlmLlmLlmEmbeddingModel: string | null,
-  toolUseLlmLlmLlmEmbeddingApiKey: string | null,
-  toolUseLlmLlmLlmEmbeddingTime: number | null,
-  toolUseLlmLlmLlmEmbeddingCost: number | null,
-  toolUseLlmLlmLlmEmbeddingTokens: number | null,
-  toolUseLlmLlmLlmVectorSearch: boolean | null,
-  toolUseLlmLlmLlmVectorSearchTime: number | null,
-  toolUseLlmLlmLlmVectorSearchCost: number | null,
-  toolUseLlmLlmLlmVectorSearchResults: number | null,
-  toolUseLlmLlmLlmRag: boolean | null,
-  toolUseLlmLlmLlmRagTime: number | null,
-  toolUseLlmLlmLlmRagCost: number | null,
-  toolUseLlmLlmLlmRagResults: number | null,
-  toolUseLlmLlmLlmLlm: string | null,
-  toolUseLlmLlmLlmLlmTime: number | null,
-  toolUseLlmLlmLlmLlmCost: number | null,
-  toolUseLlmLlmLlmLlmTokens: number | null,
-  toolUseLlmLlmLlmLlmError: string | null,
-  toolUseLlmLlmLlmLlmSuccess: boolean | null,
-  toolUseLlmLlmLlmLlmModel: string | null,
-  toolUseLlmLlmLlmLlmApiKey: string | null,
-  toolUseLlmLlmLlmLlmEmbeddingModel: string | null,
-  toolUseLlmLlmLlmLlmEmbeddingApiKey: string | null,
-  toolUseLlmLlmLlmLlmEmbeddingTime: number | null,
-  toolUseLlmLlmLlmLlmEmbeddingCost: number | null,
-  toolUseLlmLlmLlmLlmEmbeddingTokens: number | null,
-  toolUseLlmLlmLlmLlmVectorSearch: boolean | null,
-  toolUseLlmLlmLlmLlmVectorSearchTime: number | null,
-  toolUseLlmLlmLlmLlmVectorSearchCost: number | null,
-  toolUseLlmLlmLlmLlmVectorSearchResults: number | null,
-  toolUseLlmLlmLlmLlmRag: boolean | null,
-  toolUseLlmLlmLlmLlmRagTime: number | null,
-  toolUseLlmLlmLlmLlmRagCost: number | null,
-  toolUseLlmLlmLlmLlmRagResults: number | null,
-  toolUseLlmLlmLlmLlmLlm: string | null,
-  toolUseLlmLlmLlmLlmLlmTime: number | null,
-  toolUseLlmLlmLlmLlmLlmCost: number | null,
-  toolUseLlmLlmLlmLlmLlmTokens: number | null,
-  toolUseLlmLlmLlmLlmLlmError: string | null,
-  toolUseLlmLlmLlmLlmLlmSuccess: boolean | null,
-  toolUseLlmLlmLlmLlmLlmModel: string | null,
-  toolUseLlmLlmLlmLlmLlmApiKey: string | null,
-  toolUseLlmLlmLlmLlmLlmEmbeddingModel: string | null,
-  toolUseLlmLlmLlmLlmLlmEmbeddingApiKey: string | null,
-  toolUseLlmLlmLlmLlmLlmEmbeddingTime: number | null,
-  toolUseLlmLlmLlmLlmLlmEmbeddingCost: number | null,
-  toolUseLlmLlmLlmLlmLlmEmbeddingTokens: number | null,
-  toolUseLlmLlmLlmLlmLlmVectorSearch: boolean | null,
-  toolUseLlmLlmLlmLlmLlmVectorSearchTime: number | null,
-  toolUseLlmLlmLlmLlmLlmVectorSearchCost: number | null,
-  toolUseLlmLlmLlmLlmLlmVectorSearchResults: number | null,
-  toolUseLlmLlmLlmLlmLlmRag: boolean | null,
-  toolUseLlmLlmLlmLlmLlmRagTime: number | null,
-  toolUseLlmLlmLlmLlmLlmRagCost: number | null,
-  toolUseLlmLlmLlmLlmLlmRagResults: number | null,
-  toolUseLlmLlmLlmLlmLlmLlm: string | null,
-  toolUseLlmLlmLlmLlmLlmLlmTime: number | null,
-  toolUseLlmLlmLlmLlmLlmLlmCost: number | null,
-  toolUseLlmLlmLlmLlmLlmLlmTokens: number | null,
-  toolUseLlmLlmLlmLlmLlmLlmError: string | null,
-  toolUseLlmLlmLlmLlmLlmLlmSuccess: boolean | null,
-  toolUseLlmLlmLlmLlmLlmLlmModel: string | null,
-  toolUseLlmLlmLlmLlmLlmLlmApiKey: string | null,
-  toolUseLlmLlmLlmLlmLlmLlmEmbeddingModel: string | null,
-  toolUseLlmLlmLlmLlmLlmLlmEmbeddingApiKey: string | null,
-  toolUseLlmLlmLlmLlmLlmLlmEmbeddingTime: number | null,
-  toolUseLlmLlmLlmLlmLlmLlmEmbeddingCost: number | null,
-  toolUseLlmLlmLlmLlmLlmLlmEmbeddingTokens: number | null,
-  toolUseLlmLlmLlmLlmLlmLlmVectorSearch: boolean | null,
-  toolUseLlmLlmLlmLlmLlmLlmVectorSearchTime: number | null,
-  toolUseLlmLlmLlmLlmLlmLlmVectorSearchCost: number | null,
-  toolUseLlmLlmLlmLlmLlmLlmVectorSearchResults: number | null,
-  toolUseLlmLlmLlmLlmLlmLlmRag: boolean | null,
-  toolUseLlmLlmLlmLlmLlmLlmRagTime: number | null,
-  toolUseLlmLlmLlmLlmLlmLlmRagCost: number | null,
-  toolUseLlmLlmLlmLlmLlmLlmRagResults: number | null,
-  toolUseLlmLlmLlmLlmLlmLlmLlm: string | null,
-  toolUseLlmLlmLlmLlmLlmLlmLlmTime: number | null,
-  toolUseLlmLlmLlmLlmLlmLlmLlmCost: number | null,
-  toolUseLlmLlmLlmLlmLlmLlmLlmTokens: number | null,
-  toolUseLlmLlmLlmLlmLlmLlmLlmError: string | null,
-  toolUseLlmLlmLlmLlmLlmLlmLlmSuccess: boolean | null,
-  toolUseLlmLlmLlmLlmLlmLlmLlmModel: string | null,
-  toolUseLlmLlmLlmLlmLlmLlmLlmApiKey: string | null,
-  toolUseLlmLlmLlmLlmLlmLlmLlmEmbeddingModel: string | null,
-  toolUseLlmLlmLlmLlmLlmLlmLlmEmbeddingApiKey: string | null,
-  toolUseLlmLlmLlmLlmLlmLlmLlmEmbeddingTime: number | null,
-  toolUseLlmLlmLlmLlmLlmLlmLlmEmbeddingCost: number | null,
-  toolUseLlmLlmLlmLlmLlmLlmLlmEmbeddingTokens: number | null,
-  toolUseLlmLlmLlmLlmLlmLlmLlmVectorSearch: boolean | null,
-  toolUseLlmLlmLlmLlmLlmLlmLlmVectorSearchTime: number | null,
-  toolUseLlmLlmLlmLlmLlmLlmLlmVectorSearchCost: number | null,
-  toolUseLlmLlmLlmLlmLlmLlmLlmVectorSearchResults: number | null,
-  toolUseLlmLlmLlmLlmLlmLlmLlmRag: boolean | null,
-  toolUseLlmLlmLlmLlmLlmLlmLlmRagTime: number | null,
-  toolUseLlmLlmLlmLlmLlmLlmLlmRagCost: number | null,
-  toolUseLlmLlmLlmLlmLlmLlmLlmRagResults: number | null,
-  toolUseLlmLlmLlmLlmLlmLlmLlmLlm: string | null,
-  toolUseLlmLlmLlmLlmLlmLlmLlmLlmTime: number | null,
-  toolUseLlmLlmLlmLlmLlmLlmLlmLlmCost: number | null,
-  toolUseLlmLlmLlmLlmLlmLlmLlmLlmTokens: number | null,
-  toolUseLlmLlmLlmLlmLlmLlmLlmLlmError: string | null,
-  toolUseLlmLlmLlmLlmLlmLlmLlmLlmSuccess: boolean | null,
-  toolUseLlmLlmLlmLlmLlmLlmLlmLlmModel: string | null,
-  toolUseLlmLlmLlmLlmLlmLlmLlmLlmApiKey: string | null,
-  toolUseLlmLlmLlmLlmLlmLlmLlmLlmEmbeddingModel: string | null,
-  toolUseLlmLlmLlmLlmLlmLlmLlmLlmEmbeddingApiKey: string | null,
-  toolUseLlmLlmLlmLlmLlmLlmLlmLlmEmbeddingTime: number | null,
-  toolUseLlmLlmLlmLlmLlmLlmLlmLlmEmbeddingCost: number | null,
-  toolUseLlmLlmLlmLlmLlmLlmLlmLlmEmbeddingTokens: number | null,
-  toolUseLlmLlmLlmLlmLlmLlmLlmLlmVectorSearch: boolean | null,
-  toolUseLlmLlmLlmLlmLlmLlmLlmLlmVectorSearchTime: number | null,
-  toolUseLlmLlmLlmLlmLlmLlmLlmLlmVectorSearchCost: number | null,
-  toolUseLlmLlmLlmLlmLlmLlmLlmLlmVectorSearchResults: number | null,
-  toolUseLlmLlmLlmLlmLlmLlmLlmLlmRag: boolean | null,
-  toolUseLlmLlmLlmLlmLlmLlmLlmLlmRagTime: number | null,
-  toolUseLlmLlmLlmLlmLlmLlmLlmLlmRagCost: number | null,
-  toolUseLlmLlmLlmLlmLlmLlmLlmLlmRagResults: number | null,
-  toolUseLlmLlmLlmLlmLlmLlmLlmLlmLlm: string | null,
-  toolUseLlmLlmLlmLlmLlmLlmLlmLlmLlmTime: number | null,
-  toolUseLlmLlmLlmLlmLlmLlmLlmLlmLlmCost: number | null,
-  toolUseLlmLlmLlmLlmLlmLlmLlmLlmLlmTokens: number | null,
-  toolUseLlmLlmLlmLlmLlmLlmLlmLlmLlmError: string | null,
-  toolUseLlmLlmLlmLlmLlmLlmLlmLlmLlmSuccess: boolean | null,
-  toolUseLlmLlmLlmLlmLlmLlmLlmLlmLlmModel: string | null,
-  toolUseLlmLlmLlmLlmLlmLlmLlmLlmLlmApiKey: string | null,
-  toolUseLlmLlmLlmLlmLlmLlmLlmLlmLlmEmbeddingModel: string | null,
-  toolUseLlmLlmLlmLlmLlmLlmLlmLlmLlmEmbeddingApiKey: string | null,
-  toolUseLlmLlmLlmLlmLlmLlmLlmLlmLlmEmbeddingTime: number | null,
-  toolUseLlmLlmLlmLlmLlmLlmLlmLlmLlmEmbeddingCost: number | null,
-  toolUseLlmLlmLlmLlmLlmLlmLlmLlmLlmEmbeddingTokens: number | null,
-  toolUseLlmLlmLlmLlmLlmLlmLlmLlmLlmVectorSearch: boolean | null,
-  toolUseLlmLlmLlmLlmLlmLlmLlmLlmLlmVectorSearchTime: number | null,
-  toolUseLlmLlmLlmLlmLlmLlmLlmLlmLlmVectorSearchCost: number | null,
-  toolUseLlmLlmLlmLlmLlmLlmLlmLlmLlmVectorSearchResults: number | null,
-  toolUseLlmLlmLlmLlmLlmLlmLlmLlmLlmRag: boolean | null,
-  toolUseLlmLlmLlmLlmLlmLlmLlmLlmLlmRagTime: number | null,
-  toolUseLlmLlmLlmLlmLlmLlmLlmLlmLlmRagCost: number | null,
-  toolUseLlmLlmLlmLlmLlmLlmLlmLlmLlmRagResults: number | null,
-  toolUseLlmLlmLlmLlmLlmLlmLlmLlmLlmLlm: string | null,
-  toolUseLlmLlmLlmLlmLlmLlmLlmLlmLlmLlmTime: number | null,
-  toolUseLlmLlmLlmLlmLlmLlmLlmLlmLlmLlmCost: number | null,
-  toolUseLlmLlmLlmLlmLlmLlmLlmLlmLlmLlmTokens: number | null,
-  toolUseLlmLlmLlmLlmLlmLlmLlmLlmLlmLlmError: string | null,
-  toolUseLlmLlmLlmLlmLlmLlmLlmLlmLlmLlmSuccess: boolean | null,
-  toolUseLlmLlmLlmLlmLlmLlmLlmLlmLlmLlmModel: string | null,
-  toolUseLlmLlmLlmLlmLlmLlmLlmLlmLlmLlmApiKey: string | null,
-  toolUseLlmLlmLlmLlmLlmLlmLlmLlmLlmLlmEmbeddingModel: string | null,
-  toolUseLlmLlmLlmLlmLlmLlmLlmLlmLlmLlmEmbeddingApiKey: string | null,
-  toolUseLlmLlmLlmLlmLlmLlmLlmLlmLlmLlmEmbeddingTime: number | null,
-  toolUseLlmLlmLlmLlmLlmLlmLlmLlmLlmLlmEmbeddingCost: number | null,
-  toolUseLlmLlmLlmLlmLlmLlmLlmLlmLlmLlmEmbeddingTokens: number | null,
-  toolUseLlmLlmLlmLlmLlmLlmLlmLlmLlmLlmVectorSearch: boolean | null,
-  toolUseLlmLlmLlmLlmLlmLlmLlmLlmLlmLlmVectorSearchTime: number | null,
-  toolUseLlmLlmLlmLlmLlmLlmLlmLlmLlmLlmVectorSearchCost: number | null,
-  toolUseLlmLlmLlmLlmLlmLlmLlmLlmLlmLlmVectorSearchResults: number | null,
-  toolUseLlmLlmLlmLlmLlmLlmLlmLlmLlmLlmRag: boolean | null,
-  toolUseLlmLlmLlmLlmLlmLlmLlmLlmLlmLlmRagTime: number | null,
-  toolUseLlmLlmLlmLlmLlmLlmLlmLlmLlmLlmRagCost: number | null,
-  toolUseLlmLlmLlmLlmLlmLlmLlmLlmLlmLlmRagResults: number | null,
-  toolUseLlmLlmLlmLlmLlmLlmLlmLlmLlmLlmLlm: string | null,
-  toolUseLlmLlmLlmLlmLlmLlmLlmLlmLlmLlmLlmTime: number | null,
-  toolUseLlmLlmLlmLlmLlmLlmLlmLlmLlmLlmLlmCost: number | null,
-  toolUseLlmLlmLlmLlmLlmLlmLlmLlmLlmLlmLlmTokens: number | null,
-  toolUseLlmLlmLlmLlmLlmLlmLlmLlmLlmLlmLlmError: string | null,
-  toolUseLlmLlmLlmLlmLlmLlmLlmLlmLlmLlmLlmSuccess: boolean | null,
-  toolUseLlmLlmLlmLlmLlmLlmLlmLlmLlmLlmLlmModel: string | null,
-  toolUseLlmLlmLlmLlmLlmLlmLlmLlmLlmLlmLlmApiKey: string | null,
-  toolUseLlmLlmLlmLlmLlmLlmLlmLlmLlmLlmLlmEmbeddingModel: string | null,
-  toolUseLlmLlmLlmLlmLlmLlmLlmLlmLlmLlmLlmEmbeddingApiKey: string | null,
-  toolUseLlmLlmLlmLlmLlmLlmLlmLlmLlmLlmLlmEmbeddingTime: number | null,
-  toolUseLlmLlmLlmLlmLlmLlmLlmLlmLlmLlmLlmEmbeddingCost: number | null,
-  toolUseLlmLlmLlmLlmLlmLlmLlmLlmLlmLlmLlmEmbeddingTokens: number | null,
-  toolUseLlmLlmLlmLlmLlmLlmLlmLlmLlmLlmLlmVectorSearch: boolean | null,
-  toolUseLlmLlmLlmLlmLlmLlmLlmLlmLlmLlmLlmVectorSearchTime: number | null,
-  toolUseLlmLlmLlmLlmLlmLlmLlmLlmLlmLlmLlmVectorSearchCost: number | null,
-  toolUseLlmLlmLlmLlmLlmLlmLlmLlmLlmLlmLlmVectorSearchResults: number | null,
-  toolUseLlmLlmLlmLlmLlmLlmLlmLlmLlmLlmLlmRag: boolean | null,
-  toolUseLlmLlmLlmLlmLlmLlmLlmLlmLlmLlmLlmRagTime: number | null,
-  toolUseLlmLlmLlmLlmLlmLlmLlmLlmLlmLlmLlmRagCost: number | null,
-  toolUseLlmLlmLlmLlmLlmLlmLlmLlmLlmLlmLlmRagResults: number | null,
-  toolUseLlmLlmLlmLlmLlmLlmLlmLlmLlmLlmLlmLlm: string | null,
-  toolUseLlmLlmLlmLlmLlmLlmLlmLlmLlmLlmLlmLlmTime: number | null,
-  toolUseLlmLlmLlmLlmLlmLlmLlmLlmLlmLlmLlmLlmCost: number | null,
-  toolUseLlmLlmLlmLlmLlmLlmLlmLlmLlmLlmLlmLlmTokens: number | null,
-  toolUseLlmLlmLlmLlmLlmLlmLlmLlmLlmLlmLlmLlmError: string | null,
-  toolUseLlmLlmLlmLlmLlmLlmLlmLlmLlmLlmLlmLlmSuccess: boolean | null,
-  toolUseLlmLlmLlmLlmLlmLlmLlmLlmLlmLlmLlmLlmModel: string | null,
-  toolUseLlmLlmLlmLlmLlmLlmLlmLlmLlmLlmLlmLlmApiKey: string | null,
-  toolUseLlmLlmLlmLlmLlmLlmLlmLlmLlmLlmLlmLlmEmbeddingModel: string | null,
-  toolUseLlmLlmLlmLlmLlmLlmLlmLlmLlmLlmLlmLlmEmbeddingApiKey: string | null,
-  toolUseLlmLlmLlmLlmLlmLlmLlmLlmLlmLlmLlmLlmEmbeddingTime: number | null,
-  toolUseLlmLlmLlmLlmLlmLlmLlmLlmLlmLlmLlmLlmEmbeddingCost: number | null,
-  toolUseLlmLlmLlmLlmLlmLlmLlmLlmLlmLlmLlmLlmEmbeddingTokens: number | null,
-  toolUseLlmLlmLlmLlmLlmLlmLlmLlmLlmLlmLlmLlmVectorSearch: boolean | null,
-  toolUseLlmLlmLlmLlmLlmLlmLlmLlmLlmLlmLlmLlmVectorSearchTime: number | null,
-  toolUseLlmLlmLlmLlmLlmLlmLlmLlmLlmLlmLlmLlmVectorSearchCost: number | null,
-  toolUseLlmLlmLlmLlmLlmLlmLlmLlmLlmLlmLlmLlmVectorSearchResults: number | null,
-  toolUseLlmLlmLlmLlmLlmLlmLlmLlmLlmLlmLlmLlmRag: boolean | null,
-  toolUseLlmLlmLlmLlmLlmLlmLlmLlmLlmLlmLlmLlmRagTime: number | null,
-  toolUseLlmLlmLlmLlmLlmLlmLlmLlmLlmLlmLlmLlmRagCost: number | null,
-  toolUseLlmLlmLlmLlmLlmLlmLlmLlmLlmLlmLlmLlmRagResults: number | null,
-  toolUseLlmLlmLlmLlmLlmLlmLlmLlmLlmLlmLlmLlmLlm: string | null,
-  toolUseLlmLlmLlmLlmLlmLlmLlmLlmLlmLlmLlmLlmLlmTime: number | null,
-  toolUseLlmLlmLlmLlmLlmLlmLlmLlmLlmLlmLlmLlmLlmCost: number | null,
-  toolUseLlmLlmLlmLlmLlmLlmLlmLlmLlmLlmLlmLlmLlmTokens: number | null,
-  toolUseLlmLlmLlmLlmLlmLlmLlmLlmLlmLlmLlmLlmLlmError: string | null,
-  toolUseLlmLlmLlmLlmLlmLlmLlmLlmLlmLlmLlmLlmLlmSuccess: boolean | null,
-  toolUseLlmLlmLlmLlmLlmLlmLlmLlmLlmLlmLlmLlmLlmModel: string | null,
-  toolUseLlmLlmLlmLlmLlmLlmLlmLlmLlmLlmLlmLlmLlmApiKey: string | null,
-  toolUseLlmLlmLlmLlmLlmLlmLlmLlmLlmLlmLlmLlmLlmEmbeddingModel: string | null,
-  toolUseLlmLlmLlmLlmLlmLlmLlmLlmLlmLlmLlmLlmLlmEmbeddingApiKey: string | null,
-  toolUseLlmLlmLlmLlmLlmLlmLlmLlmLlmLlmLlmLlmLlmEmbeddingTime: number | null,
-  toolUseLlmLlmLlmLlmLlmLlmLlmLlmLlmLlmLlmLlmLlmEmbeddingCost: number | null,
-  toolUseLlmLlmLlmLlmLlmLlmLlmLlmLlmLlmLlmLlmLlmEmbeddingTokens: number | null,
-  toolUseLlmLlmLlmLlmLlmLlmLlmLlmLlmLlmLlmLlmLlmVectorSearch: boolean | null,
-  toolUseLlmLlmLlmLlmLlmLlmLlmLlmLlmLlmLlmLlmLlmVectorSearchTime: number | null,
-  toolUseLlmLlmLlmLlmLlmLlmLlmLlmLlmLlmLlmLlmLlmVectorSearchCost: number | null,
-  toolUseLlmLlmLlmLlmLlmLlmLlmLlmLlmLlmLlmLlmLlmVectorSearchResults: number | null,
-  toolUseLlmLlmLlmLlmLlmLlmLlmLlmLlmLlmLlmLlmLlmRag: boolean | null,
-  toolUseLlmLlmLlmLlmLlmLlmLlmLlmLlmLlmLlmLlmLlmRagTime: number | null,
-  toolUseLlmLlmLlmLlmLlmLlmLlmLlmLlmLlmLlmLlmLlmRagCost: number | null,
-  toolUseLlmLlmLlmLlmLlmLlmLlmLlmLlmLlmLlmLlmLlmRagResults: number | null,
-  toolUseLlmLlmLlmLlmLlmLlmLlmLlmLlmLlmLlmLlmLlmLlm: string | null,
-  toolUseLlmLlmLlmLlmLlmLlmLlmLlmLlmLlmLlmLlmLlmLlmTime: number | null,
-  toolUseLlmLlmLlmLlmLlmLlmLlmLlmLlmLlmLlmLlmLlmLlmCost: number | null,
-  toolUseLlmLlmLlmLlmLlmLlmLlmLlmLlmLlmLlmLlmLlmLlmTokens: number | null,
-  toolUseLlmLlmLlmLlmLlmLlmLlmLlmLlmLlmLlmLlmLlmLlmError: string | null,
-  toolUseLlmLlmLlmLlmLlmLlmLlmLlmLlmLlmLlmLlmLlmLlmSuccess: boolean | null,
-  toolUseLlmLlmLlmLlmLlmLlmLlmLlmLlmLlmLlmLlmLlmLlmModel: string | null,
-  toolUseLlmLlmLlmLlmLlmLlmLlmLlmLlmLlmLlmLlmLlmLlmApiKey: string | null,
-  toolUseLlmLlmLlmLlmLlmLlmLlmLlmLlmLlmLlmLlmLlmLlmEmbeddingModel: string | null,
-  toolUseLlmLlmLlmLlmLlmLlmLlmLlmL
+  data: AnalyticsData
+): Promise<void> => {
+  try {
+    await supabase.from('analytics').insert([{
+      user_id: data.userId,
+      query: data.query,
+      response: data.response,
+      conversation_id: data.conversationId,
+      source: data.source,
+      response_time: data.responseTime,
+      tokens_used: data.tokensUsed,
+      cost: data.cost,
+      is_audio_enabled: data.isAudioEnabled,
+      audio_duration: data.audioDuration,
+      audio_cost: data.audioCost,
+      audio_tokens: data.audioTokens,
+      gemini_model: data.geminiModel,
+      gemini_api_key: data.geminiApiKey ? true : false,
+      gemini_embedding_model: data.geminiEmbeddingModel,
+      gemini_embedding_api_key: data.geminiEmbeddingApiKey ? true : false,
+      embedding_time: data.embeddingTime,
+      embedding_tokens: data.embeddingTokens,
+      embedding_cost: data.embeddingCost,
+      is_vector_search: data.isVectorSearch,
+      vector_search_time: data.vectorSearchTime,
+      vector_search_cost: data.vectorSearchCost,
+      vector_search_results: data.vectorSearchResults,
+      is_rag_enabled: data.isRagEnabled,
+      rag_time: data.ragTime,
+      rag_cost: data.ragCost,
+      rag_results: data.ragResults,
+      is_tool_use: data.isToolUse,
+      tool_use_time: data.toolUseTime,
+      tool_use_cost: data.toolUseCost,
+      tool_use_results: data.toolUseResults,
+      tool_use_tokens: data.toolUseTokens,
+      tool_use_name: data.toolUseName,
+      tool_use_description: data.toolUseDescription,
+      tool_use_input: data.toolUseInput,
+      tool_use_output: data.toolUseOutput,
+      tool_use_error: data.toolUseError,
+      tool_use_success: data.toolUseSuccess,
+      tool_use_model: data.toolUseModel,
+      tool_use_api_key: data.toolUseApiKey ? true : false,
+      tool_use_embedding_model: data.toolUseEmbeddingModel,
+      tool_use_embedding_api_key: data.toolUseEmbeddingApiKey ? true : false,
+      tool_use_embedding_time: data.toolUseEmbeddingTime,
+      tool_use_embedding_cost: data.toolUseEmbeddingCost,
+      tool_use_embedding_tokens: data.toolUseEmbeddingTokens,
+      tool_use_vector_search: data.toolUseVectorSearch,
+      tool_use_vector_search_time: data.toolUseVectorSearchTime,
+      tool_use_vector_search_cost: data.toolUseVectorSearchCost,
+      tool_use_vector_search_results: data.toolUseVectorSearchResults,
+      tool_use_rag: data.toolUseRag,
+      tool_use_rag_time: data.toolUseRagTime,
+      tool_use_rag_cost: data.toolUseRagCost,
+      tool_use_rag_results: data.toolUseRagResults,
+      tool_use_llm: data.toolUseLlm,
+      tool_use_llm_time: data.toolUseLlmTime,
+      tool_use_llm_cost: data.toolUseLlmCost,
+      tool_use_llm_tokens: data.toolUseLlmTokens,
+      tool_use_llm_error: data.toolUseLlmError,
+      tool_use_llm_success: data.toolUseLlmSuccess,
+      tool_use_llm_model: data.toolUseLlmModel,
+      tool_use_llm_api_key: data.toolUseLlmApiKey ? true : false
+      // Nested tool use data can be added if needed in the future
+    }]);
+  } catch (error) {
+    console.error('Error logging analytics:', error);
+  }
+};
