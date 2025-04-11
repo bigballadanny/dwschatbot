@@ -4,7 +4,6 @@ import MessageItem from '@/components/MessageItem';
 import { MessageData } from '@/utils/messageUtils';
 import { cn } from '@/lib/utils';
 import { motion, AnimatePresence } from 'framer-motion';
-import { ScrollArea } from "@/components/ui/scroll-area";
 
 interface MessageListProps {
   messages: MessageData[];
@@ -18,18 +17,28 @@ const MessageList: React.FC<MessageListProps> = ({
   showNewestOnTop = false 
 }) => {
   const messagesEndRef = useRef<HTMLDivElement>(null);
+  const containerRef = useRef<HTMLDivElement>(null);
   const [hasScrolled, setHasScrolled] = useState(false);
+  const [previousMessageCount, setPreviousMessageCount] = useState(messages.length);
+  
+  // Effect to detect when messages are added
+  useEffect(() => {
+    // Only auto-scroll if new messages were added
+    if (messages.length > previousMessageCount) {
+      setHasScrolled(false);
+    }
+    setPreviousMessageCount(messages.length);
+  }, [messages.length, previousMessageCount]);
   
   // Improved scroll to bottom when messages change
   useEffect(() => {
-    // Only auto-scroll if we haven't manually scrolled up
     if (!hasScrolled && messagesEndRef.current) {
       const scrollToBottom = () => {
         messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
       };
       
       // Use a small timeout to ensure the DOM has updated
-      const timer = setTimeout(scrollToBottom, 100);
+      const timer = setTimeout(scrollToBottom, 200);
       return () => clearTimeout(timer);
     }
   }, [messages, hasScrolled]);
@@ -62,13 +71,14 @@ const MessageList: React.FC<MessageListProps> = ({
   return (
     <div 
       className={cn(
-        'flex-1 relative overflow-hidden', 
+        'flex-1 relative h-full', 
         className
       )} 
       data-testid="message-list"
     >
       <div 
-        className="h-full overflow-y-auto px-4 py-8 pb-32 scrollbar-thin"
+        ref={containerRef}
+        className="absolute inset-0 overflow-y-auto px-4 py-8 pb-32 scrollbar-thin"
         onScroll={handleScroll}
       >
         <div className="max-w-3xl mx-auto space-y-6">

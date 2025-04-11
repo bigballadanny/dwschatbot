@@ -31,20 +31,22 @@ const MessageItem: React.FC<MessageProps> = ({
     >
       <div
         className={cn(
-          'flex flex-col rounded-2xl shadow-sm max-w-3xl',
+          'flex flex-col max-w-3xl',
           isUser 
-            ? 'bg-gradient-to-r from-amber-400 to-amber-600 text-white p-3 pr-5 rounded-br-sm' 
-            : 'bg-white dark:bg-gray-800 dark:border dark:border-gray-700 p-4 rounded-bl-sm'
+            ? 'bg-blue-600 text-white px-4 py-3 rounded-2xl rounded-tr-sm' 
+            : 'bg-zinc-800 px-4 py-3 rounded-2xl rounded-tl-sm'
         )}
       >
         <MessageContent content={content} isLoading={isLoading} />
-        <MessageSourceLabel source={source} timestamp={timestamp} />
-        {!isUser && (
-          <MessageControls 
-            content={content} 
-            citation={citation} 
-            isLoading={isLoading} 
-          />
+        {!isUser && !isLoading && (
+          <>
+            <MessageSourceLabel source={source} timestamp={timestamp} />
+            <MessageControls 
+              content={content} 
+              citation={citation} 
+              isLoading={isLoading} 
+            />
+          </>
         )}
       </div>
     </div>
