@@ -30,10 +30,10 @@ const MessageItem: React.FC<MessageProps> = ({
     >
       <div
         className={cn(
-          'flex flex-col p-4 rounded-lg max-w-3xl',
-          isUser
-            ? 'bg-gradient-to-r from-amber-400 to-amber-600 text-white'
-            : 'bg-muted'
+          'flex flex-col rounded-2xl shadow-sm max-w-3xl',
+          isUser 
+            ? 'bg-gradient-to-r from-amber-400 to-amber-600 text-white p-3 pr-5 rounded-br-sm' 
+            : 'bg-white dark:bg-gray-800 dark:border dark:border-gray-700 p-4 rounded-bl-sm'
         )}
       >
         <MessageContent content={content} isLoading={isLoading} />

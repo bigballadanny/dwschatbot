@@ -4,6 +4,7 @@ import { cn } from "@/lib/utils";
 import UnifiedInputBar from '@/components/UnifiedInputBar';
 import SearchModeToggle from '@/components/SearchModeToggle';
 import AudioPlayer from '@/components/AudioPlayer';
+import { motion } from 'framer-motion';
 
 interface ChatInputBarProps {
   onSendMessage: (message: string, isVoice: boolean) => Promise<void>;
@@ -35,17 +36,27 @@ const ChatInputBar: React.FC<ChatInputBarProps> = ({
   className,
 }) => {
   return (
-    <div className={cn("absolute bottom-0 left-0 right-0 border-t bg-background/80 backdrop-blur-sm z-10", className)}>
-      <div className="max-w-3xl mx-auto px-4 pt-3 pb-4 space-y-3">
+    <div className={cn(
+      "absolute bottom-0 left-0 right-0 border-t bg-background/80 backdrop-blur-sm z-10 shadow-lg",
+      className
+    )}>
+      <div className="max-w-3xl mx-auto px-4 pt-3 pb-5 space-y-3">
         {currentAudioSrc && (
-          <AudioPlayer
-            audioSrc={currentAudioSrc}
-            onStop={onAudioStop}
-            className="mb-2"
-          />
+          <motion.div
+            initial={{ opacity: 0, height: 0 }}
+            animate={{ opacity: 1, height: 'auto' }}
+            exit={{ opacity: 0, height: 0 }}
+            transition={{ duration: 0.3 }}
+          >
+            <AudioPlayer
+              audioSrc={currentAudioSrc}
+              onStop={onAudioStop}
+              className="mb-2"
+            />
+          </motion.div>
         )}
 
-        <div className="flex items-center gap-3 justify-between">
+        <div className="flex flex-wrap items-center gap-3 justify-between">
           <UnifiedInputBar
             onSend={onSendMessage}
             onFileUpload={onFileUpload}
@@ -54,7 +65,7 @@ const ChatInputBar: React.FC<ChatInputBarProps> = ({
             enableAudio={audioEnabled}
             onToggleAudio={onToggleAudio}
             placeholder={placeholder}
-            className="flex-1"
+            className="flex-1 min-w-0"
             showVoiceFeatures={true}
           />
           <SearchModeToggle

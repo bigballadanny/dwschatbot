@@ -10,7 +10,7 @@ import { useAuth } from '@/context/AuthContext';
 import SidebarOpenButton from '@/components/sidebar/SidebarOpenButton';
 import ChatContainer from '@/components/chat/ChatContainer';
 import ChatSidebar from '@/components/ChatSidebar';
-import { useChatController } from '@/hooks/useChatController';
+import { useChat } from '@/hooks/useChat';
 
 const Index = () => {
   const { user } = useAuth();
@@ -34,8 +34,9 @@ const Index = () => {
     resetChat,
     toggleOnlineSearch,
     toggleAudio,
-    stopAudio
-  } = useChatController({
+    stopAudio,
+    handleFileUpload
+  } = useChat({
     user,
     conversationId,
     audioEnabled
@@ -87,14 +88,6 @@ const Index = () => {
     await createNewConversation();
   };
 
-  const handleFileUpload = async (files: FileList) => {
-    if (!files || files.length === 0) return;
-    toast({ 
-      title: "File Upload Note", 
-      description: `File "${files[0].name}" selected. Analysis feature not implemented.` 
-    });
-  };
-
   return (
     <SidebarProvider>
       <div className="flex h-screen w-full overflow-hidden">
@@ -126,7 +119,7 @@ const Index = () => {
               <ChatContainer
                 messages={messages}
                 isLoading={isLoading}
-                audioEnabled={audioEnabled}
+                audioEnabled={isAudioEnabled}
                 currentAudioSrc={audioSrc}
                 enableOnlineSearch={enableOnlineSearch}
                 conversationId={conversationId}
