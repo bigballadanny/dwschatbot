@@ -49,15 +49,16 @@
 
 ### Phase 6: Performance and Feature Enhancements (PLANNING)
 - [ ] Optimize audio handling and memory management
-- [ ] Explore advanced Gemini 1.5 Pro or 2.5 Pro features
+- [ ] Explore advanced Gemini 1.5 Pro, 2.0 or 2.5 Pro features
 - [ ] Implement potential download or export functionalities
 - [ ] Research UI enhancement libraries
 
 ## Current Focus
 - Implementing a solid black theme
 - Resolving sidebar UI inconsistencies
-- Investigating latest Gemini API capabilities (Gemini 1.5 Pro/2.5 Pro)
+- Investigating latest Gemini API capabilities (Gemini 2.0 or 2.5 Pro preferred, with 1.5 Pro as fallback)
 - Improving overall UI/UX design
+- Fixing Analytics page scrollability issues
 
 ## Identified Priorities
 1. Theme and Visual Design
@@ -67,7 +68,8 @@
 
 2. Technology Integration
    - Verify current Gemini version
-   - Research and integrate latest Gemini features (target Gemini 1.5 Pro or 2.5 Pro API)
+   - Research and integrate latest Gemini features (target Gemini 2.0 or 2.5 Pro API)
+   - Identify if Supabase functions are limiting API version compatibility
    - Ensure API is up-to-date
 
 3. UI/UX Improvements
@@ -76,12 +78,14 @@
    - Optimize audio player functionality
    - Simplify chat input buttons
    - Make the input bar permanently visible with proper sticky positioning
+   - Ensure Analytics page tabs don't require scrolling
+   - Keep homepage content concise and non-scrollable
 
 ## Research Objectives
 - Explore UI libraries for advanced visual design
-- Compare current implementation with NotebookLLM from Google
+- Compare current implementation with NotebookLM from Google
 - Identify potential performance and feature improvements
-- Investigate Gemini 1.5 Pro or 2.5 Pro API capabilities
+- Investigate Gemini 2.0 or 2.5 Pro API capabilities and compatibility with current setup
 
 ## Collaboration Guidelines
 - Prioritize incremental, user-focused improvements
@@ -90,7 +94,9 @@
 - Continuously validate against project requirements
 
 ## Gemini API Integration Goals
-- Update to the latest Gemini version (preferably Gemini 1.5 Pro or 2.5 Pro)
+- Update to the latest Gemini version (preferably Gemini 2.0 or 2.5 Pro)
+- Determine if Supabase is limiting Gemini API version usage
 - Leverage advanced capabilities such as multimodal understanding
 - Optimize API usage for better performance and cost efficiency
 - Enhance response quality with proper system prompts
+
