@@ -1,251 +1,382 @@
+import { SupabaseClient } from '@supabase/supabase-js';
 
-import { supabase } from '@/integrations/supabase/client';
-import { MessageProps } from '@/components/MessageItem';
-import { searchTranscriptsForQuery, getSourceDescription, Transcript, extractRelevantContent } from './transcriptUtils';
-
-export const generateGeminiResponse = async (
-  query: string, 
-  transcripts: Transcript[], 
-  chatHistory: MessageProps[],
-  conversationId?: string | null,
-  enableOnlineSearch: boolean = false
-): Promise<MessageProps> => {
-  try {
-    // Ensure we have the latest transcripts by fetching them directly from the database
-    const { data: latestTranscripts, error } = await supabase
-      .from('transcripts')
-      .select('id, title, content, created_at, file_path, source');
-      
-    if (error) {
-      console.error('Error fetching latest transcripts:', error);
-    }
-    
-    // Use the latest transcripts if available, otherwise use the provided ones
-    const transcriptsToSearch = latestTranscripts || transcripts;
-    
-    console.log(`Searching through ${transcriptsToSearch.length} transcripts for query: "${query}"`);
-    console.log(`Online search mode: ${enableOnlineSearch ? 'enabled' : 'disabled'}`);
-    
-    const startTime = Date.now();
-    
-    // First check if we have relevant information in transcripts
-    const matchedTranscripts = searchTranscriptsForQuery(query, transcriptsToSearch as Transcript[]);
-    
-    const searchTime = Date.now() - startTime;
-    console.log(`Transcript search completed in ${searchTime}ms`);
-    
-    // Create context from the matched content if available
-    let contextPrompt = "";
-    let bookReference = "";
-    let sourceType = "";
-    let relevanceScore = 0;
-    let foundInTranscripts = false;
-    let matchedTranscriptInfo = [];
-    
-    if (matchedTranscripts && matchedTranscripts.length > 0) {
-      // Get the most relevant transcript
-      const primaryTranscript = matchedTranscripts[0];
-      sourceType = primaryTranscript.source || 'creative_dealmaker';
-      const sourceDescription = getSourceDescription(sourceType);
-      relevanceScore = primaryTranscript.relevanceScore || 0;
-      foundInTranscripts = true;
-      
-      // Track the used transcript for citation
-      matchedTranscriptInfo.push({
-        title: primaryTranscript.title,
-        source: sourceType,
-        score: relevanceScore
-      });
-      
-      console.log(`Found matching content in source: ${sourceType}, title: "${primaryTranscript.title}" with relevance score: ${relevanceScore}`);
-      
-      // Extract the most relevant content from the transcript
-      const extractedContent = extractRelevantContent(primaryTranscript, query, 4000);
-      
-      // Build context from the primary transcript
-      contextPrompt = `Use the following information from ${sourceDescription} to answer the question about business acquisitions: "${extractedContent}"`;
-      bookReference = primaryTranscript.title;
-      
-      // If we have additional relevant transcripts, include them as supplementary context
-      if (matchedTranscripts.length > 1) {
-        let supplementaryContent = "";
-        for (let i = 1; i < Math.min(matchedTranscripts.length, 3); i++) {
-          const suppTranscript = matchedTranscripts[i];
-          const suppSourceDesc = getSourceDescription(suppTranscript.source || 'creative_dealmaker');
-          const suppExtract = extractRelevantContent(suppTranscript, query, 1000);
-          
-          // Track this transcript for citation
-          matchedTranscriptInfo.push({
-            title: suppTranscript.title,
-            source: suppTranscript.source || 'creative_dealmaker',
-            score: suppTranscript.relevanceScore || 0
-          });
-          
-          supplementaryContent += `
-
-Additional information from ${suppSourceDesc} (${suppTranscript.title}): "${suppExtract}"`;
-        }
-        
-        contextPrompt += supplementaryContent;
-      }
-    } else {
-      // If no matched content, still provide context about the book
-      console.log('No specific matching content found in transcripts');
-      
-      if (enableOnlineSearch) {
-        contextPrompt = `You are an AI assistant specialized in business acquisitions and Carl Allen's methodology. For this query, you are allowed to use your general knowledge to answer the question, but make sure to note that you're providing general information rather than specific content from Carl Allen's transcripts. Try to align your response with Carl Allen's overall business acquisition approach.`;
-        sourceType = 'web';
-      } else {
-        contextPrompt = `You are an AI assistant specialized in Carl Allen's "The Creative Dealmaker" book, which covers business acquisitions, deal structuring, negotiations, and due diligence. If you don't have specific information about a topic from the book, acknowledge that you don't have that specific section from the book yet, but try to provide general guidance based on Carl Allen's business acquisition methodology.`;
-        sourceType = 'creative_dealmaker';
-      }
-    }
-    
-    // Add business owner focus to the context
-    contextPrompt += `
-
-Remember that the person asking this question is a business owner or entrepreneur interested in acquiring businesses using Carl Allen's methodology. Focus on practical, actionable advice they can implement in their acquisition journey. Emphasize risk mitigation, funding strategies, and seller psychology where relevant.`;
-    
-    // Prepare conversation history for the API
-    const messages = chatHistory.map(msg => ({
-      content: msg.content,
-      source: msg.source
-    }));
-
-    const apiStartTime = Date.now();
-    
-    // Call our Gemini edge function
-    const { data, error: functionError } = await supabase.functions.invoke('gemini-chat', {
-      body: { 
-        query,
-        messages,
-        context: contextPrompt,
-        // instructions: formattingInstructions, // Removed redundant instructions
-        sourceType: sourceType,
-        enableOnlineSearch: enableOnlineSearch
-      }
-    });
-
-    const apiTime = Date.now() - apiStartTime;
-    console.log(`Gemini API call completed in ${apiTime}ms`);
-
-    if (functionError) {
-      console.error('Error invoking Gemini function:', functionError);
-      throw new Error(functionError.message);
-    }
-
-    // Create a detailed citation based on the source
-    let citation: string[] = [];
-    let detailedSourceInfo = "";
-    
-    if (data.isQuotaExceeded) {
-      // Use fallback citation if quota exceeded
-      citation = ["API quota exceeded - Showing general information about Carl Allen's business acquisition methodology"];
-    } else if (data.apiDisabled) {
-      // Use API disabled citation
-      citation = ["Gemini API needs to be enabled in Google Cloud Console - Follow the instructions above"];
-    } else if (matchedTranscripts && matchedTranscripts.length > 0) {
-      const primaryTranscript = matchedTranscripts[0];
-      if (sourceType === 'creative_dealmaker') {
-        citation = [`Based on information from "${bookReference}" in Carl Allen's Creative Dealmaker book`];
-      } else if (sourceType === 'mastermind_call') {
-        citation = [`Based on information from Carl Allen's mastermind call: "${bookReference}"`];
-      } else if (sourceType === 'case_study') {
-        citation = [`Based on the case study: "${bookReference}"`];
-      } else if (sourceType === 'protege_call') {
-        citation = [`Based on information from Carl Allen's Protege call: "${bookReference}"`];
-      } else if (sourceType === 'foundations_call') {
-        citation = [`Based on information from Carl Allen's Foundations call: "${bookReference}"`];
-      } else if (sourceType === 'business_acquisitions_summit') {
-        citation = [`Based on information from Carl Allen's 2024 Business Acquisitions Summit: "${bookReference}"`];
-      } else {
-        citation = [`Based on information from "${bookReference}" by Carl Allen`];
-      }
-      
-      // If we used multiple sources, add a note
-      if (matchedTranscripts.length > 1) {
-        citation[0] += ` and ${matchedTranscripts.length - 1} other source${matchedTranscripts.length > 2 ? 's' : ''}`;
-      }
-      
-      // Create detailed source information
-      detailedSourceInfo = "
-
-**Sources:**
-";
-      matchedTranscriptInfo.forEach((info, index) => {
-        const sourceDesc = getSourceDescription(info.source);
-        detailedSourceInfo += `${index + 1}. ${info.title} (${sourceDesc}) - Relevance: ${info.score}
-`;
-      });
-    } else if (enableOnlineSearch) {
-      citation = ["Based on general knowledge about business acquisitions - Online search mode enabled"];
-    } else {
-      citation = ["Based on general knowledge about Carl Allen's business acquisition methodology"];
-    }
-
-    console.log(`Generated response with citation: ${citation.join(', ')}`);
-    
-    // Log analytics data - this helps the Analytics page function
-    if (conversationId) {
-      try {
-        // Ensure we store analytics information properly for displaying in Analytics page
-        await supabase.from('chat_analytics').insert([{
-          conversation_id: conversationId,
-          query: query,
-          response_length: data.content.length,
-          source_type: data.isQuotaExceeded ? 'fallback' : (data.apiDisabled ? 'system' : (sourceType || 'general')),
-          relevance_score: relevanceScore,
-          search_time_ms: searchTime,
-          api_time_ms: apiTime,
-          transcript_title: bookReference || null,
-          successful: !data.error && !data.isQuotaExceeded && !data.apiDisabled,
-          used_online_search: enableOnlineSearch && !foundInTranscripts
-        }]);
-        
-        console.log("Successfully logged analytics data for query:", query);
-      } catch (analyticsError) {
-        console.error('Error logging analytics:', analyticsError);
-        // Non-blocking error, continue with response
-      }
-    } else {
-      console.warn("No conversation ID provided - analytics data will not be logged");
-    }
-
-    // Add detailed source information to the content if we have transcript matches
-    let enhancedContent = data.content;
-    if (matchedTranscripts && matchedTranscripts.length > 0 && detailedSourceInfo) {
-      enhancedContent += detailedSourceInfo;
-    }
-
-    // Create a response from the Gemini data
-    return {
-      content: enhancedContent,
-      source: data.apiDisabled ? 'system' : (data.isQuotaExceeded ? 'fallback' : (enableOnlineSearch && !foundInTranscripts ? 'web' : (data.source || 'gemini'))),
-      citation: citation,
-      timestamp: new Date()
-    };
-  } catch (error) {
-    console.error('Error generating Gemini response:', error);
-    
-    // Log the error for analytics
-    if (conversationId) {
-      try {
-        await supabase.from('chat_analytics').insert([{
-          conversation_id: conversationId,
-          query: query,
-          source_type: 'error',
-          successful: false,
-          error_message: error.message
-        }]);
-      } catch (analyticsError) {
-        console.error('Error logging analytics error:', analyticsError);
-      }
-    }
-    
-    return {
-      content: "I'm sorry, I couldn't process your request. Please try again later or contact support to resolve this issue.",
-      source: 'system',
-      timestamp: new Date()
-    };
-  }
-};
+export const logAnalytics = async (
+  supabase: SupabaseClient,
+  userId: string | undefined,
+  query: string,
+  response: string,
+  conversationId: string | undefined,
+  source: string,
+  responseTime: number,
+  tokensUsed: number,
+  cost: number,
+  isAudioEnabled: boolean,
+  audioDuration: number | null,
+  audioCost: number | null,
+  audioTokens: number | null,
+  geminiModel: string,
+  geminiApiKey: string | undefined,
+  geminiEmbeddingModel: string | undefined,
+  geminiEmbeddingApiKey: string | undefined,
+  embeddingTime: number | null,
+  embeddingTokens: number | null,
+  embeddingCost: number | null,
+  isVectorSearch: boolean,
+  vectorSearchTime: number | null,
+  vectorSearchCost: number | null,
+  vectorSearchResults: number | null,
+  isRagEnabled: boolean,
+  ragTime: number | null,
+  ragCost: number | null,
+  ragResults: number | null,
+  isToolUse: boolean,
+  toolUseTime: number | null,
+  toolUseCost: number | null,
+  toolUseResults: number | null,
+  toolUseTokens: number | null,
+  toolUseName: string | null,
+  toolUseDescription: string | null,
+  toolUseInput: string | null,
+  toolUseOutput: string | null,
+  toolUseError: string | null,
+  toolUseSuccess: boolean | null,
+  toolUseModel: string | null,
+  toolUseApiKey: string | null,
+  toolUseEmbeddingModel: string | null,
+  toolUseEmbeddingApiKey: string | null,
+  toolUseEmbeddingTime: number | null,
+  toolUseEmbeddingCost: number | null,
+  toolUseEmbeddingTokens: number | null,
+  toolUseVectorSearch: boolean | null,
+  toolUseVectorSearchTime: number | null,
+  toolUseVectorSearchCost: number | null,
+  toolUseVectorSearchResults: number | null,
+  toolUseRag: boolean | null,
+  toolUseRagTime: number | null,
+  toolUseRagCost: number | null,
+  toolUseRagResults: number | null,
+  toolUseLlm: string | null,
+  toolUseLlmTime: number | null,
+  toolUseLlmCost: number | null,
+  toolUseLlmTokens: number | null,
+  toolUseLlmError: string | null,
+  toolUseLlmSuccess: boolean | null,
+  toolUseLlmModel: string | null,
+  toolUseLlmApiKey: string | null,
+  toolUseLlmEmbeddingModel: string | null,
+  toolUseLlmEmbeddingApiKey: string | null,
+  toolUseLlmEmbeddingTime: number | null,
+  toolUseLlmEmbeddingCost: number | null,
+  toolUseLlmEmbeddingTokens: number | null,
+  toolUseLlmVectorSearch: boolean | null,
+  toolUseLlmVectorSearchTime: number | null,
+  toolUseLlmVectorSearchCost: number | null,
+  toolUseLlmVectorSearchResults: number | null,
+  toolUseLlmRag: boolean | null,
+  toolUseLlmRagTime: number | null,
+  toolUseLlmRagCost: number | null,
+  toolUseLlmRagResults: number | null,
+  toolUseLlmName: string | null,
+  toolUseLlmDescription: string | null,
+  toolUseLlmInput: string | null,
+  toolUseLlmOutput: string | null,
+  toolUseLlmError: string | null,
+  toolUseLlmSuccess: boolean | null,
+  toolUseLlmModel: string | null,
+  toolUseLlmApiKey: string | null,
+  toolUseLlmEmbeddingModel: string | null,
+  toolUseLlmEmbeddingApiKey: string | null,
+  toolUseLlmEmbeddingTime: number | null,
+  toolUseLlmEmbeddingCost: number | null,
+  toolUseLlmEmbeddingTokens: number | null,
+  toolUseLlmVectorSearch: boolean | null,
+  toolUseLlmVectorSearchTime: number | null,
+  toolUseLlmVectorSearchCost: number | null,
+  toolUseLlmVectorSearchResults: number | null,
+  toolUseLlmRag: boolean | null,
+  toolUseLlmRagTime: number | null,
+  toolUseLlmRagCost: number | null,
+  toolUseLlmRagResults: number | null,
+  toolUseLlmLlm: string | null,
+  toolUseLlmLlmTime: number | null,
+  toolUseLlmLlmCost: number | null,
+  toolUseLlmLlmTokens: number | null,
+  toolUseLlmLlmError: string | null,
+  toolUseLlmLlmSuccess: boolean | null,
+  toolUseLlmLlmModel: string | null,
+  toolUseLlmLlmApiKey: string | null,
+  toolUseLlmLlmEmbeddingModel: string | null,
+  toolUseLlmLlmEmbeddingApiKey: string | null,
+  toolUseLlmLlmEmbeddingTime: number | null,
+  toolUseLlmLlmEmbeddingCost: number | null,
+  toolUseLlmLlmEmbeddingTokens: number | null,
+  toolUseLlmLlmVectorSearch: boolean | null,
+  toolUseLlmLlmVectorSearchTime: number | null,
+  toolUseLlmLlmVectorSearchCost: number | null,
+  toolUseLlmLlmVectorSearchResults: number | null,
+  toolUseLlmLlmRag: boolean | null,
+  toolUseLlmLlmRagTime: number | null,
+  toolUseLlmLlmRagCost: number | null,
+  toolUseLlmLlmRagResults: number | null,
+  toolUseLlmLlmLlm: string | null,
+  toolUseLlmLlmTime: number | null,
+  toolUseLlmLlmCost: number | null,
+  toolUseLlmLlmTokens: number | null,
+  toolUseLlmLlmError: string | null,
+  toolUseLlmLlmSuccess: boolean | null,
+  toolUseLlmLlmModel: string | null,
+  toolUseLlmLlmApiKey: string | null,
+  toolUseLlmLlmEmbeddingModel: string | null,
+  toolUseLlmLlmEmbeddingApiKey: string | null,
+  toolUseLlmLlmEmbeddingTime: number | null,
+  toolUseLlmLlmEmbeddingCost: number | null,
+  toolUseLlmLlmEmbeddingTokens: number | null,
+  toolUseLlmLlmVectorSearch: boolean | null,
+  toolUseLlmLlmVectorSearchTime: number | null,
+  toolUseLlmLlmVectorSearchCost: number | null,
+  toolUseLlmLlmVectorSearchResults: number | null,
+  toolUseLlmLlmRag: boolean | null,
+  toolUseLlmLlmRagTime: number | null,
+  toolUseLlmLlmRagCost: number | null,
+  toolUseLlmLlmRagResults: number | null,
+  toolUseLlmLlmLlm: string | null,
+  toolUseLlmLlmLlmTime: number | null,
+  toolUseLlmLlmLlmCost: number | null,
+  toolUseLlmLlmLlmTokens: number | null,
+  toolUseLlmLlmLlmError: string | null,
+  toolUseLlmLlmLlmSuccess: boolean | null,
+  toolUseLlmLlmLlmModel: string | null,
+  toolUseLlmLlmLlmApiKey: string | null,
+  toolUseLlmLlmLlmEmbeddingModel: string | null,
+  toolUseLlmLlmLlmEmbeddingApiKey: string | null,
+  toolUseLlmLlmLlmEmbeddingTime: number | null,
+  toolUseLlmLlmLlmEmbeddingCost: number | null,
+  toolUseLlmLlmLlmEmbeddingTokens: number | null,
+  toolUseLlmLlmLlmVectorSearch: boolean | null,
+  toolUseLlmLlmLlmVectorSearchTime: number | null,
+  toolUseLlmLlmLlmVectorSearchCost: number | null,
+  toolUseLlmLlmLlmVectorSearchResults: number | null,
+  toolUseLlmLlmLlmRag: boolean | null,
+  toolUseLlmLlmLlmRagTime: number | null,
+  toolUseLlmLlmLlmRagCost: number | null,
+  toolUseLlmLlmLlmRagResults: number | null,
+  toolUseLlmLlmLlmLlm: string | null,
+  toolUseLlmLlmLlmLlmTime: number | null,
+  toolUseLlmLlmLlmLlmCost: number | null,
+  toolUseLlmLlmLlmLlmTokens: number | null,
+  toolUseLlmLlmLlmLlmError: string | null,
+  toolUseLlmLlmLlmLlmSuccess: boolean | null,
+  toolUseLlmLlmLlmLlmModel: string | null,
+  toolUseLlmLlmLlmLlmApiKey: string | null,
+  toolUseLlmLlmLlmLlmEmbeddingModel: string | null,
+  toolUseLlmLlmLlmLlmEmbeddingApiKey: string | null,
+  toolUseLlmLlmLlmLlmEmbeddingTime: number | null,
+  toolUseLlmLlmLlmLlmEmbeddingCost: number | null,
+  toolUseLlmLlmLlmLlmEmbeddingTokens: number | null,
+  toolUseLlmLlmLlmLlmVectorSearch: boolean | null,
+  toolUseLlmLlmLlmLlmVectorSearchTime: number | null,
+  toolUseLlmLlmLlmLlmVectorSearchCost: number | null,
+  toolUseLlmLlmLlmLlmVectorSearchResults: number | null,
+  toolUseLlmLlmLlmLlmRag: boolean | null,
+  toolUseLlmLlmLlmLlmRagTime: number | null,
+  toolUseLlmLlmLlmLlmRagCost: number | null,
+  toolUseLlmLlmLlmLlmRagResults: number | null,
+  toolUseLlmLlmLlmLlmLlm: string | null,
+  toolUseLlmLlmLlmLlmLlmTime: number | null,
+  toolUseLlmLlmLlmLlmLlmCost: number | null,
+  toolUseLlmLlmLlmLlmLlmTokens: number | null,
+  toolUseLlmLlmLlmLlmLlmError: string | null,
+  toolUseLlmLlmLlmLlmLlmSuccess: boolean | null,
+  toolUseLlmLlmLlmLlmLlmModel: string | null,
+  toolUseLlmLlmLlmLlmLlmApiKey: string | null,
+  toolUseLlmLlmLlmLlmLlmEmbeddingModel: string | null,
+  toolUseLlmLlmLlmLlmLlmEmbeddingApiKey: string | null,
+  toolUseLlmLlmLlmLlmLlmEmbeddingTime: number | null,
+  toolUseLlmLlmLlmLlmLlmEmbeddingCost: number | null,
+  toolUseLlmLlmLlmLlmLlmEmbeddingTokens: number | null,
+  toolUseLlmLlmLlmLlmLlmVectorSearch: boolean | null,
+  toolUseLlmLlmLlmLlmLlmVectorSearchTime: number | null,
+  toolUseLlmLlmLlmLlmLlmVectorSearchCost: number | null,
+  toolUseLlmLlmLlmLlmLlmVectorSearchResults: number | null,
+  toolUseLlmLlmLlmLlmLlmRag: boolean | null,
+  toolUseLlmLlmLlmLlmLlmRagTime: number | null,
+  toolUseLlmLlmLlmLlmLlmRagCost: number | null,
+  toolUseLlmLlmLlmLlmLlmRagResults: number | null,
+  toolUseLlmLlmLlmLlmLlmLlm: string | null,
+  toolUseLlmLlmLlmLlmLlmLlmTime: number | null,
+  toolUseLlmLlmLlmLlmLlmLlmCost: number | null,
+  toolUseLlmLlmLlmLlmLlmLlmTokens: number | null,
+  toolUseLlmLlmLlmLlmLlmLlmError: string | null,
+  toolUseLlmLlmLlmLlmLlmLlmSuccess: boolean | null,
+  toolUseLlmLlmLlmLlmLlmLlmModel: string | null,
+  toolUseLlmLlmLlmLlmLlmLlmApiKey: string | null,
+  toolUseLlmLlmLlmLlmLlmLlmEmbeddingModel: string | null,
+  toolUseLlmLlmLlmLlmLlmLlmEmbeddingApiKey: string | null,
+  toolUseLlmLlmLlmLlmLlmLlmEmbeddingTime: number | null,
+  toolUseLlmLlmLlmLlmLlmLlmEmbeddingCost: number | null,
+  toolUseLlmLlmLlmLlmLlmLlmEmbeddingTokens: number | null,
+  toolUseLlmLlmLlmLlmLlmLlmVectorSearch: boolean | null,
+  toolUseLlmLlmLlmLlmLlmLlmVectorSearchTime: number | null,
+  toolUseLlmLlmLlmLlmLlmLlmVectorSearchCost: number | null,
+  toolUseLlmLlmLlmLlmLlmLlmVectorSearchResults: number | null,
+  toolUseLlmLlmLlmLlmLlmLlmRag: boolean | null,
+  toolUseLlmLlmLlmLlmLlmLlmRagTime: number | null,
+  toolUseLlmLlmLlmLlmLlmLlmRagCost: number | null,
+  toolUseLlmLlmLlmLlmLlmLlmRagResults: number | null,
+  toolUseLlmLlmLlmLlmLlmLlmLlm: string | null,
+  toolUseLlmLlmLlmLlmLlmLlmLlmTime: number | null,
+  toolUseLlmLlmLlmLlmLlmLlmLlmCost: number | null,
+  toolUseLlmLlmLlmLlmLlmLlmLlmTokens: number | null,
+  toolUseLlmLlmLlmLlmLlmLlmLlmError: string | null,
+  toolUseLlmLlmLlmLlmLlmLlmLlmSuccess: boolean | null,
+  toolUseLlmLlmLlmLlmLlmLlmLlmModel: string | null,
+  toolUseLlmLlmLlmLlmLlmLlmLlmApiKey: string | null,
+  toolUseLlmLlmLlmLlmLlmLlmLlmEmbeddingModel: string | null,
+  toolUseLlmLlmLlmLlmLlmLlmLlmEmbeddingApiKey: string | null,
+  toolUseLlmLlmLlmLlmLlmLlmLlmEmbeddingTime: number | null,
+  toolUseLlmLlmLlmLlmLlmLlmLlmEmbeddingCost: number | null,
+  toolUseLlmLlmLlmLlmLlmLlmLlmEmbeddingTokens: number | null,
+  toolUseLlmLlmLlmLlmLlmLlmLlmVectorSearch: boolean | null,
+  toolUseLlmLlmLlmLlmLlmLlmLlmVectorSearchTime: number | null,
+  toolUseLlmLlmLlmLlmLlmLlmLlmVectorSearchCost: number | null,
+  toolUseLlmLlmLlmLlmLlmLlmLlmVectorSearchResults: number | null,
+  toolUseLlmLlmLlmLlmLlmLlmLlmRag: boolean | null,
+  toolUseLlmLlmLlmLlmLlmLlmLlmRagTime: number | null,
+  toolUseLlmLlmLlmLlmLlmLlmLlmRagCost: number | null,
+  toolUseLlmLlmLlmLlmLlmLlmLlmRagResults: number | null,
+  toolUseLlmLlmLlmLlmLlmLlmLlmLlm: string | null,
+  toolUseLlmLlmLlmLlmLlmLlmLlmLlmTime: number | null,
+  toolUseLlmLlmLlmLlmLlmLlmLlmLlmCost: number | null,
+  toolUseLlmLlmLlmLlmLlmLlmLlmLlmTokens: number | null,
+  toolUseLlmLlmLlmLlmLlmLlmLlmLlmError: string | null,
+  toolUseLlmLlmLlmLlmLlmLlmLlmLlmSuccess: boolean | null,
+  toolUseLlmLlmLlmLlmLlmLlmLlmLlmModel: string | null,
+  toolUseLlmLlmLlmLlmLlmLlmLlmLlmApiKey: string | null,
+  toolUseLlmLlmLlmLlmLlmLlmLlmLlmEmbeddingModel: string | null,
+  toolUseLlmLlmLlmLlmLlmLlmLlmLlmEmbeddingApiKey: string | null,
+  toolUseLlmLlmLlmLlmLlmLlmLlmLlmEmbeddingTime: number | null,
+  toolUseLlmLlmLlmLlmLlmLlmLlmLlmEmbeddingCost: number | null,
+  toolUseLlmLlmLlmLlmLlmLlmLlmLlmEmbeddingTokens: number | null,
+  toolUseLlmLlmLlmLlmLlmLlmLlmLlmVectorSearch: boolean | null,
+  toolUseLlmLlmLlmLlmLlmLlmLlmLlmVectorSearchTime: number | null,
+  toolUseLlmLlmLlmLlmLlmLlmLlmLlmVectorSearchCost: number | null,
+  toolUseLlmLlmLlmLlmLlmLlmLlmLlmVectorSearchResults: number | null,
+  toolUseLlmLlmLlmLlmLlmLlmLlmLlmRag: boolean | null,
+  toolUseLlmLlmLlmLlmLlmLlmLlmLlmRagTime: number | null,
+  toolUseLlmLlmLlmLlmLlmLlmLlmLlmRagCost: number | null,
+  toolUseLlmLlmLlmLlmLlmLlmLlmLlmRagResults: number | null,
+  toolUseLlmLlmLlmLlmLlmLlmLlmLlmLlm: string | null,
+  toolUseLlmLlmLlmLlmLlmLlmLlmLlmLlmTime: number | null,
+  toolUseLlmLlmLlmLlmLlmLlmLlmLlmLlmCost: number | null,
+  toolUseLlmLlmLlmLlmLlmLlmLlmLlmLlmTokens: number | null,
+  toolUseLlmLlmLlmLlmLlmLlmLlmLlmLlmError: string | null,
+  toolUseLlmLlmLlmLlmLlmLlmLlmLlmLlmSuccess: boolean | null,
+  toolUseLlmLlmLlmLlmLlmLlmLlmLlmLlmModel: string | null,
+  toolUseLlmLlmLlmLlmLlmLlmLlmLlmLlmApiKey: string | null,
+  toolUseLlmLlmLlmLlmLlmLlmLlmLlmLlmEmbeddingModel: string | null,
+  toolUseLlmLlmLlmLlmLlmLlmLlmLlmLlmEmbeddingApiKey: string | null,
+  toolUseLlmLlmLlmLlmLlmLlmLlmLlmLlmEmbeddingTime: number | null,
+  toolUseLlmLlmLlmLlmLlmLlmLlmLlmLlmEmbeddingCost: number | null,
+  toolUseLlmLlmLlmLlmLlmLlmLlmLlmLlmEmbeddingTokens: number | null,
+  toolUseLlmLlmLlmLlmLlmLlmLlmLlmLlmVectorSearch: boolean | null,
+  toolUseLlmLlmLlmLlmLlmLlmLlmLlmLlmVectorSearchTime: number | null,
+  toolUseLlmLlmLlmLlmLlmLlmLlmLlmLlmVectorSearchCost: number | null,
+  toolUseLlmLlmLlmLlmLlmLlmLlmLlmLlmVectorSearchResults: number | null,
+  toolUseLlmLlmLlmLlmLlmLlmLlmLlmLlmRag: boolean | null,
+  toolUseLlmLlmLlmLlmLlmLlmLlmLlmLlmRagTime: number | null,
+  toolUseLlmLlmLlmLlmLlmLlmLlmLlmLlmRagCost: number | null,
+  toolUseLlmLlmLlmLlmLlmLlmLlmLlmLlmRagResults: number | null,
+  toolUseLlmLlmLlmLlmLlmLlmLlmLlmLlmLlm: string | null,
+  toolUseLlmLlmLlmLlmLlmLlmLlmLlmLlmLlmTime: number | null,
+  toolUseLlmLlmLlmLlmLlmLlmLlmLlmLlmLlmCost: number | null,
+  toolUseLlmLlmLlmLlmLlmLlmLlmLlmLlmLlmTokens: number | null,
+  toolUseLlmLlmLlmLlmLlmLlmLlmLlmLlmLlmError: string | null,
+  toolUseLlmLlmLlmLlmLlmLlmLlmLlmLlmLlmSuccess: boolean | null,
+  toolUseLlmLlmLlmLlmLlmLlmLlmLlmLlmLlmModel: string | null,
+  toolUseLlmLlmLlmLlmLlmLlmLlmLlmLlmLlmApiKey: string | null,
+  toolUseLlmLlmLlmLlmLlmLlmLlmLlmLlmLlmEmbeddingModel: string | null,
+  toolUseLlmLlmLlmLlmLlmLlmLlmLlmLlmLlmEmbeddingApiKey: string | null,
+  toolUseLlmLlmLlmLlmLlmLlmLlmLlmLlmLlmEmbeddingTime: number | null,
+  toolUseLlmLlmLlmLlmLlmLlmLlmLlmLlmLlmEmbeddingCost: number | null,
+  toolUseLlmLlmLlmLlmLlmLlmLlmLlmLlmLlmEmbeddingTokens: number | null,
+  toolUseLlmLlmLlmLlmLlmLlmLlmLlmLlmLlmVectorSearch: boolean | null,
+  toolUseLlmLlmLlmLlmLlmLlmLlmLlmLlmLlmVectorSearchTime: number | null,
+  toolUseLlmLlmLlmLlmLlmLlmLlmLlmLlmLlmVectorSearchCost: number | null,
+  toolUseLlmLlmLlmLlmLlmLlmLlmLlmLlmLlmVectorSearchResults: number | null,
+  toolUseLlmLlmLlmLlmLlmLlmLlmLlmLlmLlmRag: boolean | null,
+  toolUseLlmLlmLlmLlmLlmLlmLlmLlmLlmLlmRagTime: number | null,
+  toolUseLlmLlmLlmLlmLlmLlmLlmLlmLlmLlmRagCost: number | null,
+  toolUseLlmLlmLlmLlmLlmLlmLlmLlmLlmLlmRagResults: number | null,
+  toolUseLlmLlmLlmLlmLlmLlmLlmLlmLlmLlmLlm: string | null,
+  toolUseLlmLlmLlmLlmLlmLlmLlmLlmLlmLlmLlmTime: number | null,
+  toolUseLlmLlmLlmLlmLlmLlmLlmLlmLlmLlmLlmCost: number | null,
+  toolUseLlmLlmLlmLlmLlmLlmLlmLlmLlmLlmLlmTokens: number | null,
+  toolUseLlmLlmLlmLlmLlmLlmLlmLlmLlmLlmLlmError: string | null,
+  toolUseLlmLlmLlmLlmLlmLlmLlmLlmLlmLlmLlmSuccess: boolean | null,
+  toolUseLlmLlmLlmLlmLlmLlmLlmLlmLlmLlmLlmModel: string | null,
+  toolUseLlmLlmLlmLlmLlmLlmLlmLlmLlmLlmLlmApiKey: string | null,
+  toolUseLlmLlmLlmLlmLlmLlmLlmLlmLlmLlmLlmEmbeddingModel: string | null,
+  toolUseLlmLlmLlmLlmLlmLlmLlmLlmLlmLlmLlmEmbeddingApiKey: string | null,
+  toolUseLlmLlmLlmLlmLlmLlmLlmLlmLlmLlmLlmEmbeddingTime: number | null,
+  toolUseLlmLlmLlmLlmLlmLlmLlmLlmLlmLlmLlmEmbeddingCost: number | null,
+  toolUseLlmLlmLlmLlmLlmLlmLlmLlmLlmLlmLlmEmbeddingTokens: number | null,
+  toolUseLlmLlmLlmLlmLlmLlmLlmLlmLlmLlmLlmVectorSearch: boolean | null,
+  toolUseLlmLlmLlmLlmLlmLlmLlmLlmLlmLlmLlmVectorSearchTime: number | null,
+  toolUseLlmLlmLlmLlmLlmLlmLlmLlmLlmLlmLlmVectorSearchCost: number | null,
+  toolUseLlmLlmLlmLlmLlmLlmLlmLlmLlmLlmLlmVectorSearchResults: number | null,
+  toolUseLlmLlmLlmLlmLlmLlmLlmLlmLlmLlmLlmRag: boolean | null,
+  toolUseLlmLlmLlmLlmLlmLlmLlmLlmLlmLlmLlmRagTime: number | null,
+  toolUseLlmLlmLlmLlmLlmLlmLlmLlmLlmLlmLlmRagCost: number | null,
+  toolUseLlmLlmLlmLlmLlmLlmLlmLlmLlmLlmLlmRagResults: number | null,
+  toolUseLlmLlmLlmLlmLlmLlmLlmLlmLlmLlmLlmLlm: string | null,
+  toolUseLlmLlmLlmLlmLlmLlmLlmLlmLlmLlmLlmLlmTime: number | null,
+  toolUseLlmLlmLlmLlmLlmLlmLlmLlmLlmLlmLlmLlmCost: number | null,
+  toolUseLlmLlmLlmLlmLlmLlmLlmLlmLlmLlmLlmLlmTokens: number | null,
+  toolUseLlmLlmLlmLlmLlmLlmLlmLlmLlmLlmLlmLlmError: string | null,
+  toolUseLlmLlmLlmLlmLlmLlmLlmLlmLlmLlmLlmLlmSuccess: boolean | null,
+  toolUseLlmLlmLlmLlmLlmLlmLlmLlmLlmLlmLlmLlmModel: string | null,
+  toolUseLlmLlmLlmLlmLlmLlmLlmLlmLlmLlmLlmLlmApiKey: string | null,
+  toolUseLlmLlmLlmLlmLlmLlmLlmLlmLlmLlmLlmLlmEmbeddingModel: string | null,
+  toolUseLlmLlmLlmLlmLlmLlmLlmLlmLlmLlmLlmLlmEmbeddingApiKey: string | null,
+  toolUseLlmLlmLlmLlmLlmLlmLlmLlmLlmLlmLlmLlmEmbeddingTime: number | null,
+  toolUseLlmLlmLlmLlmLlmLlmLlmLlmLlmLlmLlmLlmEmbeddingCost: number | null,
+  toolUseLlmLlmLlmLlmLlmLlmLlmLlmLlmLlmLlmLlmEmbeddingTokens: number | null,
+  toolUseLlmLlmLlmLlmLlmLlmLlmLlmLlmLlmLlmLlmVectorSearch: boolean | null,
+  toolUseLlmLlmLlmLlmLlmLlmLlmLlmLlmLlmLlmLlmVectorSearchTime: number | null,
+  toolUseLlmLlmLlmLlmLlmLlmLlmLlmLlmLlmLlmLlmVectorSearchCost: number | null,
+  toolUseLlmLlmLlmLlmLlmLlmLlmLlmLlmLlmLlmLlmVectorSearchResults: number | null,
+  toolUseLlmLlmLlmLlmLlmLlmLlmLlmLlmLlmLlmLlmRag: boolean | null,
+  toolUseLlmLlmLlmLlmLlmLlmLlmLlmLlmLlmLlmLlmRagTime: number | null,
+  toolUseLlmLlmLlmLlmLlmLlmLlmLlmLlmLlmLlmLlmRagCost: number | null,
+  toolUseLlmLlmLlmLlmLlmLlmLlmLlmLlmLlmLlmLlmRagResults: number | null,
+  toolUseLlmLlmLlmLlmLlmLlmLlmLlmLlmLlmLlmLlmLlm: string | null,
+  toolUseLlmLlmLlmLlmLlmLlmLlmLlmLlmLlmLlmLlmLlmTime: number | null,
+  toolUseLlmLlmLlmLlmLlmLlmLlmLlmLlmLlmLlmLlmLlmCost: number | null,
+  toolUseLlmLlmLlmLlmLlmLlmLlmLlmLlmLlmLlmLlmLlmTokens: number | null,
+  toolUseLlmLlmLlmLlmLlmLlmLlmLlmLlmLlmLlmLlmLlmError: string | null,
+  toolUseLlmLlmLlmLlmLlmLlmLlmLlmLlmLlmLlmLlmLlmSuccess: boolean | null,
+  toolUseLlmLlmLlmLlmLlmLlmLlmLlmLlmLlmLlmLlmLlmModel: string | null,
+  toolUseLlmLlmLlmLlmLlmLlmLlmLlmLlmLlmLlmLlmLlmApiKey: string | null,
+  toolUseLlmLlmLlmLlmLlmLlmLlmLlmLlmLlmLlmLlmLlmEmbeddingModel: string | null,
+  toolUseLlmLlmLlmLlmLlmLlmLlmLlmLlmLlmLlmLlmLlmEmbeddingApiKey: string | null,
+  toolUseLlmLlmLlmLlmLlmLlmLlmLlmLlmLlmLlmLlmLlmEmbeddingTime: number | null,
+  toolUseLlmLlmLlmLlmLlmLlmLlmLlmLlmLlmLlmLlmLlmEmbeddingCost: number | null,
+  toolUseLlmLlmLlmLlmLlmLlmLlmLlmLlmLlmLlmLlmLlmEmbeddingTokens: number | null,
+  toolUseLlmLlmLlmLlmLlmLlmLlmLlmLlmLlmLlmLlmLlmVectorSearch: boolean | null,
+  toolUseLlmLlmLlmLlmLlmLlmLlmLlmLlmLlmLlmLlmLlmVectorSearchTime: number | null,
+  toolUseLlmLlmLlmLlmLlmLlmLlmLlmLlmLlmLlmLlmLlmVectorSearchCost: number | null,
+  toolUseLlmLlmLlmLlmLlmLlmLlmLlmLlmLlmLlmLlmLlmVectorSearchResults: number | null,
+  toolUseLlmLlmLlmLlmLlmLlmLlmLlmLlmLlmLlmLlmLlmRag: boolean | null,
+  toolUseLlmLlmLlmLlmLlmLlmLlmLlmLlmLlmLlmLlmLlmRagTime: number | null,
+  toolUseLlmLlmLlmLlmLlmLlmLlmLlmLlmLlmLlmLlmLlmRagCost: number | null,
+  toolUseLlmLlmLlmLlmLlmLlmLlmLlmLlmLlmLlmLlmLlmRagResults: number | null,
+  toolUseLlmLlmLlmLlmLlmLlmLlmLlmLlmLlmLlmLlmLlmLlm: string | null,
+  toolUseLlmLlmLlmLlmLlmLlmLlmLlmLlmLlmLlmLlmLlmLlmTime: number | null,
+  toolUseLlmLlmLlmLlmLlmLlmLlmLlmLlmLlmLlmLlmLlmLlmCost: number | null,
+  toolUseLlmLlmLlmLlmLlmLlmLlmLlmLlmLlmLlmLlmLlmLlmTokens: number | null,
+  toolUseLlmLlmLlmLlmLlmLlmLlmLlmLlmLlmLlmLlmLlmLlmError: string | null,
+  toolUseLlmLlmLlmLlmLlmLlmLlmLlmLlmLlmLlmLlmLlmLlmSuccess: boolean | null,
+  toolUseLlmLlmLlmLlmLlmLlmLlmLlmLlmLlmLlmLlmLlmLlmModel: string | null,
+  toolUseLlmLlmLlmLlmLlmLlmLlmLlmLlmLlmLlmLlmLlmLlmApiKey: string | null,
+  toolUseLlmLlmLlmLlmLlmLlmLlmLlmLlmLlmLlmLlmLlmLlmEmbeddingModel: string | null,
+  toolUseLlmLlmLlmLlmLlmLlmLlmLlmL

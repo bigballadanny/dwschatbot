@@ -1,3 +1,4 @@
+
 import {
   BrowserRouter as Router,
   Routes,
@@ -35,23 +36,17 @@ const MainLayout = () => {
   const SidebarOpenButton = () => {
     if (state !== "collapsed") return null;
     return (
-      return (
-        <div className="flex h-screen w-full overflow-hidden">
-          <ChatSidebar /> {/* Keep ChatSidebar OUTSIDE the provider */}
-          <SidebarProvider> {/* Provider wraps the rest */} 
-            <SidebarOpenButton /> 
-            <SidebarInset> 
-              <div className="flex flex-col h-full w-full">
-                <Header />
-                <main className="flex-1 overflow-y-auto bg-muted/30">
-                  <Outlet /> 
-                </main>
-              </div>
-            </SidebarInset>
-          </SidebarProvider>
-        </div>
-      );
-  
+      <Button
+        variant="ghost"
+        size="icon"
+        className="fixed left-4 top-4 z-50"
+        onClick={toggleSidebar}
+      >
+        <PanelLeft className="h-5 w-5" />
+        <span className="sr-only">Toggle Sidebar</span>
+      </Button>
+    );
+  };
 
   return (
     <SidebarProvider> {/* Ensure provider wraps layout */} 
