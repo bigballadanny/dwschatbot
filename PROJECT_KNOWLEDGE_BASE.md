@@ -3,6 +3,17 @@
 
 This document stores key information, decisions, context, and workflow details for the project to ensure continuity between development sessions.
 
+## Project Mission & Goals
+
+* **Core Purpose:** Create an AI assistant for M&A knowledge that provides access to expert teachings through an intuitive chat interface.
+* **Target Experience:** Intuitive, responsive interface with voice capabilities, document analysis, and insightful analytics.
+* **Key Features:**
+  * Conversational AI chat interface
+  * Document analysis ("War Room")
+  * Voice interaction
+  * Admin analytics dashboard
+  * Responsive design across devices
+
 ## Workflow Notes (for AI Agent)
 
 *   **Development Environment:** Work occurs primarily in the local IDE. Changes modify local files directly.
@@ -19,13 +30,28 @@ This document stores key information, decisions, context, and workflow details f
     4.  Database Tables/RLS (via user checking Supabase dashboard)
     5.  Browser Console Logs on `localhost`
 
-## Project Goals
+## Collaborative Problem-Solving Techniques
 
-*   Functional and insightful Analytics page.
-*   Robust chat functionality.
-*   Clean UI/UX, responsive design.
-*   Well-structured and maintainable codebase.
-*   Develop a functional "War Room" feature for document analysis.
+* **First Principles Thinking:** Break down complex problems to their fundamental elements before building solutions.
+* **Question the Problem, Not Just the Solution:** Regularly ask if we're addressing the actual root cause rather than symptoms.
+* **Incremental Progress vs. Full Rewrites:** Favor small, testable changes when working with existing code rather than full rewrites.
+* **Diverge Then Converge:** When stuck, generate multiple solution approaches before selecting the optimal path.
+* **Code Review Protocol:** Review changes with these questions:
+  1. Does this solve the original problem?
+  2. Does it introduce new dependencies or complexity?
+  3. Is it maintainable and consistent with the codebase?
+  4. Could it be simplified further?
+
+## Progress Check Protocol
+
+Every 5-7 messages, the AI should:
+1. Review the current task status and progress made
+2. Identify any potential issues or roadblocks
+3. Provide a brief summary of what has been accomplished
+4. Outline next steps for continuing progress
+5. Ask if the current approach continues to align with user goals
+
+This periodic check helps maintain focus, ensures alignment, and provides opportunities to adjust course as needed.
 
 ## Current Status (As of this update)
 
@@ -39,10 +65,12 @@ This document stores key information, decisions, context, and workflow details f
     *   Added content gap analysis to identify knowledge base improvement opportunities.
 *   **Layout:** FIXED issue where sidebar appeared on `/auth` page by restructuring `App.tsx` with a `MainLayout` and `SimpleLayout`.
 *   **Audio:** Refactored to use `AudioPlayer` component, default off.
+*   **Current Tasks:**
+    *   Debugging TypeScript error: "Type instantiation is excessively deep and possibly infinite" in message handling system.
 
-## App Functionality
+## App Functionality & Technology Stack
 
-*   **User Experience:** The application serves as an AI assistant for M&A knowledge, providing access to Carl Allen's teachings through an intuitive chat interface.
+*   **User Experience:** The application serves as an AI assistant for M&A knowledge, providing access to expert teachings through an intuitive chat interface.
 *   **Core Features:** Chat interaction, document analysis, voice interaction, analytics for admins.
 *   **Technology Stack:** React, TypeScript, Tailwind CSS, Supabase (backend/auth/storage), Gemini API (AI integration).
 
@@ -67,14 +95,3 @@ This document stores key information, decisions, context, and workflow details f
 *   Begin development of the "War Room" feature.
 *   **Technical Debt:** Consider refactoring `useChatController.tsx` and `useChatMessages.tsx` to remove duplication and improve maintainability.
 *   **Action Required by User:** None currently. Proceed with testing/next feature.
-
-## Progress Check Protocol
-
-Every 5-7 messages, the AI should:
-1. Review the current task status and progress made
-2. Identify any potential issues or roadblocks
-3. Provide a brief summary of what has been accomplished
-4. Outline next steps for continuing progress
-5. Ask if the current approach continues to align with user goals
-
-This periodic check helps maintain focus, ensures alignment, and provides opportunities to adjust course as needed.
