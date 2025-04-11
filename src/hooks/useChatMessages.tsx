@@ -26,8 +26,8 @@ interface SupabaseMessage {
   user_id?: string;
 }
 
-// Define a simplified message structure for sending to API
-interface SimplifiedMessage {
+// Define a completely separate, non-recursive type for API communication
+interface ApiMessage {
   role: 'user' | 'assistant' | 'system';
   content: string;
 }
@@ -218,19 +218,20 @@ export function useChatMessages({
     setIsLoading(true);
 
     try {
-      // Create a fixed structure for message history to avoid recursive type issues
-      const messageHistory: SimplifiedMessage[] = [];
+      // Create a completely separate message array for API communication
+      // This breaks the recursive type reference that causes the TS error
+      const apiMessages: ApiMessage[] = [];
       
-      // Process each message and convert to the simplified format
-      for (const msg of messages.filter(msg => !msg.isLoading)) {
-        messageHistory.push({
+      // Convert existing messages to the simplified API format
+      messages.filter(msg => !msg.isLoading).forEach(msg => {
+        apiMessages.push({
           role: msg.source === 'user' ? 'user' : 'assistant',
           content: msg.content
         });
-      }
+      });
       
-      // Add the new user message to history
-      messageHistory.push({ 
+      // Add the new message
+      apiMessages.push({ 
         role: 'user', 
         content: trimmedMessage 
       });
@@ -238,7 +239,7 @@ export function useChatMessages({
       const { data, error } = await supabase.functions.invoke('gemini-chat', {
         body: {
           query: trimmedMessage,
-          messages: messageHistory,
+          messages: apiMessages,
           isVoiceInput: isVoiceInput,
           enableOnlineSearch: enableOnlineSearch,
           conversationId: currentConvId
