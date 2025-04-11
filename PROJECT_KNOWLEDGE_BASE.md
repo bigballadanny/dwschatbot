@@ -3,11 +3,11 @@
 
 ## Refactoring Plan & Progress
 
-### Phase 1: Fix Type Issues (VERIFICATION PENDING)
-- [ ] Fix the "Type instantiation is excessively deep" error in messageUtils.ts
-- [ ] Refactor message type definitions to avoid circular dependencies
-- [ ] Update component imports to use the centralized types
-- [ ] Verify all message-related code is using the proper types
+### Phase 1: Fix Type Issues (IN PROGRESS)
+- [x] Fix the "Type instantiation is excessively deep" error in messageUtils.ts
+- [x] Created dbMessageToUiMessage utility function to align with database schema
+- [x] Simplified type definitions and conversion logic
+- [x] Updated useMessages hook to use the new utility function
 - [ ] **Collaborative Verification Required**: Confirm no remaining type errors
 
 ### Phase 2: Consolidate Redundant Hooks (PREPARATION)
@@ -16,11 +16,12 @@
 - [ ] Plan consolidation strategy
 - [ ] Prepare for potential refactoring of audio handling hooks
 
-### Phase 3: Backend and Type System Deep Dive
-- [ ] Investigate potential misalignments between frontend types and Supabase database schema
-- [ ] Review message and conversation data flow
-- [ ] Identify potential sources of type complexity
-- [ ] Explore database schema implications on type definitions
+### Phase 3: Backend and Type System Alignment
+- [x] Investigated alignment between frontend types and Supabase database schema
+- [x] Identified that messages in the database have metadata field for source and citation
+- [x] Created proper data transformation between DB and UI formats
+- [ ] Ensure consistent data flow throughout the application
+- [ ] Identify any remaining type complexity issues
 
 ### Phase 4: Simplify Voice and Audio Functionality
 - [ ] Review current voice and audio implementation
@@ -36,7 +37,7 @@
 - Maintain open communication about implementation challenges
 
 ## Current Focus
-- Resolving type instantiation depth issues
+- Completing type system alignment
+- Testing the fixes for the type instantiation error
 - Preparing for hook consolidation
-- Exploring backend-frontend type alignment
 
