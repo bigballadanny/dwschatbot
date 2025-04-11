@@ -2,7 +2,7 @@
 import { useState } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/components/ui/use-toast';
-import { MessageData, ApiMessage, convertToApiMessages, MessageSource } from '@/utils/messageUtils';
+import { MessageData, ApiMessage, MessageSource } from '@/utils/messageUtils';
 
 interface UseMessagesProps {
   userId: string | undefined;
@@ -81,7 +81,7 @@ export function useMessages({ userId, conversationId }: UseMessagesProps) {
     }
   };
 
-  const addUserMessage = (content: string) => {
+  const addUserMessage = (content: string): MessageData => {
     const userMessage: MessageData = { 
       content, 
       source: 'user', 
@@ -97,7 +97,7 @@ export function useMessages({ userId, conversationId }: UseMessagesProps) {
     return userMessage;
   };
 
-  const addSystemMessage = (content: string, source: 'system' | 'gemini' = 'gemini', citation?: string[]) => {
+  const addSystemMessage = (content: string, source: MessageSource = 'gemini', citation?: string[]): MessageData => {
     const message: MessageData = {
       content,
       source,
@@ -109,7 +109,7 @@ export function useMessages({ userId, conversationId }: UseMessagesProps) {
     return message;
   };
 
-  const addErrorMessage = (errorText: string) => {
+  const addErrorMessage = (errorText: string): void => {
     setMessages(prev => [
       ...prev.filter(msg => !msg.isLoading),
       { 
@@ -121,7 +121,35 @@ export function useMessages({ userId, conversationId }: UseMessagesProps) {
   };
 
   const formatMessagesForApi = (newUserContent: string): ApiMessage[] => {
-    return convertToApiMessages(messages, newUserContent);
+    const filteredMessages = messages.filter(msg => !msg.isLoading);
+    
+    const apiMessages: ApiMessage[] = filteredMessages.map(msg => {
+      let role: 'user' | 'assistant' | 'system';
+      
+      switch (msg.source) {
+        case 'user':
+          role = 'user';
+          break;
+        case 'system':
+          role = 'system';
+          break;
+        default:
+          role = 'assistant';
+      }
+      
+      return {
+        role,
+        content: msg.content
+      };
+    });
+    
+    // Add the new user message
+    apiMessages.push({
+      role: 'user',
+      content: newUserContent
+    });
+    
+    return apiMessages;
   };
 
   return {

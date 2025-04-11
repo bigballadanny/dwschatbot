@@ -28,13 +28,9 @@ export interface MessageData {
 }
 
 /**
- * Converts UI messages array to API format
- * @param messages Array of UI messages
- * @param newUserContent Content of the new user message
- * @returns Array of API-formatted messages
+ * Converts UI messages to API format for sending to backend
  */
 export function convertToApiMessages(messages: MessageData[], newUserContent: string): ApiMessage[] {
-  // Create a new array for API messages
   const apiMessages: ApiMessage[] = [];
   
   // Process existing messages
@@ -42,15 +38,17 @@ export function convertToApiMessages(messages: MessageData[], newUserContent: st
     // Skip loading messages
     if (message.isLoading) continue;
     
-    // Map UI source to API role
+    // Map the source to role
     let role: 'user' | 'assistant' | 'system';
-    
-    if (message.source === 'user') {
-      role = 'user';
-    } else if (message.source === 'system') {
-      role = 'system';
-    } else {
-      role = 'assistant';
+    switch (message.source) {
+      case 'user':
+        role = 'user';
+        break;
+      case 'system':
+        role = 'system';
+        break;
+      default:
+        role = 'assistant';
     }
     
     apiMessages.push({
@@ -59,7 +57,7 @@ export function convertToApiMessages(messages: MessageData[], newUserContent: st
     });
   }
   
-  // Add the new user message at the end
+  // Add the new user message
   apiMessages.push({
     role: 'user',
     content: newUserContent

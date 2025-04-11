@@ -1,5 +1,6 @@
 
 import React, { useRef, useEffect, forwardRef, useImperativeHandle, useState } from 'react';
+import MessageItem from './MessageItem';
 import { MessageProps } from './MessageItem';
 import { cn } from "@/lib/utils";
 import SearchModeToggle from './SearchModeToggle';
