@@ -1,3 +1,4 @@
+
 # Project Knowledge Base
 
 This document stores key information, decisions, context, and workflow details for the project to ensure continuity between development sessions.
@@ -34,6 +35,8 @@ This document stores key information, decisions, context, and workflow details f
     *   CSV Download feature REMOVED due to persistent syntax errors during implementation.
     *   PieChart errors (Usage Patterns, Source Dist) FIXED by adding checks for empty data before rendering.
     *   Responsiveness improved using Tailwind grid/flex classes and ScrollAreas.
+    *   Enhanced with dedicated User Engagement tab showing metrics like unique conversations, total queries, average queries per conversation, and return rate.
+    *   Added content gap analysis to identify knowledge base improvement opportunities.
 *   **Layout:** FIXED issue where sidebar appeared on `/auth` page by restructuring `App.tsx` with a `MainLayout` and `SimpleLayout`.
 *   **Audio:** Refactored to use `AudioPlayer` component, default off.
 
@@ -43,4 +46,3 @@ This document stores key information, decisions, context, and workflow details f
 *   Consider re-adding CSV download using a library or simpler method if needed.
 *   Begin development of the "War Room" feature.
 *   **Action Required by User:** None currently. Proceed with testing/next feature.
-

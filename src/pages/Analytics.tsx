@@ -2,7 +2,7 @@ import React, { useEffect, useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { RefreshCw } from 'lucide-react'; // Removed Download icon
+import { RefreshCw } from 'lucide-react';
 import { Input } from '@/components/ui/input';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import {
@@ -15,15 +15,14 @@ import {
   generateKeywordFrequency,
   trackNonTranscriptSources,
   analyzeUserSegments,
-  generateQueryThemes, // Make sure this is imported
-  identifyInsightfulQueries // Make sure this is imported
+  generateQueryThemes,
+  identifyInsightfulQueries
 } from '@/utils/analyticsUtils';
 import { checkAnalyticsTable } from '@/utils/analyticsDbCheck';
 import { LineChart, BarChart, PieChart } from '@/components/ui/charts';
-import { ScrollArea } from '@/components/ui/scroll-area'; // Import ScrollArea
-import { useToast } from "@/components/ui/use-toast"; // Import useToast
+import { ScrollArea } from '@/components/ui/scroll-area';
+import { useToast } from "@/components/ui/use-toast";
 
-// Types (keep as before)
 interface AnalyticsData { 
   id: string;
   conversation_id: string | null;
@@ -42,10 +41,15 @@ interface AnalyticsData {
 
 interface QueryThemeData { theme: string; count: number; }
 interface InsightfulQuery { query: string; reason: string; score: number; source?: string | null; }
+interface UserEngagement { 
+  uniqueConversations: number; 
+  totalQueries: number;
+  avgQueriesPerConversation: number; 
+  returnRate: number;
+}
 
 const Analytics = () => {
-  const { toast } = useToast(); // Initialize toast
-  // State variables (keep most as before)
+  const { toast } = useToast();
   const [analyticsData, setAnalyticsData] = useState<AnalyticsData[]>([]);
   const [topQueries, setTopQueries] = useState<{ query: string; count: number }[]>([]);
   const [sourceDistribution, setSourceDistribution] = useState<{ name: string; value: number }[]>([]);
@@ -53,29 +57,32 @@ const Analytics = () => {
   const [responseTimeData, setResponseTimeData] = useState<{ date: string; "Average Response Time (ms)": number }[]>([]);
   const [frequentTranscripts, setFrequentTranscripts] = useState<{ title: string; count: number; source: string | null }[]>([]);
   const [keywordFrequency, setKeywordFrequency] = useState<{ word: string; count: number }[]>([]);
-  const [queryThemesData, setQueryThemesData] = useState<QueryThemeData[]>([]); 
-  const [insightfulQueries, setInsightfulQueries] = useState<InsightfulQuery[]>([]); // Add state for insightful queries
+  const [queryThemesData, setQueryThemesData] = useState<QueryThemeData[]>([]);
+  const [insightfulQueries, setInsightfulQueries] = useState<InsightfulQuery[]>([]);
   const [nonTranscriptSources, setNonTranscriptSources] = useState<{ count: number; percentage: number; topQueries: { query: string; count: number }[] }>({ count: 0, percentage: 0, topQueries: [] });
   const [userSegments, setUserSegments] = useState<{ basic: number; engaged: number; power: number; technical: number; conceptual: number; otherType: number; }>({ basic: 0, engaged: 0, power: 0, technical: 0, conceptual: 0, otherType: 0 });
-  const [dateRange, setDateRange] = useState<'7d' | '30d' | 'all'>('all'); // Default to all
+  const [userEngagement, setUserEngagement] = useState<UserEngagement>({
+    uniqueConversations: 0,
+    totalQueries: 0,
+    avgQueriesPerConversation: 0,
+    returnRate: 0
+  });
+  const [dateRange, setDateRange] = useState<'7d' | '30d' | 'all'>('all');
   const [searchQuery, setSearchQuery] = useState<string>('');
   const [loading, setLoading] = useState(true);
 
-  // --- Data Loading Effect ---
   useEffect(() => {
-    // Check table readiness first, then load data
     checkAnalyticsTable().then(success => {
       if (success) {
         loadAnalyticsData(); 
       } else {
         console.error('Analytics table check failed. Cannot load data.');
-        setLoading(false); // Stop loading if check fails
+        setLoading(false);
         toast({ title: "Analytics Setup Issue", description: "Could not verify analytics table.", variant: "destructive" });
       }
     });
-  }, [dateRange, searchQuery]); // Reload when filters change
+  }, [dateRange, searchQuery]);
 
-  // --- Load Analytics Data Function ---
   const loadAnalyticsData = async () => {
     setLoading(true);
     try {
@@ -91,11 +98,14 @@ const Analytics = () => {
         setFrequentTranscripts(getFrequentlyUsedTranscripts(data));
         setKeywordFrequency(generateKeywordFrequency(data));
         setQueryThemesData(generateQueryThemes(data));
-        setInsightfulQueries(identifyInsightfulQueries(data)); // Load insightful queries
+        setInsightfulQueries(identifyInsightfulQueries(data));
         setNonTranscriptSources(trackNonTranscriptSources(data));
-        setUserSegments(analyzeUserSegments(data));
+        
+        const segments = analyzeUserSegments(data);
+        setUserSegments(segments);
+        
+        calculateUserEngagement(data);
       } else {
-        // Clear data if no records found for the current filter
         setTopQueries([]);
         setSourceDistribution([]);
         setSuccessRate({ success: 0, failure: 0, rate: 0 });
@@ -106,6 +116,12 @@ const Analytics = () => {
         setInsightfulQueries([]);
         setNonTranscriptSources({ count: 0, percentage: 0, topQueries: [] });
         setUserSegments({ basic: 0, engaged: 0, power: 0, technical: 0, conceptual: 0, otherType: 0 });
+        setUserEngagement({
+          uniqueConversations: 0,
+          totalQueries: 0,
+          avgQueriesPerConversation: 0,
+          returnRate: 0
+        });
       }
     } catch (error) {
       console.error('Error loading or processing analytics data:', error);
@@ -115,15 +131,43 @@ const Analytics = () => {
     }
   };
 
-  // --- Event Handlers ---
+  const calculateUserEngagement = (data: AnalyticsData[]) => {
+    const conversationCounts: Record<string, number> = {};
+    
+    data.forEach(item => {
+      if (item.conversation_id) {
+        conversationCounts[item.conversation_id] = (conversationCounts[item.conversation_id] || 0) + 1;
+      }
+    });
+    
+    const uniqueConversations = Object.keys(conversationCounts).length;
+    const totalQueries = data.length;
+    
+    const avgQueriesPerConversation = uniqueConversations > 0 
+      ? +(totalQueries / uniqueConversations).toFixed(1) 
+      : 0;
+    
+    const returningConversations = Object.values(conversationCounts).filter(count => count > 1).length;
+    const returnRate = uniqueConversations > 0 
+      ? Math.round((returningConversations / uniqueConversations) * 100) 
+      : 0;
+    
+    setUserEngagement({
+      uniqueConversations,
+      totalQueries,
+      avgQueriesPerConversation,
+      returnRate
+    });
+  };
+
   const handleRefresh = () => loadAnalyticsData();
 
-  // --- Local Data Generators ---
   const generateUsageByHourData = () => {
     const hourCounts = Array(24).fill(0);
     analyticsData.forEach(item => { hourCounts[new Date(item.created_at).getHours()]++; });
     return hourCounts.map((count, hour) => ({ hour: `${hour}:00`, queries: count }));
   };
+  
   const generateDailyQueryVolumeData = () => {
     const dailyData: Record<string, number> = {};
     analyticsData.forEach(item => {
@@ -135,7 +179,6 @@ const Analytics = () => {
       .map(([date, count]) => ({ date, queries: count }));
   };
   
-  // Modified Pie Chart data generators to handle potentially empty source data
   const getPieData = (generatorFn: () => { name: string; value: number }[]) => {
     const data = generatorFn();
     return data.filter(item => item.value > 0);
@@ -145,8 +188,22 @@ const Analytics = () => {
   const queryTypesPieData = getPieData(() => generateUserSegmentsPieData('queryTypes'));
   const sourceDistPieData = getPieData(() => sourceDistribution);
 
+  const generateUserSegmentsPieData = (type: 'engagement' | 'queryTypes') => {
+    if (type === 'engagement') {
+      return [
+        { name: 'Basic Users', value: userSegments.basic },
+        { name: 'Engaged Users', value: userSegments.engaged },
+        { name: 'Power Users', value: userSegments.power }
+      ].filter(item => item.value > 0);
+    } else {
+      return [
+        { name: 'Technical', value: userSegments.technical },
+        { name: 'Conceptual', value: userSegments.conceptual },
+        { name: 'Other', value: userSegments.otherType }
+      ].filter(item => item.value > 0);
+    }
+  };
 
-  // --- Render Logic ---
   return (
     <div className="container mx-auto py-6 px-2 sm:px-4 md:px-6">
       <Card className="shadow-lg border">
@@ -155,7 +212,6 @@ const Analytics = () => {
           <CardDescription className="text-sm">AI assistant usage and query patterns.</CardDescription>
         </CardHeader>
         <CardContent className="pt-4 px-2 sm:px-4 md:px-6">
-          {/* Control Bar - Improved Responsiveness */} 
           <div className="mb-4 p-3 sm:p-4 bg-muted rounded-lg flex flex-col md:flex-row items-center justify-between gap-3 md:gap-4">
             <Tabs defaultValue={dateRange} className="w-full md:w-auto">
               <TabsList className="grid grid-cols-3 w-full md:w-auto">
@@ -175,11 +231,9 @@ const Analytics = () => {
               <Button variant="outline" size="icon" onClick={handleRefresh} disabled={loading} title="Refresh Data" className="h-9 w-9">
                 <RefreshCw className={`h-4 w-4 ${loading ? 'animate-spin' : ''}`} />
               </Button>
-              {/* Removed Download CSV Button */}
             </div>
           </div>
 
-          {/* Content Area */} 
           {loading ? (
             <Alert className="flex items-center justify-center min-h-[200px]">
               <RefreshCw className="h-5 w-5 mr-2 animate-spin" />
@@ -191,10 +245,10 @@ const Analytics = () => {
              </Alert>
           ) : (
             <Tabs defaultValue="overview" className="space-y-4">
-              {/* Tab Navigation - Made Scrollable */} 
               <ScrollArea className="w-full whitespace-nowrap border-b">
                   <TabsList className="inline-flex h-auto p-1 flex-wrap sm:flex-nowrap">
                       <TabsTrigger value="overview">Overview</TabsTrigger>
+                      <TabsTrigger value="engagement">User Engagement</TabsTrigger>
                       <TabsTrigger value="themes">Query Themes</TabsTrigger>
                       <TabsTrigger value="insights">Insightful Queries</TabsTrigger>
                       <TabsTrigger value="usage">Usage Patterns</TabsTrigger>
@@ -205,16 +259,18 @@ const Analytics = () => {
                       <TabsTrigger value="external">External Usage</TabsTrigger>
                       <TabsTrigger value="user-segments">User Segments</TabsTrigger>
                   </TabsList>
-                  <div className="h-px w-full bg-border" /> {/* Visual separator */} 
+                  <div className="h-px w-full bg-border" />
               </ScrollArea>
 
-              {/* Tab Content Panels */} 
               <TabsContent value="overview" className="space-y-4 md:space-y-6">
-                {/* Key Metrics - Adjusted grid */} 
-                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
                   <Card>
                     <CardHeader><CardTitle>Total Queries</CardTitle></CardHeader>
                     <CardContent><div className="text-3xl font-bold">{analyticsData.length}</div></CardContent>
+                  </Card>
+                  <Card>
+                    <CardHeader><CardTitle>Unique Conversations</CardTitle></CardHeader>
+                    <CardContent><div className="text-3xl font-bold">{userEngagement.uniqueConversations}</div></CardContent>
                   </Card>
                   <Card>
                     <CardHeader><CardTitle>Success Rate</CardTitle></CardHeader>
@@ -234,7 +290,6 @@ const Analytics = () => {
                     </CardContent>
                   </Card>
                 </div>
-                 {/* Daily Volume Chart - Adjusted height */} 
                 <Card>
                   <CardHeader>
                     <CardTitle>Daily Query Volume</CardTitle>
@@ -246,6 +301,77 @@ const Analytics = () => {
                 </Card>
               </TabsContent>
 
+              <TabsContent value="engagement" className="space-y-4 md:space-y-6">
+                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-2 gap-4 mb-4">
+                  <Card>
+                    <CardHeader>
+                      <CardTitle>User Engagement Summary</CardTitle>
+                      <CardDescription className="text-sm">Key metrics about user interaction patterns</CardDescription>
+                    </CardHeader>
+                    <CardContent className="space-y-4">
+                      <div className="grid grid-cols-2 gap-4">
+                        <div className="bg-muted rounded-lg p-4">
+                          <p className="text-sm font-medium mb-1">Unique Conversations</p>
+                          <p className="text-2xl font-bold">{userEngagement.uniqueConversations}</p>
+                        </div>
+                        <div className="bg-muted rounded-lg p-4">
+                          <p className="text-sm font-medium mb-1">Total Queries</p>
+                          <p className="text-2xl font-bold">{userEngagement.totalQueries}</p>
+                        </div>
+                        <div className="bg-muted rounded-lg p-4">
+                          <p className="text-sm font-medium mb-1">Avg Queries/Conv</p>
+                          <p className="text-2xl font-bold">{userEngagement.avgQueriesPerConversation}</p>
+                        </div>
+                        <div className="bg-muted rounded-lg p-4">
+                          <p className="text-sm font-medium mb-1">Return Rate</p>
+                          <p className="text-2xl font-bold">{userEngagement.returnRate}%</p>
+                          <p className="text-xs text-muted-foreground">Users with >1 query</p>
+                        </div>
+                      </div>
+                    </CardContent>
+                  </Card>
+                  <Card>
+                    <CardHeader>
+                      <CardTitle>User Type Distribution</CardTitle>
+                      <CardDescription className="text-sm">Based on engagement levels</CardDescription>
+                    </CardHeader>
+                    <CardContent className="h-[280px] sm:h-[300px]">
+                      {engagementPieData.length > 0 ? (
+                        <PieChart data={engagementPieData} category="value" index="name" colors={['#0088FE', '#00C49F', '#FFBB28']} className="h-full" />
+                      ) : (
+                        <div className="flex items-center justify-center h-full text-muted-foreground italic">No data</div>
+                      )}
+                    </CardContent>
+                  </Card>
+                </div>
+                <Card>
+                  <CardHeader>
+                    <CardTitle>Content Analysis</CardTitle>
+                    <CardDescription>Identifying content gaps and opportunities</CardDescription>
+                  </CardHeader>
+                  <CardContent>
+                    <div className="space-y-4">
+                      <div className="bg-muted/50 rounded-lg p-4 border border-muted">
+                        <h3 className="font-semibold mb-2">Content Gap Analysis</h3>
+                        {nonTranscriptSources.percentage > 0 ? (
+                          <p className="text-sm">{nonTranscriptSources.percentage}% of queries ({nonTranscriptSources.count}) required external sources, indicating potential knowledge gaps in transcripts.</p>
+                        ) : (
+                          <p className="text-sm">No content gaps identified in the current data set.</p>
+                        )}
+                      </div>
+                      <div className="bg-muted/50 rounded-lg p-4 border border-muted">
+                        <h3 className="font-semibold mb-2">Most Valuable Content</h3>
+                        {frequentTranscripts.length > 0 ? (
+                          <p className="text-sm">Most referenced transcript: <strong>{frequentTranscripts[0]?.title}</strong> (used {frequentTranscripts[0]?.count} times)</p>
+                        ) : (
+                          <p className="text-sm">No transcript usage data available for this period.</p>
+                        )}
+                      </div>
+                    </div>
+                  </CardContent>
+                </Card>
+              </TabsContent>
+
               <TabsContent value="themes" className="space-y-4 md:space-y-6">
                  <Card>
                    <CardHeader>
@@ -253,12 +379,21 @@ const Analytics = () => {
                      <CardDescription className="text-sm">Frequency of M&A topics.</CardDescription>
                    </CardHeader>
                    <CardContent className="h-[350px] sm:h-[400px]">
-                     <BarChart data={queryThemesData} index="theme" categories={["count"]} colors={["#1E88E5"]} layout="vertical" valueFormatter={(v) => `${v}`} showLegend={false} yAxisWidth={140} className="h-full" />
+                     <BarChart 
+                       data={queryThemesData} 
+                       index="theme" 
+                       categories={["count"]} 
+                       colors={["#1E88E5"]} 
+                       layout="vertical" 
+                       valueFormatter={(v) => `${v}`} 
+                       showLegend={false} 
+                       yAxisWidth={140} 
+                       className="h-full" 
+                     />
                    </CardContent>
                  </Card>
                </TabsContent>
                
-              {/* Insightful Queries Tab */} 
               <TabsContent value="insights" className="space-y-4 md:space-y-6">
                  <Card>
                    <CardHeader>
@@ -267,7 +402,7 @@ const Analytics = () => {
                    </CardHeader>
                    <CardContent>
                      {insightfulQueries.length > 0 ? (
-                       <ScrollArea className="h-[400px]"> {/* Make list scrollable */} 
+                       <ScrollArea className="h-[400px]"> 
                          <ul className="space-y-3 divide-y">
                            {insightfulQueries.map((item, index) => (
                              <li key={index} className="pt-3 text-sm">
@@ -296,7 +431,6 @@ const Analytics = () => {
                     <BarChart data={generateUsageByHourData()} index="hour" categories={["queries"]} colors={["#82ca9d"]} valueFormatter={(v) => `${v}`} showLegend={false} yAxisWidth={30} className="h-full" />
                   </CardContent>
                 </Card>
-                {/* Pie Charts - Added check for empty data */} 
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   <Card>
                     <CardHeader>
@@ -327,13 +461,12 @@ const Analytics = () => {
                 </div>
               </TabsContent>
 
-               {/* Other Tabs (Top Queries, Sources, Transcripts, etc.) - Made lists scrollable */} 
-               <TabsContent value="queries">
-                 <Card>
-                   <CardHeader><CardTitle>Top {topQueries.length} Queries</CardTitle></CardHeader>
-                   <CardContent><ScrollArea className="h-[400px]"><ul className="space-y-2 divide-y pr-3">{topQueries.map((item, index) => (<li key={index} className="pt-2 text-sm"><span className="font-medium">({item.count})</span> {item.query}</li>))}</ul></ScrollArea></CardContent>
-                 </Card>
-               </TabsContent>
+              <TabsContent value="queries">
+                <Card>
+                  <CardHeader><CardTitle>Top {topQueries.length} Queries</CardTitle></CardHeader>
+                  <CardContent><ScrollArea className="h-[400px]"><ul className="space-y-2 divide-y pr-3">{topQueries.map((item, index) => (<li key={index} className="pt-2 text-sm"><span className="font-medium">({item.count})</span> {item.query}</li>))}</ul></ScrollArea></CardContent>
+                </Card>
+              </TabsContent>
 
               <TabsContent value="sources">
                 <Card>
@@ -348,49 +481,47 @@ const Analytics = () => {
                 </Card>
               </TabsContent>
 
-               <TabsContent value="transcripts">
-                 <Card>
-                   <CardHeader><CardTitle>Top {frequentTranscripts.length} Transcripts</CardTitle></CardHeader>
-                   <CardContent><ScrollArea className="h-[400px]"><ul className="space-y-2 divide-y pr-3">{frequentTranscripts.map((item, index) => (<li key={index} className="pt-2 text-sm"><span className="font-medium">({item.count})</span> {item.title} <span className="text-muted-foreground">({item.source || 'Unknown'})</span></li>))}</ul></ScrollArea></CardContent>
-                 </Card>
-               </TabsContent>
+              <TabsContent value="transcripts">
+                <Card>
+                  <CardHeader><CardTitle>Top {frequentTranscripts.length} Transcripts</CardTitle></CardHeader>
+                  <CardContent><ScrollArea className="h-[400px]"><ul className="space-y-2 divide-y pr-3">{frequentTranscripts.map((item, index) => (<li key={index} className="pt-2 text-sm"><span className="font-medium">({item.count})</span> {item.title} <span className="text-muted-foreground">({item.source || 'Unknown'})</span></li>))}</ul></ScrollArea></CardContent>
+                </Card>
+              </TabsContent>
                
-               <TabsContent value="keywords">
-                 <Card>
-                   <CardHeader><CardTitle>Top {keywordFrequency.length} Keywords</CardTitle></CardHeader>
-                   <CardContent><ScrollArea className="h-[400px]"><ul className="space-y-2 divide-y pr-3">{keywordFrequency.map((item, index) => (<li key={index} className="pt-2 text-sm"><span className="font-medium">({item.count})</span> {item.word}</li>))}</ul></ScrollArea></CardContent>
-                 </Card>
-               </TabsContent>
+              <TabsContent value="keywords">
+                <Card>
+                  <CardHeader><CardTitle>Top {keywordFrequency.length} Keywords</CardTitle></CardHeader>
+                  <CardContent><ScrollArea className="h-[400px]"><ul className="space-y-2 divide-y pr-3">{keywordFrequency.map((item, index) => (<li key={index} className="pt-2 text-sm"><span className="font-medium">({item.count})</span> {item.word}</li>))}</ul></ScrollArea></CardContent>
+                </Card>
+              </TabsContent>
                
-               <TabsContent value="external">
-                 <Card>
-                   <CardHeader><CardTitle>External Source Usage</CardTitle></CardHeader>
-                   <CardContent>
-                     <p className="mb-2">Used <span className="font-bold">{nonTranscriptSources.count}</span> times ({nonTranscriptSources.percentage}% of total).</p>
-                     <h4 className="font-semibold mb-1 text-sm">Top {nonTranscriptSources.topQueries.length} Queries Triggering External:</h4>
-                     <ScrollArea className="h-[300px]"><ul className="space-y-2 divide-y pr-3">{nonTranscriptSources.topQueries.map((item, index) => (<li key={index} className="pt-2 text-xs"><span className="font-medium">({item.count})</span> {item.query}</li>))}</ul></ScrollArea>
-                   </CardContent>
-                 </Card>
-               </TabsContent>
+              <TabsContent value="external">
+                <Card>
+                  <CardHeader><CardTitle>External Source Usage</CardTitle></CardHeader>
+                  <CardContent>
+                    <p className="mb-2">Used <span className="font-bold">{nonTranscriptSources.count}</span> times ({nonTranscriptSources.percentage}% of total).</p>
+                    <h4 className="font-semibold mb-1 text-sm">Top {nonTranscriptSources.topQueries.length} Queries Triggering External:</h4>
+                    <ScrollArea className="h-[300px]"><ul className="space-y-2 divide-y pr-3">{nonTranscriptSources.topQueries.map((item, index) => (<li key={index} className="pt-2 text-xs"><span className="font-medium">({item.count})</span> {item.query}</li>))}</ul></ScrollArea>
+                  </CardContent>
+                </Card>
+              </TabsContent>
                
-               {/* User Segments Tab - Adjusted Grid */} 
-               <TabsContent value="user-segments" className="space-y-4 md:space-y-6">
-                 <Card>
-                   <CardHeader><CardTitle>User Segments Analysis</CardTitle></CardHeader>
-                   <CardContent>
-                     <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 mb-6">
-                       <div className="bg-muted rounded-lg p-3 border"><h3 className="font-semibold mb-1 text-sm">Engagement</h3><ul className="space-y-1 text-xs"><li className="flex justify-between"><span>Basic:</span><span className="font-medium">{userSegments.basic}</span></li><li className="flex justify-between"><span>Engaged:</span><span className="font-medium">{userSegments.engaged}</span></li><li className="flex justify-between"><span>Power:</span><span className="font-medium">{userSegments.power}</span></li></ul></div>
-                       <div className="bg-muted rounded-lg p-3 border"><h3 className="font-semibold mb-1 text-sm">Query Type Focus</h3><ul className="space-y-1 text-xs"><li className="flex justify-between"><span>Technical:</span><span className="font-medium">{userSegments.technical}</span></li><li className="flex justify-between"><span>Conceptual:</span><span className="font-medium">{userSegments.conceptual}</span></li><li className="flex justify-between"><span>Other/Mixed:</span><span className="font-medium">{userSegments.otherType}</span></li></ul></div>
-                       <div className="bg-muted rounded-lg p-3 border"><h3 className="font-semibold mb-1 text-sm">Suggestion</h3><p className="text-xs">{userSegments.technical > userSegments.conceptual ? "Focus seems more technical. Review coverage." : "Focus seems more conceptual. Ensure explanations clear."}</p></div>
-                     </div>
-                     <div>
-                       <h3 className="text-md font-semibold mb-2 border-t pt-4">Insights & Recommendations</h3>
-                       <div className="bg-muted rounded-lg p-4 border"><ul className="list-disc pl-4 space-y-1 text-sm">{/* Insights logic remains */}<li>{userSegments.power > (userSegments.basic + userSegments.engaged) / 5 && userSegments.power > 3 ? "Good power user ratio." : "Low power user ratio."}</li><li>{nonTranscriptSources.percentage > 25 ? `High external usage (${nonTranscriptSources.percentage}%). Expand knowledge base.` : "Low external usage."}</li></ul></div>
-                     </div>
-                   </CardContent>
-                 </Card>
-               </TabsContent>
-               
+              <TabsContent value="user-segments" className="space-y-4 md:space-y-6">
+                <Card>
+                  <CardHeader><CardTitle>User Segments Analysis</CardTitle></CardHeader>
+                  <CardContent>
+                    <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 mb-6">
+                      <div className="bg-muted rounded-lg p-3 border"><h3 className="font-semibold mb-1 text-sm">Engagement</h3><ul className="space-y-1 text-xs"><li className="flex justify-between"><span>Basic:</span><span className="font-medium">{userSegments.basic}</span></li><li className="flex justify-between"><span>Engaged:</span><span className="font-medium">{userSegments.engaged}</span></li><li className="flex justify-between"><span>Power:</span><span className="font-medium">{userSegments.power}</span></li></ul></div>
+                      <div className="bg-muted rounded-lg p-3 border"><h3 className="font-semibold mb-1 text-sm">Query Type Focus</h3><ul className="space-y-1 text-xs"><li className="flex justify-between"><span>Technical:</span><span className="font-medium">{userSegments.technical}</span></li><li className="flex justify-between"><span>Conceptual:</span><span className="font-medium">{userSegments.conceptual}</span></li><li className="flex justify-between"><span>Other/Mixed:</span><span className="font-medium">{userSegments.otherType}</span></li></ul></div>
+                      <div className="bg-muted rounded-lg p-3 border"><h3 className="font-semibold mb-1 text-sm">Suggestion</h3><p className="text-xs">{userSegments.technical > userSegments.conceptual ? "Focus seems more technical. Review coverage." : "Focus seems more conceptual. Ensure explanations clear."}</p></div>
+                    </div>
+                    <div>
+                      <h3 className="text-md font-semibold mb-2 border-t pt-4">Insights & Recommendations</h3>
+                      <div className="bg-muted rounded-lg p-4 border"><ul className="list-disc pl-4 space-y-1 text-sm">{/* Insights logic remains */}<li>{userSegments.power > (userSegments.basic + userSegments.engaged) / 5 && userSegments.power > 3 ? "Good power user ratio." : "Low power user ratio."}</li><li>{nonTranscriptSources.percentage > 25 ? `High external usage (${nonTranscriptSources.percentage}%). Expand knowledge base.` : "Low external usage."}</li></ul></div>
+                    </div>
+                  </CardContent>
+                </Card>
+              </TabsContent>
             </Tabs>
           )}
         </CardContent>
