@@ -20,6 +20,7 @@ export function ThemeProvider({
       defaultTheme={defaultTheme}
       storageKey={storageKey}
       forcedTheme="dark" // Force dark mode
+      disableTransitionOnChange
       {...props}
     >
       {children}

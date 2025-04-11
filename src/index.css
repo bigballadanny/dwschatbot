@@ -46,7 +46,7 @@
   }
 
   .dark {
-    /* Solid Black Theme */
+    /* Pure Black Theme (Gemini-like) */
     --background: 0 0% 0%; /* Pure black background */
     --foreground: 0 0% 100%; /* Pure white text */
 
@@ -56,7 +56,7 @@
     --popover: 0 0% 3%; /* Very dark popover */
     --popover-foreground: 0 0% 100%; /* White popover text */
 
-    --primary: 217 91% 60%; /* Keep blue accent */
+    --primary: 217 91% 60%; /* Blue accent similar to Gemini */
     --primary-foreground: 0 0% 100%; /* White on primary */
 
     --secondary: 0 0% 10%; /* Very dark secondary */
@@ -71,7 +71,7 @@
     --destructive: 0 62.8% 30.6%;
     --destructive-foreground: 0 0% 100%;
 
-    --border: 0 0% 15%; /* Dark border */
+    --border: 0 0% 15%; /* Dark border - slightly visible */
     --input: 0 0% 15%; /* Dark input */
     --ring: 217 91% 60%; /* Blue ring */
 
@@ -96,7 +96,7 @@
     font-feature-settings: "rlig" 1, "calt" 1;
   }
   
-  /* Custom scrollbar styling */
+  /* Custom scrollbar styling - more subtle for dark theme */
   ::-webkit-scrollbar {
     width: 6px;
     height: 6px;
@@ -115,11 +115,11 @@
   }
   
   .dark ::-webkit-scrollbar-thumb {
-    @apply bg-muted-foreground/30;
+    @apply bg-zinc-700/50;
   }
   
   .dark ::-webkit-scrollbar-thumb:hover {
-    @apply bg-muted-foreground/50;
+    @apply bg-zinc-600;
   }
 }
 
@@ -129,7 +129,7 @@
   }
   
   .glassmorphism {
-    @apply bg-white/50 dark:bg-black/30 backdrop-blur-md backdrop-saturate-150 border border-white/20 dark:border-white/10;
+    @apply bg-white/50 dark:bg-black/30 backdrop-blur-md backdrop-saturate-150 border border-white/20 dark:border-zinc-800/50;
   }
   
   .hover-scale {
@@ -150,7 +150,7 @@
   }
   
   .dark .futuristic-border {
-    @apply border border-primary/20 dark:border-primary/30 bg-background/80;
+    @apply border border-primary/20 dark:border-zinc-800 bg-background/80;
     box-shadow: 0 0 20px -5px theme('colors.primary.DEFAULT');
   }
   
@@ -167,9 +167,9 @@
     @apply translate-x-0;
   }
 
-  /* Solid black theme specific classes */
+  /* Solid black theme specific classes (Gemini-inspired) */
   .dark .neo-card {
-    @apply bg-black border border-zinc-800 shadow-lg;
+    @apply bg-black border border-zinc-800/50 shadow-lg;
   }
   
   .dark .neo-input {
@@ -177,16 +177,32 @@
   }
 
   .dark .message-bubble-user {
-    @apply bg-blue-950/40 border border-blue-800/30 text-white;
+    @apply bg-zinc-900/70 border border-zinc-800/50 text-white;
   }
   
   .dark .message-bubble-ai {
-    @apply bg-zinc-900/90 border border-zinc-800/60 text-white;
+    @apply bg-zinc-900/50 border border-zinc-800/30 text-white;
   }
 
   .dark .hover-glow {
     @apply hover:shadow-[0_0_10px_rgba(59,130,246,0.5)] transition-shadow duration-300;
   }
+  
+  /* Gemini-inspired styles */
+  .gemini-input {
+    @apply bg-zinc-900/80 border border-zinc-800/70 rounded-full px-4 py-3 focus-visible:ring-1 focus-visible:ring-blue-500;
+  }
+  
+  .scrollbar-thin {
+    scrollbar-width: thin;
+  }
+  
+  .scrollbar-none {
+    -ms-overflow-style: none;
+    scrollbar-width: none;
+  }
+  
+  .scrollbar-none::-webkit-scrollbar {
+    display: none;
+  }
 }
-
-/* Animation keyframes already defined in tailwind config */

@@ -1,9 +1,10 @@
 
-import React, { useRef, useEffect } from 'react';
+import React, { useRef, useEffect, useState } from 'react';
 import MessageItem from '@/components/MessageItem';
 import { MessageData } from '@/utils/messageUtils';
 import { cn } from '@/lib/utils';
 import { motion, AnimatePresence } from 'framer-motion';
+import { ScrollArea } from "@/components/ui/scroll-area";
 
 interface MessageListProps {
   messages: MessageData[];
@@ -17,13 +18,41 @@ const MessageList: React.FC<MessageListProps> = ({
   showNewestOnTop = false 
 }) => {
   const messagesEndRef = useRef<HTMLDivElement>(null);
+  const [hasScrolled, setHasScrolled] = useState(false);
   
-  // Scroll to bottom when messages change
+  // Improved scroll to bottom when messages change
   useEffect(() => {
-    if (messagesEndRef.current) {
-      messagesEndRef.current.scrollIntoView({ behavior: 'smooth' });
+    // Only auto-scroll if we haven't manually scrolled up
+    if (!hasScrolled && messagesEndRef.current) {
+      const scrollToBottom = () => {
+        messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
+      };
+      
+      // Use a small timeout to ensure the DOM has updated
+      const timer = setTimeout(scrollToBottom, 100);
+      return () => clearTimeout(timer);
     }
-  }, [messages]);
+  }, [messages, hasScrolled]);
+
+  // Handle scroll events to detect manual scrolling
+  const handleScroll = (event: React.UIEvent<HTMLDivElement>) => {
+    const element = event.currentTarget;
+    const isScrolledToBottom = 
+      Math.abs(element.scrollHeight - element.scrollTop - element.clientHeight) < 50;
+    
+    if (!isScrolledToBottom) {
+      setHasScrolled(true);
+    } else {
+      setHasScrolled(false);
+    }
+  };
+
+  // Reset scroll state when messages change significantly (e.g., new conversation)
+  useEffect(() => {
+    if (messages.length <= 1) {
+      setHasScrolled(false);
+    }
+  }, [messages.length]);
 
   // Display messages in chronological order (oldest first)
   const displayMessages = showNewestOnTop 
@@ -32,37 +61,45 @@ const MessageList: React.FC<MessageListProps> = ({
   
   return (
     <div 
-      className={cn('flex-1 overflow-y-auto px-4 py-8 pb-32', className)} 
+      className={cn(
+        'flex-1 relative overflow-hidden', 
+        className
+      )} 
       data-testid="message-list"
     >
-      <div className="max-w-3xl mx-auto space-y-6">
-        <AnimatePresence initial={false}>
-          {displayMessages.map((message, index) => (
-            <motion.div
-              key={`${message.source}-${index}`}
-              initial={{ 
-                opacity: 0, 
-                y: message.source === 'user' ? -20 : 20
-              }}
-              animate={{ opacity: 1, y: 0 }}
-              exit={{ opacity: 0, height: 0 }}
-              transition={{ 
-                duration: 0.3, 
-                delay: message.source === 'user' ? 0 : 0.2 
-              }}
-              data-testid={`message-item-${message.source}`}
-            >
-              <MessageItem
-                content={message.content}
-                source={message.source}
-                timestamp={message.timestamp}
-                citation={message.citation}
-                isLoading={message.isLoading}
-              />
-            </motion.div>
-          ))}
-        </AnimatePresence>
-        <div ref={messagesEndRef} />
+      <div 
+        className="h-full overflow-y-auto px-4 py-8 pb-32 scrollbar-thin"
+        onScroll={handleScroll}
+      >
+        <div className="max-w-3xl mx-auto space-y-6">
+          <AnimatePresence initial={false}>
+            {displayMessages.map((message, index) => (
+              <motion.div
+                key={`${message.source}-${index}`}
+                initial={{ 
+                  opacity: 0, 
+                  y: message.source === 'user' ? -20 : 20
+                }}
+                animate={{ opacity: 1, y: 0 }}
+                exit={{ opacity: 0, height: 0 }}
+                transition={{ 
+                  duration: 0.3, 
+                  delay: message.source === 'user' ? 0 : 0.2 
+                }}
+                data-testid={`message-item-${message.source}`}
+              >
+                <MessageItem
+                  content={message.content}
+                  source={message.source}
+                  timestamp={message.timestamp}
+                  citation={message.citation}
+                  isLoading={message.isLoading}
+                />
+              </motion.div>
+            ))}
+          </AnimatePresence>
+          <div ref={messagesEndRef} />
+        </div>
       </div>
     </div>
   );

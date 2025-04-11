@@ -17,6 +17,8 @@ interface ChatInputBarProps {
   enableOnlineSearch: boolean;
   currentAudioSrc: string | null;
   onAudioStop: () => void;
+  isPlaying?: boolean;
+  onTogglePlayback?: () => void;
   placeholder?: string;
   className?: string;
 }
@@ -32,12 +34,14 @@ const ChatInputBar: React.FC<ChatInputBarProps> = ({
   enableOnlineSearch,
   currentAudioSrc,
   onAudioStop,
+  isPlaying,
+  onTogglePlayback,
   placeholder = "Ask anything...",
   className,
 }) => {
   return (
     <div className={cn(
-      "absolute bottom-0 left-0 right-0 border-t bg-background/80 backdrop-blur-sm z-10 shadow-lg",
+      "absolute bottom-0 left-0 right-0 border-t border-zinc-800 bg-background/80 backdrop-blur-sm z-10 shadow-lg",
       className
     )}>
       <div className="max-w-3xl mx-auto px-4 pt-3 pb-5 space-y-3">
@@ -55,6 +59,8 @@ const ChatInputBar: React.FC<ChatInputBarProps> = ({
                 onStop={onAudioStop}
                 className="mb-2"
                 displayControls={true}
+                isPlaying={isPlaying}
+                onTogglePlayback={onTogglePlayback}
               />
             </motion.div>
           )}
