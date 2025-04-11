@@ -1,4 +1,3 @@
-
 import React, { useState, useRef, useEffect } from 'react';
 import { Button } from "@/components/ui/button";
 import { Slider } from "@/components/ui/slider";
@@ -11,6 +10,7 @@ interface AudioPlayerProps {
   onStop?: () => void;
   isPlayingExternally?: boolean;
   displayControls?: boolean;
+  autoPlay?: boolean;
 }
 
 const AudioPlayer = ({ 
@@ -18,9 +18,10 @@ const AudioPlayer = ({
   className, 
   onStop, 
   isPlayingExternally = false,
-  displayControls = true 
+  displayControls = true,
+  autoPlay = false
 }: AudioPlayerProps) => {
-  const [isPlaying, setIsPlaying] = useState(isPlayingExternally);
+  const [isPlaying, setIsPlaying] = useState(false);
   const [progress, setProgress] = useState(0);
   const [volume, setVolume] = useState(0.8);
   const [isMuted, setIsMuted] = useState(false);
@@ -30,30 +31,42 @@ const AudioPlayer = ({
   const animationRef = useRef<number | null>(null);
   
   useEffect(() => {
-    // Create audio element if it doesn't exist
-    if (!audioRef.current) {
-      const audio = new Audio(audioSrc);
+    // Create or update audio element
+    let audio: HTMLAudioElement;
+    const isNewAudio = !audioRef.current;
+    
+    if (isNewAudio) {
+      audio = new Audio(audioSrc);
       audioRef.current = audio;
-      
-      // Set initial volume
-      audio.volume = volume;
     } else {
-      // Update source if audio element exists
-      audioRef.current.src = audioSrc;
-      audioRef.current.load();
+      audio = audioRef.current;
+      // Only update source if it has changed
+      if (audio.src !== audioSrc) {
+        audio.src = audioSrc;
+        audio.load();
+      }
     }
     
-    const audio = audioRef.current;
+    // Set initial volume
+    audio.volume = volume;
     
     // Define event handlers
     const handleLoadedMetadata = () => {
       setDuration(audio.duration);
+      
+      // Auto-play if requested and it's a new audio element
+      if (autoPlay && isNewAudio) {
+        audio.play().catch(err => console.error('Error playing audio:', err));
+      }
     };
 
     const handleEnded = () => {
       setIsPlaying(false);
       setProgress(0);
-      cancelAnimationFrame(animationRef.current!);
+      if (animationRef.current) {
+        cancelAnimationFrame(animationRef.current);
+        animationRef.current = null;
+      }
     };
     
     const handlePlay = () => {
@@ -67,6 +80,7 @@ const AudioPlayer = ({
       // Stop progress tracking
       if (animationRef.current) {
         cancelAnimationFrame(animationRef.current);
+        animationRef.current = null;
       }
     };
 
@@ -86,17 +100,20 @@ const AudioPlayer = ({
       }
     };
     
-    // Handle external play state
-    if (isPlayingExternally && !isPlaying) {
-      audio.play().catch(err => console.error('Error playing audio:', err));
-    } else if (!isPlayingExternally && isPlaying && !audio.paused) {
-      audio.pause();
+    // Handle external play state changes
+    if (isPlayingExternally !== isPlaying) {
+      if (isPlayingExternally && !isPlaying) {
+        audio.play().catch(err => console.error('Error playing audio:', err));
+      } else if (!isPlayingExternally && isPlaying && !audio.paused) {
+        audio.pause();
+      }
     }
 
     return () => {
       // Cleanup
       if (audioRef.current) {
-        audioRef.current.pause();
+        // Keep reference but pause playback
+        audio.pause();
         
         // Remove event listeners
         audio.removeEventListener('loadedmetadata', handleLoadedMetadata);
@@ -107,10 +124,11 @@ const AudioPlayer = ({
         // Cancel animation frame
         if (animationRef.current) {
           cancelAnimationFrame(animationRef.current);
+          animationRef.current = null;
         }
       }
     };
-  }, [audioSrc, isPlayingExternally]);
+  }, [audioSrc, isPlayingExternally, autoPlay]);
 
   // Handle play/pause
   const togglePlay = () => {

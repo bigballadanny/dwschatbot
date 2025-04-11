@@ -39,7 +39,10 @@ const ChatContainer: React.FC<ChatContainerProps> = ({
 }) => {
   return (
     <div className="flex-1 overflow-hidden flex flex-col relative">
-      <MessageList messages={messages} />
+      <MessageList 
+        messages={messages} 
+        showNewestOnTop={false}
+      />
       
       <ChatInputBar
         onSendMessage={onSendMessage}

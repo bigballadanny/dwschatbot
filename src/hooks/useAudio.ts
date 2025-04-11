@@ -13,15 +13,7 @@ export function useAudio(isEnabled = false) {
   useEffect(() => {
     // Clean up on unmount
     return () => {
-      if (audioRef.current) {
-        audioRef.current.pause();
-        audioRef.current = null;
-      }
-      
-      // Revoke any object URL to prevent memory leaks
-      if (audioSrc) {
-        URL.revokeObjectURL(audioSrc);
-      }
+      clearAudio();
     };
   }, []);
 
@@ -38,28 +30,23 @@ export function useAudio(isEnabled = false) {
       
       setAudioSrc(audioUrl);
       
-      // Create and play audio using a single reference
+      // Create and store audio element, but don't play it immediately
+      // Let the AudioPlayer component handle playback
       const audio = new Audio(audioUrl);
       audioRef.current = audio;
       
-      // Set up event handlers
+      // Set up event handlers but don't start playback
       audio.onplay = () => setIsPlaying(true);
       audio.onpause = () => setIsPlaying(false);
       audio.onended = () => {
         setIsPlaying(false);
         // Don't clear audio src so it can be replayed
       };
-      
-      // Play the audio
-      audio.play().catch(err => {
-        console.error('Error playing audio:', err);
-        setIsPlaying(false);
-      });
     } catch (error) {
-      console.error('Error playing audio:', error);
+      console.error('Error processing audio:', error);
       toast({
         title: "Audio Error",
-        description: "Could not play the audio response.",
+        description: "Could not process the audio response.",
         variant: "destructive"
       });
     }
@@ -96,7 +83,7 @@ export function useAudio(isEnabled = false) {
     
     // Revoke object URL if exists to free up memory
     if (audioSrc) {
-      URL.revokeObjectURL(audioSrc);
+      URL.revoObjectURL(audioSrc);
       setAudioSrc(null);
     }
     

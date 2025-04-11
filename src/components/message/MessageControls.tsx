@@ -40,6 +40,9 @@ const MessageControls: React.FC<MessageControlsProps> = ({ content, citation, is
       audioRef.current.currentTime = 0;
       setIsPlaying(false);
     }
+    
+    // Ensure we clean up the AudioPlayer source too
+    setAudioSrc(null);
   };
 
   const handleTextToSpeech = async () => {
@@ -84,25 +87,25 @@ const MessageControls: React.FC<MessageControlsProps> = ({ content, citation, is
       if (data.audioContent) {
         const audioBlob = base64ToBlob(data.audioContent, 'audio/mp3');
         const audioUrl = URL.createObjectURL(audioBlob);
-        setAudioSrc(audioUrl);
         
-        // Create and store audio element for playback control
+        // Create audio element but don't play automatically - let AudioPlayer handle it
         const audio = new Audio(audioUrl);
         audioRef.current = audio;
         
+        // Set event handlers but don't auto-play
         audio.onplaying = () => setIsPlaying(true);
-        audio.onended = () => setIsPlaying(false);
+        audio.onended = () => {
+          setIsPlaying(false);
+          setAudioSrc(null); // Clear source when done
+        };
         audio.onpause = () => setIsPlaying(false);
         
-        // Auto-play
-        audio.play().catch(err => {
-          console.error('Error playing audio:', err);
-          setIsPlaying(false);
-        });
+        // Set the source for AudioPlayer component
+        setAudioSrc(audioUrl);
         
         toast({
-          title: "Audio generated",
-          description: "Your audio is playing. You can control it using the player below.",
+          title: "Audio ready",
+          description: "Your audio is ready to play",
         });
       }
     } catch (error) {
@@ -194,6 +197,7 @@ const MessageControls: React.FC<MessageControlsProps> = ({ content, citation, is
             audioSrc={audioSrc} 
             onStop={stopAudio} 
             isPlayingExternally={isPlaying}
+            autoPlay={true}
           />
         </div>
       )}

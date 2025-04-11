@@ -8,9 +8,14 @@ import { motion, AnimatePresence } from 'framer-motion';
 interface MessageListProps {
   messages: MessageData[];
   className?: string;
+  showNewestOnTop?: boolean;
 }
 
-const MessageList: React.FC<MessageListProps> = ({ messages, className }) => {
+const MessageList: React.FC<MessageListProps> = ({ 
+  messages, 
+  className,
+  showNewestOnTop = false 
+}) => {
   const messagesEndRef = useRef<HTMLDivElement>(null);
   
   // Scroll to bottom when messages change
@@ -19,12 +24,20 @@ const MessageList: React.FC<MessageListProps> = ({ messages, className }) => {
       messagesEndRef.current.scrollIntoView({ behavior: 'smooth' });
     }
   }, [messages]);
+
+  // Display messages in chronological order (oldest first)
+  const displayMessages = showNewestOnTop 
+    ? [...messages].reverse() 
+    : messages;
   
   return (
-    <div className={cn('flex-1 overflow-y-auto px-4 py-8 pb-32', className)} data-testid="message-list">
+    <div 
+      className={cn('flex-1 overflow-y-auto px-4 py-8 pb-32', className)} 
+      data-testid="message-list"
+    >
       <div className="max-w-3xl mx-auto space-y-6">
         <AnimatePresence initial={false}>
-          {messages.map((message, index) => (
+          {displayMessages.map((message, index) => (
             <motion.div
               key={`${message.source}-${index}`}
               initial={{ 
