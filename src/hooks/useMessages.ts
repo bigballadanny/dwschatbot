@@ -133,19 +133,17 @@ export function useMessages({ userId, conversationId }: UseMessagesProps) {
     ]);
   };
 
-  // Using primitive types and avoiding recursion to fix type issue
+  // Completely rewritten to avoid recursive type issues
   const formatMessagesForApi = (newMessageContent: string): ApiMessage[] => {
-    // Create a brand new array (don't use messages state directly)
+    // Create a new array for API messages
     const apiMessages: ApiMessage[] = [];
     
-    // Process each message into the API format
-    for (let i = 0; i < messages.length; i++) {
-      const msg = messages[i];
-      
+    // Process existing messages
+    for (const msg of messages) {
       // Skip loading messages
       if (msg.isLoading) continue;
       
-      // Map source to role using simple conditionals instead of complex mapping
+      // Map UI message source to API message role
       let role: 'user' | 'assistant' | 'system';
       if (msg.source === 'user') {
         role = 'user';
@@ -155,6 +153,7 @@ export function useMessages({ userId, conversationId }: UseMessagesProps) {
         role = 'assistant';
       }
       
+      // Add to API messages array
       apiMessages.push({
         role: role,
         content: msg.content
@@ -163,7 +162,7 @@ export function useMessages({ userId, conversationId }: UseMessagesProps) {
     
     // Add the new message
     apiMessages.push({
-      role: 'user', 
+      role: 'user',
       content: newMessageContent
     });
     
