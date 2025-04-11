@@ -10,34 +10,34 @@ const corsHeaders = {
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
 };
 
-// Fallback response for when API is unavailable
+// Improved fallback response with better formatting and without hashtags
 const FALLBACK_RESPONSE = `
-# Business Acquisition Fundamentals
+## Business Acquisition Fundamentals
 
 Here are key concepts about business acquisitions that every entrepreneur should know:
 
-## The Acquisition Process
+### The Acquisition Process
 1. **Define Your Acquisition Criteria** ("Buy Box")
-   • Industry focus aligned with your expertise
-   • Size parameters (typically $1-5M revenue)
-   • Geographic restrictions
-   • Owner situation preferences
+   - Industry focus aligned with your expertise
+   - Size parameters (typically $1-5M revenue)
+   - Geographic restrictions
+   - Owner situation preferences
 
 2. **Deal Origination** strategies:
-   • Direct mail campaigns
-   • Business broker relationships
-   • Professional networks
-   • Industry associations
-   • LinkedIn outreach
+   - Direct mail campaigns
+   - Business broker relationships
+   - Professional networks
+   - Industry associations
+   - LinkedIn outreach
 
 3. **Deal Structure Options**
-   • Seller financing
-   • Earn-outs
-   • SBA loans
-   • No money down strategies
-   • Real estate separation options
+   - Seller financing
+   - Earn-outs
+   - SBA loans
+   - No money down strategies
+   - Real estate separation options
 
-*Please try your specific question again when API capacity becomes available.*
+*Please try your specific question again later when API capacity becomes available.*
 `;
 
 serve(async (req) => {
@@ -126,7 +126,7 @@ serve(async (req) => {
       });
     }
     
-    // Combine formatting instructions
+    // Combine formatting instructions - improved to avoid hashtag formatting issues
     const enhancedInstructions = `
     ${instructions || ''}
 
@@ -134,7 +134,8 @@ serve(async (req) => {
 
     Guidelines for your response:
     - Use clear paragraphs with good spacing
-    - Use proper markdown formatting
+    - Format using proper markdown with headings (## and ###) rather than hashtags
+    - Use bullet points or numbered lists for structured information
     - Make responses conversational and engaging
     - Focus on practical applications and actionable advice
     - Address concerns related to risk, capital, time investment, and ROI
@@ -198,7 +199,7 @@ serve(async (req) => {
             data.error?.message?.includes("Enable it")) {
           console.log("Gemini API not enabled, providing instructions");
           
-          const instructionsResponse = `# Gemini API Not Enabled
+          const instructionsResponse = `## Gemini API Not Enabled
 
 You need to enable the Gemini API for your Google Cloud project:
 
