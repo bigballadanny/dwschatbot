@@ -8,7 +8,7 @@ import {
 import { ThemeProvider } from "@/components/ThemeProvider";
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { Toaster } from "@/components/ui/toaster";
-import { SidebarProvider, SidebarInset, useSidebar } from "@/components/ui/sidebar"; // Import SidebarInset and useSidebar
+import { SidebarProvider, SidebarInset, useSidebar } from "@/components/ui/sidebar"; 
 import ChatSidebar from "@/components/ChatSidebar";
 import { AuthProvider } from '@/context/AuthContext';
 import { AdminProvider } from '@/context/AdminContext';
@@ -22,60 +22,57 @@ import NotFound from '@/pages/NotFound';
 import ProtectedRoute from '@/components/ProtectedRoute';
 import ManagementRoute from '@/components/ManagementRoute';
 import WarRoom from '@/pages/WarRoom';
-import { Button } from "@/components/ui/button"; // Import Button
-import { PanelLeft } from 'lucide-react'; // Import PanelLeft
+import { Button } from "@/components/ui/button"; 
+import { PanelLeft } from 'lucide-react'; 
 
 // Create a client for React Query
 const queryClient = new QueryClient();
 
-// Layout component including Sidebar and Header
-const MainLayout = () => {
+// Inside SidebarProvider component to access useSidebar
+const SidebarOpenButton = () => {
   const { state, toggleSidebar } = useSidebar();
-
-  // Button to open collapsed sidebar (can be reused from Index if preferred)
-  const SidebarOpenButton = () => {
-    if (state !== "collapsed") return null;
-    return (
-      <Button
-        variant="ghost"
-        size="icon"
-        className="fixed left-4 top-4 z-50"
-        onClick={toggleSidebar}
-      >
-        <PanelLeft className="h-5 w-5" />
-        <span className="sr-only">Toggle Sidebar</span>
-      </Button>
-    );
-  };
-
+  
+  if (state !== "collapsed") return null;
   return (
-    <SidebarProvider> {/* Ensure provider wraps layout */} 
-      <div className="flex h-screen w-full overflow-hidden">
-        <ChatSidebar />
-        <SidebarOpenButton /> {/* Button to open collapsed sidebar */} 
-        <SidebarInset> {/* Manages margin offset based on sidebar state */} 
-          <div className="flex flex-col h-full w-full">
-            <Header />
-            <main className="flex-1 overflow-y-auto bg-muted/30">
-              <Outlet /> {/* Renders the nested child route's element */} 
-            </main>
-          </div>
-        </SidebarInset>
-      </div>
-    </SidebarProvider>
+    <Button
+      variant="ghost"
+      size="icon"
+      className="fixed left-4 top-4 z-50"
+      onClick={toggleSidebar}
+    >
+      <PanelLeft className="h-5 w-5" />
+      <span className="sr-only">Toggle Sidebar</span>
+    </Button>
+  );
+};
+
+// Layout component including Sidebar and Header
+// This component is wrapped with SidebarProvider in the Routes definition
+const MainLayout = () => {
+  return (
+    <div className="flex h-screen w-full overflow-hidden">
+      <ChatSidebar />
+      <SidebarOpenButton /> {/* Now safely using useSidebar within SidebarProvider */}
+      <SidebarInset> 
+        <div className="flex flex-col h-full w-full">
+          <Header />
+          <main className="flex-1 overflow-y-auto bg-muted/30">
+            <Outlet /> {/* Renders the nested child route's element */}
+          </main>
+        </div>
+      </SidebarInset>
+    </div>
   );
 };
 
 // Layout component for simple pages (e.g., Auth, NotFound)
 const SimpleLayout = () => {
   return (
-     <div className="flex flex-col min-h-screen">
-        {/* Optionally add a simplified header here if needed */}
-        {/* <Header /> */} 
-        <main className="flex-1 flex items-center justify-center">
-           <Outlet />
-        </main>
-     </div>
+    <div className="flex flex-col min-h-screen">
+      <main className="flex-1 flex items-center justify-center">
+        <Outlet />
+      </main>
+    </div>
   );
 };
 
@@ -89,12 +86,16 @@ function App() {
               <Routes>
                 {/* Routes WITHOUT the main sidebar/header layout */}
                 <Route element={<SimpleLayout />}>
-                   <Route path="/auth" element={<Auth />} />
-                   <Route path="*" element={<NotFound />} /> {/* Catch-all for non-matching routes */}
+                  <Route path="/auth" element={<Auth />} />
+                  <Route path="*" element={<NotFound />} /> {/* Catch-all for non-matching routes */}
                 </Route>
                 
-                {/* Routes WITH the main sidebar/header layout */}
-                <Route element={<MainLayout />}>
+                {/* Wrap MainLayout with SidebarProvider */}
+                <Route element={
+                  <SidebarProvider>
+                    <MainLayout />
+                  </SidebarProvider>
+                }>
                   <Route 
                     path="/" 
                     element={
@@ -135,7 +136,6 @@ function App() {
                       </ProtectedRoute>
                     } 
                   />
-                  {/* Add other routes needing the main layout here */}
                 </Route>
               </Routes>
             </Router>
