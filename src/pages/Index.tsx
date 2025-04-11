@@ -65,13 +65,28 @@ const Index = () => {
     setAudioEnabled(isAudioEnabled);
   }, [isAudioEnabled]);
 
-  const handleAskQuestion = (question: string) => {
+  const handleAskQuestion = async (question: string) => {
     if (!user) {
       toast({ title: "Please sign in to start chatting", variant: "default" });
       return;
     }
+    
     setShowWelcome(false);
-    handleSendMessage(question, false);
+    
+    // First create a new conversation if needed
+    if (!conversationId) {
+      const newConversationId = await createNewConversation(question);
+      if (newConversationId) {
+        // This will trigger the useEffect that watches the URL params
+        navigate(`/?conversation=${newConversationId}`, { replace: true });
+        
+        // Send the message directly instead of relying on the URL param
+        handleSendMessage(question, false);
+      }
+    } else {
+      // If we already have a conversation, just send the message
+      handleSendMessage(question, false);
+    }
   };
 
   const handleSendMessage = async (message: string, isVoiceInput: boolean = false) => {

@@ -27,6 +27,7 @@ const MessageItem: React.FC<MessageProps> = ({
         isUser ? 'items-end' : 'items-start',
         className
       )}
+      data-testid={`message-item-${isUser ? 'user' : 'system'}`}
     >
       <div
         className={cn(

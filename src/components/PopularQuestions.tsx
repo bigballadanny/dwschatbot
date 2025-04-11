@@ -35,7 +35,7 @@ const PopularQuestions: React.FC<PopularQuestionsProps> = ({
       
       return data || [];
     },
-    refetchInterval: 60000, // Refetch every minute instead of 5 minutes
+    refetchInterval: 60000, // Refetch every minute
   });
 
   // Fallback questions if no popular questions are available yet
@@ -53,6 +53,7 @@ const PopularQuestions: React.FC<PopularQuestionsProps> = ({
 
   const handleQuestionClick = (question: string) => {
     // Call the onSelectQuestion callback with the selected question
+    console.log('Question clicked:', question);
     onSelectQuestion(question);
   };
 
