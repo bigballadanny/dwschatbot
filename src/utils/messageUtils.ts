@@ -4,17 +4,17 @@
  */
 
 /**
+ * Message source types - used throughout the application
+ */
+export type MessageSource = 'user' | 'system' | 'gemini';
+
+/**
  * API message format for backend communication
  */
 export interface ApiMessage {
   role: 'user' | 'assistant' | 'system';
   content: string;
 }
-
-/**
- * Message source types
- */
-export type MessageSource = 'user' | 'system' | 'gemini';
 
 /**
  * Message data format used in the UI components
@@ -29,7 +29,7 @@ export interface MessageData {
 
 /**
  * Converts UI messages to API format for sending to backend
- * Extracted as a utility function to avoid circular dependencies
+ * This function takes UI message format and converts to the API format expected by the backend
  */
 export function convertMessagesToApi(
   messages: MessageData[],
@@ -39,9 +39,9 @@ export function convertMessagesToApi(
   
   // Process existing messages (excluding loading messages)
   for (const message of messages.filter(msg => !msg.isLoading)) {
+    // Map the source to role
     let role: 'user' | 'assistant' | 'system';
     
-    // Map the source to role
     switch (message.source) {
       case 'user':
         role = 'user';

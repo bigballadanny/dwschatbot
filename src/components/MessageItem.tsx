@@ -3,21 +3,12 @@ import React from 'react';
 import { cn } from '@/lib/utils';
 import MessageContent from './message/MessageContent';
 import MessageControls from './message/MessageControls';
-import MessageSourceLabel, { MessageSource } from './message/MessageSourceLabel';
+import MessageSourceLabel from './message/MessageSourceLabel';
+import { MessageData, MessageSource } from '@/utils/messageUtils';
 
-export interface MessageProps {
-  content: string;
-  source: MessageSource;
-  timestamp: Date;
-  citation?: string[];
-  isLoading?: boolean;
-}
+export interface MessageProps extends MessageData {}
 
-interface MessageItemProps extends MessageProps {
-  className?: string;
-}
-
-const MessageItem: React.FC<MessageItemProps> = ({
+const MessageItem: React.FC<MessageProps> = ({
   content,
   source,
   timestamp,

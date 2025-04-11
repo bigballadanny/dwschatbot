@@ -30,6 +30,29 @@ This document stores key information, decisions, context, and workflow details f
     4.  Database Tables/RLS (via user checking Supabase dashboard)
     5.  Browser Console Logs on `localhost`
 
+## Refactoring Plan & Progress
+
+### Phase 1: Fix Type Issues (IN PROGRESS)
+- [x] Fix the "Type instantiation is excessively deep" error in messageUtils.ts
+- [x] Refactor message type definitions to avoid circular dependencies
+- [x] Update component imports to use the centralized types
+- [ ] Verify all message-related code is using the proper types
+
+### Phase 2: Consolidate Redundant Hooks (TODO)
+- [ ] Choose between useChatController and useChatMessages 
+- [ ] Consolidate audio handling between useAudioPlayer and useAudioPlayback
+- [ ] Ensure consistent usage of hooks across the application
+
+### Phase 3: Simplify Voice Functionality (TODO)
+- [ ] Temporarily simplify or disable complex voice functionality
+- [ ] Ensure basic functionality works without the voice features
+- [ ] Plan for clean re-integration of voice features
+
+### Phase 4: Component Organization (TODO)
+- [ ] Split overly large components into smaller ones
+- [ ] Ensure proper separation of concerns
+- [ ] Fix any remaining import issues
+
 ## Collaborative Problem-Solving Techniques
 
 * **First Principles Thinking:** Break down complex problems to their fundamental elements before building solutions.
@@ -55,18 +78,14 @@ This periodic check helps maintain focus, ensures alignment, and provides opport
 
 ## Current Status (As of this update)
 
-*   **Analytics Logging:** FIXED. Renamed backend function to `gemini-chat` and added analytics logging within it. Confirmed data populates on `localhost`.
+*   **Type System Refactoring:** IN PROGRESS. Fixing "Type instantiation is excessively deep" error by simplifying type definitions and removing circular dependencies.
+*   **Hook Consolidation:** PLANNED. Will consolidate redundant hooks after fixing type issues.
+*   **Voice Functionality:** PLANNED. Will simplify or temporarily disable complex voice functionality.
+*   **Component Organization:** PLANNED. Will organize components better after addressing core issues.
 *   **Analytics Page:** 
     *   Basic data loading and display working.
-    *   CSV Download feature REMOVED due to persistent syntax errors during implementation.
-    *   PieChart errors (Usage Patterns, Source Dist) FIXED by adding checks for empty data before rendering.
     *   Responsiveness improved using Tailwind grid/flex classes and ScrollAreas.
-    *   Enhanced with dedicated User Engagement tab showing metrics like unique conversations, total queries, average queries per conversation, and return rate.
-    *   Added content gap analysis to identify knowledge base improvement opportunities.
-*   **Layout:** FIXED issue where sidebar appeared on `/auth` page by restructuring `App.tsx` with a `MainLayout` and `SimpleLayout`.
-*   **Audio:** Refactored to use `AudioPlayer` component, default off.
-*   **Current Tasks:**
-    *   Debugging TypeScript error: "Type instantiation is excessively deep and possibly infinite" in message handling system.
+    *   Enhanced with dedicated User Engagement tab and content gap analysis.
 
 ## App Functionality & Technology Stack
 
@@ -90,8 +109,10 @@ This periodic check helps maintain focus, ensures alignment, and provides opport
 
 ## Known Issues / Next Steps
 
-*   Thoroughly test all Analytics tabs on different screen sizes.
-*   Consider re-adding CSV download using a library or simpler method if needed.
-*   Begin development of the "War Room" feature.
+*   Fix the type instantiation error in useMessages.ts
+*   Consolidate redundant hooks (useChatController & useChatMessages)
+*   Simplify voice functionality
+*   Improve component organization
 *   **Technical Debt:** Consider refactoring `useChatController.tsx` and `useChatMessages.tsx` to remove duplication and improve maintainability.
-*   **Action Required by User:** None currently. Proceed with testing/next feature.
+*   **Action Required by User:** Test the current implementation to verify the type error is fixed before proceeding to next phases.
+

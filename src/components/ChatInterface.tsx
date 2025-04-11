@@ -1,7 +1,7 @@
 
 import React, { useRef, useEffect, forwardRef, useImperativeHandle, useState } from 'react';
 import MessageItem from './MessageItem';
-import { MessageProps } from './MessageItem';
+import { MessageData } from '@/utils/messageUtils';
 import { cn } from "@/lib/utils";
 import SearchModeToggle from './SearchModeToggle';
 import { useSidebar } from "@/components/ui/sidebar";
@@ -11,7 +11,7 @@ import { toast } from "@/components/ui/use-toast";
 interface ChatInterfaceProps {
   className?: string;
   initialQuestion?: string | null;
-  messages: MessageProps[];
+  messages: MessageData[];
   onSendMessage: (message: string) => Promise<void>;
   conversationId?: string | null;
   enableOnlineSearch?: boolean;
