@@ -27,6 +27,7 @@ const Index = () => {
     isLoading,
     audioSrc,
     isAudioEnabled,
+    isPlaying,
     enableOnlineSearch,
     hasInteracted,
     sendMessage,
@@ -34,6 +35,7 @@ const Index = () => {
     resetChat,
     toggleOnlineSearch,
     toggleAudio,
+    togglePlayback,
     stopAudio,
     handleFileUpload
   } = useChat({
@@ -141,6 +143,7 @@ const Index = () => {
                 isLoading={isLoading}
                 audioEnabled={isAudioEnabled}
                 currentAudioSrc={audioSrc}
+                isPlaying={isPlaying}
                 enableOnlineSearch={enableOnlineSearch}
                 conversationId={conversationId}
                 user={user}
@@ -149,6 +152,7 @@ const Index = () => {
                 onToggleOnlineSearch={toggleOnlineSearch}
                 onFileUpload={handleFileUpload}
                 onAudioStop={stopAudio}
+                onTogglePlayback={togglePlayback}
               />
             )}
           </div>

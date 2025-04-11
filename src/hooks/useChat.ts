@@ -53,8 +53,10 @@ export function useChat({
   const {
     audioSrc,
     isGenerating,
+    isPlaying,
     playAudio,
     stopAudio,
+    togglePlayback,
     clearAudio
   } = useAudio(isAudioEnabled);
   
@@ -261,6 +263,7 @@ export function useChat({
     isLoading,
     audioSrc,
     isAudioEnabled,
+    isPlaying,
     enableOnlineSearch,
     hasInteracted,
     sendMessage,
@@ -268,6 +271,7 @@ export function useChat({
     resetChat,
     toggleOnlineSearch,
     toggleAudio,
+    togglePlayback,
     stopAudio,
     handleFileUpload
   };

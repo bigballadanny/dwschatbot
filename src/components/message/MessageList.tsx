@@ -27,7 +27,10 @@ const MessageList: React.FC<MessageListProps> = ({ messages, className }) => {
           {messages.map((message, index) => (
             <motion.div
               key={`${message.source}-${index}`}
-              initial={{ opacity: 0, y: 20 }}
+              initial={{ 
+                opacity: 0, 
+                y: message.source === 'user' ? -20 : 20
+              }}
               animate={{ opacity: 1, y: 0 }}
               exit={{ opacity: 0, height: 0 }}
               transition={{ 

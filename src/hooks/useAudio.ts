@@ -1,11 +1,29 @@
 
-import { useState } from 'react';
+import { useState, useRef, useEffect } from 'react';
 import { useToast } from '@/components/ui/use-toast';
 
 export function useAudio(isEnabled = false) {
   const [audioSrc, setAudioSrc] = useState<string | null>(null);
   const [isGenerating, setIsGenerating] = useState<boolean>(false);
+  const [isPlaying, setIsPlaying] = useState<boolean>(false);
+  const audioRef = useRef<HTMLAudioElement | null>(null);
   const { toast } = useToast();
+
+  // Initialize or clean up audio element on mount/unmount
+  useEffect(() => {
+    // Clean up on unmount
+    return () => {
+      if (audioRef.current) {
+        audioRef.current.pause();
+        audioRef.current = null;
+      }
+      
+      // Revoke any object URL to prevent memory leaks
+      if (audioSrc) {
+        URL.revokeObjectURL(audioSrc);
+      }
+    };
+  }, []);
 
   const playAudio = (audioContent: string) => {
     if (!isEnabled) return;
@@ -20,10 +38,22 @@ export function useAudio(isEnabled = false) {
       
       setAudioSrc(audioUrl);
       
-      // Create and play audio
+      // Create and play audio using a single reference
       const audio = new Audio(audioUrl);
+      audioRef.current = audio;
+      
+      // Set up event handlers
+      audio.onplay = () => setIsPlaying(true);
+      audio.onpause = () => setIsPlaying(false);
+      audio.onended = () => {
+        setIsPlaying(false);
+        // Don't clear audio src so it can be replayed
+      };
+      
+      // Play the audio
       audio.play().catch(err => {
         console.error('Error playing audio:', err);
+        setIsPlaying(false);
       });
     } catch (error) {
       console.error('Error playing audio:', error);
@@ -36,27 +66,41 @@ export function useAudio(isEnabled = false) {
   };
 
   const stopAudio = () => {
-    if (audioSrc) {
-      // Find any audio elements playing this source and stop them
-      const audioElements = document.querySelectorAll('audio');
-      audioElements.forEach(audio => {
-        if (audio.src === audioSrc) {
-          audio.pause();
-          audio.currentTime = 0;
-        }
+    if (!audioRef.current) return;
+    
+    audioRef.current.pause();
+    audioRef.current.currentTime = 0;
+    setIsPlaying(false);
+  };
+
+  const togglePlayback = () => {
+    if (!audioRef.current || !audioSrc) return;
+    
+    if (isPlaying) {
+      audioRef.current.pause();
+    } else {
+      audioRef.current.play().catch(err => {
+        console.error('Error playing audio:', err);
       });
     }
+    // isPlaying state will be updated via the event handlers
   };
 
   const clearAudio = () => {
     // Stop any playing audio
-    stopAudio();
+    if (audioRef.current) {
+      audioRef.current.pause();
+      audioRef.current.currentTime = 0;
+      audioRef.current = null;
+    }
     
     // Revoke object URL if exists to free up memory
     if (audioSrc) {
       URL.revokeObjectURL(audioSrc);
       setAudioSrc(null);
     }
+    
+    setIsPlaying(false);
   };
 
   const base64ToBlob = (base64: string, mimeType: string) => {
@@ -81,8 +125,10 @@ export function useAudio(isEnabled = false) {
   return {
     audioSrc,
     isGenerating,
+    isPlaying,
     playAudio,
     stopAudio,
+    togglePlayback,
     clearAudio
   };
 }

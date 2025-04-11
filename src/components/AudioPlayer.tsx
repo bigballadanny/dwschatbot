@@ -10,9 +10,16 @@ interface AudioPlayerProps {
   className?: string;
   onStop?: () => void;
   isPlayingExternally?: boolean;
+  displayControls?: boolean;
 }
 
-const AudioPlayer = ({ audioSrc, className, onStop, isPlayingExternally = false }: AudioPlayerProps) => {
+const AudioPlayer = ({ 
+  audioSrc, 
+  className, 
+  onStop, 
+  isPlayingExternally = false,
+  displayControls = true 
+}: AudioPlayerProps) => {
   const [isPlaying, setIsPlaying] = useState(isPlayingExternally);
   const [progress, setProgress] = useState(0);
   const [volume, setVolume] = useState(0.8);
@@ -20,64 +27,90 @@ const AudioPlayer = ({ audioSrc, className, onStop, isPlayingExternally = false 
   const [duration, setDuration] = useState(0);
   const audioRef = useRef<HTMLAudioElement | null>(null);
   const prevVolume = useRef(volume);
+  const animationRef = useRef<number | null>(null);
   
   useEffect(() => {
-    // Create audio element
-    const audio = new Audio(audioSrc);
-    audioRef.current = audio;
-    audio.volume = volume;
-
+    // Create audio element if it doesn't exist
+    if (!audioRef.current) {
+      const audio = new Audio(audioSrc);
+      audioRef.current = audio;
+      
+      // Set initial volume
+      audio.volume = volume;
+    } else {
+      // Update source if audio element exists
+      audioRef.current.src = audioSrc;
+      audioRef.current.load();
+    }
+    
+    const audio = audioRef.current;
+    
     // Define event handlers
     const handleLoadedMetadata = () => {
       setDuration(audio.duration);
     };
 
-    const handleTimeUpdate = () => {
-      setProgress((audio.currentTime / audio.duration) * 100);
-      if (audio.ended) {
-        setIsPlaying(false);
-      }
-    };
-
     const handleEnded = () => {
       setIsPlaying(false);
       setProgress(0);
+      cancelAnimationFrame(animationRef.current!);
+    };
+    
+    const handlePlay = () => {
+      setIsPlaying(true);
+      // Start progress tracking
+      animationRef.current = requestAnimationFrame(updateProgress);
+    };
+    
+    const handlePause = () => {
+      setIsPlaying(false);
+      // Stop progress tracking
+      if (animationRef.current) {
+        cancelAnimationFrame(animationRef.current);
+      }
     };
 
     // Add event listeners
     audio.addEventListener('loadedmetadata', handleLoadedMetadata);
-    audio.addEventListener('timeupdate', handleTimeUpdate);
     audio.addEventListener('ended', handleEnded);
+    audio.addEventListener('play', handlePlay);
+    audio.addEventListener('pause', handlePause);
+    
+    // Update progress function for smoother UI updates
+    const updateProgress = () => {
+      if (audio) {
+        setProgress((audio.currentTime / audio.duration) * 100 || 0);
+        if (!audio.paused) {
+          animationRef.current = requestAnimationFrame(updateProgress);
+        }
+      }
+    };
     
     // Handle external play state
-    if (isPlayingExternally) {
-      setIsPlaying(true);
+    if (isPlayingExternally && !isPlaying) {
+      audio.play().catch(err => console.error('Error playing audio:', err));
+    } else if (!isPlayingExternally && isPlaying && !audio.paused) {
+      audio.pause();
     }
 
     return () => {
       // Cleanup
       if (audioRef.current) {
         audioRef.current.pause();
-        audioRef.current.src = '';
         
-        // Remove event listeners with proper references
+        // Remove event listeners
         audio.removeEventListener('loadedmetadata', handleLoadedMetadata);
-        audio.removeEventListener('timeupdate', handleTimeUpdate);
         audio.removeEventListener('ended', handleEnded);
+        audio.removeEventListener('play', handlePlay);
+        audio.removeEventListener('pause', handlePause);
+        
+        // Cancel animation frame
+        if (animationRef.current) {
+          cancelAnimationFrame(animationRef.current);
+        }
       }
     };
   }, [audioSrc, isPlayingExternally]);
-  
-  // Update playback state when isPlayingExternally changes
-  useEffect(() => {
-    if (isPlayingExternally && audioRef.current && !isPlaying) {
-      audioRef.current.play().catch(err => console.error('Error playing audio:', err));
-      setIsPlaying(true);
-    } else if (!isPlayingExternally && audioRef.current && isPlaying) {
-      audioRef.current.pause();
-      setIsPlaying(false);
-    }
-  }, [isPlayingExternally, isPlaying]);
 
   // Handle play/pause
   const togglePlay = () => {
@@ -85,10 +118,8 @@ const AudioPlayer = ({ audioSrc, className, onStop, isPlayingExternally = false 
     
     if (isPlaying) {
       audioRef.current.pause();
-      setIsPlaying(false);
     } else {
       audioRef.current.play().catch(err => console.error('Error playing audio:', err));
-      setIsPlaying(true);
     }
   };
 
@@ -156,6 +187,11 @@ const AudioPlayer = ({ audioSrc, className, onStop, isPlayingExternally = false 
 
   // Calculate current time
   const currentTime = duration * (progress / 100);
+
+  // If we don't want to display controls, just return null
+  if (!displayControls) {
+    return null;
+  }
 
   return (
     <div className={cn("w-full flex flex-col space-y-2 p-3 bg-secondary/20 rounded-lg", className)}>

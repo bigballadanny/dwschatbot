@@ -28,9 +28,11 @@
 - [x] Improved message list with better animations
 - [x] Enhanced scrolling behavior in chat
 - [x] Fixed popular questions to create new conversations
-- [x] Fixed audio/voice echoing issues
 - [x] Positioned user questions at the top of chat with proper animations
-- [x] Fixed audio pause button functionality
+- [ ] Fix audio functionality (ONGOING)
+  - [x] Fixed audio echoing issue
+  - [ ] Fix pause button functionality
+  - [ ] Prevent duplicate audio playback
 - [ ] Fix sidebar UI issues (duplicate sidebars)
 - [ ] Improve message bubbles styling
 - [ ] Enhance overall UI aesthetics
@@ -38,9 +40,9 @@
 ### Phase 5: Bug Fixes (IN PROGRESS)
 - [x] Fixed issue with popular questions not creating new conversations
 - [x] Resolved scrolling issues in message list
-- [x] Fixed audio echoing problem
 - [x] Added data-testid attributes for better testing
 - [x] Implemented proper audio cleanup to prevent memory leaks
+- [ ] Fix voice echo and playback control issues (ONGOING)
 - [ ] Fix remaining UI glitches with sidebars
 - [ ] Ensure consistent behavior across different parts of the application
 
@@ -50,11 +52,17 @@
 - [ ] Add more detailed metrics and insights
 
 ## Current Focus
-- Preparing for UI polish session to address remaining visual issues
-- Fixing sidebar UI issues with duplicate elements
-- Improving message bubble design
-- Enhancing animations and transitions for a smoother user experience
-- Ensuring consistent behavior across all interactions
+- Fixing voice/audio functionality issues to prevent echo and ensure pause button works
+- Investigating sidebar UI issues with duplicate elements that cause layout shift
+- Improving message bubble design and animations
+- Refactoring audio handling to prevent memory leaks and ensure reliable operation
+
+## Identified Issues
+- Voice responses have an echo effect (audio playing twice)
+- Pause button not working properly for voice playback
+- UI issues with dual sidebars causing layout shift
+- Empty space in the UI that needs to be addressed
+- MessageList scrolling needs further optimization
 
 ## Collaboration Guidelines
 - No phase will be marked as "COMPLETED" without:
@@ -63,4 +71,3 @@
   3. Mutual confirmation of implementation quality
 - Prioritize incremental, verifiable improvements
 - Maintain open communication about implementation challenges
-

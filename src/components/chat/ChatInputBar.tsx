@@ -54,6 +54,7 @@ const ChatInputBar: React.FC<ChatInputBarProps> = ({
                 audioSrc={currentAudioSrc}
                 onStop={onAudioStop}
                 className="mb-2"
+                displayControls={true}
               />
             </motion.div>
           )}

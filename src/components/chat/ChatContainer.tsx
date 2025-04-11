@@ -9,6 +9,7 @@ interface ChatContainerProps {
   isLoading: boolean;
   audioEnabled: boolean;
   currentAudioSrc: string | null;
+  isPlaying?: boolean;
   enableOnlineSearch: boolean;
   conversationId: string | null;
   user: any;
@@ -17,6 +18,7 @@ interface ChatContainerProps {
   onToggleOnlineSearch: (enabled: boolean) => void;
   onFileUpload: (files: FileList) => void;
   onAudioStop: () => void;
+  onTogglePlayback?: () => void;
 }
 
 const ChatContainer: React.FC<ChatContainerProps> = ({
@@ -24,6 +26,7 @@ const ChatContainer: React.FC<ChatContainerProps> = ({
   isLoading,
   audioEnabled,
   currentAudioSrc,
+  isPlaying,
   enableOnlineSearch,
   conversationId,
   user,
@@ -32,6 +35,7 @@ const ChatContainer: React.FC<ChatContainerProps> = ({
   onToggleOnlineSearch,
   onFileUpload,
   onAudioStop,
+  onTogglePlayback,
 }) => {
   return (
     <div className="flex-1 overflow-hidden flex flex-col relative">
