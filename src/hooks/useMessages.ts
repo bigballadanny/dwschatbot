@@ -1,20 +1,9 @@
 import { useState } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/components/ui/use-toast';
+import { convertToApiMessages, MessageData, ApiMessage } from '@/utils/messageUtils';
 
-export interface MessageData {
-  content: string;
-  source: 'user' | 'system' | 'gemini';
-  timestamp: Date;
-  citation?: string[];
-  isLoading?: boolean;
-}
-
-// Define API message format - completely separated from UI message format
-export interface ApiMessage {
-  role: 'user' | 'assistant' | 'system';
-  content: string;
-}
+export type { MessageData, ApiMessage };
 
 interface UseMessagesProps {
   userId: string | undefined;
@@ -133,33 +122,7 @@ export function useMessages({ userId, conversationId }: UseMessagesProps) {
   };
 
   const formatMessagesForApi = (newUserContent: string): ApiMessage[] => {
-    const apiFormatted: ApiMessage[] = [];
-    
-    for (const message of messages) {
-      if (message.isLoading) continue;
-      
-      let apiRole: 'user' | 'assistant' | 'system';
-      
-      if (message.source === 'user') {
-        apiRole = 'user';
-      } else if (message.source === 'system') {
-        apiRole = 'system';
-      } else {
-        apiRole = 'assistant';
-      }
-      
-      apiFormatted.push({
-        role: apiRole,
-        content: message.content
-      });
-    }
-    
-    apiFormatted.push({
-      role: 'user',
-      content: newUserContent
-    });
-    
-    return apiFormatted;
+    return convertToApiMessages(messages, newUserContent);
   };
 
   return {
