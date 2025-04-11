@@ -14,6 +14,7 @@ interface InsightsData {
   insights: string;
   timestamp: string;
   type: InsightType;
+  fallback?: boolean;
 }
 
 const AiInsights = ({ dateRange }: { dateRange: '7d' | '30d' | 'all' }) => {
@@ -28,19 +29,36 @@ const AiInsights = ({ dateRange }: { dateRange: '7d' | '30d' | 'all' }) => {
     setError(null);
     
     try {
+      console.log(`Fetching ${type} insights for time range: ${dateRange}`);
+      
       const { data, error } = await supabase.functions.invoke('analytics-insights', {
         body: { type, timeRange: dateRange },
       });
+
+      console.log("Response from analytics-insights function:", data, error);
 
       if (error) {
         throw new Error(error.message || 'Failed to fetch insights');
       }
 
+      if (!data) {
+        throw new Error('No data returned from the analytics-insights function');
+      }
+
       setInsights({
         insights: data.insights,
         timestamp: data.timestamp || new Date().toISOString(),
-        type
+        type,
+        fallback: data.fallback
       });
+      
+      if (data.fallback) {
+        toast({
+          variant: "warning",
+          title: "Using fallback insights",
+          description: "The AI insights generator is currently unavailable. Showing basic analytics instead.",
+        });
+      }
     } catch (err) {
       console.error('Error fetching insights:', err);
       setError(err instanceof Error ? err.message : 'An unexpected error occurred');
@@ -138,6 +156,14 @@ ${insights.insights}
 
     return (
       <>
+        {insights.fallback && (
+          <div className="mb-4 p-3 bg-amber-50 dark:bg-amber-950 border border-amber-200 dark:border-amber-800 rounded-md text-amber-800 dark:text-amber-200">
+            <p className="text-sm flex items-center">
+              <AlertCircle className="h-4 w-4 mr-2" />
+              AI insights generator is currently unavailable. Showing basic analytics instead.
+            </p>
+          </div>
+        )}
         <div className="prose prose-sm dark:prose-invert max-w-none" dangerouslySetInnerHTML={{ __html: formatMarkdown(insights.insights) }} />
         
         <div className="mt-2 text-xs text-muted-foreground text-right">
