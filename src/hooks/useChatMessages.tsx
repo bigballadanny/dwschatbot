@@ -1,4 +1,3 @@
-
 import { useEffect } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/components/ui/use-toast';
@@ -7,6 +6,7 @@ import { useMessages } from './useMessages';
 import { useConversation } from './useConversation';
 import { useAudioPlayer } from './useAudioPlayer';
 import { useSearchConfig } from './useSearchConfig';
+import { MessageSource } from '@/utils/messageUtils';
 
 interface UseChatMessagesProps {
   user: any;

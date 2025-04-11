@@ -1,6 +1,6 @@
 
 import React from 'react';
-import { MessageData } from '../message/MessageList';
+import { MessageData } from '@/utils/messageUtils';
 import MessageList from '../message/MessageList';
 import ChatInputBar from './ChatInputBar';
 
