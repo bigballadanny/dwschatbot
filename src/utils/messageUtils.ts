@@ -4,12 +4,13 @@
  */
 
 /**
- * Message source types - used throughout the application
+ * Simple message source type - used throughout the application
  */
 export type MessageSource = 'user' | 'system' | 'gemini';
 
 /**
- * API message format for backend communication
+ * Simplified API message format for backend communication
+ * This aligns with what the backend expects
  */
 export interface ApiMessage {
   role: 'user' | 'assistant' | 'system';
@@ -18,6 +19,7 @@ export interface ApiMessage {
 
 /**
  * Message data format used in the UI components
+ * This keeps only the essential properties needed by UI
  */
 export interface MessageData {
   content: string;
@@ -35,23 +37,20 @@ export function convertMessagesToApi(
   messages: MessageData[],
   newUserContent: string
 ): ApiMessage[] {
-  // Filter out loading messages first
+  // Filter out loading messages
   const validMessages = messages.filter(msg => !msg.isLoading);
   
-  // Create API messages from valid messages
-  const apiMessages = validMessages.map(message => {
-    // Map the source to role
+  // Map valid messages to API format
+  const apiMessages: ApiMessage[] = validMessages.map(message => {
+    // Map source to role using a simple mapping function
     let role: 'user' | 'assistant' | 'system';
     
-    switch (message.source) {
-      case 'user':
-        role = 'user';
-        break;
-      case 'system':
-        role = 'system';
-        break;
-      default:
-        role = 'assistant';
+    if (message.source === 'user') {
+      role = 'user';
+    } else if (message.source === 'system') {
+      role = 'system';
+    } else {
+      role = 'assistant';
     }
     
     return {
@@ -67,4 +66,19 @@ export function convertMessagesToApi(
   });
   
   return apiMessages;
+}
+
+/**
+ * Convert a database message to UI message format
+ * This helps transform data from Supabase to the format used in the UI
+ */
+export function dbMessageToUiMessage(dbMessage: any): MessageData {
+  return {
+    content: dbMessage.content,
+    source: dbMessage.is_user ? 'user' : 
+            (dbMessage.metadata?.source as MessageSource || 'gemini'),
+    timestamp: new Date(dbMessage.created_at),
+    citation: dbMessage.metadata?.citation ? 
+              [dbMessage.metadata.citation] : undefined
+  };
 }
