@@ -90,7 +90,8 @@ export function convertMessagesToApi(
  * This helps transform data from Supabase to the format used in the UI
  */
 export function dbMessageToUiMessage(dbMessage: DbMessage): MessageData {
-  return {
+  // Use explicit type for return value to ensure type safety
+  const messageData: MessageData = {
     content: dbMessage.content,
     source: dbMessage.is_user ? 'user' : 
             (dbMessage.metadata?.source as MessageSource || 'gemini'),
@@ -98,4 +99,6 @@ export function dbMessageToUiMessage(dbMessage: DbMessage): MessageData {
     citation: dbMessage.metadata?.citation ? 
               [dbMessage.metadata.citation] : undefined
   };
+  
+  return messageData;
 }
