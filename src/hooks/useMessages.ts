@@ -1,9 +1,8 @@
+
 import { useState } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/components/ui/use-toast';
-import { convertToApiMessages, MessageData, ApiMessage } from '@/utils/messageUtils';
-
-export type { MessageData, ApiMessage };
+import { MessageData, ApiMessage, convertToApiMessages } from '@/utils/messageUtils';
 
 interface UseMessagesProps {
   userId: string | undefined;

@@ -1,10 +1,10 @@
 
 /**
- * Utility functions for handling message conversions
+ * Message type definitions and utility functions
  */
 
 /**
- * API message format used for communication with backend
+ * API message format for backend communication
  */
 export interface ApiMessage {
   role: 'user' | 'assistant' | 'system';
@@ -12,7 +12,7 @@ export interface ApiMessage {
 }
 
 /**
- * UI message format used in the application
+ * Message data format used in the UI components
  */
 export interface MessageData {
   content: string;
@@ -23,10 +23,13 @@ export interface MessageData {
 }
 
 /**
- * Converts UI messages array to API format for backend communication
- * Using a separate utility function breaks circular type dependencies
+ * Converts UI messages array to API format
+ * @param messages Array of UI messages
+ * @param newUserContent Content of the new user message
+ * @returns Array of API-formatted messages
  */
 export function convertToApiMessages(messages: MessageData[], newUserContent: string): ApiMessage[] {
+  // Create a new array for API messages
   const apiMessages: ApiMessage[] = [];
   
   // Process existing messages
@@ -34,14 +37,14 @@ export function convertToApiMessages(messages: MessageData[], newUserContent: st
     // Skip loading messages
     if (message.isLoading) continue;
     
-    // Map UI message source to API role
     let role: 'user' | 'assistant' | 'system';
     
+    // Map UI source to API role
     if (message.source === 'user') {
       role = 'user';
     } else if (message.source === 'system') {
       role = 'system';
-    } else { // 'gemini' or any other source
+    } else {
       role = 'assistant';
     }
     
@@ -51,7 +54,7 @@ export function convertToApiMessages(messages: MessageData[], newUserContent: st
     });
   }
   
-  // Add new user message
+  // Add the new user message at the end
   apiMessages.push({
     role: 'user',
     content: newUserContent
