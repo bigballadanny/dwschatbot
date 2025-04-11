@@ -41,7 +41,7 @@ const ChatInputBar: React.FC<ChatInputBarProps> = ({
 }) => {
   return (
     <div className={cn(
-      "absolute bottom-0 left-0 right-0 border-t border-zinc-800 bg-background/80 backdrop-blur-sm z-10 shadow-lg",
+      "w-full border-t border-zinc-800 bg-background/80 backdrop-blur-sm z-10 shadow-lg",
       className
     )}>
       <div className="max-w-3xl mx-auto px-4 pt-3 pb-5 space-y-3">
@@ -59,6 +59,8 @@ const ChatInputBar: React.FC<ChatInputBarProps> = ({
                 onStop={onAudioStop}
                 className="mb-2"
                 displayControls={true}
+                isPlaying={isPlaying}
+                onTogglePlayback={onTogglePlayback}
               />
             </motion.div>
           )}

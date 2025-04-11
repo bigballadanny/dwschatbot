@@ -8,7 +8,7 @@ import {
 import { ThemeProvider } from "@/components/ThemeProvider";
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { Toaster } from "@/components/ui/toaster";
-import { SidebarProvider, SidebarInset, useSidebar } from "@/components/ui/sidebar"; 
+import { SidebarProvider, SidebarInset } from "@/components/ui/sidebar"; 
 import ChatSidebar from "@/components/ChatSidebar";
 import { AuthProvider } from '@/context/AuthContext';
 import { AdminProvider } from '@/context/AdminContext';
@@ -22,29 +22,10 @@ import NotFound from '@/pages/NotFound';
 import ProtectedRoute from '@/components/ProtectedRoute';
 import ManagementRoute from '@/components/ManagementRoute';
 import WarRoom from '@/pages/WarRoom';
-import { Button } from "@/components/ui/button"; 
-import { PanelLeft } from 'lucide-react'; 
+import SidebarOpenButton from "@/components/sidebar/SidebarOpenButton";
 
 // Create a client for React Query
 const queryClient = new QueryClient();
-
-// Inside SidebarProvider component to access useSidebar
-const SidebarOpenButton = () => {
-  const { state, toggleSidebar } = useSidebar();
-  
-  if (state !== "collapsed") return null;
-  return (
-    <Button
-      variant="ghost"
-      size="icon"
-      className="fixed left-4 top-4 z-50"
-      onClick={toggleSidebar}
-    >
-      <PanelLeft className="h-5 w-5" />
-      <span className="sr-only">Toggle Sidebar</span>
-    </Button>
-  );
-};
 
 // Layout component including Sidebar and Header
 // This component is wrapped with SidebarProvider in the Routes definition
@@ -52,14 +33,12 @@ const MainLayout = () => {
   return (
     <div className="flex h-screen w-full overflow-hidden">
       <ChatSidebar />
-      <SidebarOpenButton /> {/* Now safely using useSidebar within SidebarProvider */}
-      <SidebarInset> 
-        <div className="flex flex-col h-full w-full">
-          <Header />
-          <main className="flex-1 overflow-y-auto bg-muted/30">
-            <Outlet /> {/* Renders the nested child route's element */}
-          </main>
-        </div>
+      <SidebarOpenButton />
+      <SidebarInset className="flex flex-col h-full w-full"> 
+        <Header />
+        <main className="flex-1 overflow-hidden">
+          <Outlet /> {/* Renders the nested child route's element */}
+        </main>
       </SidebarInset>
     </div>
   );
@@ -81,7 +60,7 @@ function App() {
     <QueryClientProvider client={queryClient}>
       <AuthProvider>
         <AdminProvider>
-          <ThemeProvider defaultTheme="light">
+          <ThemeProvider defaultTheme="dark">
             <Router>
               <Routes>
                 {/* Routes WITHOUT the main sidebar/header layout */}

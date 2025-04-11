@@ -4,12 +4,10 @@ import { useLocation, useNavigate } from 'react-router-dom';
 import Header from '@/components/Header';
 import WelcomeScreen from '@/components/WelcomeScreen';
 import PopularQuestions from '@/components/PopularQuestions';
-import { SidebarProvider, SidebarInset } from "@/components/ui/sidebar";
+import { SidebarInset } from "@/components/ui/sidebar";
 import { useToast } from "@/components/ui/use-toast";
 import { useAuth } from '@/context/AuthContext';
-import SidebarOpenButton from '@/components/sidebar/SidebarOpenButton';
 import ChatContainer from '@/components/chat/ChatContainer';
-import ChatSidebar from '@/components/ChatSidebar';
 import { useChat } from '@/hooks/useChat';
 
 const Index = () => {
@@ -111,54 +109,36 @@ const Index = () => {
   };
 
   return (
-    <SidebarProvider>
-      <div className="flex h-screen w-full overflow-hidden">
-        <ChatSidebar
-          currentConversationId={conversationId || undefined}
-          onSelectConversation={(id) => {
-            if (id !== conversationId) {
-              navigate(id ? `/?conversation=${id}` : '/', { replace: true });
-            }
-          }}
-          onCreateNew={handleCreateNewConversation}
-        />
-        <SidebarOpenButton />
-        <SidebarInset>
-          <div className="flex flex-col h-full bg-muted/30">
-            <Header />
-
-            {showWelcome ? (
-              <div className="flex-1 overflow-y-auto">
-                <div className="container mx-auto px-4 py-8 max-w-3xl">
-                  <WelcomeScreen 
-                    onStartChat={handleCreateNewConversation} 
-                    onSelectQuestion={handleAskQuestion} 
-                  />
-                  <PopularQuestions onSelectQuestion={handleAskQuestion} className="mt-8" />
-                </div>
-              </div>
-            ) : (
-              <ChatContainer
-                messages={messages}
-                isLoading={isLoading}
-                audioEnabled={isAudioEnabled}
-                currentAudioSrc={audioSrc}
-                isPlaying={isPlaying}
-                enableOnlineSearch={enableOnlineSearch}
-                conversationId={conversationId}
-                user={user}
-                onSendMessage={handleSendMessage}
-                onToggleAudio={toggleAudio}
-                onToggleOnlineSearch={toggleOnlineSearch}
-                onFileUpload={handleFileUpload}
-                onAudioStop={stopAudio}
-                onTogglePlayback={togglePlayback}
-              />
-            )}
+    <div className="flex flex-col h-full bg-muted/30">
+      {showWelcome ? (
+        <div className="flex-1 overflow-y-auto">
+          <div className="container mx-auto px-4 py-8 max-w-3xl">
+            <WelcomeScreen 
+              onStartChat={handleCreateNewConversation} 
+              onSelectQuestion={handleAskQuestion} 
+            />
+            <PopularQuestions onSelectQuestion={handleAskQuestion} className="mt-8" />
           </div>
-        </SidebarInset>
-      </div>
-    </SidebarProvider>
+        </div>
+      ) : (
+        <ChatContainer
+          messages={messages}
+          isLoading={isLoading}
+          audioEnabled={isAudioEnabled}
+          currentAudioSrc={audioSrc}
+          isPlaying={isPlaying}
+          enableOnlineSearch={enableOnlineSearch}
+          conversationId={conversationId}
+          user={user}
+          onSendMessage={handleSendMessage}
+          onToggleAudio={toggleAudio}
+          onToggleOnlineSearch={toggleOnlineSearch}
+          onFileUpload={handleFileUpload}
+          onAudioStop={stopAudio}
+          onTogglePlayback={togglePlayback}
+        />
+      )}
+    </div>
   );
 };
 

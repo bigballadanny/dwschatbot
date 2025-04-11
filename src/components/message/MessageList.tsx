@@ -78,7 +78,7 @@ const MessageList: React.FC<MessageListProps> = ({
     >
       <div 
         ref={containerRef}
-        className="absolute inset-0 overflow-y-auto px-4 py-8 pb-32 scrollbar-thin"
+        className="absolute inset-0 overflow-y-auto px-4 py-8 scrollbar-thin"
         onScroll={handleScroll}
       >
         <div className="max-w-3xl mx-auto space-y-6">

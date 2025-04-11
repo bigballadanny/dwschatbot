@@ -38,12 +38,12 @@ const ChatContainer: React.FC<ChatContainerProps> = ({
   onTogglePlayback,
 }) => {
   return (
-    <div className="flex-1 flex flex-col relative h-full bg-black">
-      <div className="flex-1 relative overflow-hidden">
+    <div className="flex flex-col relative h-full w-full bg-black">
+      <div className="flex-1 overflow-hidden relative">
         <MessageList 
           messages={messages} 
           showNewestOnTop={false}
-          className="h-full"
+          className="h-full pb-20" // Add bottom padding to make space for the input bar
         />
       </div>
       
@@ -58,7 +58,10 @@ const ChatContainer: React.FC<ChatContainerProps> = ({
         enableOnlineSearch={enableOnlineSearch}
         currentAudioSrc={currentAudioSrc}
         onAudioStop={onAudioStop}
+        isPlaying={isPlaying}
+        onTogglePlayback={onTogglePlayback}
         placeholder={user ? "Ask anything..." : "Please sign in to chat"}
+        className="sticky bottom-0 z-20"
       />
     </div>
   );
