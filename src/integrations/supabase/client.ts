@@ -16,21 +16,27 @@ export const supabase = createClient<Database>(
     auth: {
       autoRefreshToken: true,
       persistSession: true,
-      storage: localStorage
+      storage: typeof localStorage !== 'undefined' ? localStorage : undefined
     }
   }
 );
 
 // Initialize the storage bucket for transcripts if it doesn't exist
 (async () => {
-  const { data: buckets } = await supabase.storage.listBuckets();
-  const transcriptsBucketExists = buckets?.find(bucket => bucket.name === 'transcripts');
-  
-  if (!transcriptsBucketExists) {
-    console.log('Creating transcripts storage bucket');
-    await supabase.storage.createBucket('transcripts', {
-      public: true,
-      fileSizeLimit: 10485760, // 10MB
-    });
+  if (typeof window !== 'undefined') {
+    try {
+      const { data: buckets } = await supabase.storage.listBuckets();
+      const transcriptsBucketExists = buckets?.find(bucket => bucket.name === 'transcripts');
+      
+      if (!transcriptsBucketExists) {
+        console.log('Creating transcripts storage bucket');
+        await supabase.storage.createBucket('transcripts', {
+          public: true,
+          fileSizeLimit: 10485760, // 10MB
+        });
+      }
+    } catch (error) {
+      console.error('Error initializing storage bucket:', error);
+    }
   }
 })();

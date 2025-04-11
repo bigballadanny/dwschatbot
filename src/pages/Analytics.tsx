@@ -1,8 +1,9 @@
+
 import React, { useEffect, useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { RefreshCw } from 'lucide-react';
+import { RefreshCw, Search, FilterIcon, FileDown } from 'lucide-react';
 import { Input } from '@/components/ui/input';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import {
@@ -22,6 +23,14 @@ import { checkAnalyticsTable } from '@/utils/analyticsDbCheck';
 import { LineChart, BarChart, PieChart, DataPoint } from '@/components/ui/charts';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { useToast } from "@/components/ui/use-toast";
+import AiInsights from "@/components/analytics/AiInsights";
+import { Badge } from "@/components/ui/badge";
+import { 
+  DropdownMenu, 
+  DropdownMenuContent, 
+  DropdownMenuItem, 
+  DropdownMenuTrigger 
+} from "@/components/ui/dropdown-menu";
 
 interface AnalyticsData { 
   id: string;
@@ -39,19 +48,6 @@ interface AnalyticsData {
   used_online_search: boolean | null;
 }
 
-interface QueryThemeData { 
-  theme: string; 
-  count: number; 
-  [key: string]: string | number;
-}
-interface InsightfulQuery { query: string; reason: string; score: number; source?: string | null; }
-interface UserEngagement { 
-  uniqueConversations: number; 
-  totalQueries: number;
-  avgQueriesPerConversation: number; 
-  returnRate: number;
-}
-
 const Analytics = () => {
   const { toast } = useToast();
   const [analyticsData, setAnalyticsData] = useState<AnalyticsData[]>([]);
@@ -61,11 +57,11 @@ const Analytics = () => {
   const [responseTimeData, setResponseTimeData] = useState<{ date: string; "Average Response Time (ms)": number }[]>([]);
   const [frequentTranscripts, setFrequentTranscripts] = useState<{ title: string; count: number; source: string | null }[]>([]);
   const [keywordFrequency, setKeywordFrequency] = useState<{ word: string; count: number }[]>([]);
-  const [queryThemesData, setQueryThemesData] = useState<QueryThemeData[]>([]);
-  const [insightfulQueries, setInsightfulQueries] = useState<InsightfulQuery[]>([]);
+  const [queryThemesData, setQueryThemesData] = useState<any[]>([]);
+  const [insightfulQueries, setInsightfulQueries] = useState<any[]>([]);
   const [nonTranscriptSources, setNonTranscriptSources] = useState<{ count: number; percentage: number; topQueries: { query: string; count: number }[] }>({ count: 0, percentage: 0, topQueries: [] });
   const [userSegments, setUserSegments] = useState<{ basic: number; engaged: number; power: number; technical: number; conceptual: number; otherType: number; }>({ basic: 0, engaged: 0, power: 0, technical: 0, conceptual: 0, otherType: 0 });
-  const [userEngagement, setUserEngagement] = useState<UserEngagement>({
+  const [userEngagement, setUserEngagement] = useState<any>({
     uniqueConversations: 0,
     totalQueries: 0,
     avgQueriesPerConversation: 0,
@@ -74,8 +70,7 @@ const Analytics = () => {
   const [dateRange, setDateRange] = useState<'7d' | '30d' | 'all'>('all');
   const [searchQuery, setSearchQuery] = useState<string>('');
   const [loading, setLoading] = useState(true);
-  const [activeTab, setActiveTab] = useState('overview');
-
+  
   const generateUserSegmentsPieData = (type: 'engagement' | 'queryTypes') => {
     if (type === 'engagement') {
       return [
@@ -224,17 +219,93 @@ const Analytics = () => {
   const engagementPieData = getPieData(() => generateUserSegmentsPieData('engagement'));
   const queryTypesPieData = getPieData(() => generateUserSegmentsPieData('queryTypes'));
   const sourceDistPieData = getPieData(() => sourceDistribution);
-
-  const handleTabChange = (value: string) => {
-    setActiveTab(value);
+  
+  const exportData = (type: string) => {
+    let dataToExport: any[] = [];
+    let filename = `analytics-${type}-${new Date().toISOString().split('T')[0]}.csv`;
+    
+    switch (type) {
+      case 'queries':
+        dataToExport = topQueries.map(q => ({
+          Query: q.query,
+          Count: q.count
+        }));
+        break;
+      case 'keywords':
+        dataToExport = keywordFrequency.map(k => ({
+          Keyword: k.word,
+          Count: k.count
+        }));
+        break;
+      case 'full':
+        dataToExport = analyticsData.map(item => ({
+          Date: new Date(item.created_at).toLocaleString(),
+          Query: item.query,
+          Source: item.source_type || 'Unknown',
+          Success: item.successful ? 'Yes' : 'No',
+          ResponseLength: item.response_length || 0,
+          ResponseTime: (item.api_time_ms || 0) + (item.search_time_ms || 0),
+          Conversation: item.conversation_id || 'None',
+          Transcript: item.transcript_title || 'None'
+        }));
+        break;
+      default:
+        return;
+    }
+    
+    if (dataToExport.length === 0) {
+      toast({ title: "No data to export", description: "The selected data is empty" });
+      return;
+    }
+    
+    // Convert to CSV
+    const headers = Object.keys(dataToExport[0]);
+    const csvContent = [
+      headers.join(','),
+      ...dataToExport.map(row => 
+        headers.map(header => {
+          const cell = row[header]?.toString() || '';
+          return `"${cell.replace(/"/g, '""')}"`;
+        }).join(',')
+      )
+    ].join('\n');
+    
+    // Create download link
+    const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.setAttribute('href', url);
+    link.setAttribute('download', filename);
+    link.style.visibility = 'hidden';
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    
+    toast({ title: "Export successful", description: `Data exported to ${filename}` });
   };
 
   return (
     <div className="h-[calc(100vh-4rem)] overflow-hidden flex flex-col">
       <Card className="shadow-lg border flex-1 flex flex-col overflow-hidden">
         <CardHeader className="border-b bg-muted/30 px-4 py-3 sm:px-6 flex-shrink-0">
-          <CardTitle className="text-xl sm:text-2xl font-semibold">Analytics Dashboard</CardTitle>
-          <CardDescription className="text-sm">AI assistant usage and query patterns.</CardDescription>
+          <div className="flex items-center justify-between">
+            <div>
+              <CardTitle className="text-xl sm:text-2xl font-semibold">Analytics Dashboard</CardTitle>
+              <CardDescription className="text-sm">AI assistant usage and query patterns.</CardDescription>
+            </div>
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <Button variant="outline" size="sm" className="h-8">
+                  <FileDown className="h-4 w-4 mr-1" /> Export
+                </Button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="end">
+                <DropdownMenuItem onClick={() => exportData('queries')}>Export Top Queries</DropdownMenuItem>
+                <DropdownMenuItem onClick={() => exportData('keywords')}>Export Keywords</DropdownMenuItem>
+                <DropdownMenuItem onClick={() => exportData('full')}>Export All Data</DropdownMenuItem>
+              </DropdownMenuContent>
+            </DropdownMenu>
+          </div>
         </CardHeader>
         <CardContent className="pt-4 px-2 sm:px-4 md:px-6 flex-1 flex flex-col overflow-hidden">
           <div className="mb-4 p-3 sm:p-4 bg-muted rounded-lg flex flex-col md:flex-row items-center justify-between gap-3 md:gap-4 flex-shrink-0">
@@ -246,13 +317,16 @@ const Analytics = () => {
               </TabsList>
             </Tabs>
             <div className="flex w-full md:w-auto items-center space-x-2">
-              <Input
-                type="text"
-                placeholder="Search queries..."
-                value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value)}
-                className="flex-grow md:flex-grow-0 md:min-w-[200px] h-9"
-              />
+              <div className="relative flex-grow md:flex-grow-0 md:w-[200px]">
+                <Search className="absolute left-2 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                <Input
+                  type="text"
+                  placeholder="Search queries..."
+                  value={searchQuery}
+                  onChange={(e) => setSearchQuery(e.target.value)}
+                  className="pl-8 h-9"
+                />
+              </div>
               <Button variant="outline" size="icon" onClick={handleRefresh} disabled={loading} title="Refresh Data" className="h-9 w-9">
                 <RefreshCw className={`h-4 w-4 ${loading ? 'animate-spin' : ''}`} />
               </Button>
@@ -269,29 +343,20 @@ const Analytics = () => {
                <AlertDescription>No analytics data available for the selected period/query.</AlertDescription>
              </Alert>
           ) : (
-            <div className="flex-1 flex flex-col overflow-hidden">
-              <Tabs value={activeTab} onValueChange={handleTabChange} className="w-full h-full flex flex-col">
-                <div className="flex-shrink-0 relative">
-                  <ScrollArea className="w-full overflow-x-auto whitespace-nowrap pb-2">
-                    <TabsList className="inline-flex h-auto p-1">
-                      <TabsTrigger value="overview">Overview</TabsTrigger>
-                      <TabsTrigger value="engagement">User Engagement</TabsTrigger>
-                      <TabsTrigger value="themes">Query Themes</TabsTrigger>
-                      <TabsTrigger value="insights">Insightful Queries</TabsTrigger>
-                      <TabsTrigger value="usage">Usage Patterns</TabsTrigger>
-                      <TabsTrigger value="queries">Top Queries</TabsTrigger>
-                      <TabsTrigger value="sources">Source Dist.</TabsTrigger>
-                      <TabsTrigger value="transcripts">Top Transcripts</TabsTrigger>
-                      <TabsTrigger value="keywords">Top Keywords</TabsTrigger>
-                      <TabsTrigger value="external">External Usage</TabsTrigger>
-                      <TabsTrigger value="user-segments">User Segments</TabsTrigger>
-                    </TabsList>
-                  </ScrollArea>
-                  <div className="h-px w-full bg-border mt-1"></div>
+            <div className="flex-1 overflow-hidden flex flex-col">
+              <Tabs defaultValue="overview" className="w-full h-full flex flex-col">
+                <div className="flex-shrink-0 border-b pb-1 mb-4 overflow-x-auto">
+                  <TabsList className="h-9 px-1">
+                    <TabsTrigger value="overview">Overview</TabsTrigger>
+                    <TabsTrigger value="user-activity">User Activity</TabsTrigger>
+                    <TabsTrigger value="content-analysis">Content Analysis</TabsTrigger>
+                    <TabsTrigger value="performance">Performance</TabsTrigger>
+                    <TabsTrigger value="ai-insights">AI Insights</TabsTrigger>
+                  </TabsList>
                 </div>
 
-                <div className="flex-1 overflow-y-auto mt-4">
-                  <TabsContent value="overview" className="h-full space-y-4 m-0">
+                <div className="flex-1 overflow-y-auto pr-1 pb-4">
+                  <TabsContent value="overview" className="mt-0 space-y-4">
                     <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
                       <Card>
                         <CardHeader className="py-4"><CardTitle>Total Queries</CardTitle></CardHeader>
@@ -319,13 +384,13 @@ const Analytics = () => {
                         </CardContent>
                       </Card>
                     </div>
-                    <Card className="overflow-hidden h-[calc(100%-130px)]">
-                      <CardHeader className="py-4">
-                        <CardTitle>Daily Query Volume</CardTitle>
-                        <CardDescription className="text-sm">Queries per day.</CardDescription>
-                      </CardHeader>
-                      <CardContent className="h-full pt-0">
-                        <div className="h-full w-full">
+                    <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+                      <Card className="overflow-hidden">
+                        <CardHeader className="py-4">
+                          <CardTitle>Daily Query Volume</CardTitle>
+                          <CardDescription className="text-sm">Queries per day</CardDescription>
+                        </CardHeader>
+                        <CardContent className="h-[300px] pt-0">
                           <LineChart 
                             data={generateDailyQueryVolumeData()} 
                             index="date" 
@@ -335,16 +400,95 @@ const Analytics = () => {
                             showLegend={false} 
                             className="h-full" 
                           />
-                        </div>
-                      </CardContent>
-                    </Card>
+                        </CardContent>
+                      </Card>
+                      <Card className="overflow-hidden">
+                        <CardHeader className="py-4">
+                          <CardTitle>Source Distribution</CardTitle>
+                          <CardDescription className="text-sm">Information source by type</CardDescription>
+                        </CardHeader>
+                        <CardContent className="h-[300px] pt-0">
+                          {sourceDistPieData && sourceDistPieData.length > 0 ? (
+                            <PieChart 
+                              data={sourceDistPieData} 
+                              index="name" 
+                              categories={["value"]} 
+                              colors={['#0088FE', '#00C49F', '#FFBB28', '#FF8042', '#8884d8']} 
+                              className="h-full" 
+                            />
+                          ) : (
+                            <div className="flex items-center justify-center h-full text-muted-foreground italic">No data available</div>
+                          )}
+                        </CardContent>
+                      </Card>
+                    </div>
+                    <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                      <Card>
+                        <CardHeader className="py-4">
+                          <CardTitle className="flex items-center justify-between">
+                            <span>Top Queries</span>
+                            <Badge variant="outline" className="ml-auto text-xs">{topQueries.length}</Badge>
+                          </CardTitle>
+                        </CardHeader>
+                        <CardContent className="h-[200px] pt-0">
+                          <ScrollArea className="h-full pr-4">
+                            <ul className="space-y-1">
+                              {topQueries.slice(0, 8).map((item, index) => (
+                                <li key={index} className="text-sm">
+                                  <span className="font-medium text-xs mr-1">({item.count})</span> {item.query}
+                                </li>
+                              ))}
+                            </ul>
+                          </ScrollArea>
+                        </CardContent>
+                      </Card>
+                      <Card>
+                        <CardHeader className="py-4">
+                          <CardTitle className="flex items-center justify-between">
+                            <span>Top Transcripts</span>
+                            <Badge variant="outline" className="ml-auto text-xs">{frequentTranscripts.length}</Badge>
+                          </CardTitle>
+                        </CardHeader>
+                        <CardContent className="h-[200px] pt-0">
+                          <ScrollArea className="h-full pr-4">
+                            <ul className="space-y-1">
+                              {frequentTranscripts.slice(0, 8).map((item, index) => (
+                                <li key={index} className="text-sm">
+                                  <span className="font-medium text-xs mr-1">({item.count})</span> {item.title}
+                                </li>
+                              ))}
+                            </ul>
+                          </ScrollArea>
+                        </CardContent>
+                      </Card>
+                      <Card>
+                        <CardHeader className="py-4">
+                          <CardTitle className="flex items-center justify-between">
+                            <span>Top Keywords</span>
+                            <Badge variant="outline" className="ml-auto text-xs">{keywordFrequency.length}</Badge>
+                          </CardTitle>
+                        </CardHeader>
+                        <CardContent className="h-[200px] pt-0">
+                          <ScrollArea className="h-full pr-4">
+                            <ul className="space-y-1">
+                              {keywordFrequency.slice(0, 8).map((item, index) => (
+                                <li key={index} className="text-sm">
+                                  <span className="font-medium text-xs mr-1">({item.count})</span> {item.word}
+                                </li>
+                              ))}
+                            </ul>
+                          </ScrollArea>
+                        </CardContent>
+                      </Card>
+                    </div>
                   </TabsContent>
 
-                  <TabsContent value="engagement" className="h-full m-0">
-                    <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 h-full">
+                  <TabsContent value="user-activity" className="mt-0 space-y-4">
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                       <Card>
                         <CardHeader className="py-4">
                           <CardTitle>User Engagement Summary</CardTitle>
+                          <CardDescription>How users interact with the platform</CardDescription>
                         </CardHeader>
                         <CardContent className="space-y-4 pt-0">
                           <div className="grid grid-cols-2 gap-4">
@@ -365,36 +509,14 @@ const Analytics = () => {
                               <p className="text-2xl font-bold">{userEngagement.returnRate}%</p>
                             </div>
                           </div>
-                          <Card>
-                            <CardHeader className="py-4">
-                              <CardTitle>Content Analysis</CardTitle>
-                            </CardHeader>
-                            <CardContent className="space-y-3 pt-0">
-                              <div className="bg-muted/50 rounded-lg p-3 border border-muted">
-                                <h3 className="font-semibold mb-1 text-sm">Content Gap Analysis</h3>
-                                {nonTranscriptSources.percentage > 0 ? (
-                                  <p className="text-xs">{nonTranscriptSources.percentage}% of queries ({nonTranscriptSources.count}) required external sources</p>
-                                ) : (
-                                  <p className="text-xs">No content gaps identified in the current data</p>
-                                )}
-                              </div>
-                              <div className="bg-muted/50 rounded-lg p-3 border border-muted">
-                                <h3 className="font-semibold mb-1 text-sm">Most Valuable Content</h3>
-                                {frequentTranscripts.length > 0 ? (
-                                  <p className="text-xs">Most used: <strong>{frequentTranscripts[0]?.title}</strong> ({frequentTranscripts[0]?.count} times)</p>
-                                ) : (
-                                  <p className="text-xs">No transcript usage data available</p>
-                                )}
-                              </div>
-                            </CardContent>
-                          </Card>
                         </CardContent>
                       </Card>
                       <Card>
                         <CardHeader className="py-4">
                           <CardTitle>User Type Distribution</CardTitle>
+                          <CardDescription>Breakdown by user engagement level</CardDescription>
                         </CardHeader>
-                        <CardContent className="h-[calc(100%-76px)] pt-0">
+                        <CardContent className="h-[260px] pt-0">
                           {engagementPieData && engagementPieData.length > 0 ? (
                             <PieChart 
                               data={engagementPieData} 
@@ -409,64 +531,13 @@ const Analytics = () => {
                         </CardContent>
                       </Card>
                     </div>
-                  </TabsContent>
-
-                  <TabsContent value="themes" className="h-full m-0">
-                    <Card className="h-full">
-                      <CardHeader className="py-4">
-                        <CardTitle>Query Theme Distribution</CardTitle>
-                        <CardDescription className="text-sm">Frequency of M&A topics</CardDescription>
-                      </CardHeader>
-                      <CardContent className="h-[calc(100%-76px)] pt-0">
-                        <BarChart 
-                          data={queryThemesData as DataPoint[]}
-                          index="theme" 
-                          categories={["count"]} 
-                          colors={["#1E88E5"]} 
-                          layout="vertical" 
-                          valueFormatter={(v) => `${v}`} 
-                          showLegend={false} 
-                          className="h-full" 
-                        />
-                      </CardContent>
-                    </Card>
-                  </TabsContent>
-
-                  <TabsContent value="insights" className="h-full m-0">
-                    <Card>
-                      <CardHeader>
-                        <CardTitle>Insightful Queries</CardTitle>
-                        <CardDescription className="text-sm">Queries flagged based on complexity, novelty, or errors.</CardDescription>
-                      </CardHeader>
-                      <CardContent>
-                        {insightfulQueries.length > 0 ? (
-                          <ScrollArea className="h-[400px]"> 
-                            <ul className="space-y-3 divide-y">
-                              {insightfulQueries.map((item, index) => (
-                                <li key={index} className="pt-3 text-sm">
-                                  <p className="font-medium mb-1">{item.query}</p>
-                                  <p className="text-xs text-muted-foreground">
-                                    Reason: {item.reason} (Score: {item.score}) {item.source ? `[Source: ${item.source}]` : ''}
-                                  </p>
-                                </li>
-                              ))}
-                            </ul>
-                          </ScrollArea>
-                        ) : (
-                          <p className="text-muted-foreground italic">No insightful queries identified in this period.</p>
-                        )}
-                      </CardContent>
-                    </Card>
-                  </TabsContent>
-
-                  <TabsContent value="usage" className="h-full m-0">
-                    <Card>
-                      <CardHeader>
-                        <CardTitle>Usage by Hour of Day</CardTitle>
-                        <CardDescription className="text-sm">Activity pattern (user's local time).</CardDescription>
-                      </CardHeader>
-                      <CardContent className="h-full pt-0">
-                        <div className="h-full w-full">
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                      <Card>
+                        <CardHeader className="py-4">
+                          <CardTitle>Usage by Hour of Day</CardTitle>
+                          <CardDescription>Activity pattern (user's local time)</CardDescription>
+                        </CardHeader>
+                        <CardContent className="h-[280px] pt-0">
                           <BarChart 
                             data={generateUsageByHourData()} 
                             index="hour" 
@@ -476,35 +547,14 @@ const Analytics = () => {
                             showLegend={false} 
                             className="h-full" 
                           />
-                        </div>
-                      </CardContent>
-                    </Card>
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                      <Card>
-                        <CardHeader>
-                          <CardTitle>Conversation Length</CardTitle>
-                          <CardDescription className="text-sm">Queries per conversation.</CardDescription>
-                        </CardHeader>
-                        <CardContent className="h-[280px] sm:h-[300px]">
-                          {engagementPieData && engagementPieData.length > 0 ? (
-                            <PieChart 
-                              data={engagementPieData} 
-                              index="name" 
-                              categories={["value"]} 
-                              colors={['#0088FE', '#00C49F', '#FFBB28']} 
-                              className="h-full" 
-                            />
-                          ) : (
-                            <div className="flex items-center justify-center h-full text-muted-foreground italic">No data</div>
-                          )}
                         </CardContent>
                       </Card>
                       <Card>
-                        <CardHeader>
+                        <CardHeader className="py-4">
                           <CardTitle>Query Types</CardTitle>
-                          <CardDescription className="text-sm">Breakdown by content focus.</CardDescription>
+                          <CardDescription>Breakdown by content focus</CardDescription>
                         </CardHeader>
-                        <CardContent className="h-[280px] sm:h-[300px]">
+                        <CardContent className="h-[280px] pt-0">
                           {queryTypesPieData && queryTypesPieData.length > 0 ? (
                             <PieChart 
                               data={queryTypesPieData} 
@@ -520,73 +570,177 @@ const Analytics = () => {
                       </Card>
                     </div>
                   </TabsContent>
-
-                  <TabsContent value="queries" className="h-full m-0">
-                    <Card>
-                      <CardHeader><CardTitle>Top {topQueries.length} Queries</CardTitle></CardHeader>
-                      <CardContent><ScrollArea className="h-[400px]"><ul className="space-y-2 divide-y pr-3">{topQueries.map((item, index) => (<li key={index} className="pt-2 text-sm"><span className="font-medium">({item.count})</span> {item.query}</li>))}</ul></ScrollArea></CardContent>
-                    </Card>
+                  
+                  <TabsContent value="content-analysis" className="mt-0 space-y-4">
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                      <Card>
+                        <CardHeader className="py-4">
+                          <CardTitle>Query Theme Distribution</CardTitle>
+                          <CardDescription>Frequency of M&A topics</CardDescription>
+                        </CardHeader>
+                        <CardContent className="h-[360px] pt-0">
+                          <BarChart 
+                            data={queryThemesData as DataPoint[]}
+                            index="theme" 
+                            categories={["count"]} 
+                            colors={["#1E88E5"]} 
+                            layout="vertical" 
+                            valueFormatter={(v) => `${v}`} 
+                            showLegend={false} 
+                            className="h-full" 
+                          />
+                        </CardContent>
+                      </Card>
+                      <Card>
+                        <CardHeader className="py-4">
+                          <CardTitle>Content Gap Analysis</CardTitle>
+                          <CardDescription>External source usage and gaps</CardDescription>
+                        </CardHeader>
+                        <CardContent className="pt-0">
+                          <div className="bg-muted rounded-lg p-4 mb-4">
+                            <div className="flex justify-between mb-2">
+                              <p className="text-sm font-medium">External Source Usage</p>
+                              <p className="text-sm font-bold">{nonTranscriptSources.percentage}%</p>
+                            </div>
+                            <p className="text-xs text-muted-foreground mb-2">
+                              {nonTranscriptSources.count} of {analyticsData.length} queries required external sources
+                            </p>
+                            <div className="w-full bg-muted-foreground/20 rounded-full h-2">
+                              <div 
+                                className="bg-primary rounded-full h-2" 
+                                style={{ width: `${nonTranscriptSources.percentage}%` }} 
+                              />
+                            </div>
+                          </div>
+                          <h4 className="text-sm font-medium mb-2">Top Queries Needing External Sources:</h4>
+                          <ScrollArea className="h-[216px] pr-4">
+                            <ul className="space-y-2">
+                              {nonTranscriptSources.topQueries.map((item, index) => (
+                                <li key={index} className="text-xs border-l-2 border-primary pl-2">
+                                  <span className="font-medium">({item.count})</span> {item.query}
+                                </li>
+                              ))}
+                            </ul>
+                          </ScrollArea>
+                        </CardContent>
+                      </Card>
+                    </div>
+                    <div className="grid grid-cols-1 gap-4">
+                      <Card>
+                        <CardHeader className="py-4">
+                          <CardTitle>Insightful Queries Analysis</CardTitle>
+                          <CardDescription>Complex, novel or problematic queries</CardDescription>
+                        </CardHeader>
+                        <CardContent className="pt-0">
+                          <ScrollArea className="h-[200px]"> 
+                            <ul className="space-y-3 pr-4">
+                              {insightfulQueries.map((item, index) => (
+                                <li key={index} className="text-sm">
+                                  <div className="flex justify-between items-start">
+                                    <p className="font-medium">{item.query}</p>
+                                    <Badge variant="outline" className="ml-2">{item.score}</Badge>
+                                  </div>
+                                  <p className="text-xs text-muted-foreground">
+                                    {item.reason} {item.source ? `[Source: ${item.source}]` : ''}
+                                  </p>
+                                </li>
+                              ))}
+                            </ul>
+                          </ScrollArea>
+                        </CardContent>
+                      </Card>
+                    </div>
                   </TabsContent>
-
-                  <TabsContent value="sources" className="h-full m-0">
-                    <Card>
-                      <CardHeader><CardTitle>Source Distribution</CardTitle></CardHeader>
-                      <CardContent className="h-[300px] sm:h-[350px]">
-                         {sourceDistPieData && sourceDistPieData.length > 0 ? (
-                             <PieChart 
-                               data={sourceDistPieData} 
-                               index="name" 
-                               categories={["value"]} 
-                               colors={['#0088FE', '#00C49F', '#FFBB28', '#FF8042', '#8884d8', '#A9A9A9']} 
-                               className="h-full" 
-                             />
-                         ) : (
+                  
+                  <TabsContent value="performance" className="mt-0 space-y-4">
+                    <div className="grid grid-cols-1 gap-4">
+                      <Card>
+                        <CardHeader className="py-4">
+                          <CardTitle>Response Time Trend</CardTitle>
+                          <CardDescription>Average response time in milliseconds</CardDescription>
+                        </CardHeader>
+                        <CardContent className="h-[300px] pt-0">
+                          <LineChart 
+                            data={responseTimeData} 
+                            index="date" 
+                            categories={["Average Response Time (ms)"]} 
+                            colors={["#0088FE"]} 
+                            valueFormatter={(v) => `${v} ms`} 
+                            showLegend={false} 
+                            className="h-full" 
+                          />
+                        </CardContent>
+                      </Card>
+                    </div>
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                      <Card>
+                        <CardHeader className="py-4">
+                          <CardTitle>Success Rate Analysis</CardTitle>
+                          <CardDescription>Query success vs failure breakdown</CardDescription>
+                        </CardHeader>
+                        <CardContent className="space-y-4 pt-0">
+                          <div className="flex items-center justify-between">
+                            <div className="space-y-1">
+                              <p className="text-sm font-medium">Success Rate</p>
+                              <p className="text-3xl font-bold">{successRate.rate}%</p>
+                            </div>
+                            
+                            <div className="grid grid-cols-2 gap-4">
+                              <div className="text-center">
+                                <div className="text-lg font-bold text-green-500">{successRate.success}</div>
+                                <p className="text-xs text-muted-foreground">Successful</p>
+                              </div>
+                              <div className="text-center">
+                                <div className="text-lg font-bold text-red-500">{successRate.failure}</div>
+                                <p className="text-xs text-muted-foreground">Failed</p>
+                              </div>
+                            </div>
+                          </div>
+                          
+                          <div className="w-full bg-muted-foreground/20 rounded-full h-3 mt-2">
+                            <div 
+                              className="bg-green-500 rounded-full h-3" 
+                              style={{ width: `${successRate.rate}%` }} 
+                            />
+                          </div>
+                          
+                          <div className="bg-muted p-4 rounded-lg mt-4">
+                            <h4 className="text-sm font-medium mb-2">Success Rate by Source Type</h4>
+                            <ul className="space-y-2">
+                              {Object.entries(getSourceSuccessRates(analyticsData)).map(([source, rate]) => (
+                                <li key={source} className="flex justify-between text-xs">
+                                  <span>{formatSourceName(source)}</span>
+                                  <span className="font-medium">{rate}%</span>
+                                </li>
+                              ))}
+                            </ul>
+                          </div>
+                        </CardContent>
+                      </Card>
+                      <Card>
+                        <CardHeader className="py-4">
+                          <CardTitle>Source Distribution</CardTitle>
+                          <CardDescription>Information sources by type</CardDescription>
+                        </CardHeader>
+                        <CardContent className="h-[300px] pt-0">
+                          {sourceDistPieData && sourceDistPieData.length > 0 ? (
+                            <PieChart 
+                              data={sourceDistPieData} 
+                              index="name" 
+                              categories={["value"]} 
+                              colors={['#0088FE', '#00C49F', '#FFBB28', '#FF8042', '#8884d8', '#A9A9A9']} 
+                              className="h-full" 
+                            />
+                          ) : (
                             <div className="flex items-center justify-center h-full text-muted-foreground italic">No data</div>
-                         )}
-                      </CardContent>
-                    </Card>
+                          )}
+                        </CardContent>
+                      </Card>
+                    </div>
                   </TabsContent>
-
-                  <TabsContent value="transcripts" className="h-full m-0">
-                    <Card>
-                      <CardHeader><CardTitle>Top {frequentTranscripts.length} Transcripts</CardTitle></CardHeader>
-                      <CardContent><ScrollArea className="h-[400px]"><ul className="space-y-2 divide-y pr-3">{frequentTranscripts.map((item, index) => (<li key={index} className="pt-2 text-sm"><span className="font-medium">({item.count})</span> {item.title} <span className="text-muted-foreground">({item.source || 'Unknown'})</span></li>))}</ul></ScrollArea></CardContent>
-                    </Card>
-                  </TabsContent>
-                 
-                  <TabsContent value="keywords" className="h-full m-0">
-                    <Card>
-                      <CardHeader><CardTitle>Top {keywordFrequency.length} Keywords</CardTitle></CardHeader>
-                      <CardContent><ScrollArea className="h-[400px]"><ul className="space-y-2 divide-y pr-3">{keywordFrequency.map((item, index) => (<li key={index} className="pt-2 text-sm"><span className="font-medium">({item.count})</span> {item.word}</li>))}</ul></ScrollArea></CardContent>
-                    </Card>
-                  </TabsContent>
-                 
-                  <TabsContent value="external" className="h-full m-0">
-                    <Card>
-                      <CardHeader><CardTitle>External Source Usage</CardTitle></CardHeader>
-                      <CardContent>
-                        <p className="mb-2">Used <span className="font-bold">{nonTranscriptSources.count}</span> times ({nonTranscriptSources.percentage}% of total).</p>
-                        <h4 className="font-semibold mb-1 text-sm">Top {nonTranscriptSources.topQueries.length} Queries Triggering External:</h4>
-                        <ScrollArea className="h-[300px]"><ul className="space-y-2 divide-y pr-3">{nonTranscriptSources.topQueries.map((item, index) => (<li key={index} className="pt-2 text-xs"><span className="font-medium">({item.count})</span> {item.query}</li>))}</ul></ScrollArea>
-                      </CardContent>
-                    </Card>
-                  </TabsContent>
-                 
-                  <TabsContent value="user-segments" className="space-y-4 md:space-y-6">
-                    <Card>
-                      <CardHeader><CardTitle>User Segments Analysis</CardTitle></CardHeader>
-                      <CardContent>
-                        <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 mb-6">
-                          <div className="bg-muted rounded-lg p-3 border"><h3 className="font-semibold mb-1 text-sm">Engagement</h3><ul className="space-y-1 text-xs"><li className="flex justify-between"><span>Basic:</span><span className="font-medium">{userSegments.basic}</span></li><li className="flex justify-between"><span>Engaged:</span><span className="font-medium">{userSegments.engaged}</span></li><li className="flex justify-between"><span>Power:</span><span className="font-medium">{userSegments.power}</span></li></ul></div>
-                          <div className="bg-muted rounded-lg p-3 border"><h3 className="font-semibold mb-1 text-sm">Query Type Focus</h3><ul className="space-y-1 text-xs"><li className="flex justify-between"><span>Technical:</span><span className="font-medium">{userSegments.technical}</span></li><li className="flex justify-between"><span>Conceptual:</span><span className="font-medium">{userSegments.conceptual}</span></li><li className="flex justify-between"><span>Other/Mixed:</span><span className="font-medium">{userSegments.otherType}</span></li></ul></div>
-                          <div className="bg-muted rounded-lg p-3 border"><h3 className="font-semibold mb-1 text-sm">Suggestion</h3><p className="text-xs">{userSegments.technical > userSegments.conceptual ? "Focus seems more technical. Review coverage." : "Focus seems more conceptual. Ensure explanations clear."}</p></div>
-                        </div>
-                        <div>
-                          <h3 className="text-md font-semibold mb-2 border-t pt-4">Insights & Recommendations</h3>
-                          <div className="bg-muted rounded-lg p-4 border"><ul className="list-disc pl-4 space-y-1 text-sm">{/* Insights logic remains */}<li>{userSegments.power > (userSegments.basic + userSegments.engaged) / 5 && userSegments.power > 3 ? "Good power user ratio." : "Low power user ratio."}</li><li>{nonTranscriptSources.percentage > 25 ? `High external usage (${nonTranscriptSources.percentage}%). Expand knowledge base.` : "Low external usage."}</li></ul></div>
-                        </div>
-                      </CardContent>
-                    </Card>
+                  
+                  <TabsContent value="ai-insights" className="mt-0">
+                    <AiInsights dateRange={dateRange} />
                   </TabsContent>
                 </div>
               </Tabs>
@@ -597,5 +751,36 @@ const Analytics = () => {
     </div>
   );
 };
+
+// Format source name for display
+function formatSourceName(source: string): string {
+  return (source.charAt(0).toUpperCase() + source.slice(1))
+    .replace(/_/g, ' ')
+    .replace(/ call$/i, ' Call')
+    .replace(/^Sba$/i, 'SBA');
+}
+
+// Calculate success rates by source type
+function getSourceSuccessRates(data: AnalyticsData[]) {
+  const sourceCounts: Record<string, { success: number, total: number }> = {};
+  
+  data.forEach(item => {
+    const source = item.source_type || 'unknown';
+    if (!sourceCounts[source]) {
+      sourceCounts[source] = { success: 0, total: 0 };
+    }
+    sourceCounts[source].total++;
+    if (item.successful === true) {
+      sourceCounts[source].success++;
+    }
+  });
+  
+  const rates: Record<string, number> = {};
+  Object.entries(sourceCounts).forEach(([source, counts]) => {
+    rates[source] = Math.round((counts.success / counts.total) * 100);
+  });
+  
+  return rates;
+}
 
 export default Analytics;

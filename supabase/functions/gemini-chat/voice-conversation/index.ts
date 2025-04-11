@@ -7,8 +7,8 @@ import { createClient, SupabaseClient } from 'https://esm.sh/@supabase/supabase-
 const GEMINI_API_KEY = Deno.env.get('GEMINI_API_KEY');
 const SUPABASE_URL = Deno.env.get('SUPABASE_URL');
 const SUPABASE_ANON_KEY = Deno.env.get('SUPABASE_ANON_KEY');
-// Removed TEXT_TO_SPEECH_URL
-const GEMINI_API_URL = Deno.env.get('GEMINI_API_URL') || "https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-pro:generateContent"; // Allow override via env var
+// Updated to use Gemini 2.0 API
+const GEMINI_API_URL = Deno.env.get('GEMINI_API_URL') || "https://generativelanguage.googleapis.com/v1/models/gemini-2.0-pro:generateContent";
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -142,7 +142,7 @@ serve(async (req) => {
     let transcriptTitle: string | null = null; 
     if (citation) {
         // Basic extraction - might need refinement based on actual citation format
-        transcriptTitle = citationMatch[1]?.trim() || null;\ 
+        transcriptTitle = citationMatch[1]?.trim() || null;
     }
 
     if (transcriptTitle && transcriptTitle.toLowerCase().includes("call")) {

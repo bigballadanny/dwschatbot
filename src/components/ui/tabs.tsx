@@ -51,4 +51,23 @@ const TabsContent = React.forwardRef<
 ))
 TabsContent.displayName = TabsPrimitive.Content.displayName
 
-export { Tabs, TabsList, TabsTrigger, TabsContent }
+// Create a wrapper component for horizontal scrollable tabs
+const ScrollableTabs = React.forwardRef<
+  HTMLDivElement,
+  React.HTMLAttributes<HTMLDivElement>
+>(({ className, children, ...props }, ref) => (
+  <div
+    ref={ref}
+    className={cn(
+      "relative w-full overflow-x-auto scrollbar-hide",
+      className
+    )}
+    {...props}
+  >
+    {children}
+    <div className="absolute bottom-0 left-0 right-0 h-px bg-border" />
+  </div>
+))
+ScrollableTabs.displayName = "ScrollableTabs"
+
+export { Tabs, TabsList, TabsTrigger, TabsContent, ScrollableTabs }
