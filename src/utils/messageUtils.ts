@@ -12,11 +12,16 @@ export interface ApiMessage {
 }
 
 /**
+ * Message source types
+ */
+export type MessageSource = 'user' | 'system' | 'gemini';
+
+/**
  * Message data format used in the UI components
  */
 export interface MessageData {
   content: string;
-  source: 'user' | 'system' | 'gemini';
+  source: MessageSource;
   timestamp: Date;
   citation?: string[];
   isLoading?: boolean;
@@ -38,11 +43,15 @@ export function convertToApiMessages(messages: MessageData[], newUserContent: st
     if (message.isLoading) continue;
     
     // Map UI source to API role
-    const role = message.source === 'user' 
-      ? 'user' 
-      : message.source === 'system' 
-        ? 'system' 
-        : 'assistant';
+    let role: 'user' | 'assistant' | 'system';
+    
+    if (message.source === 'user') {
+      role = 'user';
+    } else if (message.source === 'system') {
+      role = 'system';
+    } else {
+      role = 'assistant';
+    }
     
     apiMessages.push({
       role,

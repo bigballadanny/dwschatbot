@@ -2,7 +2,7 @@
 import { useState } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/components/ui/use-toast';
-import { MessageData, ApiMessage, convertToApiMessages } from '@/utils/messageUtils';
+import { MessageData, ApiMessage, convertToApiMessages, MessageSource } from '@/utils/messageUtils';
 
 interface UseMessagesProps {
   userId: string | undefined;
@@ -45,7 +45,7 @@ export function useMessages({ userId, conversationId }: UseMessagesProps) {
       if (data && data.length > 0) {
         const formattedMessages = data.map((msg: any): MessageData => ({
           content: msg.content,
-          source: msg.is_user ? 'user' : ((msg.metadata?.source as 'user' | 'system' | 'gemini') || 'gemini'),
+          source: msg.is_user ? 'user' : ((msg.metadata?.source as MessageSource) || 'gemini'),
           timestamp: new Date(msg.created_at),
           citation: msg.metadata?.citation ? [msg.metadata.citation] : undefined
         }));

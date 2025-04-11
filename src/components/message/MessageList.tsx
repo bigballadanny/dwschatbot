@@ -3,14 +3,7 @@ import React, { useRef, useEffect } from 'react';
 import MessageItem from '@/components/MessageItem';
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { cn } from "@/lib/utils";
-
-export interface MessageData {
-  content: string;
-  source: 'user' | 'system' | 'gemini';
-  timestamp: Date;
-  citation?: string[];
-  isLoading?: boolean;
-}
+import { MessageData } from '@/utils/messageUtils';
 
 interface MessageListProps {
   messages: MessageData[];
