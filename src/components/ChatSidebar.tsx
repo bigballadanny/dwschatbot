@@ -25,7 +25,17 @@ interface Conversation {
   updated_at: string;
 }
 
-const ChatSidebar = () => {
+interface ChatSidebarProps {
+  currentConversationId?: string;
+  onSelectConversation?: (id: string) => void;
+  onCreateNew?: () => void;
+}
+
+const ChatSidebar: React.FC<ChatSidebarProps> = ({ 
+  currentConversationId, 
+  onSelectConversation,
+  onCreateNew 
+}) => {
   const { theme, setTheme } = useTheme();
   const { user, signOut } = useAuth();
   const { isAdmin } = useAdmin();
@@ -38,7 +48,7 @@ const ChatSidebar = () => {
   const navigate = useNavigate();
   const { state: sidebarState, toggleSidebar } = useSidebar();
   const urlParams = new URLSearchParams(location.search);
-  const conversationId = urlParams.get('conversation');
+  const conversationId = currentConversationId || urlParams.get('conversation');
 
   useEffect(() => {
     if (user) {
@@ -71,6 +81,11 @@ const ChatSidebar = () => {
   };
 
   const handleNewChat = async () => {
+    if (onCreateNew) {
+      onCreateNew();
+      return;
+    }
+    
     try {
       if (!user) return;
       const {
@@ -131,6 +146,14 @@ const ChatSidebar = () => {
     } finally {
       setDeleteDialogOpen(false);
       setConversationToDelete(null);
+    }
+  };
+
+  const handleSelectConversation = (id: string) => {
+    if (onSelectConversation) {
+      onSelectConversation(id);
+    } else {
+      navigate(`/?conversation=${id}`);
     }
   };
 
@@ -215,7 +238,12 @@ const ChatSidebar = () => {
         
         <SidebarSeparator className="my-2" />
         
-        <ConversationList conversations={conversations} activeConversationId={conversationId} onDeleteConversation={confirmDelete} searchQuery={searchQuery} />
+        <ConversationList 
+          conversations={conversations} 
+          activeConversationId={conversationId || null} 
+          onDeleteConversation={confirmDelete} 
+          searchQuery={searchQuery}
+        />
       </SidebarContent>
       
       <SidebarFooter className={`border-t ${sidebarState === "collapsed" ? "hidden" : "block"}`}>

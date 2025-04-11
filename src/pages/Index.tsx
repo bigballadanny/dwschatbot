@@ -217,19 +217,23 @@ const Index = () => {
       source: 'user', 
       timestamp: new Date() 
     };
-    setMessages(prev => [...prev, userMessage, { 
-      content: '', 
-      source: 'system', 
-      isLoading: true, 
-      timestamp: new Date() 
-    }]);
+    
+    // Fix the recursive type issue by separating message arrays
+    const currentMessages = [...messages];
+    setMessages([
+      ...currentMessages,
+      userMessage,
+      { content: '', source: 'system', isLoading: true, timestamp: new Date() }
+    ]);
+    
     setIsLoading(true);
 
     try {
-      const messageHistory = messages
+      // Extract only the necessary info from messages to avoid deep type issues
+      const messageHistory = currentMessages
         .filter(msg => !msg.isLoading)
-        .map(msg => ({ content: msg.content, source: msg.source }))
-        .slice(-10);
+        .map(msg => ({ content: msg.content, source: msg.source }));
+      
       messageHistory.push({ content: trimmedMessage, source: 'user' });
 
       const { data, error } = await supabase.functions.invoke('gemini-chat', {
@@ -278,9 +282,17 @@ const Index = () => {
       console.error('Error in handleSendMessage:', error);
       setMessages(prev => [
         ...prev.filter(msg => !msg.isLoading),
-        { content: `Error: ${error instanceof Error ? error.message : 'Request failed.'}`, source: 'system', timestamp: new Date() }
+        { 
+          content: `Error: ${error instanceof Error ? error.message : 'Request failed.'}`, 
+          source: 'system', 
+          timestamp: new Date() 
+        }
       ]);
-      toast({ title: "Error Processing Message", description: error instanceof Error ? error.message : "Please try again.", variant: "destructive" });
+      toast({ 
+        title: "Error Processing Message", 
+        description: error instanceof Error ? error.message : "Please try again.", 
+        variant: "destructive" 
+      });
       setCurrentAudioSrc(null);
     } finally {
       setIsLoading(false);

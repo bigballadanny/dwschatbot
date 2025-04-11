@@ -13,7 +13,7 @@ const SidebarOpenButton: React.FC = () => {
     <Button
       variant="ghost"
       size="icon"
-      className="absolute left-4 top-16 z-30 h-8 w-8 bg-background/80 backdrop-blur-sm hover:bg-accent"
+      className="absolute left-4 top-4 z-30 h-8 w-8 bg-background/80 backdrop-blur-sm hover:bg-accent"
       onClick={toggleSidebar}
       title="Open sidebar"
     >
