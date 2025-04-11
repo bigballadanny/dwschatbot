@@ -26,6 +26,12 @@ interface SupabaseMessage {
   user_id?: string;
 }
 
+// Define a simplified message structure for sending to API
+interface SimplifiedMessage {
+  role: 'user' | 'assistant' | 'system';
+  content: string;
+}
+
 export function useChatMessages({ 
   user, 
   conversationId, 
@@ -203,21 +209,17 @@ export function useChatMessages({
     };
     
     // Update messages with the new user message and loading state
-    const updatedMessages = [...messages];
-    updatedMessages.push(userMessage);
-    updatedMessages.push({ 
-      content: '', 
-      source: 'system', 
-      isLoading: true, 
-      timestamp: new Date() 
-    });
+    setMessages(prevMessages => [
+      ...prevMessages,
+      userMessage,
+      { content: '', source: 'system', isLoading: true, timestamp: new Date() }
+    ]);
     
-    setMessages(updatedMessages);
     setIsLoading(true);
 
     try {
       // Create a simplified message history to avoid recursive type issues
-      const messageHistory = messages
+      const messageHistory: SimplifiedMessage[] = messages
         .filter(msg => !msg.isLoading)
         .map(msg => ({ 
           role: msg.source === 'user' ? 'user' : 'assistant',
