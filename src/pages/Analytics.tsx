@@ -196,8 +196,13 @@ const Analytics = () => {
   };
   
   const getPieData = (generatorFn: () => { name: string; value: number }[]) => {
-    const data = generatorFn();
-    return data.filter(item => item.value > 0);
+    try {
+      const data = generatorFn();
+      return data && data.length > 0 ? data.filter(item => item.value > 0) : [];
+    } catch (error) {
+      console.error('Error generating pie chart data:', error);
+      return []; // Return empty array on error
+    }
   };
 
   const engagementPieData = getPieData(() => generateUserSegmentsPieData('engagement'));
@@ -336,8 +341,14 @@ const Analytics = () => {
                       <CardDescription className="text-sm">Based on engagement levels</CardDescription>
                     </CardHeader>
                     <CardContent className="h-[280px] sm:h-[300px]">
-                      {engagementPieData.length > 0 ? (
-                        <PieChart data={engagementPieData} category="value" index="name" colors={['#0088FE', '#00C49F', '#FFBB28']} className="h-full" />
+                      {engagementPieData && engagementPieData.length > 0 ? (
+                        <PieChart 
+                          data={engagementPieData} 
+                          index="name" 
+                          categories={["value"]} 
+                          colors={['#0088FE', '#00C49F', '#FFBB28']} 
+                          className="h-full" 
+                        />
                       ) : (
                         <div className="flex items-center justify-center h-full text-muted-foreground italic">No data</div>
                       )}
@@ -438,8 +449,14 @@ const Analytics = () => {
                       <CardDescription className="text-sm">Queries per conversation.</CardDescription>
                     </CardHeader>
                     <CardContent className="h-[280px] sm:h-[300px]">
-                      {engagementPieData.length > 0 ? (
-                        <PieChart data={engagementPieData} category="value" index="name" colors={['#0088FE', '#00C49F', '#FFBB28']} className="h-full" />
+                      {engagementPieData && engagementPieData.length > 0 ? (
+                        <PieChart 
+                          data={engagementPieData} 
+                          index="name" 
+                          categories={["value"]} 
+                          colors={['#0088FE', '#00C49F', '#FFBB28']} 
+                          className="h-full" 
+                        />
                       ) : (
                         <div className="flex items-center justify-center h-full text-muted-foreground italic">No data</div>
                       )}
@@ -451,8 +468,14 @@ const Analytics = () => {
                       <CardDescription className="text-sm">Breakdown by content focus.</CardDescription>
                     </CardHeader>
                     <CardContent className="h-[280px] sm:h-[300px]">
-                      {queryTypesPieData.length > 0 ? (
-                         <PieChart data={queryTypesPieData} category="value" index="name" colors={['#FF8042', '#8884d8', '#A9A9A9']} className="h-full" />
+                      {queryTypesPieData && queryTypesPieData.length > 0 ? (
+                         <PieChart 
+                           data={queryTypesPieData} 
+                           index="name" 
+                           categories={["value"]} 
+                           colors={['#FF8042', '#8884d8', '#A9A9A9']} 
+                           className="h-full" 
+                         />
                        ) : (
                         <div className="flex items-center justify-center h-full text-muted-foreground italic">No data</div>
                        )}
@@ -472,8 +495,14 @@ const Analytics = () => {
                 <Card>
                   <CardHeader><CardTitle>Source Distribution</CardTitle></CardHeader>
                   <CardContent className="h-[300px] sm:h-[350px]">
-                     {sourceDistPieData.length > 0 ? (
-                         <PieChart data={sourceDistPieData} category="value" index="name" colors={['#0088FE', '#00C49F', '#FFBB28', '#FF8042', '#8884d8', '#A9A9A9']} className="h-full" />
+                     {sourceDistPieData && sourceDistPieData.length > 0 ? (
+                         <PieChart 
+                           data={sourceDistPieData} 
+                           index="name" 
+                           categories={["value"]} 
+                           colors={['#0088FE', '#00C49F', '#FFBB28', '#FF8042', '#8884d8', '#A9A9A9']} 
+                           className="h-full" 
+                         />
                      ) : (
                         <div className="flex items-center justify-center h-full text-muted-foreground italic">No data</div>
                      )}

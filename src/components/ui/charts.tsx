@@ -184,9 +184,22 @@ export const PieChart: React.FC<PieChartProps> = ({
   className,
   valueFormatter = (value) => value.toString()
 }) => {
+  // Handle empty data case
+  if (!data || data.length === 0 || !categories || categories.length === 0) {
+    return (
+      <div className="flex items-center justify-center h-full text-muted-foreground italic">
+        No data available
+      </div>
+    );
+  }
+
+  // Make sure we have a valid category to use
+  const category = categories[0] || 'value';
+  
+  // Prepare pie data safely
   const pieData = data.map((item) => ({
-    name: item[index],
-    value: Number(item[categories[0]])
+    name: item[index]?.toString() || 'Unknown',
+    value: Number(item[category]) || 0
   }));
 
   return (
@@ -194,8 +207,8 @@ export const PieChart: React.FC<PieChartProps> = ({
       config={{
         ...Object.fromEntries(
           data.map((item, i) => [
-            item[index],
-            { color: colors[i % colors.length], label: item[index] }
+            item[index] || `item-${i}`,
+            { color: colors[i % colors.length], label: item[index] || `Item ${i+1}` }
           ])
         )
       }}
