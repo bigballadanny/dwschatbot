@@ -218,16 +218,22 @@ export function useChatMessages({
     setIsLoading(true);
 
     try {
-      // Create a simplified message history to avoid recursive type issues
-      const messageHistory: SimplifiedMessage[] = messages
-        .filter(msg => !msg.isLoading)
-        .map(msg => ({ 
+      // Create a fixed structure for message history to avoid recursive type issues
+      const messageHistory: SimplifiedMessage[] = [];
+      
+      // Process each message and convert to the simplified format
+      for (const msg of messages.filter(msg => !msg.isLoading)) {
+        messageHistory.push({
           role: msg.source === 'user' ? 'user' : 'assistant',
           content: msg.content
-        }));
+        });
+      }
       
       // Add the new user message to history
-      messageHistory.push({ role: 'user', content: trimmedMessage });
+      messageHistory.push({ 
+        role: 'user', 
+        content: trimmedMessage 
+      });
 
       const { data, error } = await supabase.functions.invoke('gemini-chat', {
         body: {
