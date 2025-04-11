@@ -37,16 +37,12 @@ export function convertToApiMessages(messages: MessageData[], newUserContent: st
     // Skip loading messages
     if (message.isLoading) continue;
     
-    let role: 'user' | 'assistant' | 'system';
-    
     // Map UI source to API role
-    if (message.source === 'user') {
-      role = 'user';
-    } else if (message.source === 'system') {
-      role = 'system';
-    } else {
-      role = 'assistant';
-    }
+    const role = message.source === 'user' 
+      ? 'user' 
+      : message.source === 'system' 
+        ? 'system' 
+        : 'assistant';
     
     apiMessages.push({
       role,
