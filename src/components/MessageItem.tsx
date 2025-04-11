@@ -6,7 +6,9 @@ import MessageControls from './message/MessageControls';
 import MessageSourceLabel from './message/MessageSourceLabel';
 import { MessageData, MessageSource } from '@/utils/messageUtils';
 
-export interface MessageProps extends MessageData {}
+export interface MessageProps extends MessageData {
+  className?: string;
+}
 
 const MessageItem: React.FC<MessageProps> = ({
   content,

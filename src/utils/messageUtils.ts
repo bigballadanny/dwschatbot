@@ -35,10 +35,11 @@ export function convertMessagesToApi(
   messages: MessageData[],
   newUserContent: string
 ): ApiMessage[] {
-  const apiMessages: ApiMessage[] = [];
+  // Filter out loading messages first
+  const validMessages = messages.filter(msg => !msg.isLoading);
   
-  // Process existing messages (excluding loading messages)
-  for (const message of messages.filter(msg => !msg.isLoading)) {
+  // Create API messages from valid messages
+  const apiMessages = validMessages.map(message => {
     // Map the source to role
     let role: 'user' | 'assistant' | 'system';
     
@@ -53,11 +54,11 @@ export function convertMessagesToApi(
         role = 'assistant';
     }
     
-    apiMessages.push({
+    return {
       role,
       content: message.content
-    });
-  }
+    };
+  });
   
   // Add the new user message
   apiMessages.push({
