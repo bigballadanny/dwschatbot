@@ -2,7 +2,7 @@
 import { useState } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/components/ui/use-toast';
-import { MessageData, MessageSource, convertMessagesToApi, dbMessageToUiMessage } from '@/utils/messageUtils';
+import { MessageData, MessageSource, convertMessagesToApi, dbMessageToUiMessage, DbMessage } from '@/utils/messageUtils';
 
 interface UseMessagesProps {
   userId: string | undefined;
@@ -49,7 +49,7 @@ export function useMessages({ userId, conversationId }: UseMessagesProps) {
       
       if (data && data.length > 0) {
         // Transform database messages to UI message format using the utility function
-        const formattedMessages = data.map(dbMessageToUiMessage);
+        const formattedMessages = data.map((msg: DbMessage) => dbMessageToUiMessage(msg));
         
         setMessages(formattedMessages);
         setHasInteracted(true);

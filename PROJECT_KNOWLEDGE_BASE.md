@@ -8,6 +8,7 @@
 - [x] Created dbMessageToUiMessage utility function to align with database schema
 - [x] Simplified type definitions and conversion logic
 - [x] Updated useMessages hook to use the new utility function
+- [x] Added explicit DbMessage interface to prevent deep instantiation errors
 - [ ] **Collaborative Verification Required**: Confirm no remaining type errors
 
 ### Phase 2: Consolidate Redundant Hooks (PREPARATION)

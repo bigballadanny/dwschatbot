@@ -30,6 +30,23 @@ export interface MessageData {
 }
 
 /**
+ * Database message format (simplified for type reference)
+ * This represents how messages are stored in Supabase
+ */
+export interface DbMessage {
+  id: string;
+  content: string;
+  conversation_id: string;
+  created_at: string;
+  is_user: boolean;
+  metadata?: {
+    source?: MessageSource;
+    citation?: string;
+  };
+  user_id?: string;
+}
+
+/**
  * Converts UI messages to API format for sending to backend
  * This function takes UI message format and converts to the API format expected by the backend
  */
@@ -72,7 +89,7 @@ export function convertMessagesToApi(
  * Convert a database message to UI message format
  * This helps transform data from Supabase to the format used in the UI
  */
-export function dbMessageToUiMessage(dbMessage: any): MessageData {
+export function dbMessageToUiMessage(dbMessage: DbMessage): MessageData {
   return {
     content: dbMessage.content,
     source: dbMessage.is_user ? 'user' : 
