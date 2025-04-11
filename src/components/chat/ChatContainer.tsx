@@ -58,8 +58,6 @@ const ChatContainer: React.FC<ChatContainerProps> = ({
         enableOnlineSearch={enableOnlineSearch}
         currentAudioSrc={currentAudioSrc}
         onAudioStop={onAudioStop}
-        isPlaying={isPlaying}
-        onTogglePlayback={onTogglePlayback}
         placeholder={user ? "Ask anything..." : "Please sign in to chat"}
         className="sticky bottom-0 z-20"
       />
