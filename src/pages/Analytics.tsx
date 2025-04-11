@@ -71,6 +71,22 @@ const Analytics = () => {
   const [searchQuery, setSearchQuery] = useState<string>('');
   const [loading, setLoading] = useState(true);
 
+  const generateUserSegmentsPieData = (type: 'engagement' | 'queryTypes') => {
+    if (type === 'engagement') {
+      return [
+        { name: 'Basic Users', value: userSegments.basic },
+        { name: 'Engaged Users', value: userSegments.engaged },
+        { name: 'Power Users', value: userSegments.power }
+      ].filter(item => item.value > 0);
+    } else {
+      return [
+        { name: 'Technical', value: userSegments.technical },
+        { name: 'Conceptual', value: userSegments.conceptual },
+        { name: 'Other', value: userSegments.otherType }
+      ].filter(item => item.value > 0);
+    }
+  };
+
   useEffect(() => {
     checkAnalyticsTable().then(success => {
       if (success) {
@@ -187,22 +203,6 @@ const Analytics = () => {
   const engagementPieData = getPieData(() => generateUserSegmentsPieData('engagement'));
   const queryTypesPieData = getPieData(() => generateUserSegmentsPieData('queryTypes'));
   const sourceDistPieData = getPieData(() => sourceDistribution);
-
-  const generateUserSegmentsPieData = (type: 'engagement' | 'queryTypes') => {
-    if (type === 'engagement') {
-      return [
-        { name: 'Basic Users', value: userSegments.basic },
-        { name: 'Engaged Users', value: userSegments.engaged },
-        { name: 'Power Users', value: userSegments.power }
-      ].filter(item => item.value > 0);
-    } else {
-      return [
-        { name: 'Technical', value: userSegments.technical },
-        { name: 'Conceptual', value: userSegments.conceptual },
-        { name: 'Other', value: userSegments.otherType }
-      ].filter(item => item.value > 0);
-    }
-  };
 
   return (
     <div className="container mx-auto py-6 px-2 sm:px-4 md:px-6">
@@ -325,7 +325,7 @@ const Analytics = () => {
                         <div className="bg-muted rounded-lg p-4">
                           <p className="text-sm font-medium mb-1">Return Rate</p>
                           <p className="text-2xl font-bold">{userEngagement.returnRate}%</p>
-                          <p className="text-xs text-muted-foreground">Users with >1 query</p>
+                          <p className="text-xs text-muted-foreground">Users with {'>'} 1 query</p>
                         </div>
                       </div>
                     </CardContent>
