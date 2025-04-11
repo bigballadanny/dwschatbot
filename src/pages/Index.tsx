@@ -218,21 +218,27 @@ const Index = () => {
       timestamp: new Date() 
     };
     
-    // Fix the recursive type issue by separating message arrays
-    const currentMessages = [...messages];
-    setMessages([
-      ...currentMessages,
-      userMessage,
-      { content: '', source: 'system', isLoading: true, timestamp: new Date() }
-    ]);
+    // Create a stable intermediate structure to avoid deep recursion in type inference
+    const updatedMessages = [...messages];
+    updatedMessages.push(userMessage);
+    updatedMessages.push({ 
+      content: '', 
+      source: 'system', 
+      isLoading: true, 
+      timestamp: new Date() 
+    });
     
+    setMessages(updatedMessages);
     setIsLoading(true);
 
     try {
-      // Extract only the necessary info from messages to avoid deep type issues
-      const messageHistory = currentMessages
+      // Create a simple array of message data to avoid deep type recursion
+      const messageHistory = messages
         .filter(msg => !msg.isLoading)
-        .map(msg => ({ content: msg.content, source: msg.source }));
+        .map(msg => ({ 
+          content: msg.content, 
+          source: msg.source 
+        }));
       
       messageHistory.push({ content: trimmedMessage, source: 'user' });
 
@@ -240,7 +246,7 @@ const Index = () => {
         body: {
           query: trimmedMessage,
           messages: messageHistory,
-          isVoiceInput: false,
+          isVoiceInput: isVoiceInput,
           enableOnlineSearch: enableOnlineSearch,
           conversationId: currentConvId
         }
@@ -257,6 +263,7 @@ const Index = () => {
         citation: data.citation
       };
 
+      // Update the messages state with stable message references
       setMessages(prev => [...prev.filter(msg => !msg.isLoading), responseMessage]);
 
       await supabase.from('messages').insert([
