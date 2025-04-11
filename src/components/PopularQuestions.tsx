@@ -52,8 +52,8 @@ const PopularQuestions: React.FC<PopularQuestionsProps> = ({
     fallbackQuestions;
 
   const handleQuestionClick = (question: string) => {
-    // Call the onSelectQuestion callback with the selected question
     console.log('Question clicked:', question);
+    // Always select the question, which will trigger a new conversation
     onSelectQuestion(question);
   };
 

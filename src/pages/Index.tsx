@@ -73,18 +73,13 @@ const Index = () => {
     
     setShowWelcome(false);
     
-    // First create a new conversation if needed
-    if (!conversationId) {
-      const newConversationId = await createNewConversation(question);
-      if (newConversationId) {
-        // This will trigger the useEffect that watches the URL params
-        navigate(`/?conversation=${newConversationId}`, { replace: true });
-        
-        // Send the message directly instead of relying on the URL param
-        handleSendMessage(question, false);
-      }
-    } else {
-      // If we already have a conversation, just send the message
+    // Always create a new conversation when asking a question from popular questions
+    const newConversationId = await createNewConversation(question);
+    if (newConversationId) {
+      // Update URL and state
+      navigate(`/?conversation=${newConversationId}`, { replace: true });
+      
+      // Send the message directly
       handleSendMessage(question, false);
     }
   };
