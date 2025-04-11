@@ -1,21 +1,17 @@
-import React, { useRef, useEffect, useState } from 'react';
+
+import React, { useEffect, useState } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
-import MessageItem, { MessageProps, MessageSource } from '@/components/MessageItem';
 import Header from '@/components/Header';
 import WelcomeScreen from '@/components/WelcomeScreen';
 import PopularQuestions from '@/components/PopularQuestions';
-import ChatSidebar from '@/components/ChatSidebar';
-import { SidebarProvider, SidebarInset, useSidebar } from "@/components/ui/sidebar";
-import { Button } from "@/components/ui/button";
-import { PanelLeft } from 'lucide-react';
-import { ScrollArea } from "@/components/ui/scroll-area";
+import { SidebarProvider, SidebarInset } from "@/components/ui/sidebar";
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from "@/components/ui/use-toast";
 import { useAuth } from '@/context/AuthContext';
-import SearchModeToggle from '@/components/SearchModeToggle';
-import UnifiedInputBar from '@/components/UnifiedInputBar';
-import AudioPlayer from '@/components/AudioPlayer';
-import { cn } from "@/lib/utils";
+import SidebarOpenButton from '@/components/sidebar/SidebarOpenButton';
+import ChatContainer from '@/components/chat/ChatContainer';
+import { MessageData } from '@/components/message/MessageList';
+import ChatSidebar from '@/components/ChatSidebar';
 
 interface MessageMetadata {
   source?: string;
@@ -32,44 +28,24 @@ interface SupabaseMessage {
   user_id?: string;
 }
 
-const SidebarOpenButton = () => {
-  const { state, toggleSidebar } = useSidebar();
-  if (state !== "collapsed") return null;
-  return (
-    <Button
-      variant="ghost"
-      size="icon"
-      className="absolute left-4 top-16 z-30 h-8 w-8 bg-background/80 backdrop-blur-sm hover:bg-accent"
-      onClick={toggleSidebar}
-      title="Open sidebar"
-    >
-      <PanelLeft className="h-4 w-4" />
-      <span className="sr-only">Open sidebar</span>
-    </Button>
-  );
-};
-
 const Index = () => {
   const { user } = useAuth();
   const [showWelcome, setShowWelcome] = useState(true);
-  const [audioEnabled, setAudioEnabled] = useState(false); // Default audio off
-  const [messages, setMessages] = useState<MessageProps[]>([{
-    content: "Hello! I'm Carl Allen's Expert Bot. Ask me anything about M&A based on Carl's teachings.", // Simplified
-    source: 'system' as MessageSource,
+  const [audioEnabled, setAudioEnabled] = useState(false);
+  const [messages, setMessages] = useState<MessageData[]>([{
+    content: "Hello! I'm Carl Allen's Expert Bot. Ask me anything about M&A based on Carl's teachings.",
+    source: 'system',
     timestamp: new Date(),
   }]);
   const [conversationId, setConversationId] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(false);
   const [enableOnlineSearch, setEnableOnlineSearch] = useState(false);
   const [hasInteracted, setHasInteracted] = useState(false);
-  const [uploading, setUploading] = useState(false);
-  const [currentAudioSrc, setCurrentAudioSrc] = useState<string | null>(null); // State for the player source
+  const [currentAudioSrc, setCurrentAudioSrc] = useState<string | null>(null);
 
-  const messagesEndRef = useRef<HTMLDivElement>(null);
   const location = useLocation();
   const navigate = useNavigate();
   const { toast } = useToast();
-  const { state: sidebarState } = useSidebar();
 
   useEffect(() => {
     const params = new URLSearchParams(location.search);
@@ -85,12 +61,12 @@ const Index = () => {
     } else if (!user && !question) {
        setMessages([{
            content: "Hello! I'm Carl Allen's Expert Bot. Ask me anything...",
-           source: 'system' as MessageSource, 
+           source: 'system', 
            timestamp: new Date(),
        }]);
        setConversationId(null);
        setHasInteracted(false);
-       setShowWelcome(true); // Show welcome if logged out and no convo
+       setShowWelcome(true);
     }
 
     if (question && user) {
@@ -98,8 +74,7 @@ const Index = () => {
         handleSendMessage(question, false);
       }, 800);
     }
-    setCurrentAudioSrc(null); // Clear audio player when location changes
-
+    setCurrentAudioSrc(null);
   }, [location.search, user]);
 
   useEffect(() => {
@@ -112,7 +87,7 @@ const Index = () => {
           setConversationId(null);
           setMessages([{
             content: "Hello! I'm Carl Allen's Expert Bot...",
-            source: 'system' as MessageSource, 
+            source: 'system', 
             timestamp: new Date(),
           }]);
           setHasInteracted(false);
@@ -122,10 +97,6 @@ const Index = () => {
       }).subscribe();
     return () => { supabase.removeChannel(channel); };
   }, [user, conversationId, navigate]);
-
-  useEffect(() => {
-    messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
-  }, [messages]);
 
   const loadConversationMessages = async (id: string) => {
     if (!user) {
@@ -142,11 +113,11 @@ const Index = () => {
         .order('created_at', { ascending: true });
       if (error) throw error;
       if (data && data.length > 0) {
-        const formattedMessages = data.map((msg: SupabaseMessage): MessageProps => ({
+        const formattedMessages = data.map((msg: SupabaseMessage): MessageData => ({
           content: msg.content,
-          source: msg.is_user ? 'user' : ((msg.metadata?.source as MessageSource) || 'gemini'),
+          source: msg.is_user ? 'user' : ((msg.metadata?.source as 'user' | 'system' | 'gemini') || 'gemini'),
           timestamp: new Date(msg.created_at),
-          citation: msg.metadata?.citation
+          citation: msg.metadata?.citation ? [msg.metadata.citation] : undefined
         }));
         setMessages(formattedMessages);
         setHasInteracted(true);
@@ -156,7 +127,7 @@ const Index = () => {
         if (convoData) {
             setMessages([{
                 content: "Ask me anything...", 
-                source: 'system' as MessageSource, 
+                source: 'system', 
                 timestamp: new Date(),
             }]);
             setHasInteracted(false);
@@ -186,7 +157,7 @@ const Index = () => {
         setConversationId(data.id);
         const initialMsg = { 
           content: "Hello! Ask me anything about M&A.", 
-          source: 'system' as MessageSource, 
+          source: 'system' as 'system', 
           timestamp: new Date() 
         };
         setMessages([initialMsg]);
@@ -233,7 +204,7 @@ const Index = () => {
     let currentConvId = conversationId;
     let isFirstUserInteraction = !hasInteracted;
 
-    setCurrentAudioSrc(null); // Clear previous audio player
+    setCurrentAudioSrc(null);
 
     if (!currentConvId) {
       currentConvId = await createNewConversation();
@@ -241,14 +212,14 @@ const Index = () => {
       isFirstUserInteraction = true;
     }
 
-    const userMessage: MessageProps = { 
+    const userMessage: MessageData = { 
       content: trimmedMessage, 
-      source: 'user' as MessageSource, 
+      source: 'user', 
       timestamp: new Date() 
     };
     setMessages(prev => [...prev, userMessage, { 
       content: '', 
-      source: 'system' as MessageSource, 
+      source: 'system', 
       isLoading: true, 
       timestamp: new Date() 
     }]);
@@ -259,13 +230,13 @@ const Index = () => {
         .filter(msg => !msg.isLoading)
         .map(msg => ({ content: msg.content, source: msg.source }))
         .slice(-10);
-      messageHistory.push({ content: trimmedMessage, source: 'user' as MessageSource });
+      messageHistory.push({ content: trimmedMessage, source: 'user' });
 
       const { data, error } = await supabase.functions.invoke('gemini-chat', {
         body: {
           query: trimmedMessage,
           messages: messageHistory,
-          isVoiceInput: false, // Keep false, voice input handled separately if needed
+          isVoiceInput: false,
           enableOnlineSearch: enableOnlineSearch,
           conversationId: currentConvId
         }
@@ -275,9 +246,9 @@ const Index = () => {
         throw new Error(error?.message || data?.error || 'Function returned empty response');
       }
 
-      const responseMessage: MessageProps = {
+      const responseMessage: MessageData = {
         content: data.content,
-        source: (data.source || 'gemini') as MessageSource,
+        source: (data.source || 'gemini') as 'gemini' | 'system' | 'user',
         timestamp: new Date(),
         citation: data.citation
       };
@@ -307,7 +278,7 @@ const Index = () => {
       console.error('Error in handleSendMessage:', error);
       setMessages(prev => [
         ...prev.filter(msg => !msg.isLoading),
-        { content: `Error: ${error instanceof Error ? error.message : 'Request failed.'}`, source: 'system' as MessageSource, timestamp: new Date() }
+        { content: `Error: ${error instanceof Error ? error.message : 'Request failed.'}`, source: 'system', timestamp: new Date() }
       ]);
       toast({ title: "Error Processing Message", description: error instanceof Error ? error.message : "Please try again.", variant: "destructive" });
       setCurrentAudioSrc(null);
@@ -320,7 +291,7 @@ const Index = () => {
     const willBeEnabled = !audioEnabled;
     setAudioEnabled(willBeEnabled);
     if (!willBeEnabled) {
-      setCurrentAudioSrc(null); // Hide player if disabling globally
+      setCurrentAudioSrc(null);
     }
     toast({
       title: willBeEnabled ? "Audio Enabled" : "Audio Disabled",
@@ -329,41 +300,40 @@ const Index = () => {
   };
 
   const handleAudioPlayerStop = () => {
-      setCurrentAudioSrc(null);
+    setCurrentAudioSrc(null);
   };
 
   const handleToggleOnlineSearch = (enabled: boolean) => {
-     setEnableOnlineSearch(enabled);
-     toast({ title: enabled ? "Online Search Enabled" : "Online Search Disabled" });
-   };
+    setEnableOnlineSearch(enabled);
+    toast({ title: enabled ? "Online Search Enabled" : "Online Search Disabled" });
+  };
 
   const handleFileUpload = async (files: FileList) => {
-     if (!files || files.length === 0) return;
-     toast({ title: "File Upload Note", description: `File "${files[0].name}" selected. Analysis feature not implemented.` });
-   };
+    if (!files || files.length === 0) return;
+    toast({ title: "File Upload Note", description: `File "${files[0].name}" selected. Analysis feature not implemented.` });
+  };
 
   return (
     <SidebarProvider>
       <div className="flex h-screen w-full overflow-hidden">
         <ChatSidebar
-           currentConversationId={conversationId}
-           onSelectConversation={(id) => {
-             setCurrentAudioSrc(null);
-             if (id !== conversationId) {
-               navigate(id ? `/?conversation=${id}` : '/ ', { replace: true });
-               // Let useEffect handle state updates based on navigation
-             }
-           }}
-           onCreateNew={() => {
-                setCurrentAudioSrc(null);
-                if (user) {
-                    createNewConversation();
-                } else {
-                    navigate('/', { replace: true });
-                    toast({ title: "Please sign in to create a new chat"});
-                }
-           }}
-         />
+          currentConversationId={conversationId || undefined}
+          onSelectConversation={(id) => {
+            setCurrentAudioSrc(null);
+            if (id !== conversationId) {
+              navigate(id ? `/?conversation=${id}` : '/ ', { replace: true });
+            }
+          }}
+          onCreateNew={() => {
+            setCurrentAudioSrc(null);
+            if (user) {
+              createNewConversation();
+            } else {
+              navigate('/', { replace: true });
+              toast({ title: "Please sign in to create a new chat"});
+            }
+          }}
+        />
         <SidebarOpenButton />
         <SidebarInset>
           <div className="flex flex-col h-full bg-muted/30">
@@ -372,62 +342,34 @@ const Index = () => {
             {showWelcome ? (
               <div className="flex-1 overflow-y-auto">
                 <div className="container mx-auto px-4 py-8 max-w-3xl">
-                  <WelcomeScreen onStartChat={() => { if(user) { createNewConversation(); } else { toast({title: 'Please sign in first'}); } }} onSelectQuestion={handleAskQuestion} />
+                  <WelcomeScreen 
+                    onStartChat={() => { 
+                      if(user) { 
+                        createNewConversation(); 
+                      } else { 
+                        toast({title: 'Please sign in first'}); 
+                      } 
+                    }} 
+                    onSelectQuestion={handleAskQuestion} 
+                  />
                   <PopularQuestions onSelectQuestion={handleAskQuestion} className="mt-8" />
                 </div>
               </div>
             ) : (
-              <div className="flex-1 overflow-hidden flex flex-col relative">
-                 <ScrollArea className="flex-1 px-4 py-6 pb-40"> {/* Increased padding-bottom for player space */}
-                   <div className="mx-auto max-w-3xl space-y-4">
-                     {messages.map((message, index) => (
-                       <MessageItem
-                         key={`${conversationId || 'new'}-${index}`}
-                         content={message.content}
-                         source={message.source}
-                         citation={message.citation}
-                         timestamp={message.timestamp}
-                         isLoading={message.isLoading}
-                       />
-                     ))}
-                     <div ref={messagesEndRef} />
-                   </div>
-                 </ScrollArea>
-
-                 <div className={cn(
-                   "absolute bottom-0 left-0 right-0 border-t bg-background/80 backdrop-blur-sm z-10",
-                 )}>
-                   <div className="max-w-3xl mx-auto px-4 pt-3 pb-4 space-y-3">
-                        {currentAudioSrc && (
-                            <AudioPlayer
-                                audioSrc={currentAudioSrc}
-                                onStop={handleAudioPlayerStop} // Function to call when player stops itself
-                                className="mb-2"
-                            />
-                        )}
-
-                       <div className="flex items-center gap-3 justify-between">
-                         <UnifiedInputBar
-                           onSend={handleSendMessage}
-                           onFileUpload={handleFileUpload}
-                           loading={isLoading}
-                           disabled={isLoading || (!user && !conversationId)} // More accurate disabled state
-                           enableAudio={audioEnabled} // Pass state to show correct icon
-                           onToggleAudio={toggleAudio} // Pass toggle handler
-                           placeholder={user ? "Ask anything..." : "Please sign in to chat"}
-                           className="flex-1"
-                           showVoiceFeatures={true} // Show mic/audio buttons
-                         />
-                         <SearchModeToggle
-                           enableOnlineSearch={enableOnlineSearch}
-                           onToggle={handleToggleOnlineSearch}
-                           className="text-xs"
-                           disabled={!user || !conversationId}
-                         />
-                       </div>
-                   </div>
-                 </div>
-              </div>
+              <ChatContainer
+                messages={messages}
+                isLoading={isLoading}
+                audioEnabled={audioEnabled}
+                currentAudioSrc={currentAudioSrc}
+                enableOnlineSearch={enableOnlineSearch}
+                conversationId={conversationId}
+                user={user}
+                onSendMessage={handleSendMessage}
+                onToggleAudio={toggleAudio}
+                onToggleOnlineSearch={handleToggleOnlineSearch}
+                onFileUpload={handleFileUpload}
+                onAudioStop={handleAudioPlayerStop}
+              />
             )}
           </div>
         </SidebarInset>
