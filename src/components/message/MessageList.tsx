@@ -32,8 +32,9 @@ const MessageList: React.FC<MessageListProps> = ({ messages, className }) => {
               exit={{ opacity: 0, height: 0 }}
               transition={{ 
                 duration: 0.3, 
-                delay: index === messages.length - 1 && message.source !== 'user' ? 0.2 : 0.1 
+                delay: message.source === 'user' ? 0 : 0.2 
               }}
+              data-testid={`message-item-${message.source}`}
             >
               <MessageItem
                 content={message.content}

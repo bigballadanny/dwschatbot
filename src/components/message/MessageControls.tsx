@@ -24,10 +24,7 @@ const MessageControls: React.FC<MessageControlsProps> = ({ content, citation, is
   // Effect to clean up audio on unmount
   useEffect(() => {
     return () => {
-      if (audioRef.current) {
-        audioRef.current.pause();
-        audioRef.current.src = '';
-      }
+      stopAudio();
     };
   }, []);
   
@@ -49,11 +46,7 @@ const MessageControls: React.FC<MessageControlsProps> = ({ content, citation, is
     if (isLoading) return;
     
     // Stop any currently playing audio first
-    if (audioRef.current) {
-      stopAudio();
-      audioRef.current = null;
-      setAudioSrc(null);
-    }
+    stopAudio();
     
     try {
       setIsGeneratingAudio(true);
@@ -109,7 +102,7 @@ const MessageControls: React.FC<MessageControlsProps> = ({ content, citation, is
         
         toast({
           title: "Audio generated",
-          description: "Your audio is playing. You can mute it using the audio player controls.",
+          description: "Your audio is playing. You can control it using the player below.",
         });
       }
     } catch (error) {

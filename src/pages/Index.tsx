@@ -52,12 +52,18 @@ const Index = () => {
 
     if (urlConversationId) {
       setConversationId(urlConversationId);
+    } else {
+      setConversationId(null);
     }
 
     if (question && user) {
-      setTimeout(() => {
+      // Wait a moment to allow the UI to render before sending the question
+      const timer = setTimeout(() => {
         handleSendMessage(question, false);
+        setShowWelcome(false);
       }, 800);
+      
+      return () => clearTimeout(timer);
     }
   }, [location.search, user]);
 
@@ -74,13 +80,16 @@ const Index = () => {
     setShowWelcome(false);
     
     // Always create a new conversation when asking a question from popular questions
-    const newConversationId = await createNewConversation(question);
+    const newConversationId = await createNewConversation();
     if (newConversationId) {
       // Update URL and state
+      setConversationId(newConversationId);
       navigate(`/?conversation=${newConversationId}`, { replace: true });
       
-      // Send the message directly
-      handleSendMessage(question, false);
+      // Send the message after a short delay to ensure proper setup
+      setTimeout(() => {
+        handleSendMessage(question, false);
+      }, 300);
     }
   };
 
@@ -96,6 +105,7 @@ const Index = () => {
     }
     
     await createNewConversation();
+    setShowWelcome(false);
   };
 
   return (

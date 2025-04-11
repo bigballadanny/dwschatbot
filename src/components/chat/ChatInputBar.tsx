@@ -4,7 +4,7 @@ import { cn } from "@/lib/utils";
 import UnifiedInputBar from '@/components/UnifiedInputBar';
 import SearchModeToggle from '@/components/SearchModeToggle';
 import AudioPlayer from '@/components/AudioPlayer';
-import { motion } from 'framer-motion';
+import { motion, AnimatePresence } from 'framer-motion';
 
 interface ChatInputBarProps {
   onSendMessage: (message: string, isVoice: boolean) => Promise<void>;
@@ -41,20 +41,23 @@ const ChatInputBar: React.FC<ChatInputBarProps> = ({
       className
     )}>
       <div className="max-w-3xl mx-auto px-4 pt-3 pb-5 space-y-3">
-        {currentAudioSrc && (
-          <motion.div
-            initial={{ opacity: 0, height: 0 }}
-            animate={{ opacity: 1, height: 'auto' }}
-            exit={{ opacity: 0, height: 0 }}
-            transition={{ duration: 0.3 }}
-          >
-            <AudioPlayer
-              audioSrc={currentAudioSrc}
-              onStop={onAudioStop}
-              className="mb-2"
-            />
-          </motion.div>
-        )}
+        <AnimatePresence>
+          {currentAudioSrc && (
+            <motion.div
+              initial={{ opacity: 0, height: 0 }}
+              animate={{ opacity: 1, height: 'auto' }}
+              exit={{ opacity: 0, height: 0 }}
+              transition={{ duration: 0.3 }}
+              key="audio-player"
+            >
+              <AudioPlayer
+                audioSrc={currentAudioSrc}
+                onStop={onAudioStop}
+                className="mb-2"
+              />
+            </motion.div>
+          )}
+        </AnimatePresence>
 
         <div className="flex flex-wrap items-center gap-3 justify-between">
           <UnifiedInputBar
