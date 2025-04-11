@@ -1,4 +1,3 @@
-
 import { useState } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/components/ui/use-toast';
@@ -122,7 +121,7 @@ export function useMessages({ userId, conversationId }: UseMessagesProps) {
     ]);
   };
 
-  const formatMessagesForApi = (newUserContent: string) => {
+  const formatMessagesForApi = (newUserContent: string): ApiMessage[] => {
     return convertToApiMessages(messages, newUserContent);
   };
 
