@@ -1,4 +1,3 @@
-
 import { useState } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/components/ui/use-toast';
@@ -133,45 +132,34 @@ export function useMessages({ userId, conversationId }: UseMessagesProps) {
     ]);
   };
 
-  // Completely separated function with no recursive types
-  const formatMessagesForApi = (newMessageContent: string): ApiMessage[] => {
-    // Initialize an empty array for the API messages
-    const apiMessages: ApiMessage[] = [];
+  const formatMessagesForApi = (newUserContent: string): ApiMessage[] => {
+    const apiFormatted: ApiMessage[] = [];
     
-    // Iterate through existing messages and convert to API format
-    for (let i = 0; i < messages.length; i++) {
-      const msg = messages[i];
+    for (const message of messages) {
+      if (message.isLoading) continue;
       
-      // Skip messages that are in loading state
-      if (msg.isLoading) continue;
+      let apiRole: 'user' | 'assistant' | 'system';
       
-      // Convert from UI message format to API message format
-      let role: 'user' | 'assistant' | 'system';
-      
-      // Explicitly map each source to a role
-      if (msg.source === 'user') {
-        role = 'user';
-      } else if (msg.source === 'system') {
-        role = 'system';
+      if (message.source === 'user') {
+        apiRole = 'user';
+      } else if (message.source === 'system') {
+        apiRole = 'system';
       } else {
-        // 'gemini' or any other source maps to 'assistant'
-        role = 'assistant';
+        apiRole = 'assistant';
       }
       
-      // Add to API messages array
-      apiMessages.push({
-        role,
-        content: msg.content
+      apiFormatted.push({
+        role: apiRole,
+        content: message.content
       });
     }
     
-    // Add the new user message
-    apiMessages.push({
+    apiFormatted.push({
       role: 'user',
-      content: newMessageContent
+      content: newUserContent
     });
     
-    return apiMessages;
+    return apiFormatted;
   };
 
   return {
