@@ -9,6 +9,14 @@ interface MessageContentProps {
   isLoading: boolean;
 }
 
+// Define an interface for the code component props that includes the inline property
+interface CodeProps {
+  node?: any;
+  inline?: boolean;
+  className?: string;
+  children?: React.ReactNode;
+}
+
 const MessageContent: React.FC<MessageContentProps> = ({ content, isLoading }) => {
   if (isLoading) {
     return (
@@ -33,7 +41,8 @@ const MessageContent: React.FC<MessageContentProps> = ({ content, isLoading }) =
           li: ({ node, ...props }) => <li className="mb-1" {...props} />,
           strong: ({ node, ...props }) => <strong className="font-bold" {...props} />,
           em: ({ node, ...props }) => <em className="italic" {...props} />,
-          code: ({ node, inline, ...props }) => 
+          // Use the CodeProps interface to type the code component props
+          code: ({ node, inline, ...props }: CodeProps) => 
             inline 
               ? <code className="bg-zinc-700 px-1 rounded text-sm" {...props} />
               : <code className="block bg-zinc-800 p-3 rounded-md text-sm whitespace-pre-wrap my-2" {...props} />
