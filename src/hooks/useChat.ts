@@ -77,6 +77,9 @@ export function useChat({
           toast({ title: "Conversation not found", variant: "destructive" });
         } else {
           console.log(`Successfully loaded conversation: ${conversationId}`);
+          
+          // Set the active conversation ID when we've successfully loaded a conversation
+          setConversationId(conversationId);
         }
       } else if (!user) {
         console.log("No user, resetting messages");
@@ -131,6 +134,8 @@ export function useChat({
       isFirstUserInteraction = true;
     }
 
+    console.log(`Sending message to conversation ${currentConvId}: ${trimmedMessage}`);
+
     // Add user message to UI
     addUserMessage(trimmedMessage);
     
@@ -139,6 +144,7 @@ export function useChat({
     try {
       // Format messages for the API
       const apiMessages = formatMessagesForApi(trimmedMessage);
+      console.log('API messages to send:', apiMessages);
 
       // Send request to Supabase function
       const { data, error } = await supabase.functions.invoke('gemini-chat', {
@@ -150,6 +156,8 @@ export function useChat({
           conversationId: currentConvId
         }
       });
+      
+      console.log('Response from gemini-chat function:', data, error);
 
       if (error || !data?.content) {
         throw new Error(error?.message || data?.error || 'Function returned empty response');
@@ -164,7 +172,7 @@ export function useChat({
 
       // Save messages to database
       console.log(`Saving messages to conversation: ${currentConvId}`);
-      await saveMessages(
+      const saveResult = await saveMessages(
         currentConvId, 
         user.id, 
         trimmedMessage, 
@@ -174,6 +182,15 @@ export function useChat({
           citation: responseMessage.citation
         }
       );
+      
+      if (!saveResult) {
+        console.warn('Failed to save messages to database');
+        toast({ 
+          title: "Warning", 
+          description: "Messages displayed but not saved to history.",
+          variant: "default" 
+        });
+      }
 
       // Handle audio if enabled
       if (isAudioEnabled && data.audioContent) {

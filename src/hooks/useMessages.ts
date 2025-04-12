@@ -1,7 +1,8 @@
+
 import { useState } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/components/ui/use-toast';
-import { MessageData, MessageSource, DbMessage, convertMessagesToApi, dbMessageToUiMessage } from '@/utils/messageUtils';
+import { MessageData, MessageSource, DbMessage, convertMessagesToApi, dbMessageToUiMessage, formatDbMessagesForUi } from '@/utils/messageUtils';
 
 interface UseMessagesProps {
   userId: string | undefined;
@@ -50,12 +51,13 @@ export function useMessages({ userId, conversationId }: UseMessagesProps) {
       }
       
       if (data && data.length > 0) {
-        console.log(`Found ${data.length} messages for conversation ${convId}`);
+        console.log(`Found ${data.length} messages for conversation ${convId}:`, data);
         // Transform database messages to UI message format using the utility function
         // Cast data to DbMessage[] to avoid type instantiation issues
         const dbMessages = data as DbMessage[];
-        const formattedMessages = dbMessages.map(msg => dbMessageToUiMessage(msg));
+        const formattedMessages = formatDbMessagesForUi(dbMessages);
         
+        console.log('Formatted messages:', formattedMessages);
         setMessages(formattedMessages);
         setHasInteracted(true);
         return true;

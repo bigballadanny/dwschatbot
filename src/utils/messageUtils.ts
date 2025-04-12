@@ -41,7 +41,7 @@ export interface DbMessage {
   is_user: boolean;
   metadata?: {
     source?: MessageSource;
-    citation?: string;
+    citation?: string[];
   };
   user_id?: string;
 }
@@ -99,9 +99,23 @@ export function dbMessageToUiMessage(dbMessage: DbMessage): MessageData {
     content: dbMessage.content,
     source: source,
     timestamp: new Date(dbMessage.created_at),
-    citation: dbMessage.metadata?.citation ? 
-              [dbMessage.metadata.citation] : undefined
+    citation: dbMessage.metadata?.citation || undefined
   };
   
   return messageData;
+}
+
+/**
+ * Format database messages for sending to UI
+ * This is a helper function to map database messages to UI format
+ * @param messages Array of database messages
+ * @returns Array of UI formatted messages
+ */
+export function formatDbMessagesForUi(dbMessages: DbMessage[]): MessageData[] {
+  if (!dbMessages || dbMessages.length === 0) {
+    return [];
+  }
+  
+  console.log(`Formatting ${dbMessages.length} database messages to UI format`);
+  return dbMessages.map(msg => dbMessageToUiMessage(msg));
 }

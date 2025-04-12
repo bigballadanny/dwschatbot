@@ -84,8 +84,17 @@ const MessageList: React.FC<MessageListProps> = ({
     ? [...messages].reverse() 
     : messages;
   
-  console.log(`Rendering MessageList with ${messages.length} messages`);
+  console.log(`Rendering MessageList with ${messages.length} messages:`, displayMessages);
   
+  // If there are no messages or just the initial system message, display a placeholder
+  if (displayMessages.length === 0) {
+    return (
+      <div className={cn('flex-1 relative h-full flex items-center justify-center', className)}>
+        <p className="text-muted-foreground">No messages in this conversation yet.</p>
+      </div>
+    );
+  }
+
   return (
     <div 
       className={cn(

@@ -58,12 +58,15 @@ export function useConversation({ userId }: UseConversationProps) {
     try {
       console.log(`Saving messages for conversation: ${conversationId}`);
       
-      // Structure follows database schema
+      // Structure follows database schema - expanded with better logging
       const messages = [
         { 
           conversation_id: conversationId, 
           content: userMessage, 
-          is_user: true 
+          is_user: true,
+          metadata: {
+            source: 'user'
+          }
         },
         {
           conversation_id: conversationId,
@@ -71,19 +74,24 @@ export function useConversation({ userId }: UseConversationProps) {
           is_user: false,
           metadata: { 
             source: responseMessage.source, 
-            citation: responseMessage.citation?.[0] 
+            citation: responseMessage.citation 
           }
         }
       ];
       
-      const { error } = await supabase
+      console.log('Inserting messages with data:', JSON.stringify(messages, null, 2));
+      
+      const { data, error } = await supabase
         .from('messages')
-        .insert(messages);
+        .insert(messages)
+        .select();
       
       if (error) {
         console.error('Error inserting messages:', error);
         throw error;
       }
+      
+      console.log('Messages inserted successfully:', data);
       
       // Update conversation last update timestamp
       await supabase
