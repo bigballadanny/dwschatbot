@@ -25,6 +25,7 @@ export function useChat({
   const userId = user?.id;
   
   const [isAudioEnabled, setIsAudioEnabled] = useState<boolean>(audioEnabled);
+  const [actualConversationId, setActualConversationId] = useState<string | null>(conversationId);
   
   // Initialize child hooks
   const {
@@ -39,11 +40,9 @@ export function useChat({
     addSystemMessage,
     addErrorMessage,
     formatMessagesForApi
-  } = useMessages({ userId, conversationId });
+  } = useMessages({ userId, conversationId: actualConversationId });
   
   const {
-    conversationId: activeConversationId,
-    setConversationId,
     createNewConversation,
     saveMessages,
     updateConversationTitle,
@@ -67,8 +66,12 @@ export function useChat({
 
   // Load conversation messages when conversationId changes
   useEffect(() => {
+    // Update the local conversationId state when the prop changes
+    setActualConversationId(conversationId);
+    
     const loadConversation = async () => {
       if (conversationId && user) {
+        console.log("Loading conversation:", conversationId);
         const success = await loadMessages(conversationId, user.id);
         if (!success) {
           navigate('/');
@@ -86,9 +89,9 @@ export function useChat({
 
   // Monitor conversation deletion
   useEffect(() => {
-    if (!user || !conversationId) return;
+    if (!user || !actualConversationId) return;
     
-    const channel = setupConversationMonitor(conversationId, () => {
+    const channel = setupConversationMonitor(actualConversationId, () => {
       navigate('/', { replace: true });
       resetChat();
     });
@@ -98,7 +101,7 @@ export function useChat({
         supabase.removeChannel(channel);
       }
     };
-  }, [user, conversationId, navigate]);
+  }, [user, actualConversationId, navigate]);
 
   const resetChat = () => {
     resetMessages();
@@ -114,15 +117,20 @@ export function useChat({
       return;
     }
 
-    let currentConvId = conversationId;
+    let currentConvId = actualConversationId;
     let isFirstUserInteraction = !hasInteracted;
 
     clearAudio();
 
     // Create new conversation if needed
     if (!currentConvId) {
-      currentConvId = await createNewConversation(trimmedMessage);
-      if (!currentConvId) return;
+      const newConversationId = await createNewConversation(trimmedMessage);
+      if (!newConversationId) return;
+      
+      // Update URL and state
+      setActualConversationId(newConversationId);
+      navigate(`/?conversation=${newConversationId}`, { replace: true });
+      currentConvId = newConversationId;
       isFirstUserInteraction = true;
     }
 
@@ -219,7 +227,6 @@ export function useChat({
     });
   };
 
-  // Handle file upload
   const handleFileUpload = async (files: FileList) => {
     if (!files || files.length === 0) return;
     

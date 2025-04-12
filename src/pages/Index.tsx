@@ -51,15 +51,18 @@ const Index = () => {
     setShowWelcome(shouldShowWelcome);
 
     if (urlConversationId) {
+      console.log("Setting conversation ID from URL:", urlConversationId);
       setConversationId(urlConversationId);
-    } else {
+    } else if (!question) {
+      // Only reset conversationId if there's no question parameter
+      // This prevents clearing the conversationId when a new question is asked
       setConversationId(null);
     }
 
     if (question && user) {
       // Wait a moment to allow the UI to render before sending the question
       const timer = setTimeout(() => {
-        handleSendMessage(question, false);
+        handleSendMessage(question);
         setShowWelcome(false);
       }, 800);
       
@@ -88,7 +91,7 @@ const Index = () => {
       
       // Send the message after a short delay to ensure proper setup
       setTimeout(() => {
-        handleSendMessage(question, false);
+        handleSendMessage(question);
       }, 300);
     }
   };
@@ -104,8 +107,12 @@ const Index = () => {
       return;
     }
     
-    await createNewConversation();
-    setShowWelcome(false);
+    const newConversationId = await createNewConversation();
+    if (newConversationId) {
+      setConversationId(newConversationId);
+      navigate(`/?conversation=${newConversationId}`, { replace: true });
+      setShowWelcome(false);
+    }
   };
 
   return (
