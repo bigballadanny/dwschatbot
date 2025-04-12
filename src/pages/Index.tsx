@@ -48,21 +48,26 @@ const Index = () => {
     const urlConversationId = params.get('conversation');
     const question = params.get('q');
 
-    const shouldShowWelcome = !user || (!urlConversationId && !question);
-    setShowWelcome(shouldShowWelcome);
-
-    if (urlConversationId) {
+    console.log("URL params:", { urlConversationId, question });
+    
+    // Only update conversation ID if it changed in the URL or is new
+    if (urlConversationId && urlConversationId !== conversationId) {
       console.log("Setting conversation ID from URL:", urlConversationId);
       setConversationId(urlConversationId);
-    } else if (!question) {
-      // Only reset conversationId if there's no question parameter
-      // This prevents clearing the conversationId when a new question is asked
-      setConversationId(null);
+      setShowWelcome(false);
+    } else if (!urlConversationId && !question) {
+      // Reset conversation ID if no URL params
+      if (conversationId) {
+        console.log("Clearing conversation ID as no URL params found");
+        setConversationId(null);
+      }
+      setShowWelcome(!user || true);
     }
 
     if (question && user) {
       // Wait a moment to allow the UI to render before sending the question
       const timer = setTimeout(() => {
+        console.log("Handling question from URL param:", question);
         handleSendMessage(question);
         setShowWelcome(false);
       }, 800);
@@ -86,9 +91,11 @@ const Index = () => {
     setShowWelcome(false);
     
     // Always create a new conversation when asking a question from popular questions
+    console.log("Creating new conversation for popular question");
     const newConversationId = await createNewConversation();
     if (newConversationId) {
       // Update URL and state
+      console.log("Setting new conversation ID:", newConversationId);
       setConversationId(newConversationId);
       navigate(`/?conversation=${newConversationId}`, { replace: true });
       
@@ -112,8 +119,10 @@ const Index = () => {
       return;
     }
     
+    console.log("Creating new conversation from UI action");
     const newConversationId = await createNewConversation();
     if (newConversationId) {
+      console.log("Setting new conversation ID:", newConversationId);
       setConversationId(newConversationId);
       navigate(`/?conversation=${newConversationId}`, { replace: true });
       setShowWelcome(false);

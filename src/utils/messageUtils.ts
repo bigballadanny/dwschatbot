@@ -94,6 +94,7 @@ export function dbMessageToUiMessage(dbMessage: DbMessage): MessageData {
   // Use explicit type for return value to ensure type safety
   const messageData: MessageData = {
     content: dbMessage.content,
+    // Determine message source with fallback logic
     source: dbMessage.is_user ? 'user' : 
             (dbMessage.metadata?.source as MessageSource || 'gemini'),
     timestamp: new Date(dbMessage.created_at),
@@ -110,22 +111,76 @@ export function dbMessageToUiMessage(dbMessage: DbMessage): MessageData {
  */
 export async function checkMetadataColumnExists(supabaseClient: any): Promise<boolean> {
   try {
+    console.log('Checking if metadata column exists in the messages table...');
+    
     // Try to select a record with explicit metadata field
-    const { error } = await supabaseClient
+    const { data, error } = await supabaseClient
       .from('messages')
       .select('metadata')
       .limit(1);
     
-    // If there's an error about metadata not existing in the column selection
+    // If there's an error specifically mentioning metadata column not existing
     if (error && error.message && error.message.includes('metadata')) {
-      console.log('Metadata column does not exist:', error.message);
+      console.log('Metadata column does not exist in messages table:', error.message);
       return false;
     }
     
-    console.log('Metadata column exists in messages table');
+    // Check if the data returned has a metadata field defined
+    // This helps catch cases where the column exists but might be empty
+    if (data && data.length > 0) {
+      const hasMetadataField = 'metadata' in data[0];
+      console.log(`Metadata column ${hasMetadataField ? 'exists' : 'does not exist'} in messages table`);
+      return hasMetadataField;
+    }
+    
+    // Default to assuming metadata exists if we can query it without errors
+    console.log('Assuming metadata column exists since no error occurred');
     return true;
   } catch (e) {
-    console.error('Error checking metadata column:', e);
+    console.error('Unexpected error checking metadata column:', e);
     return false;
   }
+}
+
+/**
+ * Prepare message objects for database insertion with or without metadata
+ * This is a helper function to create message objects based on schema support
+ */
+export function prepareMessagesForDb(
+  conversationId: string, 
+  userMessage: string,
+  responseMessage: { content: string, source: 'gemini' | 'system', citation?: string[] },
+  hasMetadataSupport: boolean
+): any[] {
+  // User message is always simple
+  const userMessageObj = { 
+    conversation_id: conversationId, 
+    content: userMessage, 
+    is_user: true 
+  };
+  
+  // Response message depends on metadata support
+  let responseMessageObj;
+  
+  if (hasMetadataSupport) {
+    // Use metadata if the column exists
+    responseMessageObj = {
+      conversation_id: conversationId,
+      content: responseMessage.content,
+      is_user: false,
+      metadata: { 
+        source: responseMessage.source, 
+        citation: responseMessage.citation?.[0] 
+      }
+    };
+  } else {
+    // Fallback: Just save the content without metadata
+    responseMessageObj = {
+      conversation_id: conversationId,
+      content: responseMessage.content,
+      is_user: false
+    };
+  }
+  
+  return [userMessageObj, responseMessageObj];
 }

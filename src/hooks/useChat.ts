@@ -43,6 +43,7 @@ export function useChat({
   } = useMessages({ userId, conversationId: actualConversationId });
   
   const {
+    hasMetadataColumn,
     createNewConversation,
     saveMessages,
     updateConversationTitle,
@@ -124,6 +125,7 @@ export function useChat({
 
     // Create new conversation if needed
     if (!currentConvId) {
+      console.log("No conversation ID, creating new conversation");
       const newConversationId = await createNewConversation(trimmedMessage);
       if (!newConversationId) return;
       
@@ -132,9 +134,11 @@ export function useChat({
       navigate(`/?conversation=${newConversationId}`, { replace: true });
       currentConvId = newConversationId;
       isFirstUserInteraction = true;
+      console.log("Created new conversation:", newConversationId);
     }
 
     // Add user message to UI
+    console.log("Adding user message to UI:", trimmedMessage);
     addUserMessage(trimmedMessage);
     
     setIsLoading(true);
@@ -143,6 +147,7 @@ export function useChat({
       // Format messages for the API
       const apiMessages = formatMessagesForApi(trimmedMessage);
 
+      console.log("Sending request to Supabase function");
       // Send request to Supabase function
       const { data, error } = await supabase.functions.invoke('gemini-chat', {
         body: {
@@ -159,6 +164,7 @@ export function useChat({
       }
 
       // Process the response
+      console.log("Processing AI response");
       const responseMessage = addSystemMessage(
         data.content, 
         (data.source || 'gemini') as MessageSource, 
@@ -166,7 +172,8 @@ export function useChat({
       );
 
       // Save messages to database
-      await saveMessages(
+      console.log("Saving messages to database for conversation:", currentConvId);
+      const saveSuccess = await saveMessages(
         currentConvId, 
         user.id, 
         trimmedMessage, 
@@ -176,6 +183,12 @@ export function useChat({
           citation: responseMessage.citation
         }
       );
+
+      if (!saveSuccess) {
+        console.warn("Failed to save messages, but continuing with chat interaction");
+      } else {
+        console.log("Successfully saved messages");
+      }
 
       // Handle audio if enabled
       if (isAudioEnabled && data.audioContent) {
@@ -198,6 +211,7 @@ export function useChat({
 
       // Update conversation title if first interaction
       if (isFirstUserInteraction) {
+        console.log("Updating conversation title for first interaction");
         await updateConversationTitle(currentConvId, trimmedMessage);
         setHasInteracted(true);
       }

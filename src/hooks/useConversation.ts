@@ -3,7 +3,7 @@ import { useState, useEffect } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/components/ui/use-toast';
 import { useNavigate } from 'react-router-dom';
-import { checkMetadataColumnExists } from '@/utils/messageUtils';
+import { checkMetadataColumnExists, prepareMessagesForDb } from '@/utils/messageUtils';
 
 interface UseConversationProps {
   userId: string | undefined;
@@ -19,9 +19,15 @@ export function useConversation({ userId }: UseConversationProps) {
   useEffect(() => {
     const checkMetadata = async () => {
       if (userId) {
-        const hasMetadata = await checkMetadataColumnExists(supabase);
-        setHasMetadataColumn(hasMetadata);
-        console.log(`Database ${hasMetadata ? 'supports' : 'does not support'} metadata column`);
+        try {
+          const hasMetadata = await checkMetadataColumnExists(supabase);
+          setHasMetadataColumn(hasMetadata);
+          console.log(`Database ${hasMetadata ? 'supports' : 'does not support'} metadata column`);
+        } catch (error) {
+          console.error('Error checking metadata support:', error);
+          // Default to false to be safe
+          setHasMetadataColumn(false);
+        }
       }
     };
     
@@ -69,70 +75,62 @@ export function useConversation({ userId }: UseConversationProps) {
     responseMessage: { content: string, source: 'gemini' | 'system', citation?: string[] }
   ): Promise<boolean> => {
     try {
+      console.log(`Attempting to save messages to conversation: ${conversationId}`);
+      
       // If we haven't checked for metadata column yet, do it now
       if (hasMetadataColumn === null) {
-        const metadata = await checkMetadataColumnExists(supabase);
-        setHasMetadataColumn(metadata);
+        try {
+          const metadata = await checkMetadataColumnExists(supabase);
+          setHasMetadataColumn(metadata);
+          console.log(`Metadata check completed: ${metadata ? 'supported' : 'not supported'}`);
+        } catch (err) {
+          console.error('Error checking metadata on save:', err);
+          setHasMetadataColumn(false);
+        }
       }
       
-      // User message is always simple
-      const userMessageObj = { 
-        conversation_id: conversationId, 
-        content: userMessage, 
-        is_user: true 
-      };
+      // Prepare message objects based on metadata support
+      const messageObjects = prepareMessagesForDb(
+        conversationId, 
+        userMessage, 
+        responseMessage, 
+        !!hasMetadataColumn
+      );
       
-      // Response message depends on metadata support
-      let responseMessageObj;
-      
-      if (hasMetadataColumn) {
-        // Use metadata if the column exists
-        responseMessageObj = {
-          conversation_id: conversationId,
-          content: responseMessage.content,
-          is_user: false,
-          metadata: { 
-            source: responseMessage.source, 
-            citation: responseMessage.citation?.[0] 
-          }
-        };
-      } else {
-        // Fallback: Just save the content without metadata
-        responseMessageObj = {
-          conversation_id: conversationId,
-          content: responseMessage.content,
-          is_user: false
-        };
-      }
+      console.log(`Saving messages with metadata support: ${!!hasMetadataColumn}`);
       
       // Insert both messages
       const { error } = await supabase
         .from('messages')
-        .insert([userMessageObj, responseMessageObj]);
+        .insert(messageObjects);
       
       if (error) {
         console.error('Error saving messages:', error);
+        
         // If we get an error and thought metadata was supported, try again without metadata
         if (hasMetadataColumn && error.message && error.message.includes('metadata')) {
+          console.log('Error suggests metadata is not supported, retrying without metadata');
           setHasMetadataColumn(false);
           
-          // Try again without metadata
-          const fallbackResponseObj = {
-            conversation_id: conversationId,
-            content: responseMessage.content,
-            is_user: false
-          };
+          // Prepare objects again without metadata
+          const fallbackObjects = prepareMessagesForDb(
+            conversationId,
+            userMessage,
+            responseMessage,
+            false
+          );
           
+          // Try again without metadata
           const { error: fallbackError } = await supabase
             .from('messages')
-            .insert([userMessageObj, fallbackResponseObj]);
+            .insert(fallbackObjects);
             
           if (fallbackError) {
             console.error('Error in fallback save:', fallbackError);
             return false;
           }
           
-          console.log('Saved messages without metadata after fallback');
+          console.log('Successfully saved messages without metadata after fallback');
           return true;
         }
         

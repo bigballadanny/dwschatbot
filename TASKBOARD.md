@@ -5,12 +5,6 @@ This file tracks our current tasks, priorities, and ongoing work. Completed task
 
 ## Current Sprint (Phase 8)
 
-### Chat Function Fixes 🔧
-- [x] Fix issue with chats not being saved when opening a new conversation
-- [x] Ensure consistent conversation history persistence
-- [x] Debug conversation ID tracking between sessions
-- [x] Fix metadata column detection and message saving
-
 ### UI Improvements ✨
 - [ ] Enhance message list animations and transitions
 - [ ] Fix scrolling behavior in chat interface
