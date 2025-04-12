@@ -20,6 +20,21 @@ const MessageList: React.FC<MessageListProps> = ({
   const containerRef = useRef<HTMLDivElement>(null);
   const [hasScrolled, setHasScrolled] = useState(false);
   const [previousMessageCount, setPreviousMessageCount] = useState(messages.length);
+  const [previousConversation, setPreviousConversation] = useState<string | null>(null);
+  
+  // Effect to detect if we're loading a new conversation
+  useEffect(() => {
+    // Check if we're loading a new conversation based on first message content
+    if (messages.length > 0) {
+      const conversationId = messages[0]?.content || null;
+      if (conversationId !== previousConversation) {
+        setPreviousConversation(conversationId);
+        // Reset scroll state when loading a new conversation
+        setHasScrolled(false);
+        console.log("New conversation detected, resetting scroll state");
+      }
+    }
+  }, [messages]);
   
   // Effect to detect when messages are added
   useEffect(() => {
@@ -85,7 +100,7 @@ const MessageList: React.FC<MessageListProps> = ({
           <AnimatePresence initial={false}>
             {displayMessages.map((message, index) => (
               <motion.div
-                key={`${message.source}-${index}`}
+                key={`${message.source}-${index}-${message.content.substring(0, 10)}`}
                 initial={{ 
                   opacity: 0, 
                   y: message.source === 'user' ? -20 : 20

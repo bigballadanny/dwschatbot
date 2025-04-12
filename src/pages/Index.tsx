@@ -9,12 +9,15 @@ import { useToast } from "@/components/ui/use-toast";
 import { useAuth } from '@/context/AuthContext';
 import ChatContainer from '@/components/chat/ChatContainer';
 import { useChat } from '@/hooks/useChat';
+import { supabase } from '@/integrations/supabase/client';
+import { Conversation } from '@/components/ConversationHistory';
 
 const Index = () => {
   const { user } = useAuth();
   const [showWelcome, setShowWelcome] = useState(true);
   const [audioEnabled, setAudioEnabled] = useState(false);
   const [conversationId, setConversationId] = useState<string | null>(null);
+  const [conversations, setConversations] = useState<Conversation[]>([]);
 
   const location = useLocation();
   const navigate = useNavigate();
@@ -42,6 +45,46 @@ const Index = () => {
     audioEnabled
   });
 
+  // Load conversations for the user
+  useEffect(() => {
+    const loadUserConversations = async () => {
+      if (!user) {
+        setConversations([]);
+        return;
+      }
+
+      try {
+        const { data: conversationsData, error } = await supabase
+          .from('conversations')
+          .select('*')
+          .eq('user_id', user.id)
+          .order('updated_at', { ascending: false });
+
+        if (error) throw error;
+
+        if (conversationsData) {
+          // Format conversations for display
+          const formattedConversations: Conversation[] = conversationsData.map(conv => ({
+            id: conv.id,
+            title: conv.title || 'Untitled Conversation',
+            preview: conv.title || 'Click to view this conversation',
+            date: new Date(conv.updated_at)
+          }));
+
+          setConversations(formattedConversations);
+        }
+      } catch (error) {
+        console.error('Error loading conversations:', error);
+        toast({ 
+          title: "Failed to load conversations",
+          variant: "destructive"
+        });
+      }
+    };
+
+    loadUserConversations();
+  }, [user]);
+
   useEffect(() => {
     const params = new URLSearchParams(location.search);
     const urlConversationId = params.get('conversation');
@@ -52,6 +95,7 @@ const Index = () => {
 
     if (urlConversationId) {
       setConversationId(urlConversationId);
+      setShowWelcome(false); // Ensure we don't show welcome screen when a conversation is selected
     } else {
       setConversationId(null);
     }
@@ -106,6 +150,13 @@ const Index = () => {
     
     await createNewConversation();
     setShowWelcome(false);
+  };
+
+  const handleSelectConversation = (selectedConversationId: string) => {
+    console.log("Selected conversation:", selectedConversationId);
+    // Update URL with the selected conversation ID
+    navigate(`/?conversation=${selectedConversationId}`, { replace: true });
+    // This will trigger the useEffect that watches location.search
   };
 
   return (
