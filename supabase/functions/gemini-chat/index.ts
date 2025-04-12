@@ -1,9 +1,7 @@
-
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 
 const GEMINI_API_KEY = Deno.env.get('GEMINI_API_KEY');
-// Updated to use Gemini 2.0 Flash API (beta endpoint)
-const GEMINI_API_URL = "https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent";
+const GEMINI_API_URL = "https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-pro:generateContent";
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -108,74 +106,59 @@ serve(async (req) => {
       });
     }
 
-    // Log API key existence (not the actual key)
+    // Log API key validation (not the actual key)
     console.log("GEMINI_API_KEY exists:", !!GEMINI_API_KEY);
     console.log("GEMINI_API_KEY length:", GEMINI_API_KEY ? GEMINI_API_KEY.length : 0);
 
     const { query, messages, context, instructions, sourceType, enableOnlineSearch } = await req.json();
     
-    // Format messages for the Gemini API - UPDATED to match official format
+    // Format messages for the Gemini API - simple format that works
     const formattedMessages = messages.map(msg => ({
       role: msg.source === 'user' ? 'user' : 'model',
       parts: [{ text: msg.content }]
     }));
 
-    // Add system message if not present
-    if (!formattedMessages.some(msg => msg.role === 'model' && msg.parts[0].text.includes("Carl Allen Expert Bot"))) {
+    // Only add minimal essential instructions - avoid overloading context
+    if (formattedMessages.length === 0 || 
+        !formattedMessages.some(msg => msg.role === 'model' && 
+                                msg.parts[0].text.includes("Carl Allen"))) {
       formattedMessages.unshift({
         role: 'model',
         parts: [{ 
-          text: "I'm the Carl Allen Expert Bot. I'll answer questions about business acquisitions, deal structuring, negotiations, due diligence, and more based on Carl Allen's book 'The Creative Dealmaker' and his mastermind transcripts. I provide practical, actionable advice for business owners looking to acquire companies."
+          text: "I'm an AI assistant specializing in business acquisitions based on Carl Allen's teachings. I provide practical advice for entrepreneurs looking to acquire companies."
         }]
       });
     }
 
-    // Add specific source type instructions
-    let sourceSpecificInstructions = "";
-    if (sourceType) {
+    // Add source-specific context only if actually needed
+    if (sourceType && !context) {
+      const baseContext = "You're an expert on business acquisitions and deal-making based on Carl Allen's teachings. ";
+      let sourceContext = "";
+      
       switch(sourceType) {
         case 'creative_dealmaker':
-          sourceSpecificInstructions = "You're drawing from Carl Allen's book 'The Creative Dealmaker'. Focus on core concepts, principles, and methodologies presented in the book. Emphasize practical applications for business owners.";
+          sourceContext = "Draw from Carl Allen's book 'The Creative Dealmaker'.";
           break;
         case 'mastermind_call':
-          sourceSpecificInstructions = "You're referencing Carl Allen's mastermind call transcripts. These contain Q&A sessions, practical advice, and real-time guidance Carl has provided to entrepreneurs and business owners in his mastermind program.";
-          break;
-        case 'protege_call':
-          sourceSpecificInstructions = "You're referencing Carl Allen's Protege call transcripts. These contain detailed training, Q&A sessions, and practical advice for his Protege program students who are actively looking to acquire businesses.";
-          break;
-        case 'foundations_call':
-          sourceSpecificInstructions = "You're referencing Carl Allen's Foundations call transcripts. These contain foundational training on business acquisitions and practical advice for business owners beginning their acquisition journey.";
-          break;
-        case 'business_acquisitions_summit':
-          sourceSpecificInstructions = "You're referencing Carl Allen's 2024 Business Acquisitions Summit transcripts. These contain the latest strategies, insights, and advice shared at this recent event for business owners and entrepreneurs.";
-          break;
-        case 'case_study':
-          sourceSpecificInstructions = "You're using information from a case study. Focus on the specific examples, outcomes, and lessons learned from this real-world scenario that business owners can apply to their own acquisition strategies.";
-          break;
-        case 'financial_advice':
-          sourceSpecificInstructions = "You're drawing from financial guidance content. Emphasize practical financial strategies, funding options, and capital considerations for acquisitions that business owners need to understand.";
-          break;
-        case 'due_diligence':
-          sourceSpecificInstructions = "You're referencing due diligence material. Focus on the step-by-step process, key areas to investigate, and common pitfalls for business owners to avoid when evaluating acquisition targets.";
-          break;
-        case 'negotiation':
-          sourceSpecificInstructions = "You're using negotiation strategy content. Emphasize techniques, leverage points, and effective frameworks for successful deal negotiations that business owners can implement.";
+          sourceContext = "Reference Carl Allen's mastermind call content.";
           break;
         case 'web':
-          sourceSpecificInstructions = "You're allowed to use your general knowledge to answer this question since no specific information was found in Carl Allen's transcripts. Still maintain alignment with Carl Allen's acquisition methodology and business philosophy, focusing on practical advice for business owners.";
+          sourceContext = "You can use general acquisition knowledge plus Carl Allen's methodologies.";
+          break;
+        default:
+          // Don't add anything for other sources
           break;
       }
+      
+      if (sourceContext) {
+        formattedMessages.unshift({
+          role: 'model',
+          parts: [{ text: baseContext + sourceContext }]
+        });
+      }
     }
-
-    // Add business owner persona instructions - Using string concatenation
-    sourceSpecificInstructions += "\n\nThe person asking this question is likely a business owner or entrepreneur interested in acquiring businesses. They're looking for practical, actionable advice they can implement in their acquisition journey. Focus on risk mitigation, funding strategies, seller psychology, and concrete steps they can take.";
-
-    // Add online search specific instructions if enabled
-    if (enableOnlineSearch) {
-      sourceSpecificInstructions += " Online search mode is enabled, so you can draw on your general knowledge about business acquisitions when transcript information is insufficient. Always make it clear when you're providing general information versus specific content from Carl Allen's materials.";
-    }
-
-    // Add the context as a system message
+    
+    // Add explicit context if provided
     if (context) {
       formattedMessages.unshift({
         role: 'model',
@@ -183,199 +166,112 @@ serve(async (req) => {
       });
     }
     
-    // Combine all formatting instructions
-    const enhancedInstructions = `
-    ${instructions || ''}
-
-    ${sourceSpecificInstructions}
-
-    Additionally, follow these guidelines for your response:
-    - Structure:
-      - Break content into clear paragraphs with good spacing.
-      - Use headings to organize longer responses.
-      - End with a clear conclusion or summary for long responses.
-    - Formatting:
-      - Use proper markdown formatting.
-      - Use **bold** for important concepts, terms, and headings.
-      - Use bullet points (• or *) for lists.
-      - Use numbered lists (1., 2., etc.) for sequential steps or instructions.
-      - Format numerical values, percentages, and money values consistently.
-    - Content & Tone:
-      - Make your responses conversational and engaging for business owners.
-      - Ensure all information is accurate and aligned with Carl Allen's teachings.
-      - When there's uncertainty, acknowledge limits rather than inventing information.
-      - Use concrete examples where possible to illustrate concepts.
-      - When referring to specific content, cite the source with the title of the transcript/call/book.
-      - Always focus on practical applications and actionable advice that business owners can implement immediately.
-      - Use business acquisition terminology appropriately (EBITDA, SBA, deal structure, etc.).
-      - Address specific business owner concerns related to risk, capital, time investment, and ROI.
-    ${enableOnlineSearch ? "- When providing information from your general knowledge (due to online search being enabled or lack of transcript data), explicitly state this. Distinguish clearly between Carl Allen's specific teachings and general business knowledge." : "- Base your answers strictly on the provided context or Carl Allen's known methodology. If the information isn't available, state that clearly."}
-    `;
+    console.log("Query:", query);
+    console.log("Source type:", sourceType || "None specified");
+    console.log("Messages count:", formattedMessages.length);
     
-    // Add formatting instructions as a system message
-    if (enhancedInstructions) {
-      formattedMessages.unshift({
-        role: 'model',
-        parts: [{ text: enhancedInstructions }]
-      });
-    }
-    
-    console.log("Searching for information on query:", query);
-    console.log("Source type identified:", sourceType || "None specified");
-    console.log("Context length:", context ? context.length : 0);
-    console.log("Online search mode:", enableOnlineSearch ? "enabled" : "disabled");
-    console.log("Number of formatted messages:", formattedMessages.length);
-    
-    // Check for SBA-related query
+    // Check for SBA-related query for potential fallback
     const isSbaQuery = query?.toLowerCase().includes("sba") || 
-                        messages.some(msg => msg.content?.toLowerCase().includes("sba"));
+                      messages.some(msg => msg.content?.toLowerCase().includes("sba"));
     console.log("Is SBA-related query:", isSbaQuery);
 
-    try {
-      // Call Gemini API
-      console.log("Calling Gemini API with URL:", GEMINI_API_URL);
-      
-      // Build the complete URL with API key
-      const apiUrl = `${GEMINI_API_URL}?key=${GEMINI_API_KEY}`;
-      console.log("API URL has key:", apiUrl.includes("key="));
-      
-      // Setup variables for retry logic
-      let maxRetries = 2;
-      let retryCount = 0;
-      let success = false;
-      let generatedText = "";
-      let responseData = null;
-
-      while (retryCount <= maxRetries && !success) {
-        try {
-          console.log(`API attempt ${retryCount + 1}/${maxRetries + 1}`);
-          
-          // Adjust temperature slightly on retries to encourage different responses
-          const temperature = retryCount === 0 ? 0.7 : 0.8 + (retryCount * 0.1);
-          
-          // UPDATED: match the official API structure exactly
-          const requestBody = {
-            contents: formattedMessages,
-            generationConfig: {
-              temperature: temperature,
-              topP: 0.8,
-              topK: 40,
-              maxOutputTokens: 800,
-            }
-          };
-          
-          console.log("Request body structure:", JSON.stringify({
-            contents: "Array with " + formattedMessages.length + " messages",
-            generationConfig: requestBody.generationConfig
-          }));
-          
-          const response = await fetch(apiUrl, {
-            method: 'POST',
-            headers: {
-              'Content-Type': 'application/json',
-            },
-            body: JSON.stringify(requestBody),
-          });
-
-          console.log(`Attempt ${retryCount + 1} status:`, response.status);
-          
-          // Get the full response text
-          const responseText = await response.text();
-          console.log(`Raw API response (truncated):`, responseText.substring(0, 150) + "...");
-          
-          // Parse response
-          try {
-            responseData = JSON.parse(responseText);
-            
-            // Check if we got a valid response with content
-            generatedText = responseData?.candidates?.[0]?.content?.parts?.[0]?.text || "";
-            
-            if (generatedText && generatedText.length > 20 && 
-                !generatedText.includes("I couldn't generate") &&
-                !generatedText.includes("I'm sorry, I can't")) {
-              console.log("Got valid response on attempt", retryCount + 1);
-              success = true;
-              break;
-            } else {
-              console.log("Empty or apologetic response, retrying...");
-              retryCount++;
-            }
-          } catch (parseError) {
-            console.error("Error parsing API response:", parseError);
-            retryCount++;
-          }
-        } catch (fetchError) {
-          console.error(`API fetch error on attempt ${retryCount + 1}:`, fetchError);
-          retryCount++;
-        }
-      }
-      
-      // Handle unsuccessful attempts
-      if (!success) {
-        console.log("All API attempts failed to generate a useful response");
+    // Setup retry logic with cleaner approach
+    const maxRetries = 2;
+    let response = null;
+    let generatedText = "";
+    
+    for (let attempt = 0; attempt <= maxRetries; attempt++) {
+      try {
+        console.log(`API attempt ${attempt + 1}/${maxRetries + 1}`);
         
-        // If it's an SBA query, use the specific SBA fallback
-        if (isSbaQuery) {
-          console.log("Using SBA-specific fallback response");
-          return new Response(JSON.stringify({ 
-            content: SBA_FALLBACK_RESPONSE,
-            source: 'gemini',
-            isFallback: true
-          }), {
-            headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-          });
-        } else {
-          console.log("Using general fallback response");
-          return new Response(JSON.stringify({ 
-            content: FALLBACK_RESPONSE,
-            source: 'fallback',
-            isFallback: true
-          }), {
-            headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-          });
+        // Adjust temperature only slightly on retries
+        const temperature = 0.7 + (attempt * 0.1);
+        
+        // Keep the request body simple and aligned with official API
+        const requestBody = {
+          contents: formattedMessages,
+          generationConfig: {
+            temperature: temperature,
+            topP: 0.95,
+            topK: 40,
+            maxOutputTokens: 2048, // Higher token limit
+          },
+          // No safety settings - use defaults
+        };
+        
+        console.log("Request structure:", JSON.stringify({
+          model: "Using Gemini 1.5 Pro",
+          msgCount: formattedMessages.length,
+          temperature,
+          maxTokens: 2048
+        }));
+        
+        // Call the API
+        const apiResponse = await fetch(`${GEMINI_API_URL}?key=${GEMINI_API_KEY}`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(requestBody),
+        });
+        
+        console.log(`Attempt ${attempt + 1} status:`, apiResponse.status);
+        
+        if (!apiResponse.ok) {
+          const errorText = await apiResponse.text();
+          console.error(`API error on attempt ${attempt + 1}:`, errorText);
+          // Continue to next retry
+          continue;
         }
+        
+        // Parse the response
+        response = await apiResponse.json();
+        
+        // Extract and validate the generated text
+        generatedText = response?.candidates?.[0]?.content?.parts?.[0]?.text;
+        
+        if (generatedText && generatedText.length > 20) {
+          console.log("Successful response on attempt", attempt + 1);
+          console.log("Response length:", generatedText.length);
+          break; // Success - exit retry loop
+        } else {
+          console.log("Empty response received, will retry");
+        }
+      } catch (error) {
+        console.error(`Error on attempt ${attempt + 1}:`, error);
       }
-
-      // Handle successful response
-      console.log("Generated response size:", generatedText.length);
-      console.log("First few characters:", generatedText.substring(0, 50));
+    }
+    
+    // Handle if we never got a valid response
+    if (!generatedText || generatedText.length < 20) {
+      console.log("All API attempts failed, using fallback");
       
-      // Return the response
-      return new Response(JSON.stringify({ 
-        content: generatedText,
-        source: enableOnlineSearch && sourceType === 'web' ? 'web' : 'gemini' 
-      }), {
-        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-      });
-      
-    } catch (apiError) {
-      console.error('API error:', apiError);
-      console.error('API error details:', apiError.message);
-      
-      // Return the appropriate fallback response
+      // Use appropriate fallback based on query type
       if (isSbaQuery) {
         return new Response(JSON.stringify({ 
           content: SBA_FALLBACK_RESPONSE,
-          source: 'fallback',
-          isApiError: true,
-          errorMessage: apiError.message
+          source: 'fallback'
         }), {
           headers: { ...corsHeaders, 'Content-Type': 'application/json' },
         });
       } else {
         return new Response(JSON.stringify({ 
           content: FALLBACK_RESPONSE,
-          source: 'fallback',
-          isApiError: true,
-          errorMessage: apiError.message
+          source: 'fallback'
         }), {
           headers: { ...corsHeaders, 'Content-Type': 'application/json' },
         });
       }
     }
+    
+    // Return the successful response
+    return new Response(JSON.stringify({ 
+      content: generatedText,
+      source: enableOnlineSearch && sourceType === 'web' ? 'web' : 'gemini' 
+    }), {
+      headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+    });
+    
   } catch (error) {
     console.error('Error in gemini-chat function:', error);
-    console.error('Error details:', error.message);
     
     return new Response(JSON.stringify({ 
       error: error.message,

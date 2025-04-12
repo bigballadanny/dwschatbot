@@ -6,8 +6,8 @@ import { createClient, SupabaseClient } from 'https://esm.sh/@supabase/supabase-
 const GEMINI_API_KEY = Deno.env.get('GEMINI_API_KEY');
 const SUPABASE_URL = Deno.env.get('SUPABASE_URL');
 const SUPABASE_ANON_KEY = Deno.env.get('SUPABASE_ANON_KEY');
-// Updated to use Gemini 2.0 Flash API (beta endpoint)
-const GEMINI_API_URL = Deno.env.get('GEMINI_API_URL') || "https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent";
+// Using Gemini 1.5 Pro for better conversation handling
+const GEMINI_API_URL = "https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-pro:generateContent";
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
