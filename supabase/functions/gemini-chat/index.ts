@@ -1,9 +1,16 @@
-
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 
 const GEMINI_API_KEY = Deno.env.get('GEMINI_API_KEY');
 const GEMINI_2_API_URL = "https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent";
 const GEMINI_FALLBACK_API_URL = "https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-pro:generateContent";
+
+const CACHE_ENABLED = true;
+const CACHE_TTL = 24 * 60 * 60 * 1000; // 24 hours in milliseconds
+const messageCache = new Map(); // Simple in-memory cache
+
+const MAX_REQUESTS_PER_MIN = 45; // Set lower than actual limit for safety
+const REQUEST_WINDOW_MS = 60 * 1000; // 1 minute
+const requestTimestamps = [];
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -40,6 +47,27 @@ You are an AI assistant designed to have natural conversations. Here are your in
 5. Maintain a conversational, helpful tone
 `;
 
+function checkRateLimit() {
+  const now = Date.now();
+  while (requestTimestamps.length > 0 && requestTimestamps[0] < now - REQUEST_WINDOW_MS) {
+    requestTimestamps.shift();
+  }
+  
+  return requestTimestamps.length >= MAX_REQUESTS_PER_MIN;
+}
+
+function recordRequest() {
+  requestTimestamps.push(Date.now());
+}
+
+function generateCacheKey(messages) {
+  const relevantMessages = messages.slice(-3);
+  return JSON.stringify(relevantMessages.map(msg => ({
+    role: msg.role,
+    content: msg.parts[0].text
+  })));
+}
+
 serve(async (req) => {
   if (req.method === 'OPTIONS') {
     return new Response(null, { headers: corsHeaders });
@@ -61,13 +89,23 @@ serve(async (req) => {
 
     const { query, messages, context, instructions, sourceType, enableOnlineSearch } = await req.json();
     
-    // Format messages with proper role assignment
+    if (checkRateLimit()) {
+      console.log("Rate limit exceeded, returning fallback response");
+      return new Response(JSON.stringify({ 
+        content: "We're receiving too many requests right now. Please try again in a minute.",
+        source: 'system',
+        error: true
+      }), {
+        status: 429,
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      });
+    }
+    
     const formattedMessages = messages.map(msg => ({
       role: msg.source === 'user' ? 'user' : 'model',
       parts: [{ text: msg.content }]
     }));
 
-    // Add system instructions if not present
     let hasSystemPrompt = false;
     for (const msg of formattedMessages) {
       if (msg.role === 'model' && msg.parts[0].text.includes("You are an AI assistant")) {
@@ -83,7 +121,6 @@ serve(async (req) => {
       });
     }
 
-    // Add additional context if provided
     if (context) {
       formattedMessages.unshift({
         role: 'model',
@@ -94,7 +131,19 @@ serve(async (req) => {
     console.log("Query:", query);
     console.log("Source type:", sourceType || "None specified");
     console.log("Messages count:", formattedMessages.length);
+    
+    const cacheKey = generateCacheKey(formattedMessages);
+    const cachedResponse = CACHE_ENABLED ? messageCache.get(cacheKey) : null;
+    
+    if (cachedResponse) {
+      console.log("Cache hit! Returning cached response");
+      return new Response(JSON.stringify(cachedResponse), {
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      });
+    }
 
+    recordRequest();
+    
     const maxRetries = 2;
     let response = null;
     let generatedText = "";
@@ -110,8 +159,18 @@ serve(async (req) => {
         
         const temperature = 0.7 + (attempt * 0.1);
         
+        let messagesForRequest = formattedMessages;
+        if (attempt > 0 && formattedMessages.length > 5) {
+          const systemMessages = formattedMessages.filter(m => 
+            m.role === 'model' && m.parts[0].text.includes("You are an AI assistant")
+          );
+          const recentMessages = formattedMessages.slice(-8);
+          messagesForRequest = [...systemMessages, ...recentMessages];
+          console.log("Using reduced message count for retry:", messagesForRequest.length);
+        }
+        
         const requestBody = {
-          contents: formattedMessages,
+          contents: messagesForRequest,
           generationConfig: {
             temperature: temperature,
             topP: 0.95,
@@ -122,7 +181,7 @@ serve(async (req) => {
         
         console.log("Request structure:", JSON.stringify({
           model: `Using ${modelUsed}`,
-          msgCount: formattedMessages.length,
+          msgCount: messagesForRequest.length,
           temperature,
           maxTokens: 4096
         }));
@@ -138,6 +197,12 @@ serve(async (req) => {
         if (!apiResponse.ok) {
           const errorText = await apiResponse.text();
           console.error(`API error on attempt ${attempt + 1}:`, errorText);
+          
+          if (apiResponse.status === 429) {
+            console.log("Rate limit hit, waiting before retry");
+            await new Promise(resolve => setTimeout(resolve, 1000 * (attempt + 1)));
+          }
+          
           continue;
         }
         
@@ -168,11 +233,22 @@ serve(async (req) => {
       });
     }
     
-    return new Response(JSON.stringify({ 
+    const responseObj = { 
       content: generatedText,
       source: enableOnlineSearch && sourceType === 'web' ? 'web' : 'gemini',
       model: modelUsed
-    }), {
+    };
+    
+    if (CACHE_ENABLED) {
+      messageCache.set(cacheKey, responseObj);
+      
+      if (messageCache.size > 1000) {
+        const keysToDelete = [...messageCache.keys()].slice(0, 300);
+        keysToDelete.forEach(key => messageCache.delete(key));
+      }
+    }
+    
+    return new Response(JSON.stringify(responseObj), {
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },
     });
     

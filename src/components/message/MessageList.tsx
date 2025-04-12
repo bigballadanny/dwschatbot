@@ -1,9 +1,10 @@
 
-import React, { useRef, useEffect, useState } from 'react';
+import React, { useRef, useEffect, useState, useMemo } from 'react';
 import MessageItem from '@/components/MessageItem';
 import { MessageData } from '@/utils/messageUtils';
 import { cn } from '@/lib/utils';
 import { motion, AnimatePresence } from 'framer-motion';
+import { useThrottle } from '@/utils/performanceUtils';
 
 interface MessageListProps {
   messages: MessageData[];
@@ -21,6 +22,11 @@ const MessageList: React.FC<MessageListProps> = ({
   const [hasScrolled, setHasScrolled] = useState(false);
   const [previousMessageCount, setPreviousMessageCount] = useState(messages.length);
   
+  // Memoize display messages to avoid unnecessary re-sorting on every render
+  const displayMessages = useMemo(() => {
+    return showNewestOnTop ? [...messages].reverse() : messages;
+  }, [messages, showNewestOnTop]);
+  
   // Effect to detect when messages are added
   useEffect(() => {
     // Only auto-scroll if new messages were added
@@ -29,6 +35,19 @@ const MessageList: React.FC<MessageListProps> = ({
     }
     setPreviousMessageCount(messages.length);
   }, [messages.length, previousMessageCount]);
+  
+  // Throttled scroll handler to improve performance
+  const handleScroll = useThrottle((event: React.UIEvent<HTMLDivElement>) => {
+    const element = event.currentTarget;
+    const isScrolledToBottom = 
+      Math.abs(element.scrollHeight - element.scrollTop - element.clientHeight) < 50;
+    
+    if (!isScrolledToBottom) {
+      setHasScrolled(true);
+    } else {
+      setHasScrolled(false);
+    }
+  }, 100);
   
   // Improved scroll to bottom when messages change
   useEffect(() => {
@@ -43,30 +62,12 @@ const MessageList: React.FC<MessageListProps> = ({
     }
   }, [messages, hasScrolled]);
 
-  // Handle scroll events to detect manual scrolling
-  const handleScroll = (event: React.UIEvent<HTMLDivElement>) => {
-    const element = event.currentTarget;
-    const isScrolledToBottom = 
-      Math.abs(element.scrollHeight - element.scrollTop - element.clientHeight) < 50;
-    
-    if (!isScrolledToBottom) {
-      setHasScrolled(true);
-    } else {
-      setHasScrolled(false);
-    }
-  };
-
   // Reset scroll state when messages change significantly (e.g., new conversation)
   useEffect(() => {
     if (messages.length <= 1) {
       setHasScrolled(false);
     }
   }, [messages.length]);
-
-  // Display messages in chronological order (oldest first)
-  const displayMessages = showNewestOnTop 
-    ? [...messages].reverse() 
-    : messages;
   
   return (
     <div 
@@ -115,4 +116,4 @@ const MessageList: React.FC<MessageListProps> = ({
   );
 };
 
-export default MessageList;
+export default React.memo(MessageList);
