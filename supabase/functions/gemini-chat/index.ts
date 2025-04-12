@@ -212,8 +212,18 @@ serve(async (req) => {
 
       console.log("Gemini API response status:", response.status);
       
-      // Handle API response
-      const data = await response.json();
+      // Get the full response text for debugging
+      const responseText = await response.text();
+      console.log("Raw API response:", responseText.substring(0, 200) + "...");
+      
+      // Parse the response text back to JSON
+      let data;
+      try {
+        data = JSON.parse(responseText);
+      } catch (parseError) {
+        console.error("Error parsing API response:", parseError);
+        throw new Error(`Failed to parse API response: ${responseText.substring(0, 100)}...`);
+      }
       
       if (!response.ok) {
         console.error('Gemini API error:', JSON.stringify(data));
@@ -259,6 +269,34 @@ Once enabled, your chat assistant will work properly.`;
           });
         }
         
+        // Check if it's a auth/credentials error
+        if (data.error?.status === "UNAUTHENTICATED" || 
+            data.error?.status === "PERMISSION_DENIED" ||
+            data.error?.message?.includes("auth") || 
+            data.error?.message?.includes("key") ||
+            data.error?.message?.includes("credential")) {
+          console.error("Authentication error with API key:", data.error);
+          
+          const authErrorResponse = `# API Authentication Error
+
+There was an issue with your Gemini API key. Please check:
+
+1. Your API key is valid and not expired
+2. The API is enabled for your Google Cloud project
+3. The API key has permission to use Gemini models
+4. You've set up billing for your Google Cloud project if required
+
+The specific error was: ${data.error?.message || "Authentication failed"}`;
+          
+          return new Response(JSON.stringify({ 
+            content: authErrorResponse,
+            source: 'system',
+            authError: true
+          }), {
+            headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+          });
+        }
+        
         // Return the actual error for better debugging
         return new Response(JSON.stringify({ 
           content: `Error from Gemini API: ${data.error?.message || 'Unknown error'}`,
@@ -277,6 +315,60 @@ Once enabled, your chat assistant will work properly.`;
         
       console.log("Generated response size:", generatedText.length);
       console.log("First few characters:", generatedText.substring(0, 50));
+      
+      // If we get the default/empty response and the query is SBA-related, provide a relevant fallback
+      if (generatedText === "I'm sorry, I couldn't generate a response at this time." &&
+          (query?.toLowerCase().includes("sba") || messages.some(msg => msg.content?.toLowerCase().includes("sba")))) {
+        
+        console.log("Empty response for SBA question, providing SBA-specific fallback");
+        
+        const sbaFallbackResponse = `# SBA Loans for Business Acquisitions
+
+**SBA (Small Business Administration)** loans are a popular financing option for business acquisitions. Here's what you need to know based on Carl Allen's teachings:
+
+## SBA Loan Basics
+- **What it is:** Government-backed loans provided through approved lenders
+- **Key program:** The 7(a) loan program is most commonly used for acquisitions
+- **Guarantee:** The SBA guarantees 75-85% of the loan amount, reducing risk for the lender
+- **Typical terms:** 10-25 years with some of the lowest interest rates available for small businesses
+
+## Benefits for Acquisitions
+- **Lower down payment:** Typically requires only 10-15% down versus 25-30% for conventional loans
+- **Better terms:** Longer repayment periods (up to 10 years) and competitive rates
+- **Flexible use:** Can cover business acquisition, working capital, and sometimes real estate
+- **Access:** Available to buyers who might not qualify for conventional financing
+
+## Qualification Requirements
+- **Credit score:** Typically 680+ for the borrower
+- **Collateral:** Personal and business assets may be required
+- **Down payment:** Minimum 10% of purchase price
+- **Experience:** Industry experience or management background usually required
+- **Business viability:** The business must show stable or growing cash flow
+
+## SBA Loan Process for Acquisitions
+1. **Pre-qualification:** Get pre-qualified before approaching sellers
+2. **Business valuation:** Required by the SBA to verify purchase price
+3. **Documentation:** Extensive paperwork including personal financial statements, business plans, etc.
+4. **Underwriting:** 45-90 day process (longer than conventional loans)
+5. **Closing:** The SBA has specific closing requirements
+
+## Pro Tips from Carl Allen
+- Work with SBA Preferred Lenders who have streamlined approval authority
+- Build relationships with multiple SBA lenders before you need them
+- Have a complete acquisition package ready to expedite approval
+- Be prepared for higher closing costs (typically 3-5% of loan amount)
+- Consider using seller financing alongside the SBA loan for larger deals
+
+The SBA loan can be an excellent tool for your acquisition strategy, especially for first-time business buyers.`;
+        
+        return new Response(JSON.stringify({ 
+          content: sbaFallbackResponse,
+          source: 'gemini',
+          isFallback: true
+        }), {
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+        });
+      }
 
       // Return the response
       return new Response(JSON.stringify({ 

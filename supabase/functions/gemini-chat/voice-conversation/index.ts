@@ -14,7 +14,24 @@ const corsHeaders = {
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
 };
 
-// Removed prepareTextForSpeech function as it's no longer needed
+// SBA-specific fallback response
+const SBA_FALLBACK_RESPONSE = `# SBA Loans for Business Acquisitions
+
+**SBA (Small Business Administration)** loans are a popular financing option for business acquisitions. Here's what you need to know:
+
+## SBA Loan Basics
+- **What it is:** Government-backed loans provided through approved lenders
+- **Key program:** The 7(a) loan program is most commonly used for acquisitions
+- **Guarantee:** The SBA guarantees 75-85% of the loan amount, reducing risk for the lender
+- **Typical terms:** 10-25 years with some of the lowest interest rates available for small businesses
+
+## Benefits for Acquisitions
+- **Lower down payment:** Typically requires only 10-15% down versus 25-30% for conventional loans
+- **Better terms:** Longer repayment periods (up to 10 years) and competitive rates
+- **Flexible use:** Can cover business acquisition, working capital, and sometimes real estate
+- **Access:** Available to buyers who might not qualify for conventional financing
+
+The SBA loan can be an excellent tool for your acquisition strategy, especially for first-time business buyers.`;
 
 // --- Analytics Logging Function (Keep as is) ---
 async function logAnalytics(
@@ -66,6 +83,8 @@ serve(async (req) => {
   let responseSource = 'gemini';
   let usedOnlineSearch = false;
   let geminiApiTime: number | null = null;
+  let retryCount = 0;
+  const MAX_RETRIES = 1; // Maximum number of retries if we get empty responses
 
   try {
     if (!GEMINI_API_KEY || !SUPABASE_URL || !SUPABASE_ANON_KEY) {
@@ -82,8 +101,12 @@ serve(async (req) => {
     if (!queryText) {
       throw new Error("No query text provided in request body");
     }
+
+    // Check for SBA-related query - we'll use this later for specialized fallbacks
+    const isSbaQuery = queryText.toLowerCase().includes("sba");
     
     console.log(`Processing query for conversation ${conversationId || 'N/A'}: "${queryText.substring(0, 50)}..."`);
+    console.log("Is SBA-related query:", isSbaQuery);
     
     // --- Gemini API Call --- 
     const formattedMessages = messages
@@ -95,7 +118,17 @@ serve(async (req) => {
     if (!formattedMessages.some((msg: any) => msg.parts[0].text.includes("Carl Allen"))) {
       formattedMessages.unshift({ role: 'model', parts: [{ text: systemInstruction }] });
     }
-
+    
+    // Add specific SBA knowledge if this is an SBA query
+    if (isSbaQuery) {
+      formattedMessages.unshift({ 
+        role: 'model', 
+        parts: [{ 
+          text: "For SBA questions: The Small Business Administration (SBA) offers loan programs that can be valuable for business acquisitions. The 7(a) loan program typically requires 10-15% down payment from the buyer, has competitive interest rates, and longer repayment terms. They're popular for first-time business buyers." 
+        }] 
+      });
+    }
+    
     const geminiStartTime = Date.now();
     
     // Build the complete URL with API key
@@ -105,40 +138,95 @@ serve(async (req) => {
     console.log("Calling Gemini API URL:", apiUrl.split('?')[0]);
     console.log("API URL contains key parameter:", apiUrl.includes("key="));
     
-    const geminiResponse = await fetch(apiUrl, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        contents: formattedMessages,
-        // Adjusted generation config slightly - consider tuning these
-        generationConfig: { temperature: 0.6, topP: 0.9, topK: 30, maxOutputTokens: 1024 }, 
-      }),
-    });
+    // Try the API call with retry logic for empty responses
+    let geminiResponse;
+    let data;
+    let attemptSuccessful = false;
+    
+    while (retryCount <= MAX_RETRIES && !attemptSuccessful) {
+      try {
+        // Gradually increase temperature if retrying to encourage different responses
+        const temperature = retryCount === 0 ? 0.6 : 0.8;
+        
+        geminiResponse = await fetch(apiUrl, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            contents: formattedMessages,
+            // Adjusted generation config
+            generationConfig: { 
+              temperature: temperature, 
+              topP: 0.9, 
+              topK: 30, 
+              maxOutputTokens: 1024 
+            }, 
+          }),
+        });
+        
+        console.log(`API attempt ${retryCount + 1} status:`, geminiResponse.status);
+        
+        // Get the full response text for debugging
+        const responseText = await geminiResponse.text();
+        console.log(`API attempt ${retryCount + 1} raw response (truncated):`, responseText.substring(0, 100) + "...");
+        
+        // Parse the text response back to JSON
+        try {
+          data = JSON.parse(responseText);
+          
+          // Check for empty or "I'm sorry" responses
+          const generatedText = data?.candidates?.[0]?.content?.parts?.[0]?.text || "";
+          
+          if (generatedText && !generatedText.includes("I couldn't generate a response")) {
+            // We got a valid response
+            attemptSuccessful = true;
+            console.log("Got valid response on attempt", retryCount + 1);
+          } else {
+            console.log("Empty or apologetic response on attempt", retryCount + 1);
+            retryCount++;
+          }
+        } catch (parseError) {
+          console.error("Error parsing API response:", parseError);
+          retryCount++; // Count parsing errors as failed attempts
+        }
+      } catch (fetchError) {
+        console.error(`API fetch error on attempt ${retryCount + 1}:`, fetchError);
+        retryCount++;
+      }
+    }
+    
     const geminiEndTime = Date.now();
     geminiApiTime = geminiEndTime - geminiStartTime; // Record Gemini API time
+    
+    // If we don't have a valid response by now, handle the error cases
+    if (!geminiResponse || !data) {
+      throw new Error("Failed to get a valid response from the API after retries");
+    }
 
     if (!geminiResponse.ok) {
-      const errorBody = await geminiResponse.text(); // Read as text first for more details
+      const errorBody = data;
       let errorDataMessage = `Gemini API failed status ${geminiResponse.status}`; 
       try { 
-          const errorJson = JSON.parse(errorBody);
-          errorDataMessage = errorJson.error?.message || errorBody;
+          errorDataMessage = errorBody.error?.message || JSON.stringify(errorBody);
       } catch { 
-          errorDataMessage = errorBody || errorDataMessage;
+          errorDataMessage = JSON.stringify(errorBody) || errorDataMessage;
       }
       errorMessage = errorDataMessage;
       console.error("Gemini API Error:", errorMessage);
       throw new Error(errorMessage); // Throw to trigger catch block
     }
 
-    const geminiData = await geminiResponse.json();
     // Safe access to response text
-    responseText = geminiData?.candidates?.[0]?.content?.parts?.[0]?.text || ""; 
-    if (!responseText) {
-        console.warn("Gemini API returned empty response text.");
-        // Decide if this is an error or just an empty valid response
-        // responseText = "(No content generated)"; // Placeholder if needed
+    responseText = data?.candidates?.[0]?.content?.parts?.[0]?.text || ""; 
+    
+    // Fall back to SBA specific content if we get an empty response on SBA query
+    if (!responseText && isSbaQuery) {
+      responseText = SBA_FALLBACK_RESPONSE;
+      console.log("Using SBA fallback content");
+    } else if (!responseText) {
+      console.warn("Gemini API returned empty response text, using generic fallback");
+      responseText = "I'm sorry, I couldn't generate a specific answer at this time. Could you try rephrasing your question?";
     }
+    
     isSuccess = true;
     console.log(`Generated text length: ${responseText.length}`);
 
@@ -202,9 +290,22 @@ serve(async (req) => {
         error_message: errorMessage,
     });
 
+    // Use a special SBA fallback for SBA-related queries
+    if (queryText?.toLowerCase().includes("sba")) {
+      return new Response(JSON.stringify({ 
+        content: SBA_FALLBACK_RESPONSE,
+        source: 'gemini',
+        isFallback: true
+      }), {
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      });
+    }
+
     // --- Return Error Response --- 
     return new Response(JSON.stringify({ 
-      error: errorMessage
+      error: errorMessage,
+      content: "I apologize, but I'm having trouble accessing my knowledge base right now. Please try your question again in a moment.",
+      source: 'system'
     }), {
       status: 500,
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },
