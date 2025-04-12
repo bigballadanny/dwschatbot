@@ -4,21 +4,30 @@ import { Link } from 'react-router-dom';
 import { MessageSquare, Trash2 } from 'lucide-react';
 import { Button } from "@/components/ui/button";
 import { cn } from '@/lib/utils';
+import { format, isToday } from 'date-fns';
 
 interface ConversationItemProps {
   id: string;
   title: string;
   isActive: boolean;
+  timestamp?: Date;
   onDelete: (id: string, e: React.MouseEvent) => void;
 }
 
-const ConversationItem = ({ id, title, isActive, onDelete }: ConversationItemProps) => {
+const ConversationItem = ({ id, title, isActive, timestamp, onDelete }: ConversationItemProps) => {
+  // Format the timestamp
+  const formattedTime = timestamp ? (
+    isToday(timestamp) 
+      ? format(timestamp, 'h:mm a') 
+      : format(timestamp, 'MMM d')
+  ) : '';
+
   return (
     <div className="group/item flex items-center justify-between gap-2 w-full rounded-md p-2 text-sm hover:bg-accent transition-colors">
       <Link 
         to={`/?conversation=${id}`}
         className={cn(
-          "flex items-center min-w-0 overflow-hidden",
+          "flex-1 flex items-center min-w-0 overflow-hidden",
           isActive && "font-medium"
         )}
       >
@@ -27,6 +36,13 @@ const ConversationItem = ({ id, title, isActive, onDelete }: ConversationItemPro
           {title || 'New Conversation'}
         </span>
       </Link>
+      
+      {timestamp && (
+        <span className="text-xs text-muted-foreground mr-1 hidden group-hover/item:block">
+          {formattedTime}
+        </span>
+      )}
+      
       <Button
         variant="ghost"
         size="icon"

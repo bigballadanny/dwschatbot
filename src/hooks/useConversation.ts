@@ -24,7 +24,8 @@ export function useConversation({ userId }: UseConversationProps) {
         .from('conversations')
         .insert([{ 
           user_id: userId, 
-          title 
+          title,
+          updated_at: new Date().toISOString() // Set the initial updated_at explicitly
         }])
         .select()
         .single();
@@ -85,16 +86,22 @@ export function useConversation({ userId }: UseConversationProps) {
       
       console.log('Messages inserted successfully:', data);
       
-      // Update conversation last update timestamp
-      await supabase
-        .from('conversations')
-        .update({ updated_at: new Date().toISOString() })
-        .eq('id', conversationId);
+      // Update conversation last update timestamp to ensure proper ordering
+      const updateResult = await updateConversationTimestamp(conversationId);
+      
+      if (!updateResult) {
+        console.warn('Failed to update conversation timestamp');
+      }
       
       console.log(`Successfully saved messages to conversation ${conversationId}`);
       return true;
     } catch (error) {
       console.error('Error saving messages:', error);
+      toast({
+        title: "Failed to save messages",
+        description: "Your messages may not be saved to history.",
+        variant: "destructive"
+      });
       return false;
     }
   };
@@ -103,13 +110,34 @@ export function useConversation({ userId }: UseConversationProps) {
     if (!title.trim() || !id) return false;
     
     try {
-      await supabase
+      const { error } = await supabase
         .from('conversations')
-        .update({ title: title.substring(0, 40) })
+        .update({ 
+          title: title.substring(0, 40),
+          updated_at: new Date().toISOString() // Update the timestamp when title changes
+        })
         .eq('id', id);
+        
+      if (error) throw error;
       return true;
     } catch (error) {
       console.error('Error updating conversation title:', error);
+      return false;
+    }
+  };
+
+  // New helper method to update the conversation timestamp
+  const updateConversationTimestamp = async (id: string) => {
+    try {
+      const { error } = await supabase
+        .from('conversations')
+        .update({ updated_at: new Date().toISOString() })
+        .eq('id', id);
+        
+      if (error) throw error;
+      return true;
+    } catch (error) {
+      console.error('Error updating conversation timestamp:', error);
       return false;
     }
   };
@@ -140,6 +168,7 @@ export function useConversation({ userId }: UseConversationProps) {
     createNewConversation,
     saveMessages,
     updateConversationTitle,
+    updateConversationTimestamp,
     setupConversationMonitor
   };
 }

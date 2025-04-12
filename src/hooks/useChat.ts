@@ -7,7 +7,7 @@ import { useMessages } from './useMessages';
 import { useConversation } from './useConversation';
 import { useAudio } from './useAudio';
 import { useSearchConfig } from './useSearchConfig';
-import { MessageSource } from '@/utils/messageUtils';
+import { MessageSource, generateConversationTitle } from '@/utils/messageUtils';
 
 interface UseChatProps {
   user: any;
@@ -47,6 +47,7 @@ export function useChat({
     createNewConversation,
     saveMessages,
     updateConversationTitle,
+    updateConversationTimestamp,
     setupConversationMonitor
   } = useConversation({ userId });
   
@@ -213,8 +214,12 @@ export function useChat({
 
       // Update conversation title if first interaction
       if (isFirstUserInteraction) {
-        await updateConversationTitle(currentConvId, trimmedMessage);
+        const generatedTitle = generateConversationTitle(trimmedMessage);
+        await updateConversationTitle(currentConvId, generatedTitle);
         setHasInteracted(true);
+      } else {
+        // Just update the timestamp to move the conversation to the top
+        await updateConversationTimestamp(currentConvId);
       }
     } catch (error) {
       console.error('Error in sendMessage:', error);

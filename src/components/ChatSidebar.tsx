@@ -58,18 +58,41 @@ const ChatSidebar: React.FC<ChatSidebarProps> = ({
     }
   }, [user]);
 
+  // Subscribe to real-time updates for conversations
+  useEffect(() => {
+    if (!user) return;
+    
+    const channel = supabase
+      .channel('conversation-changes')
+      .on('postgres_changes', { 
+        event: '*', 
+        schema: 'public', 
+        table: 'conversations',
+        filter: `user_id=eq.${user.id}`
+      }, (payload) => {
+        console.log('Conversation table change detected:', payload);
+        fetchConversations();
+      })
+      .subscribe();
+      
+    return () => {
+      supabase.removeChannel(channel);
+    };
+  }, [user]);
+
   const fetchConversations = async () => {
     if (!user) return;
     try {
-      const {
-        data,
-        error
-      } = await supabase.from('conversations').select('id, title, updated_at').eq('user_id', user.id).order('updated_at', {
-        ascending: false
-      });
+      const { data, error } = await supabase
+        .from('conversations')
+        .select('id, title, updated_at')
+        .eq('user_id', user.id)
+        .order('updated_at', { ascending: false });
+      
       if (error) throw error;
-      setConversations(data || []);
+      
       console.log('Fetched conversations:', data);
+      setConversations(data || []);
     } catch (error) {
       console.error('Error fetching conversations:', error);
       toast({
@@ -88,17 +111,19 @@ const ChatSidebar: React.FC<ChatSidebarProps> = ({
     
     try {
       if (!user) return;
-      const {
-        data,
-        error
-      } = await supabase.from('conversations').insert([{
-        title: 'New Conversation',
-        user_id: user.id
-      }]).select();
+      const { data, error } = await supabase
+        .from('conversations')
+        .insert([{
+          title: 'New Conversation',
+          user_id: user.id,
+          updated_at: new Date().toISOString()
+        }])
+        .select();
+      
       if (error) throw error;
+      
       if (data?.[0]?.id) {
         navigate(`/?conversation=${data[0].id}`);
-        fetchConversations();
       }
     } catch (error) {
       console.error('Error creating new conversation:', error);
@@ -120,18 +145,30 @@ const ChatSidebar: React.FC<ChatSidebarProps> = ({
   const handleDeleteConversation = async () => {
     if (!conversationToDelete) return;
     try {
-      const {
-        error: messagesError
-      } = await supabase.from('messages').delete().eq('conversation_id', conversationToDelete);
+      // First delete messages
+      const { error: messagesError } = await supabase
+        .from('messages')
+        .delete()
+        .eq('conversation_id', conversationToDelete);
+      
       if (messagesError) throw messagesError;
-      const {
-        error
-      } = await supabase.from('conversations').delete().eq('id', conversationToDelete);
+      
+      // Then delete the conversation
+      const { error } = await supabase
+        .from('conversations')
+        .delete()
+        .eq('id', conversationToDelete);
+      
       if (error) throw error;
+      
+      // Update local state
       setConversations(prev => prev.filter(c => c.id !== conversationToDelete));
+      
+      // Navigate away if currently viewing the deleted conversation
       if (conversationId === conversationToDelete) {
         navigate('/');
       }
+      
       toast({
         title: 'Success',
         description: 'Conversation deleted successfully'

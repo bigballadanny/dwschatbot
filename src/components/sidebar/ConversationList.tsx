@@ -1,5 +1,5 @@
 
-import React from 'react';
+import React, { useEffect, useState } from 'react';
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { SidebarGroup, SidebarGroupLabel, SidebarMenu } from "@/components/ui/sidebar";
 import ConversationItem from './ConversationItem';
@@ -23,7 +23,15 @@ const ConversationList = ({
   onDeleteConversation,
   searchQuery
 }: ConversationListProps) => {
-  const filteredConversations = conversations.filter(
+  // Sort conversations by updated_at timestamp before filtering
+  const sortedConversations = [...conversations].sort((a, b) => {
+    const dateA = new Date(a.updated_at).getTime();
+    const dateB = new Date(b.updated_at).getTime();
+    return dateB - dateA; // Descending order (newest first)
+  });
+  
+  // Filter sorted conversations based on search query
+  const filteredConversations = sortedConversations.filter(
     conversation => conversation.title.toLowerCase().includes(searchQuery.toLowerCase())
   );
 
@@ -45,6 +53,7 @@ const ConversationList = ({
                   title={conversation.title}
                   isActive={activeConversationId === conversation.id}
                   onDelete={onDeleteConversation}
+                  timestamp={new Date(conversation.updated_at)}
                 />
               ))}
             </div>

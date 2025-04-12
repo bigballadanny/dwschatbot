@@ -131,15 +131,36 @@ export function prepareMessageForDb(
   source?: MessageSource,
   citation?: string[]
 ) {
+  // Ensure there's always a source provided in metadata
+  const sourceValue = isUser ? 'user' : (source || 'gemini');
+  
   return {
     conversation_id: conversationId,
     content: content,
     is_user: isUser,
-    metadata: !isUser ? {
-      source: source || 'gemini',
+    metadata: {
+      source: sourceValue,
       citation: citation || undefined
-    } : {
-      source: 'user'
     }
   };
+}
+
+/**
+ * Generate a title from a conversation based on the first message
+ * @param userMessage The first user message in a conversation
+ * @returns A suitable title for the conversation
+ */
+export function generateConversationTitle(userMessage: string): string {
+  // Extract the first sentence or phrase
+  const firstSentence = userMessage.split(/[.!?]/).filter(s => s.trim().length > 0)[0] || '';
+  
+  // Limit to 40 characters and trim whitespace
+  let title = firstSentence.trim().substring(0, 40);
+  
+  // Add ellipsis if truncated
+  if (firstSentence.length > 40) {
+    title += '...';
+  }
+  
+  return title || 'New Conversation';
 }
