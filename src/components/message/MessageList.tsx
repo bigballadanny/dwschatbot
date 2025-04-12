@@ -20,21 +20,6 @@ const MessageList: React.FC<MessageListProps> = ({
   const containerRef = useRef<HTMLDivElement>(null);
   const [hasScrolled, setHasScrolled] = useState(false);
   const [previousMessageCount, setPreviousMessageCount] = useState(messages.length);
-  const [previousConversation, setPreviousConversation] = useState<string | null>(null);
-  
-  // Effect to detect if we're loading a new conversation
-  useEffect(() => {
-    // Check if we're loading a new conversation based on message contents changing completely
-    if (messages.length > 0) {
-      // Use first message content as a proxy for conversation ID
-      const firstMessage = messages[0]?.content || null;
-      if (firstMessage !== previousConversation) {
-        console.log("New conversation detected, resetting scroll state");
-        setPreviousConversation(firstMessage);
-        setHasScrolled(false);
-      }
-    }
-  }, [messages]);
   
   // Effect to detect when messages are added
   useEffect(() => {
@@ -49,7 +34,6 @@ const MessageList: React.FC<MessageListProps> = ({
   useEffect(() => {
     if (!hasScrolled && messagesEndRef.current) {
       const scrollToBottom = () => {
-        console.log("Scrolling to bottom of messages");
         messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
       };
       
@@ -84,17 +68,6 @@ const MessageList: React.FC<MessageListProps> = ({
     ? [...messages].reverse() 
     : messages;
   
-  console.log(`Rendering MessageList with ${messages.length} messages:`, displayMessages);
-  
-  // If there are no messages or just the initial system message, display a placeholder
-  if (displayMessages.length === 0) {
-    return (
-      <div className={cn('flex-1 relative h-full flex items-center justify-center', className)}>
-        <p className="text-muted-foreground">No messages in this conversation yet.</p>
-      </div>
-    );
-  }
-
   return (
     <div 
       className={cn(
@@ -112,7 +85,7 @@ const MessageList: React.FC<MessageListProps> = ({
           <AnimatePresence initial={false}>
             {displayMessages.map((message, index) => (
               <motion.div
-                key={`${message.source}-${index}-${message.content.substring(0, 10)}`}
+                key={`${message.source}-${index}`}
                 initial={{ 
                   opacity: 0, 
                   y: message.source === 'user' ? -20 : 20

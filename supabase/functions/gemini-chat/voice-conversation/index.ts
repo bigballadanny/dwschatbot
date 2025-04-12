@@ -1,3 +1,4 @@
+
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import "https://deno.land/x/xhr@0.1.0/mod.ts";
 import { createClient, SupabaseClient } from 'https://esm.sh/@supabase/supabase-js@2';
@@ -6,13 +7,15 @@ import { createClient, SupabaseClient } from 'https://esm.sh/@supabase/supabase-
 const GEMINI_API_KEY = Deno.env.get('GEMINI_API_KEY');
 const SUPABASE_URL = Deno.env.get('SUPABASE_URL');
 const SUPABASE_ANON_KEY = Deno.env.get('SUPABASE_ANON_KEY');
-// Update to use Gemini 1.5 Flash API
-const GEMINI_API_URL = Deno.env.get('GEMINI_API_URL') || "https://generativelanguage.googleapis.com/v1/models/gemini-1.5-flash:generateContent";
+// Updated to use Gemini 2.0 API
+const GEMINI_API_URL = Deno.env.get('GEMINI_API_URL') || "https://generativelanguage.googleapis.com/v1/models/gemini-2.0-pro:generateContent";
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
 };
+
+// Removed prepareTextForSpeech function as it's no longer needed
 
 // --- Analytics Logging Function (Keep as is) ---
 async function logAnalytics(
@@ -94,81 +97,43 @@ serve(async (req) => {
       formattedMessages.unshift({ role: 'model', parts: [{ text: systemInstruction }] });
     }
 
-    console.log(`Calling Gemini API at: ${GEMINI_API_URL}`);
-    
-    // Implement retry logic
-    let retryCount = 0;
-    const maxRetries = 2;
-    let geminiData;
-    let geminiResponse;
-    
-    while (retryCount <= maxRetries) {
-      try {
-        const geminiStartTime = Date.now();
-        geminiResponse = await fetch(`${GEMINI_API_URL}?key=${GEMINI_API_KEY}`, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            contents: formattedMessages,
-            // Adjusted generation config 
-            generationConfig: { temperature: 0.7, topP: 0.9, topK: 30, maxOutputTokens: 1024 }, 
-          }),
-        });
-        const geminiEndTime = Date.now();
-        geminiApiTime = geminiEndTime - geminiStartTime; // Record Gemini API time
+    const geminiStartTime = Date.now();
+    const geminiResponse = await fetch(`${GEMINI_API_URL}?key=${GEMINI_API_KEY}`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        contents: formattedMessages,
+        // Adjusted generation config slightly - consider tuning these
+        generationConfig: { temperature: 0.6, topP: 0.9, topK: 30, maxOutputTokens: 1024 }, 
+      }),
+    });
+    const geminiEndTime = Date.now();
+    geminiApiTime = geminiEndTime - geminiStartTime; // Record Gemini API time
 
-        if (!geminiResponse.ok) {
-          const errorBody = await geminiResponse.text(); // Read as text first for more details
-          let errorDataMessage = `Gemini API failed status ${geminiResponse.status}`; 
-          try { 
-              const errorJson = JSON.parse(errorBody);
-              errorDataMessage = errorJson.error?.message || errorBody;
-          } catch { 
-              errorDataMessage = errorBody || errorDataMessage;
-          }
-          
-          // Check for quota errors
-          if (errorDataMessage.includes("quota") || 
-              errorDataMessage.includes("RESOURCE_EXHAUSTED") || 
-              geminiResponse.status === 429) {
-              
-            if (retryCount < maxRetries) {
-              console.log(`API quota exceeded, retrying (${retryCount + 1}/${maxRetries})...`);
-              retryCount++;
-              // Exponential backoff
-              await new Promise(resolve => setTimeout(resolve, retryCount * 1000));
-              continue;
-            }
-          }
-          
-          errorMessage = errorDataMessage;
-          console.error("Gemini API Error:", errorMessage);
-          throw new Error(errorMessage); // Throw to trigger catch block
-        }
-
-        geminiData = await geminiResponse.json();
-        // Safe access to response text
-        responseText = geminiData?.candidates?.[0]?.content?.parts?.[0]?.text || ""; 
-        if (!responseText) {
-            console.warn("Gemini API returned empty response text.");
-            // Decide if this is an error or just an empty valid response
-            responseText = "(No response content generated)";
-        }
-        isSuccess = true;
-        console.log(`Generated text length: ${responseText.length}`);
-        break; // Exit retry loop on success
-        
-      } catch (error) {
-        if (retryCount < maxRetries) {
-          console.error(`API error on attempt ${retryCount + 1}:`, error);
-          retryCount++;
-          // Exponential backoff
-          await new Promise(resolve => setTimeout(resolve, retryCount * 1000));
-          continue;
-        }
-        throw error; // Re-throw after all retries
+    if (!geminiResponse.ok) {
+      const errorBody = await geminiResponse.text(); // Read as text first for more details
+      let errorDataMessage = `Gemini API failed status ${geminiResponse.status}`; 
+      try { 
+          const errorJson = JSON.parse(errorBody);
+          errorDataMessage = errorJson.error?.message || errorBody;
+      } catch { 
+          errorDataMessage = errorBody || errorDataMessage;
       }
+      errorMessage = errorDataMessage;
+      console.error("Gemini API Error:", errorMessage);
+      throw new Error(errorMessage); // Throw to trigger catch block
     }
+
+    const geminiData = await geminiResponse.json();
+    // Safe access to response text
+    responseText = geminiData?.candidates?.[0]?.content?.parts?.[0]?.text || ""; 
+    if (!responseText) {
+        console.warn("Gemini API returned empty response text.");
+        // Decide if this is an error or just an empty valid response
+        // responseText = "(No content generated)"; // Placeholder if needed
+    }
+    isSuccess = true;
+    console.log(`Generated text length: ${responseText.length}`);
 
     // --- Determine Source & Citation --- 
     const citationMatch = responseText.match(/\(Source: (.*?)\)/i); // Case-insensitive match

@@ -23,17 +23,8 @@ const ConversationHistory: React.FC<ConversationHistoryProps> = ({
   onSelectConversation,
   className
 }) => {
-  // Add a reference to control the Sheet component
-  const [open, setOpen] = React.useState(false);
-
-  // Handle conversation selection and close the sheet
-  const handleSelectConversation = (id: string) => {
-    onSelectConversation(id);
-    setOpen(false); // Close the sheet after selection
-  };
-  
   return (
-    <Sheet open={open} onOpenChange={setOpen}>
+    <Sheet>
       <SheetTrigger asChild>
         <Button variant="ghost" size="icon" className={cn("relative", className)} aria-label="View conversation history">
           <MessageSquare className="h-5 w-5" />
@@ -61,7 +52,7 @@ const ConversationHistory: React.FC<ConversationHistoryProps> = ({
                   <button
                     key={conversation.id}
                     className="w-full text-left px-4 py-3 hover:bg-accent transition-colors"
-                    onClick={() => handleSelectConversation(conversation.id)}
+                    onClick={() => onSelectConversation(conversation.id)}
                   >
                     <div className="flex justify-between items-start">
                       <h3 className="font-medium text-foreground text-sm">{conversation.title}</h3>

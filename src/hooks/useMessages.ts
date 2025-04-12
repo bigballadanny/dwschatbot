@@ -2,7 +2,7 @@
 import { useState } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/components/ui/use-toast';
-import { MessageData, MessageSource, DbMessage, convertMessagesToApi, dbMessageToUiMessage, formatDbMessagesForUi } from '@/utils/messageUtils';
+import { MessageData, MessageSource, DbMessage, convertMessagesToApi, dbMessageToUiMessage } from '@/utils/messageUtils';
 
 interface UseMessagesProps {
   userId: string | undefined;
@@ -35,48 +35,36 @@ export function useMessages({ userId, conversationId }: UseMessagesProps) {
   // Load messages for a conversation from the database
   const loadMessages = async (convId: string, uid: string) => {
     setIsLoading(true);
-    console.log(`Loading messages for conversation: ${convId}`);
     
     try {
-      // Fetch messages from the database
+      // Fetch messages from the database - IMPORTANT: removed user_id filter since this column doesn't exist
       const { data, error } = await supabase
         .from('messages')
         .select('*')
         .eq('conversation_id', convId)
         .order('created_at', { ascending: true });
         
-      if (error) {
-        console.error('Error fetching messages:', error);
-        throw error;
-      }
+      if (error) throw error;
       
       if (data && data.length > 0) {
-        console.log(`Found ${data.length} messages for conversation ${convId}:`, data);
         // Transform database messages to UI message format using the utility function
         // Cast data to DbMessage[] to avoid type instantiation issues
         const dbMessages = data as DbMessage[];
-        const formattedMessages = formatDbMessagesForUi(dbMessages);
+        const formattedMessages = dbMessages.map(msg => dbMessageToUiMessage(msg));
         
-        console.log('Formatted messages:', formattedMessages);
         setMessages(formattedMessages);
         setHasInteracted(true);
         return true;
       } else {
         // Check if the conversation exists but has no messages
-        console.log(`No messages found for conversation ${convId}, checking if conversation exists`);
-        const { data: convoData, error: convoError } = await supabase
+        const { data: convoData } = await supabase
           .from('conversations')
           .select('id')
           .eq('id', convId)
           .eq('user_id', uid)
           .maybeSingle();
           
-        if (convoError) {
-          console.error('Error checking conversation:', convoError);
-        }
-          
         if (convoData) {
-          console.log(`Conversation ${convId} exists but has no messages, initializing empty state`);
           // Initialize with empty state
           setMessages([{
             content: "Ask me anything...", 
@@ -85,10 +73,8 @@ export function useMessages({ userId, conversationId }: UseMessagesProps) {
           }]);
           setHasInteracted(false);
           return true;
-        } else {
-          console.log(`Conversation ${convId} not found for user ${uid}`);
-          return false;
-        }
+        } 
+        return false;
       }
     } catch (error) {
       console.error('Error loading conversation messages:', error);

@@ -3,20 +3,18 @@ import React, { useEffect, useState } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
 import Header from '@/components/Header';
 import WelcomeScreen from '@/components/WelcomeScreen';
+import PopularQuestions from '@/components/PopularQuestions';
 import { SidebarInset } from "@/components/ui/sidebar";
 import { useToast } from "@/components/ui/use-toast";
 import { useAuth } from '@/context/AuthContext';
 import ChatContainer from '@/components/chat/ChatContainer';
 import { useChat } from '@/hooks/useChat';
-import { supabase } from '@/integrations/supabase/client';
-import { Conversation } from '@/components/ConversationHistory';
 
 const Index = () => {
   const { user } = useAuth();
-  const [showWelcomeContent, setShowWelcomeContent] = useState(true);
+  const [showWelcome, setShowWelcome] = useState(true);
   const [audioEnabled, setAudioEnabled] = useState(false);
   const [conversationId, setConversationId] = useState<string | null>(null);
-  const [conversations, setConversations] = useState<Conversation[]>([]);
 
   const location = useLocation();
   const navigate = useNavigate();
@@ -45,85 +43,24 @@ const Index = () => {
   });
 
   useEffect(() => {
-    const loadUserConversations = async () => {
-      if (!user) {
-        setConversations([]);
-        return;
-      }
-
-      try {
-        console.log(`Loading conversations for user: ${user.id}`);
-        const { data: conversationsData, error } = await supabase
-          .from('conversations')
-          .select('*')
-          .eq('user_id', user.id)
-          .order('updated_at', { ascending: false });
-
-        if (error) throw error;
-
-        if (conversationsData) {
-          console.log(`Found ${conversationsData.length} conversations for user ${user.id}`);
-          const formattedConversations: Conversation[] = conversationsData.map(conv => ({
-            id: conv.id,
-            title: conv.title || 'Untitled Conversation',
-            preview: conv.title || 'Click to view this conversation',
-            date: new Date(conv.updated_at)
-          }));
-
-          setConversations(formattedConversations);
-        }
-      } catch (error) {
-        console.error('Error loading conversations:', error);
-        toast({ 
-          title: "Failed to load conversations",
-          variant: "destructive"
-        });
-      }
-    };
-
-    loadUserConversations();
-    
-    // Set up real-time listener for conversation changes
-    if (user) {
-      const channel = supabase
-        .channel('conversation-changes')
-        .on('postgres_changes', { 
-          event: '*', 
-          schema: 'public', 
-          table: 'conversations',
-          filter: `user_id=eq.${user.id}`
-        }, (payload) => {
-          console.log('Conversation change detected:', payload);
-          loadUserConversations();
-        })
-        .subscribe();
-        
-      return () => {
-        supabase.removeChannel(channel);
-      };
-    }
-  }, [user, conversationId]);
-
-  useEffect(() => {
     const params = new URLSearchParams(location.search);
     const urlConversationId = params.get('conversation');
     const question = params.get('q');
 
-    console.log(`URL parameters: conversation=${urlConversationId}, q=${question}`);
-    
-    // We always want to show the chat input, even on welcome screen
-    setShowWelcomeContent(!urlConversationId && !question);
+    const shouldShowWelcome = !user || (!urlConversationId && !question);
+    setShowWelcome(shouldShowWelcome);
 
     if (urlConversationId) {
-      console.log(`Setting conversation ID from URL: ${urlConversationId}`);
       setConversationId(urlConversationId);
     } else {
       setConversationId(null);
     }
 
     if (question && user) {
+      // Wait a moment to allow the UI to render before sending the question
       const timer = setTimeout(() => {
         handleSendMessage(question, false);
+        setShowWelcome(false);
       }, 800);
       
       return () => clearTimeout(timer);
@@ -140,13 +77,16 @@ const Index = () => {
       return;
     }
     
-    setShowWelcomeContent(false);
+    setShowWelcome(false);
     
+    // Always create a new conversation when asking a question from popular questions
     const newConversationId = await createNewConversation();
     if (newConversationId) {
+      // Update URL and state
       setConversationId(newConversationId);
       navigate(`/?conversation=${newConversationId}`, { replace: true });
       
+      // Send the message after a short delay to ensure proper setup
       setTimeout(() => {
         handleSendMessage(question, false);
       }, 300);
@@ -164,50 +104,40 @@ const Index = () => {
       return;
     }
     
-    const newConversationId = await createNewConversation();
-    if (newConversationId) {
-      navigate(`/?conversation=${newConversationId}`, { replace: true });
-    }
-    setShowWelcomeContent(false);
-  };
-
-  const handleSelectConversation = (selectedConversationId: string) => {
-    console.log("Selected conversation:", selectedConversationId);
-    navigate(`/?conversation=${selectedConversationId}`, { replace: true });
+    await createNewConversation();
+    setShowWelcome(false);
   };
 
   return (
     <div className="flex flex-col h-full bg-muted/30">
-      <div className="flex-1 overflow-y-auto">
-        {showWelcomeContent ? (
+      {showWelcome ? (
+        <div className="flex-1 overflow-y-auto">
           <div className="container mx-auto px-4 py-8 max-w-3xl">
             <WelcomeScreen 
               onStartChat={handleCreateNewConversation} 
-              onSelectQuestion={handleAskQuestion}
-              showInputBar={true}
-              onSendMessage={handleSendMessage}
-              isLoading={isLoading}
+              onSelectQuestion={handleAskQuestion} 
             />
+            <PopularQuestions onSelectQuestion={handleAskQuestion} className="mt-8" />
           </div>
-        ) : (
-          <ChatContainer
-            messages={messages}
-            isLoading={isLoading}
-            audioEnabled={isAudioEnabled}
-            currentAudioSrc={audioSrc}
-            isPlaying={isPlaying}
-            enableOnlineSearch={enableOnlineSearch}
-            conversationId={conversationId}
-            user={user}
-            onSendMessage={handleSendMessage}
-            onToggleAudio={toggleAudio}
-            onToggleOnlineSearch={toggleOnlineSearch}
-            onFileUpload={handleFileUpload}
-            onAudioStop={stopAudio}
-            onTogglePlayback={togglePlayback}
-          />
-        )}
-      </div>
+        </div>
+      ) : (
+        <ChatContainer
+          messages={messages}
+          isLoading={isLoading}
+          audioEnabled={isAudioEnabled}
+          currentAudioSrc={audioSrc}
+          isPlaying={isPlaying}
+          enableOnlineSearch={enableOnlineSearch}
+          conversationId={conversationId}
+          user={user}
+          onSendMessage={handleSendMessage}
+          onToggleAudio={toggleAudio}
+          onToggleOnlineSearch={toggleOnlineSearch}
+          onFileUpload={handleFileUpload}
+          onAudioStop={stopAudio}
+          onTogglePlayback={togglePlayback}
+        />
+      )}
     </div>
   );
 };

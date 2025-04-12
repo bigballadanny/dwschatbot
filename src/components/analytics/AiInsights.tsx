@@ -1,5 +1,5 @@
 
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { RefreshCw, AlertCircle, FileDown, CheckCircle, Brain } from 'lucide-react';
@@ -14,8 +14,6 @@ interface InsightsData {
   insights: string;
   timestamp: string;
   type: InsightType;
-  fallback?: boolean;
-  cached?: boolean;
 }
 
 const AiInsights = ({ dateRange }: { dateRange: '7d' | '30d' | 'all' }) => {
@@ -24,61 +22,25 @@ const AiInsights = ({ dateRange }: { dateRange: '7d' | '30d' | 'all' }) => {
   const [error, setError] = useState<string | null>(null);
   const [insightType, setInsightType] = useState<InsightType>('general');
   const { toast } = useToast();
-  const insightsCache = useRef<Map<string, InsightsData>>(new Map());
-  const initialFetchCompleted = useRef(false);
 
-  // Create a cache key based on type and date range
-  const getCacheKey = (type: InsightType, range: string) => `${type}-${range}`;
-
-  const fetchInsights = async (type: InsightType = 'general', forceRefresh: boolean = false) => {
+  const fetchInsights = async (type: InsightType = 'general') => {
     setLoading(true);
     setError(null);
     
     try {
-      console.log(`Fetching ${type} insights for time range: ${dateRange}, forceRefresh: ${forceRefresh}`);
-      
       const { data, error } = await supabase.functions.invoke('analytics-insights', {
-        body: { type, timeRange: dateRange, forceRefresh },
+        body: { type, timeRange: dateRange },
       });
 
       if (error) {
         throw new Error(error.message || 'Failed to fetch insights');
       }
 
-      if (!data) {
-        throw new Error('No data returned from the analytics-insights function');
-      }
-
-      // Store insights in component state
-      const newInsights = {
+      setInsights({
         insights: data.insights,
         timestamp: data.timestamp || new Date().toISOString(),
-        type,
-        fallback: data.fallback,
-        cached: data.cached
-      };
-
-      setInsights(newInsights);
-      
-      // Also store in local cache
-      const cacheKey = getCacheKey(type, dateRange);
-      insightsCache.current.set(cacheKey, newInsights);
-      
-      if (data.fallback) {
-        toast({
-          variant: "warning",
-          title: "Using fallback insights",
-          description: "The AI insights generator is currently unavailable. Showing basic analytics instead.",
-        });
-      }
-      
-      if (data.cached) {
-        toast({
-          variant: "default",
-          title: "Using cached insights",
-          description: "Showing insights from cache. Use refresh to generate new insights.",
-        });
-      }
+        type
+      });
     } catch (err) {
       console.error('Error fetching insights:', err);
       setError(err instanceof Error ? err.message : 'An unexpected error occurred');
@@ -92,47 +54,21 @@ const AiInsights = ({ dateRange }: { dateRange: '7d' | '30d' | 'all' }) => {
     }
   };
 
-  // Fetch insights when component mounts or date range changes
   useEffect(() => {
-    // Don't fetch on initial render if insights already exist
-    if (!initialFetchCompleted.current) {
-      fetchInsights('general', false);
-      initialFetchCompleted.current = true;
-      return;
+    // Only fetch when the component mounts
+    if (!insights && !loading) {
+      fetchInsights('general');
     }
-    
-    // On date range change, check cache first
-    const cacheKey = getCacheKey(insightType, dateRange);
-    const cachedInsight = insightsCache.current.get(cacheKey);
-    
-    if (cachedInsight) {
-      // Use cached data if available
-      setInsights(cachedInsight);
-    } else {
-      // Fetch new data if not in cache
-      fetchInsights(insightType, false);
-    }
+  }, []);
+
+  // Clear insights when date range changes
+  useEffect(() => {
+    setInsights(null);
   }, [dateRange]);
 
   const handleTabChange = (value: string) => {
-    const newType = value as InsightType;
-    setInsightType(newType);
-    
-    // Check if we have this insight type cached for current date range
-    const cacheKey = getCacheKey(newType, dateRange);
-    const cachedInsight = insightsCache.current.get(cacheKey);
-    
-    if (cachedInsight) {
-      // Use cached data
-      setInsights(cachedInsight);
-    } else {
-      // Fetch new data
-      fetchInsights(newType, false);
-    }
-  };
-  
-  const handleRefresh = () => {
-    fetchInsights(insightType, true);
+    setInsightType(value as InsightType);
+    fetchInsights(value as InsightType);
   };
 
   const exportInsights = () => {
@@ -181,7 +117,7 @@ ${insights.insights}
           <AlertCircle className="h-10 w-10 mb-4 text-destructive" />
           <p className="text-muted-foreground text-center mb-3">Failed to generate insights</p>
           <p className="text-xs text-muted-foreground mb-4">{error}</p>
-          <Button variant="outline" onClick={handleRefresh}>
+          <Button variant="outline" onClick={() => fetchInsights(insightType)}>
             Try Again
           </Button>
         </div>
@@ -193,7 +129,7 @@ ${insights.insights}
         <div className="flex flex-col items-center justify-center py-12">
           <Brain className="h-10 w-10 mb-4 text-primary" />
           <p className="text-muted-foreground text-center mb-4">Click generate to get AI insights</p>
-          <Button onClick={handleRefresh}>
+          <Button onClick={() => fetchInsights(insightType)}>
             Generate Insights
           </Button>
         </div>
@@ -202,24 +138,6 @@ ${insights.insights}
 
     return (
       <>
-        {insights.fallback && (
-          <div className="mb-4 p-3 bg-amber-50 dark:bg-amber-950 border border-amber-200 dark:border-amber-800 rounded-md text-amber-800 dark:text-amber-200">
-            <p className="text-sm flex items-center">
-              <AlertCircle className="h-4 w-4 mr-2" />
-              AI insights generator is currently unavailable. Showing basic analytics instead.
-            </p>
-          </div>
-        )}
-        
-        {insights.cached && (
-          <div className="mb-4 p-3 bg-blue-50 dark:bg-blue-950 border border-blue-200 dark:border-blue-800 rounded-md text-blue-800 dark:text-blue-200">
-            <p className="text-sm flex items-center">
-              <CheckCircle className="h-4 w-4 mr-2" />
-              Showing cached insights. Click refresh to generate new ones.
-            </p>
-          </div>
-        )}
-        
         <div className="prose prose-sm dark:prose-invert max-w-none" dangerouslySetInnerHTML={{ __html: formatMarkdown(insights.insights) }} />
         
         <div className="mt-2 text-xs text-muted-foreground text-right">
@@ -264,7 +182,7 @@ ${insights.insights}
         <Button
           variant="outline"
           size="sm"
-          onClick={handleRefresh}
+          onClick={() => fetchInsights(insightType)}
           disabled={loading}
         >
           {loading ? (

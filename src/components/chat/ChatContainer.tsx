@@ -1,5 +1,5 @@
 
-import React, { useEffect } from 'react';
+import React from 'react';
 import { MessageData } from '@/utils/messageUtils';
 import MessageList from '../message/MessageList';
 import ChatInputBar from './ChatInputBar';
@@ -37,12 +37,6 @@ const ChatContainer: React.FC<ChatContainerProps> = ({
   onAudioStop,
   onTogglePlayback,
 }) => {
-  // Debugging logs to help track conversation state
-  useEffect(() => {
-    console.log("ChatContainer rendered with conversationId:", conversationId);
-    console.log("Messages:", messages.length);
-  }, [conversationId, messages.length]);
-
   return (
     <div className="flex flex-col relative h-full w-full bg-black">
       <div className="flex-1 overflow-hidden relative">

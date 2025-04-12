@@ -4,34 +4,19 @@ import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 import { useAuth } from "@/context/AuthContext";
 import { ArrowRight } from "lucide-react";
-import UnifiedInputBar from '@/components/UnifiedInputBar';
 
 export interface WelcomeScreenProps {
   onStartChat: () => void;
   onSelectQuestion?: (question: string) => void;
-  onSendMessage?: (message: string, isVoice: boolean) => Promise<void>;
-  isLoading?: boolean;
-  showInputBar?: boolean;
   className?: string;
 }
 
 const WelcomeScreen: React.FC<WelcomeScreenProps> = ({ 
   onStartChat, 
   onSelectQuestion,
-  onSendMessage,
-  isLoading = false,
-  showInputBar = false,
   className 
 }) => {
   const { user } = useAuth();
-  
-  const handleSend = async (message: string, isVoice: boolean = false) => {
-    if (onSendMessage) {
-      await onSendMessage(message, isVoice);
-    } else if (onSelectQuestion) {
-      onSelectQuestion(message);
-    }
-  };
   
   return (
     <div className={cn(
@@ -82,19 +67,8 @@ const WelcomeScreen: React.FC<WelcomeScreenProps> = ({
           </li>
         </ul>
       </div>
-
-      {showInputBar && user ? (
-        <div className="w-full max-w-2xl">
-          <UnifiedInputBar
-            onSend={handleSend}
-            loading={isLoading}
-            disabled={!user}
-            enableAudio={false}
-            placeholder="Ask anything about business acquisitions..."
-            className="w-full"
-          />
-        </div>
-      ) : !user ? (
+      
+      {!user ? (
         <Button 
           size="lg" 
           className="px-6 py-6 text-lg hover-scale"

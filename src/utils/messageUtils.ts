@@ -3,12 +3,10 @@
  * Message type definitions and utility functions
  */
 
-import { supabase } from '@/integrations/supabase/client';
-
 /**
  * Simple message source type - used throughout the application
  */
-export type MessageSource = 'user' | 'system' | 'gemini' | 'web' | 'fallback' | 'transcript';
+export type MessageSource = 'user' | 'system' | 'gemini';
 
 /**
  * Simplified API message format for backend communication
@@ -43,7 +41,7 @@ export interface DbMessage {
   is_user: boolean;
   metadata?: {
     source?: MessageSource;
-    citation?: string[];
+    citation?: string;
   };
   user_id?: string;
 }
@@ -92,119 +90,15 @@ export function convertMessagesToApi(
  * This helps transform data from Supabase to the format used in the UI
  */
 export function dbMessageToUiMessage(dbMessage: DbMessage): MessageData {
-  // Map source from metadata or default based on is_user flag
-  const source: MessageSource = dbMessage.is_user ? 'user' : 
-                                (dbMessage.metadata?.source as MessageSource || 'gemini');
-  
   // Use explicit type for return value to ensure type safety
   const messageData: MessageData = {
     content: dbMessage.content,
-    source: source,
+    source: dbMessage.is_user ? 'user' : 
+            (dbMessage.metadata?.source as MessageSource || 'gemini'),
     timestamp: new Date(dbMessage.created_at),
-    citation: dbMessage.metadata?.citation || undefined
+    citation: dbMessage.metadata?.citation ? 
+              [dbMessage.metadata.citation] : undefined
   };
   
   return messageData;
-}
-
-/**
- * Format database messages for sending to UI
- * This is a helper function to map database messages to UI format
- * @param messages Array of database messages
- * @returns Array of UI formatted messages
- */
-export function formatDbMessagesForUi(dbMessages: DbMessage[]): MessageData[] {
-  if (!dbMessages || dbMessages.length === 0) {
-    return [];
-  }
-  
-  console.log(`Formatting ${dbMessages.length} database messages to UI format`);
-  return dbMessages.map(msg => dbMessageToUiMessage(msg));
-}
-
-/**
- * Prepares a message object with metadata for saving to the database
- * This ensures consistent message structure when saving to Supabase
- */
-export function prepareMessageForDb(
-  conversationId: string, 
-  content: string, 
-  isUser: boolean,
-  source?: MessageSource,
-  citation?: string[]
-) {
-  // Ensure there's always a source provided in metadata
-  const sourceValue = isUser ? 'user' : (source || 'gemini');
-  
-  return {
-    conversation_id: conversationId,
-    content: content,
-    is_user: isUser,
-    metadata: {
-      source: sourceValue,
-      citation: citation || undefined
-    }
-  };
-}
-
-/**
- * Generate a title from a conversation based on the first message
- * @param userMessage The first user message in a conversation
- * @returns A suitable title for the conversation
- */
-export function generateConversationTitle(userMessage: string): string {
-  if (!userMessage || typeof userMessage !== 'string') {
-    return 'New Conversation';
-  }
-
-  // Extract content and clean it up
-  const cleanedMessage = userMessage.trim();
-  
-  // For very short messages, use the whole thing if under 25 chars
-  if (cleanedMessage.length <= 25) {
-    return cleanedMessage;
-  }
-  
-  // Try to find the first sentence or significant phrase
-  const firstSentence = cleanedMessage.split(/[.!?]/)[0];
-  
-  // If the first sentence is too long, truncate it
-  if (firstSentence.length > 25) {
-    return `${firstSentence.substring(0, 25).trim()}...`;
-  }
-  
-  return firstSentence.trim() || 'New Conversation';
-}
-
-/**
- * Updates conversation title based on the user's first message
- * @param conversationId ID of the conversation to update
- * @param userMessage First user message in the conversation
- */
-export async function updateConversationTitle(conversationId: string, userMessage: string) {
-  if (!conversationId || !userMessage) {
-    console.log('Missing conversation ID or user message for title update');
-    return;
-  }
-
-  try {
-    const title = generateConversationTitle(userMessage);
-    console.log(`Updating conversation ${conversationId} title to: ${title}`);
-    
-    const { error } = await supabase
-      .from('conversations')
-      .update({ 
-        title,
-        updated_at: new Date().toISOString() // Ensure timestamp is updated for proper sorting
-      })
-      .eq('id', conversationId);
-    
-    if (error) {
-      console.error('Error updating conversation title:', error);
-    } else {
-      console.log(`Successfully updated conversation ${conversationId} title to: ${title}`);
-    }
-  } catch (err) {
-    console.error('Failed to update conversation title:', err);
-  }
 }
