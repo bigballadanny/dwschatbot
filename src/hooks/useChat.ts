@@ -69,12 +69,17 @@ export function useChat({
   useEffect(() => {
     const loadConversation = async () => {
       if (conversationId && user) {
+        console.log(`Loading conversation: ${conversationId} for user: ${user.id}`);
         const success = await loadMessages(conversationId, user.id);
         if (!success) {
-          navigate('/');
+          console.error(`Failed to load conversation: ${conversationId}`);
+          navigate('/', { replace: true });
           toast({ title: "Conversation not found", variant: "destructive" });
+        } else {
+          console.log(`Successfully loaded conversation: ${conversationId}`);
         }
       } else if (!user) {
+        console.log("No user, resetting messages");
         resetMessages();
       }
       
@@ -158,6 +163,7 @@ export function useChat({
       );
 
       // Save messages to database
+      console.log(`Saving messages to conversation: ${currentConvId}`);
       await saveMessages(
         currentConvId, 
         user.id, 

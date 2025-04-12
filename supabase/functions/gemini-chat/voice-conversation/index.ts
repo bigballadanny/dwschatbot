@@ -97,6 +97,7 @@ serve(async (req) => {
       formattedMessages.unshift({ role: 'model', parts: [{ text: systemInstruction }] });
     }
 
+    console.log(`Calling Gemini 2.0 API at: ${GEMINI_API_URL}`);
     const geminiStartTime = Date.now();
     const geminiResponse = await fetch(`${GEMINI_API_URL}?key=${GEMINI_API_KEY}`, {
       method: 'POST',

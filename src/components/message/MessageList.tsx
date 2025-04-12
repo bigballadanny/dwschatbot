@@ -24,14 +24,14 @@ const MessageList: React.FC<MessageListProps> = ({
   
   // Effect to detect if we're loading a new conversation
   useEffect(() => {
-    // Check if we're loading a new conversation based on first message content
+    // Check if we're loading a new conversation based on message contents changing completely
     if (messages.length > 0) {
-      const conversationId = messages[0]?.content || null;
-      if (conversationId !== previousConversation) {
-        setPreviousConversation(conversationId);
-        // Reset scroll state when loading a new conversation
-        setHasScrolled(false);
+      // Use first message content as a proxy for conversation ID
+      const firstMessage = messages[0]?.content || null;
+      if (firstMessage !== previousConversation) {
         console.log("New conversation detected, resetting scroll state");
+        setPreviousConversation(firstMessage);
+        setHasScrolled(false);
       }
     }
   }, [messages]);
@@ -49,6 +49,7 @@ const MessageList: React.FC<MessageListProps> = ({
   useEffect(() => {
     if (!hasScrolled && messagesEndRef.current) {
       const scrollToBottom = () => {
+        console.log("Scrolling to bottom of messages");
         messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
       };
       
@@ -82,6 +83,8 @@ const MessageList: React.FC<MessageListProps> = ({
   const displayMessages = showNewestOnTop 
     ? [...messages].reverse() 
     : messages;
+  
+  console.log(`Rendering MessageList with ${messages.length} messages`);
   
   return (
     <div 

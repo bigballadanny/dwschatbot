@@ -59,7 +59,11 @@ serve(async (req) => {
       });
     }
 
-    const { query, messages, context, instructions, sourceType, enableOnlineSearch } = await req.json();
+    const { query, messages, context, instructions, sourceType, enableOnlineSearch, conversationId } = await req.json();
+    
+    console.log(`Request received with conversationId: ${conversationId || 'none'}`);
+    console.log(`Processing query: "${query?.substring(0, 30)}..."`);
+    console.log(`Number of messages: ${messages?.length || 0}`);
     
     // Format messages for the Gemini API
     const formattedMessages = messages.map(msg => ({
@@ -157,6 +161,7 @@ serve(async (req) => {
 
     try {
       // Call Gemini API
+      console.log(`Calling Gemini API at: ${GEMINI_API_URL}`);
       const response = await fetch(`${GEMINI_API_URL}?key=${GEMINI_API_KEY}`, {
         method: 'POST',
         headers: {

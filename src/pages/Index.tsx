@@ -1,4 +1,3 @@
-
 import React, { useEffect, useState } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
 import Header from '@/components/Header';
@@ -54,6 +53,7 @@ const Index = () => {
       }
 
       try {
+        console.log(`Loading conversations for user: ${user.id}`);
         const { data: conversationsData, error } = await supabase
           .from('conversations')
           .select('*')
@@ -63,6 +63,7 @@ const Index = () => {
         if (error) throw error;
 
         if (conversationsData) {
+          console.log(`Found ${conversationsData.length} conversations for user ${user.id}`);
           // Format conversations for display
           const formattedConversations: Conversation[] = conversationsData.map(conv => ({
             id: conv.id,
@@ -83,17 +84,20 @@ const Index = () => {
     };
 
     loadUserConversations();
-  }, [user]);
+  }, [user, conversationId]);
 
   useEffect(() => {
     const params = new URLSearchParams(location.search);
     const urlConversationId = params.get('conversation');
     const question = params.get('q');
 
+    console.log(`URL parameters: conversation=${urlConversationId}, q=${question}`);
+    
     const shouldShowWelcome = !user || (!urlConversationId && !question);
     setShowWelcome(shouldShowWelcome);
 
     if (urlConversationId) {
+      console.log(`Setting conversation ID from URL: ${urlConversationId}`);
       setConversationId(urlConversationId);
       setShowWelcome(false); // Ensure we don't show welcome screen when a conversation is selected
     } else {

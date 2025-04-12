@@ -32,6 +32,7 @@ export function useConversation({ userId }: UseConversationProps) {
       
       if (data) {
         const newConversationId = data.id;
+        console.log(`Created new conversation with ID: ${newConversationId}`);
         setConversationId(newConversationId);
         navigate(`/?conversation=${newConversationId}`, { replace: true });
         return newConversationId;
@@ -55,8 +56,10 @@ export function useConversation({ userId }: UseConversationProps) {
     responseMessage: { content: string, source: 'gemini' | 'system', citation?: string[] }
   ) => {
     try {
-      // Structure follows database schema - removed user_id from the messages and added metadata
-      await supabase.from('messages').insert([
+      console.log(`Saving messages for conversation: ${conversationId}`);
+      
+      // Structure follows database schema
+      const messages = [
         { 
           conversation_id: conversationId, 
           content: userMessage, 
@@ -71,8 +74,24 @@ export function useConversation({ userId }: UseConversationProps) {
             citation: responseMessage.citation?.[0] 
           }
         }
-      ]);
+      ];
       
+      const { error } = await supabase
+        .from('messages')
+        .insert(messages);
+      
+      if (error) {
+        console.error('Error inserting messages:', error);
+        throw error;
+      }
+      
+      // Update conversation last update timestamp
+      await supabase
+        .from('conversations')
+        .update({ updated_at: new Date().toISOString() })
+        .eq('id', conversationId);
+      
+      console.log(`Successfully saved messages to conversation ${conversationId}`);
       return true;
     } catch (error) {
       console.error('Error saving messages:', error);

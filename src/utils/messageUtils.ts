@@ -6,7 +6,7 @@
 /**
  * Simple message source type - used throughout the application
  */
-export type MessageSource = 'user' | 'system' | 'gemini';
+export type MessageSource = 'user' | 'system' | 'gemini' | 'web' | 'fallback' | 'transcript';
 
 /**
  * Simplified API message format for backend communication
@@ -90,11 +90,14 @@ export function convertMessagesToApi(
  * This helps transform data from Supabase to the format used in the UI
  */
 export function dbMessageToUiMessage(dbMessage: DbMessage): MessageData {
+  // Map source from metadata or default based on is_user flag
+  const source: MessageSource = dbMessage.is_user ? 'user' : 
+                                (dbMessage.metadata?.source as MessageSource || 'gemini');
+  
   // Use explicit type for return value to ensure type safety
   const messageData: MessageData = {
     content: dbMessage.content,
-    source: dbMessage.is_user ? 'user' : 
-            (dbMessage.metadata?.source as MessageSource || 'gemini'),
+    source: source,
     timestamp: new Date(dbMessage.created_at),
     citation: dbMessage.metadata?.citation ? 
               [dbMessage.metadata.citation] : undefined
