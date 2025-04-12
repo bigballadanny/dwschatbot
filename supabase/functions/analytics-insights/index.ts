@@ -7,8 +7,8 @@ const GEMINI_API_KEY = Deno.env.get('GEMINI_API_KEY');
 const SUPABASE_URL = Deno.env.get('SUPABASE_URL');
 const SUPABASE_ANON_KEY = Deno.env.get('SUPABASE_ANON_KEY');
 
-// Use gemini-pro instead of gemini-2.0-pro as the latter might not be accessible yet
-const GEMINI_API_URL = "https://generativelanguage.googleapis.com/v1/models/gemini-pro:generateContent";
+// Updated to use Gemini 2.0 Pro model
+const GEMINI_API_URL = "https://generativelanguage.googleapis.com/v1/models/gemini-2.0-pro:generateContent";
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -28,8 +28,6 @@ serve(async (req) => {
       throw new Error("Missing required environment variables");
     }
 
-    console.log("Starting analytics-insights function with all required environment variables");
-
     // Initialize Supabase client with auth header from request
     const supabase = createClient(SUPABASE_URL, SUPABASE_ANON_KEY, {
       global: { headers: { Authorization: req.headers.get('Authorization')! } }
@@ -39,10 +37,7 @@ serve(async (req) => {
     const { type = 'general', timeRange = 'all' } = await req.json();
     console.log(`Generating ${type} insights for time range: ${timeRange}`);
 
-    // Fetch analytics data based on time range
-    const timeFilter = timeRange === '7d' ? 'created_at > now() - interval \'7 days\'' : 
-                       timeRange === '30d' ? 'created_at > now() - interval \'30 days\'' : '';
-    
+    // Fetch analytics data
     let { data: analyticsData, error } = await supabase
       .from('chat_analytics')
       .select('*')
@@ -55,7 +50,6 @@ serve(async (req) => {
     }
 
     if (!analyticsData || analyticsData.length === 0) {
-      console.log("No analytics data available");
       return new Response(JSON.stringify({ 
         insights: "No analytics data available for the selected time period.", 
         timestamp: new Date().toISOString() 
@@ -63,8 +57,6 @@ serve(async (req) => {
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
       });
     }
-
-    console.log(`Retrieved ${analyticsData.length} analytics records`);
 
     // Prepare data summary for Gemini
     const totalQueries = analyticsData.length;
@@ -81,22 +73,8 @@ serve(async (req) => {
     // Calculate average response time
     const avgResponseTime = analyticsData.reduce((sum, item) => sum + (item.api_time_ms || 0), 0) / totalQueries;
     
-    // Get top queries (up to 10)
-    const queries = {};
-    analyticsData.forEach(item => {
-      if (item.query) {
-        const query = item.query.trim().toLowerCase();
-        queries[query] = (queries[query] || 0) + 1;
-      }
-    });
-    
-    const topQueries = Object.entries(queries)
-      .sort((a, b) => b[1] - a[1])
-      .slice(0, 10)
-      .map(([query, count]) => `${query} (${count} times)`);
-
-    // Prepare prompt based on insight type - using proper markdown formatting instead of hashtags
-    let prompt = `You are an analytics insight generator for an AI assistant platform. Analyze the following data and provide professional, actionable insights in markdown format.\n\n`;
+    // Prepare prompt based on insight type
+    let prompt = `You are an analytics insight generator. Analyze the following data and provide professional, actionable insights in markdown format.\n\n`;
     
     prompt += `Data Summary:\n`;
     prompt += `- Time Period: ${timeRange === '7d' ? 'Past 7 days' : timeRange === '30d' ? 'Past 30 days' : 'All time'}\n`;
@@ -104,31 +82,25 @@ serve(async (req) => {
     prompt += `- Success Rate: ${successRate}%\n`;
     prompt += `- Average Response Time: ${Math.round(avgResponseTime)}ms\n`;
     prompt += `- Source Distribution: ${Object.entries(sources).map(([key, val]) => `${key}: ${val}`).join(', ')}\n`;
-    
-    if (topQueries.length > 0) {
-      prompt += `- Top Queries: ${topQueries.slice(0, 5).join('; ')}\n`;
-    }
 
     // Add specific analysis instructions based on type
     switch(type) {
       case 'general':
-        prompt += `\nProvide general insights about user behavior, query patterns, and system performance. Highlight key metrics and trends. Suggest 2-3 actionable recommendations. Use proper markdown formatting with ## for headings - do NOT use hashtags (#) at the beginning of lines.`;
+        prompt += `\nProvide general insights about user behavior, query patterns, and system performance. Highlight key metrics and trends. Suggest 2-3 actionable recommendations.`;
         break;
       case 'content-gaps':
-        prompt += `\nAnalyze the data to identify content gaps in our knowledge base. What topics or questions are users asking about that might not be well covered? Focus on identifying patterns in queries that lead to lower success rates or require external sources. Use proper markdown formatting with ## for headings - do NOT use hashtags (#) at the beginning of lines.`;
+        prompt += `\nAnalyze data to identify content gaps in our knowledge base. What topics or questions are users asking about that might not be well covered?`;
         break;
       case 'user-behavior':
-        prompt += `\nFocus on user behavior patterns. How are users interacting with the system? What types of questions are they asking, and at what times? Are there patterns in repeat queries? Provide insights on how users are utilizing the assistant and how their experience could be improved. Use proper markdown formatting with ## for headings - do NOT use hashtags (#) at the beginning of lines.`;
+        prompt += `\nFocus on user behavior patterns. How are users interacting with the system? What types of questions are they asking?`;
         break;
       case 'performance':
-        prompt += `\nAnalyze system performance metrics. Focus on response times, success rates, and any error patterns. Identify factors affecting performance and suggest optimization opportunities. Use proper markdown formatting with ## for headings - do NOT use hashtags (#) at the beginning of lines.`;
+        prompt += `\nAnalyze system performance metrics. Focus on response times, success rates, and any error patterns.`;
         break;
     }
 
-    console.log(`Sending request to Gemini API for ${type} insights`);
-    console.log(`API URL: ${GEMINI_API_URL}`);
+    console.log(`Sending request to Gemini 2.0 Pro API for ${type} insights`);
     
-    // Call Gemini API for analysis - with extensive error handling and logging
     try {
       const response = await fetch(`${GEMINI_API_URL}?key=${GEMINI_API_KEY}`, {
         method: 'POST',
@@ -154,7 +126,6 @@ serve(async (req) => {
       }
 
       const geminiData = await response.json();
-      console.log("Received response from Gemini API");
       
       if (!geminiData?.candidates?.[0]?.content?.parts?.[0]?.text) {
         console.error("Unexpected response format from Gemini API:", JSON.stringify(geminiData));
@@ -162,7 +133,6 @@ serve(async (req) => {
       }
       
       const insights = geminiData.candidates[0].content.parts[0].text;
-      console.log(`Generated insights: ${insights.length} characters`);
 
       return new Response(JSON.stringify({
         insights,
@@ -172,22 +142,18 @@ serve(async (req) => {
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
       });
     } catch (geminiError) {
-      console.error("Error calling Gemini API:", geminiError);
+      console.error("Error calling Gemini 2.0 Pro API:", geminiError);
       
-      // Provide helpful fallback insights when the API fails
+      // Provide fallback insights
       const fallbackInsights = `
 ## Analytics Insights (Fallback Response)
 
 **Note**: We're currently experiencing issues with our AI insights generator. Here's a basic summary of your data:
 
-### Data Summary
 - Time Period: ${timeRange === '7d' ? 'Past 7 days' : timeRange === '30d' ? 'Past 30 days' : 'All time'}
 - Total Queries: ${totalQueries}
 - Success Rate: ${successRate}%
 - Average Response Time: ${Math.round(avgResponseTime)}ms
-
-### Top Queries
-${topQueries.slice(0, 5).map(q => `- ${q}`).join('\n')}
 
 Please try again later for AI-generated insights.
       `;
