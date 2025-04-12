@@ -103,3 +103,29 @@ export function dbMessageToUiMessage(dbMessage: DbMessage): MessageData {
   
   return messageData;
 }
+
+/**
+ * Check if the database schema supports the metadata column
+ * This allows for graceful fallback if the messages table schema doesn't have metadata
+ */
+export async function checkMetadataColumnExists(supabaseClient: any): Promise<boolean> {
+  try {
+    // Try to select a record with explicit metadata field
+    const { error } = await supabaseClient
+      .from('messages')
+      .select('metadata')
+      .limit(1);
+    
+    // If there's an error about metadata not existing in the column selection
+    if (error && error.message && error.message.includes('metadata')) {
+      console.log('Metadata column does not exist:', error.message);
+      return false;
+    }
+    
+    console.log('Metadata column exists in messages table');
+    return true;
+  } catch (e) {
+    console.error('Error checking metadata column:', e);
+    return false;
+  }
+}
