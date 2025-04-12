@@ -15,10 +15,14 @@ export function useConversation({ userId }: UseConversationProps) {
   const { toast } = useToast();
 
   const createNewConversation = async (initialMessage?: string): Promise<string | null> => {
-    if (!userId) return null;
+    if (!userId) {
+      console.log("Cannot create conversation: No user ID provided");
+      return null;
+    }
     
     try {
       const title = initialMessage ? initialMessage.substring(0, 40) : 'New Chat';
+      console.log(`Creating new conversation for user: ${userId} with title: ${title}`);
       
       const { data, error } = await supabase
         .from('conversations')
@@ -30,7 +34,10 @@ export function useConversation({ userId }: UseConversationProps) {
         .select()
         .single();
         
-      if (error) throw error;
+      if (error) {
+        console.error('Error creating conversation:', error);
+        throw error;
+      }
       
       if (data) {
         const newConversationId = data.id;
@@ -58,18 +65,29 @@ export function useConversation({ userId }: UseConversationProps) {
     responseMessage: { content: string, source: 'gemini' | 'system' | 'web' | 'fallback' | 'transcript', citation?: string[] }
   ) => {
     try {
-      console.log(`Saving messages for conversation: ${conversationId}`);
+      if (!userId) {
+        console.error('Cannot save messages: No user ID provided');
+        return false;
+      }
+      
+      console.log(`Saving messages for conversation: ${conversationId} for user: ${userId}`);
       
       // Use the utility function to prepare messages with proper metadata
       const messages = [
-        prepareMessageForDb(conversationId, userMessage, true),
-        prepareMessageForDb(
-          conversationId, 
-          responseMessage.content, 
-          false, 
-          responseMessage.source, 
-          responseMessage.citation
-        )
+        {
+          ...prepareMessageForDb(conversationId, userMessage, true),
+          user_id: userId
+        },
+        {
+          ...prepareMessageForDb(
+            conversationId, 
+            responseMessage.content, 
+            false, 
+            responseMessage.source, 
+            responseMessage.citation
+          ),
+          user_id: userId
+        }
       ];
       
       console.log('Inserting messages with data:', JSON.stringify(messages, null, 2));

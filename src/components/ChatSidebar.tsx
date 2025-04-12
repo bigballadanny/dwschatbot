@@ -56,7 +56,7 @@ const ChatSidebar: React.FC<ChatSidebarProps> = ({
     } else {
       setConversations([]);
     }
-  }, [user]);
+  }, [user, currentConversationId]); // Re-fetch when currentConversationId changes
 
   // Subscribe to real-time updates for conversations
   useEffect(() => {
@@ -83,6 +83,7 @@ const ChatSidebar: React.FC<ChatSidebarProps> = ({
   const fetchConversations = async () => {
     if (!user) return;
     try {
+      console.log('Fetching conversations for user:', user.id);
       const { data, error } = await supabase
         .from('conversations')
         .select('id, title, updated_at')

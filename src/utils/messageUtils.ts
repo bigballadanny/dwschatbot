@@ -157,18 +157,23 @@ export function generateConversationTitle(userMessage: string): string {
     return 'New Conversation';
   }
 
-  // Extract the first sentence or phrase
-  const firstSentence = userMessage.split(/[.!?]/).filter(s => s.trim().length > 0)[0] || '';
+  // Extract content and clean it up
+  const cleanedMessage = userMessage.trim();
   
-  // Limit to 40 characters and trim whitespace
-  let title = firstSentence.trim().substring(0, 40);
-  
-  // Add ellipsis if truncated
-  if (firstSentence.length > 40) {
-    title += '...';
+  // For very short messages, use the whole thing if under 25 chars
+  if (cleanedMessage.length <= 25) {
+    return cleanedMessage;
   }
   
-  return title || 'New Conversation';
+  // Try to find the first sentence or significant phrase
+  const firstSentence = cleanedMessage.split(/[.!?]/)[0];
+  
+  // If the first sentence is too long, truncate it
+  if (firstSentence.length > 25) {
+    return `${firstSentence.substring(0, 25).trim()}...`;
+  }
+  
+  return firstSentence.trim() || 'New Conversation';
 }
 
 /**
@@ -184,15 +189,20 @@ export async function updateConversationTitle(conversationId: string, userMessag
 
   try {
     const title = generateConversationTitle(userMessage);
+    console.log(`Updating conversation ${conversationId} title to: ${title}`);
+    
     const { error } = await supabase
       .from('conversations')
-      .update({ title })
+      .update({ 
+        title,
+        updated_at: new Date().toISOString() // Ensure timestamp is updated for proper sorting
+      })
       .eq('id', conversationId);
     
     if (error) {
       console.error('Error updating conversation title:', error);
     } else {
-      console.log(`Updated conversation ${conversationId} title to: ${title}`);
+      console.log(`Successfully updated conversation ${conversationId} title to: ${title}`);
     }
   } catch (err) {
     console.error('Failed to update conversation title:', err);

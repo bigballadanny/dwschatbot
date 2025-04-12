@@ -1,9 +1,11 @@
+
 import React from 'react';
 import { Link } from 'react-router-dom';
 import { MessageSquare, Trash2 } from 'lucide-react';
 import { Button } from "@/components/ui/button";
 import { cn } from '@/lib/utils';
 import { format, isToday } from 'date-fns';
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 
 interface ConversationItemProps {
   id: string;
@@ -22,20 +24,34 @@ const ConversationItem = ({ id, title, isActive, timestamp, onDelete }: Conversa
       : format(timestamp, 'MMM d')
   ) : '';
 
+  // Truncate long titles
+  const displayTitle = title.length > 25 ? `${title.substring(0, 25)}...` : title;
+
   return (
     <div className="group/item flex items-center justify-between gap-2 w-full rounded-md p-2 text-sm hover:bg-accent transition-colors">
-      <Link 
-        to={`/?conversation=${id}`}
-        className={cn(
-          "flex-1 flex items-center min-w-0 overflow-hidden",
-          isActive && "font-medium"
-        )}
-      >
-        <MessageSquare className="mr-2 h-4 w-4 flex-shrink-0" />
-        <span className="truncate max-w-[220px]">
-          {title || 'New Conversation'}
-        </span>
-      </Link>
+      <TooltipProvider delayDuration={300}>
+        <Tooltip>
+          <TooltipTrigger asChild>
+            <Link 
+              to={`/?conversation=${id}`}
+              className={cn(
+                "flex-1 flex items-center min-w-0 overflow-hidden",
+                isActive && "font-medium"
+              )}
+            >
+              <MessageSquare className="mr-2 h-4 w-4 flex-shrink-0" />
+              <span className="truncate max-w-[220px]">
+                {displayTitle || 'New Conversation'}
+              </span>
+            </Link>
+          </TooltipTrigger>
+          {title.length > 25 && (
+            <TooltipContent side="right">
+              <p className="max-w-[300px] break-words">{title}</p>
+            </TooltipContent>
+          )}
+        </Tooltip>
+      </TooltipProvider>
       
       <Button
         variant="ghost"

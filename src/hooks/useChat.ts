@@ -1,4 +1,3 @@
-
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useToast } from '@/components/ui/use-toast';
@@ -26,7 +25,6 @@ export function useChat({
   
   const [isAudioEnabled, setIsAudioEnabled] = useState<boolean>(audioEnabled);
   
-  // Initialize child hooks
   const {
     messages,
     isLoading,
@@ -66,7 +64,6 @@ export function useChat({
     toggleOnlineSearch
   } = useSearchConfig();
 
-  // Load conversation messages when conversationId changes
   useEffect(() => {
     const loadConversation = async () => {
       if (conversationId && user) {
@@ -79,7 +76,6 @@ export function useChat({
         } else {
           console.log(`Successfully loaded conversation: ${conversationId}`);
           
-          // Set the active conversation ID when we've successfully loaded a conversation
           setConversationId(conversationId);
         }
       } else if (!user) {
@@ -93,7 +89,6 @@ export function useChat({
     loadConversation();
   }, [conversationId, user]);
 
-  // Monitor conversation deletion
   useEffect(() => {
     if (!user || !conversationId) return;
     
@@ -128,33 +123,30 @@ export function useChat({
 
     clearAudio();
 
-    // Create new conversation if needed
     if (!currentConvId) {
       currentConvId = await createNewConversation(trimmedMessage);
       if (!currentConvId) return;
       isFirstUserInteraction = true;
     }
 
-    console.log(`Sending message to conversation ${currentConvId}: ${trimmedMessage}`);
+    console.log(`Sending message to conversation ${currentConvId} for user ${user.id}: ${trimmedMessage}`);
 
-    // Add user message to UI
     addUserMessage(trimmedMessage);
     
     setIsLoading(true);
 
     try {
-      // Format messages for the API
       const apiMessages = formatMessagesForApi(trimmedMessage);
       console.log('API messages to send:', apiMessages);
 
-      // Send request to Supabase function
       const { data, error } = await supabase.functions.invoke('gemini-chat', {
         body: {
           query: trimmedMessage,
           messages: apiMessages,
           isVoiceInput: isVoiceInput,
           enableOnlineSearch: enableOnlineSearch,
-          conversationId: currentConvId
+          conversationId: currentConvId,
+          userId: user.id
         }
       });
       
@@ -164,15 +156,13 @@ export function useChat({
         throw new Error(error?.message || data?.error || 'Function returned empty response');
       }
 
-      // Process the response
       const responseMessage = addSystemMessage(
         data.content, 
         (data.source || 'gemini') as MessageSource, 
         data.citation
       );
 
-      // Save messages to database
-      console.log(`Saving messages to conversation: ${currentConvId}`);
+      console.log(`Saving messages to conversation: ${currentConvId} for user: ${user.id}`);
       const saveResult = await saveMessages(
         currentConvId, 
         user.id, 
@@ -193,13 +183,11 @@ export function useChat({
         });
       }
 
-      // Handle audio if enabled
       if (isAudioEnabled && data.audioContent) {
         playAudio(data.audioContent);
       } else if (isAudioEnabled && data.content && !data.audioContent) {
-        // If no audio content is provided, use text-to-speech
         try {
-          const processedText = data.content.substring(0, 500); // Limit TTS to 500 chars
+          const processedText = data.content.substring(0, 500);
           const { data: ttsData } = await supabase.functions.invoke('text-to-speech', {
             body: { text: processedText }
           });
@@ -212,13 +200,13 @@ export function useChat({
         }
       }
 
-      // Update conversation title if first interaction
       if (isFirstUserInteraction) {
         const generatedTitle = generateConversationTitle(trimmedMessage);
+        console.log(`Setting initial conversation title: "${generatedTitle}"`);
         await updateConversationTitle(currentConvId, generatedTitle);
         setHasInteracted(true);
       } else {
-        // Just update the timestamp to move the conversation to the top
+        console.log(`Updating conversation timestamp for ordering: ${currentConvId}`);
         await updateConversationTimestamp(currentConvId);
       }
     } catch (error) {
@@ -247,7 +235,6 @@ export function useChat({
     });
   };
 
-  // Handle file upload
   const handleFileUpload = async (files: FileList) => {
     if (!files || files.length === 0) return;
     
@@ -271,7 +258,7 @@ export function useChat({
       return;
     }
     
-    if (file.size > 10 * 1024 * 1024) { // 10MB limit
+    if (file.size > 10 * 1024 * 1024) {
       toast({
         title: "File Too Large",
         description: "Please upload a file smaller than 10MB.",
@@ -280,8 +267,6 @@ export function useChat({
       return;
     }
     
-    // For now, just create a message about the file
-    // In a real implementation, this would upload and process the file
     const filePrompt = `I've uploaded a document titled "${file.name}". Please analyze this document and provide insights.`;
     await sendMessage(filePrompt, false);
   };
