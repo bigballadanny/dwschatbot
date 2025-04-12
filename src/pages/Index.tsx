@@ -2,7 +2,6 @@ import React, { useEffect, useState } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
 import Header from '@/components/Header';
 import WelcomeScreen from '@/components/WelcomeScreen';
-import PopularQuestions from '@/components/PopularQuestions';
 import { SidebarInset } from "@/components/ui/sidebar";
 import { useToast } from "@/components/ui/use-toast";
 import { useAuth } from '@/context/AuthContext';
@@ -44,7 +43,6 @@ const Index = () => {
     audioEnabled
   });
 
-  // Load conversations for the user
   useEffect(() => {
     const loadUserConversations = async () => {
       if (!user) {
@@ -64,7 +62,6 @@ const Index = () => {
 
         if (conversationsData) {
           console.log(`Found ${conversationsData.length} conversations for user ${user.id}`);
-          // Format conversations for display
           const formattedConversations: Conversation[] = conversationsData.map(conv => ({
             id: conv.id,
             title: conv.title || 'Untitled Conversation',
@@ -99,13 +96,12 @@ const Index = () => {
     if (urlConversationId) {
       console.log(`Setting conversation ID from URL: ${urlConversationId}`);
       setConversationId(urlConversationId);
-      setShowWelcome(false); // Ensure we don't show welcome screen when a conversation is selected
+      setShowWelcome(false);
     } else {
       setConversationId(null);
     }
 
     if (question && user) {
-      // Wait a moment to allow the UI to render before sending the question
       const timer = setTimeout(() => {
         handleSendMessage(question, false);
         setShowWelcome(false);
@@ -127,14 +123,11 @@ const Index = () => {
     
     setShowWelcome(false);
     
-    // Always create a new conversation when asking a question from popular questions
     const newConversationId = await createNewConversation();
     if (newConversationId) {
-      // Update URL and state
       setConversationId(newConversationId);
       navigate(`/?conversation=${newConversationId}`, { replace: true });
       
-      // Send the message after a short delay to ensure proper setup
       setTimeout(() => {
         handleSendMessage(question, false);
       }, 300);
@@ -158,9 +151,7 @@ const Index = () => {
 
   const handleSelectConversation = (selectedConversationId: string) => {
     console.log("Selected conversation:", selectedConversationId);
-    // Update URL with the selected conversation ID
     navigate(`/?conversation=${selectedConversationId}`, { replace: true });
-    // This will trigger the useEffect that watches location.search
   };
 
   return (
@@ -172,7 +163,6 @@ const Index = () => {
               onStartChat={handleCreateNewConversation} 
               onSelectQuestion={handleAskQuestion} 
             />
-            <PopularQuestions onSelectQuestion={handleAskQuestion} className="mt-8" />
           </div>
         </div>
       ) : (

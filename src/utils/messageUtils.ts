@@ -1,7 +1,8 @@
-
 /**
  * Message type definitions and utility functions
  */
+
+import { supabase } from '@/integrations/supabase/client';
 
 /**
  * Simple message source type - used throughout the application
@@ -151,6 +152,10 @@ export function prepareMessageForDb(
  * @returns A suitable title for the conversation
  */
 export function generateConversationTitle(userMessage: string): string {
+  if (!userMessage || typeof userMessage !== 'string') {
+    return 'New Conversation';
+  }
+
   // Extract the first sentence or phrase
   const firstSentence = userMessage.split(/[.!?]/).filter(s => s.trim().length > 0)[0] || '';
   
@@ -163,4 +168,32 @@ export function generateConversationTitle(userMessage: string): string {
   }
   
   return title || 'New Conversation';
+}
+
+/**
+ * Updates conversation title based on the user's first message
+ * @param conversationId ID of the conversation to update
+ * @param userMessage First user message in the conversation
+ */
+export async function updateConversationTitle(conversationId: string, userMessage: string) {
+  if (!conversationId || !userMessage) {
+    console.log('Missing conversation ID or user message for title update');
+    return;
+  }
+
+  try {
+    const title = generateConversationTitle(userMessage);
+    const { error } = await supabase
+      .from('conversations')
+      .update({ title })
+      .eq('id', conversationId);
+    
+    if (error) {
+      console.error('Error updating conversation title:', error);
+    } else {
+      console.log(`Updated conversation ${conversationId} title to: ${title}`);
+    }
+  } catch (err) {
+    console.error('Failed to update conversation title:', err);
+  }
 }

@@ -1,4 +1,3 @@
-
 import React from 'react';
 import { Link } from 'react-router-dom';
 import { MessageSquare, Trash2 } from 'lucide-react';
@@ -15,7 +14,8 @@ interface ConversationItemProps {
 }
 
 const ConversationItem = ({ id, title, isActive, timestamp, onDelete }: ConversationItemProps) => {
-  // Format the timestamp
+  // We'll keep formatting the timestamp in the code for analytics/debugging purposes
+  // but we won't display it in the UI anymore
   const formattedTime = timestamp ? (
     isToday(timestamp) 
       ? format(timestamp, 'h:mm a') 
@@ -32,16 +32,10 @@ const ConversationItem = ({ id, title, isActive, timestamp, onDelete }: Conversa
         )}
       >
         <MessageSquare className="mr-2 h-4 w-4 flex-shrink-0" />
-        <span className="truncate max-w-[150px]">
+        <span className="truncate max-w-[220px]">
           {title || 'New Conversation'}
         </span>
       </Link>
-      
-      {timestamp && (
-        <span className="text-xs text-muted-foreground mr-1 hidden group-hover/item:block">
-          {formattedTime}
-        </span>
-      )}
       
       <Button
         variant="ghost"
