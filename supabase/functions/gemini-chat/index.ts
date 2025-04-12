@@ -68,6 +68,10 @@ serve(async (req) => {
       });
     }
 
+    // Log API key existence (not the actual key)
+    console.log("GEMINI_API_KEY exists:", !!GEMINI_API_KEY);
+    console.log("GEMINI_API_KEY length:", GEMINI_API_KEY ? GEMINI_API_KEY.length : 0);
+
     const { query, messages, context, instructions, sourceType, enableOnlineSearch } = await req.json();
     
     // Format messages for the Gemini API
@@ -182,9 +186,12 @@ The person asking this question is likely a business owner or entrepreneur inter
     console.log("Source type identified:", sourceType || "None specified");
     console.log("Context length:", context ? context.length : 0);
     console.log("Online search mode:", enableOnlineSearch ? "enabled" : "disabled");
+    console.log("Number of formatted messages:", formattedMessages.length);
 
     try {
       // Call Gemini API
+      console.log("Calling Gemini API with URL:", GEMINI_API_URL);
+      
       const response = await fetch(`${GEMINI_API_URL}?key=${GEMINI_API_KEY}`, {
         method: 'POST',
         headers: {
@@ -201,11 +208,13 @@ The person asking this question is likely a business owner or entrepreneur inter
         }),
       });
 
+      console.log("Gemini API response status:", response.status);
+      
       // Handle API response
       const data = await response.json();
       
       if (!response.ok) {
-        console.error('Gemini API error:', data);
+        console.error('Gemini API error:', JSON.stringify(data));
         
         // Check if it's a quota exceeded error
         if (data.error?.message?.includes("quota") || 
@@ -248,7 +257,16 @@ Once enabled, your chat assistant will work properly.`;
           });
         }
         
-        throw new Error(`Gemini API error: ${data.error?.message || 'Unknown error'}`);
+        // Return the actual error for better debugging
+        return new Response(JSON.stringify({ 
+          content: `Error from Gemini API: ${data.error?.message || 'Unknown error'}`,
+          source: 'system',
+          error: true,
+          details: data.error
+        }), {
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+          status: 500
+        });
       }
       
       // Extract the generated text
@@ -256,6 +274,7 @@ Once enabled, your chat assistant will work properly.`;
         "I'm sorry, I couldn't generate a response at this time.";
         
       console.log("Generated response size:", generatedText.length);
+      console.log("First few characters:", generatedText.substring(0, 50));
 
       // Return the response
       return new Response(JSON.stringify({ 
@@ -266,18 +285,22 @@ Once enabled, your chat assistant will work properly.`;
       });
     } catch (apiError) {
       console.error('API error:', apiError);
+      console.error('API error details:', apiError.message);
       
       // Return the fallback response if there's an API error
       return new Response(JSON.stringify({ 
         content: FALLBACK_RESPONSE,
         source: 'fallback',
-        isQuotaExceeded: true
+        isApiError: true,
+        errorMessage: apiError.message
       }), {
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
       });
     }
   } catch (error) {
     console.error('Error in gemini-chat function:', error);
+    console.error('Error details:', error.message);
+    
     return new Response(JSON.stringify({ 
       error: error.message,
       source: 'system',

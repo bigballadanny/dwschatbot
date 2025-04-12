@@ -28,6 +28,8 @@ const Index = () => {
     isPlaying,
     enableOnlineSearch,
     hasInteracted,
+    retryCount,
+    lastError,
     sendMessage,
     createNewConversation,
     resetChat,
@@ -151,6 +153,8 @@ const Index = () => {
           enableOnlineSearch={enableOnlineSearch}
           conversationId={conversationId}
           user={user}
+          retryCount={retryCount}
+          lastError={lastError}
           onSendMessage={handleSendMessage}
           onToggleAudio={toggleAudio}
           onToggleOnlineSearch={toggleOnlineSearch}

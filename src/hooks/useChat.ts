@@ -26,6 +26,8 @@ export function useChat({
   
   const [isAudioEnabled, setIsAudioEnabled] = useState<boolean>(audioEnabled);
   const [actualConversationId, setActualConversationId] = useState<string | null>(conversationId);
+  const [retryCount, setRetryCount] = useState<number>(0);
+  const [lastError, setLastError] = useState<string | null>(null);
   
   // Initialize child hooks
   const {
@@ -107,6 +109,8 @@ export function useChat({
   const resetChat = () => {
     resetMessages();
     clearAudio();
+    setRetryCount(0);
+    setLastError(null);
   };
 
   const sendMessage = async (message: string, isVoiceInput: boolean = false): Promise<void> => {
@@ -122,6 +126,7 @@ export function useChat({
     let isFirstUserInteraction = !hasInteracted;
 
     clearAudio();
+    setLastError(null);
 
     // Create new conversation if needed
     if (!currentConvId) {
@@ -147,7 +152,7 @@ export function useChat({
       // Format messages for the API
       const apiMessages = formatMessagesForApi(trimmedMessage);
 
-      console.log("Sending request to Supabase function");
+      console.log("Sending request to Supabase function with message count:", apiMessages.length);
       // Send request to Supabase function
       const { data, error } = await supabase.functions.invoke('gemini-chat', {
         body: {
@@ -159,17 +164,36 @@ export function useChat({
         }
       });
 
-      if (error || !data?.content) {
-        throw new Error(error?.message || data?.error || 'Function returned empty response');
+      console.log("Response received:", data ? "Yes" : "No", "Error:", error ? "Yes" : "No");
+      
+      if (error) {
+        throw new Error(error.message || 'Function returned an error');
+      }
+
+      if (!data) {
+        throw new Error('Function returned empty response');
+      }
+
+      // Check if there's an error in the data
+      if (data.error) {
+        console.error("Error in response:", data.error);
+        throw new Error(data.error || 'Error in AI response');
+      }
+
+      if (!data.content) {
+        throw new Error('Function returned response with no content');
       }
 
       // Process the response
-      console.log("Processing AI response");
+      console.log("Processing AI response, source:", data.source);
       const responseMessage = addSystemMessage(
         data.content, 
         (data.source || 'gemini') as MessageSource, 
         data.citation
       );
+
+      // Reset retry count on successful response
+      setRetryCount(0);
 
       // Save messages to database
       console.log("Saving messages to database for conversation:", currentConvId);
@@ -217,10 +241,23 @@ export function useChat({
       }
     } catch (error) {
       console.error('Error in sendMessage:', error);
-      addErrorMessage(error instanceof Error ? error.message : 'Request failed.');
+      const errorMessage = error instanceof Error ? error.message : 'Request failed.';
+      setLastError(errorMessage);
+      
+      // Increment retry count for this error
+      const newRetryCount = retryCount + 1;
+      setRetryCount(newRetryCount);
+      
+      // Add appropriate error message
+      if (newRetryCount >= 3) {
+        addErrorMessage("Multiple attempts to reach the AI service have failed. This might be due to the API key being invalid or the service having connection issues. Please try again later or contact support.");
+      } else {
+        addErrorMessage(errorMessage);
+      }
+      
       toast({ 
         title: "Error Processing Message", 
-        description: error instanceof Error ? error.message : "Please try again.", 
+        description: errorMessage, 
         variant: "destructive" 
       });
     } finally {
@@ -287,6 +324,8 @@ export function useChat({
     isPlaying,
     enableOnlineSearch,
     hasInteracted,
+    retryCount,
+    lastError,
     sendMessage,
     createNewConversation,
     resetChat,

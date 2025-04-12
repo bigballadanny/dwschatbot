@@ -6,3 +6,7 @@ verify_jwt = false
 
 [functions.analytics-insights]
 verify_jwt = true
+
+[functions.text-to-speech]
+verify_jwt = false
+
