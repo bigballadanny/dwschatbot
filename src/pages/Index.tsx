@@ -13,7 +13,7 @@ import { Conversation } from '@/components/ConversationHistory';
 
 const Index = () => {
   const { user } = useAuth();
-  const [showWelcome, setShowWelcome] = useState(true);
+  const [showWelcomeContent, setShowWelcomeContent] = useState(true);
   const [audioEnabled, setAudioEnabled] = useState(false);
   const [conversationId, setConversationId] = useState<string | null>(null);
   const [conversations, setConversations] = useState<Conversation[]>([]);
@@ -82,6 +82,26 @@ const Index = () => {
     };
 
     loadUserConversations();
+    
+    // Set up real-time listener for conversation changes
+    if (user) {
+      const channel = supabase
+        .channel('conversation-changes')
+        .on('postgres_changes', { 
+          event: '*', 
+          schema: 'public', 
+          table: 'conversations',
+          filter: `user_id=eq.${user.id}`
+        }, (payload) => {
+          console.log('Conversation change detected:', payload);
+          loadUserConversations();
+        })
+        .subscribe();
+        
+      return () => {
+        supabase.removeChannel(channel);
+      };
+    }
   }, [user, conversationId]);
 
   useEffect(() => {
@@ -91,13 +111,12 @@ const Index = () => {
 
     console.log(`URL parameters: conversation=${urlConversationId}, q=${question}`);
     
-    const shouldShowWelcome = !user || (!urlConversationId && !question);
-    setShowWelcome(shouldShowWelcome);
+    // We always want to show the chat input, even on welcome screen
+    setShowWelcomeContent(!urlConversationId && !question);
 
     if (urlConversationId) {
       console.log(`Setting conversation ID from URL: ${urlConversationId}`);
       setConversationId(urlConversationId);
-      setShowWelcome(false);
     } else {
       setConversationId(null);
     }
@@ -105,7 +124,6 @@ const Index = () => {
     if (question && user) {
       const timer = setTimeout(() => {
         handleSendMessage(question, false);
-        setShowWelcome(false);
       }, 800);
       
       return () => clearTimeout(timer);
@@ -122,7 +140,7 @@ const Index = () => {
       return;
     }
     
-    setShowWelcome(false);
+    setShowWelcomeContent(false);
     
     const newConversationId = await createNewConversation();
     if (newConversationId) {
@@ -146,8 +164,11 @@ const Index = () => {
       return;
     }
     
-    await createNewConversation();
-    setShowWelcome(false);
+    const newConversationId = await createNewConversation();
+    if (newConversationId) {
+      navigate(`/?conversation=${newConversationId}`, { replace: true });
+    }
+    setShowWelcomeContent(false);
   };
 
   const handleSelectConversation = (selectedConversationId: string) => {
@@ -157,33 +178,36 @@ const Index = () => {
 
   return (
     <div className="flex flex-col h-full bg-muted/30">
-      {showWelcome ? (
-        <div className="flex-1 overflow-y-auto">
+      <div className="flex-1 overflow-y-auto">
+        {showWelcomeContent ? (
           <div className="container mx-auto px-4 py-8 max-w-3xl">
             <WelcomeScreen 
               onStartChat={handleCreateNewConversation} 
-              onSelectQuestion={handleAskQuestion} 
+              onSelectQuestion={handleAskQuestion}
+              showInputBar={true}
+              onSendMessage={handleSendMessage}
+              isLoading={isLoading}
             />
           </div>
-        </div>
-      ) : (
-        <ChatContainer
-          messages={messages}
-          isLoading={isLoading}
-          audioEnabled={isAudioEnabled}
-          currentAudioSrc={audioSrc}
-          isPlaying={isPlaying}
-          enableOnlineSearch={enableOnlineSearch}
-          conversationId={conversationId}
-          user={user}
-          onSendMessage={handleSendMessage}
-          onToggleAudio={toggleAudio}
-          onToggleOnlineSearch={toggleOnlineSearch}
-          onFileUpload={handleFileUpload}
-          onAudioStop={stopAudio}
-          onTogglePlayback={togglePlayback}
-        />
-      )}
+        ) : (
+          <ChatContainer
+            messages={messages}
+            isLoading={isLoading}
+            audioEnabled={isAudioEnabled}
+            currentAudioSrc={audioSrc}
+            isPlaying={isPlaying}
+            enableOnlineSearch={enableOnlineSearch}
+            conversationId={conversationId}
+            user={user}
+            onSendMessage={handleSendMessage}
+            onToggleAudio={toggleAudio}
+            onToggleOnlineSearch={toggleOnlineSearch}
+            onFileUpload={handleFileUpload}
+            onAudioStop={stopAudio}
+            onTogglePlayback={togglePlayback}
+          />
+        )}
+      </div>
     </div>
   );
 };

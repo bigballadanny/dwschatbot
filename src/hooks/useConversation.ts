@@ -21,7 +21,13 @@ export function useConversation({ userId }: UseConversationProps) {
     }
     
     try {
-      const title = initialMessage ? initialMessage.substring(0, 40) : 'New Chat';
+      // Generate a shorter title or use default
+      const title = initialMessage 
+        ? (initialMessage.length > 30 
+           ? initialMessage.substring(0, 30) + '...' 
+           : initialMessage)
+        : 'New Chat';
+        
       console.log(`Creating new conversation for user: ${userId} with title: ${title}`);
       
       const { data, error } = await supabase
@@ -128,10 +134,15 @@ export function useConversation({ userId }: UseConversationProps) {
     if (!title.trim() || !id) return false;
     
     try {
+      // Truncate title to maximum 40 characters for cleaner display
+      const truncatedTitle = title.length > 40 
+        ? `${title.substring(0, 40)}...`
+        : title;
+        
       const { error } = await supabase
         .from('conversations')
         .update({ 
-          title: title.substring(0, 40),
+          title: truncatedTitle,
           updated_at: new Date().toISOString() // Update the timestamp when title changes
         })
         .eq('id', id);
@@ -144,7 +155,7 @@ export function useConversation({ userId }: UseConversationProps) {
     }
   };
 
-  // New helper method to update the conversation timestamp
+  // Helper method to update the conversation timestamp
   const updateConversationTimestamp = async (id: string) => {
     try {
       const { error } = await supabase
