@@ -33,7 +33,6 @@ export function useConversation({ userId }: UseConversationProps) {
       if (data) {
         const newConversationId = data.id;
         setConversationId(newConversationId);
-        navigate(`/?conversation=${newConversationId}`, { replace: true });
         return newConversationId;
       } else {
         throw new Error("Conversation creation returned no data.");
@@ -55,23 +54,49 @@ export function useConversation({ userId }: UseConversationProps) {
     responseMessage: { content: string, source: 'gemini' | 'system', citation?: string[] }
   ) => {
     try {
-      // Structure follows database schema - removed user_id from the messages and added metadata
-      await supabase.from('messages').insert([
-        { 
-          conversation_id: conversationId, 
-          content: userMessage, 
-          is_user: true 
-        },
-        {
-          conversation_id: conversationId,
-          content: responseMessage.content, 
-          is_user: false,
-          metadata: { 
-            source: responseMessage.source, 
-            citation: responseMessage.citation?.[0] 
+      // Check if messages table has metadata column
+      const { error: schemaError } = await supabase
+        .from('messages')
+        .select('id')
+        .limit(1);
+        
+      // If there's an error about metadata not existing, we need to use a different approach
+      const hasMetadataColumn = !schemaError || !schemaError.message.includes('metadata');
+      
+      if (hasMetadataColumn) {
+        // Use metadata column if it exists
+        await supabase.from('messages').insert([
+          { 
+            conversation_id: conversationId, 
+            content: userMessage, 
+            is_user: true 
+          },
+          {
+            conversation_id: conversationId,
+            content: responseMessage.content, 
+            is_user: false,
+            metadata: { 
+              source: responseMessage.source, 
+              citation: responseMessage.citation?.[0] 
+            }
           }
-        }
-      ]);
+        ]);
+      } else {
+        // Fallback: Just save the content without metadata
+        console.warn('Metadata column not available, saving without source information');
+        await supabase.from('messages').insert([
+          { 
+            conversation_id: conversationId, 
+            content: userMessage, 
+            is_user: true 
+          },
+          {
+            conversation_id: conversationId,
+            content: responseMessage.content, 
+            is_user: false
+          }
+        ]);
+      }
       
       return true;
     } catch (error) {

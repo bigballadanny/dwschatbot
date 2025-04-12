@@ -88,6 +88,7 @@ export function convertMessagesToApi(
 /**
  * Convert a database message to UI message format
  * This helps transform data from Supabase to the format used in the UI
+ * Enhanced to handle cases where metadata might not exist
  */
 export function dbMessageToUiMessage(dbMessage: DbMessage): MessageData {
   // Use explicit type for return value to ensure type safety

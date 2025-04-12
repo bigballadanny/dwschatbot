@@ -37,6 +37,8 @@ export function useMessages({ userId, conversationId }: UseMessagesProps) {
     setIsLoading(true);
     
     try {
+      console.log(`Fetching messages for conversation: ${convId}`);
+      
       // Fetch messages from the database - IMPORTANT: removed user_id filter since this column doesn't exist
       const { data, error } = await supabase
         .from('messages')
@@ -44,9 +46,14 @@ export function useMessages({ userId, conversationId }: UseMessagesProps) {
         .eq('conversation_id', convId)
         .order('created_at', { ascending: true });
         
-      if (error) throw error;
+      if (error) {
+        console.error('Error fetching messages:', error);
+        throw error;
+      }
       
       if (data && data.length > 0) {
+        console.log(`Found ${data.length} messages for conversation ${convId}`);
+        
         // Transform database messages to UI message format using the utility function
         // Cast data to DbMessage[] to avoid type instantiation issues
         const dbMessages = data as DbMessage[];
@@ -56,15 +63,22 @@ export function useMessages({ userId, conversationId }: UseMessagesProps) {
         setHasInteracted(true);
         return true;
       } else {
+        console.log(`No messages found for conversation ${convId}, checking if conversation exists`);
+        
         // Check if the conversation exists but has no messages
-        const { data: convoData } = await supabase
+        const { data: convoData, error: convoError } = await supabase
           .from('conversations')
           .select('id')
           .eq('id', convId)
           .eq('user_id', uid)
           .maybeSingle();
           
+        if (convoError) {
+          console.error('Error checking conversation:', convoError);
+        }
+          
         if (convoData) {
+          console.log(`Conversation ${convId} exists but has no messages`);
           // Initialize with empty state
           setMessages([{
             content: "Ask me anything...", 
@@ -73,8 +87,10 @@ export function useMessages({ userId, conversationId }: UseMessagesProps) {
           }]);
           setHasInteracted(false);
           return true;
-        } 
-        return false;
+        } else {
+          console.log(`Conversation ${convId} not found or not owned by user ${uid}`);
+          return false;
+        }
       }
     } catch (error) {
       console.error('Error loading conversation messages:', error);

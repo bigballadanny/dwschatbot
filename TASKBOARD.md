@@ -8,7 +8,7 @@ This file tracks our current tasks, priorities, and ongoing work. Completed task
 ### Chat Function Fixes 🔧
 - [x] Fix issue with chats not being saved when opening a new conversation
 - [x] Ensure consistent conversation history persistence
-- [ ] Debug conversation ID tracking between sessions
+- [x] Debug conversation ID tracking between sessions
 - [ ] Test proper loading of message history
 
 ### UI Improvements ✨
@@ -32,6 +32,7 @@ This file tracks our current tasks, priorities, and ongoing work. Completed task
 - [ ] Optimize performance for large datasets
 
 ## Quick Wins 🎯
+- [x] Fix message persistence bugs
 - [ ] Optimize loading states for better user experience
 - [ ] Improve error messaging across application
 - [ ] Add keyboard shortcuts for power users

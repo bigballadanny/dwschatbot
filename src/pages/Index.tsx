@@ -42,6 +42,7 @@ const Index = () => {
     audioEnabled
   });
 
+  // Handle URL parameters and initial state setup
   useEffect(() => {
     const params = new URLSearchParams(location.search);
     const urlConversationId = params.get('conversation');
@@ -70,10 +71,12 @@ const Index = () => {
     }
   }, [location.search, user]);
 
+  // Sync audio settings with useChat hook
   useEffect(() => {
     setAudioEnabled(isAudioEnabled);
   }, [isAudioEnabled]);
 
+  // Handle asking a question from the popular questions component
   const handleAskQuestion = async (question: string) => {
     if (!user) {
       toast({ title: "Please sign in to start chatting", variant: "default" });
@@ -96,10 +99,12 @@ const Index = () => {
     }
   };
 
+  // Handle sending a message to the chat
   const handleSendMessage = async (message: string, isVoiceInput: boolean = false) => {
     await sendMessage(message, isVoiceInput);
   };
 
+  // Handle creating a new conversation
   const handleCreateNewConversation = async () => {
     if (!user) {
       toast({ title: "Please sign in to create a new chat"});
