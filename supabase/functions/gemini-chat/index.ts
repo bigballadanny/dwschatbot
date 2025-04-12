@@ -2,8 +2,8 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 
 const GEMINI_API_KEY = Deno.env.get('GEMINI_API_KEY');
-// Updated to use Gemini 2.0 API
-const GEMINI_API_URL = "https://generativelanguage.googleapis.com/v1/models/gemini-2.0-pro:generateContent";
+// Updated to use Gemini 2.0 Flash API (beta endpoint)
+const GEMINI_API_URL = "https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent";
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -127,7 +127,7 @@ serve(async (req) => {
       }
     }
 
-    // Add business owner persona instructions - FIX: Adding proper string concatenation here
+    // Add business owner persona instructions - Using string concatenation
     sourceSpecificInstructions += "\n\nThe person asking this question is likely a business owner or entrepreneur interested in acquiring businesses. They're looking for practical, actionable advice they can implement in their acquisition journey. Focus on risk mitigation, funding strategies, seller psychology, and concrete steps they can take.";
 
     // Add online search specific instructions if enabled
@@ -190,7 +190,13 @@ serve(async (req) => {
       // Call Gemini API
       console.log("Calling Gemini API with URL:", GEMINI_API_URL);
       
-      const response = await fetch(`${GEMINI_API_URL}?key=${GEMINI_API_KEY}`, {
+      // Extract API key from environment
+      const apiKey = Deno.env.get('GEMINI_API_KEY');
+      
+      // Use the constructed URL with the API key
+      const apiUrl = GEMINI_API_URL.replace('GEMINI_API_KEY', apiKey || '');
+      
+      const response = await fetch(apiUrl, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
