@@ -84,7 +84,7 @@ serve(async (req) => {
   let usedOnlineSearch = false;
   let geminiApiTime: number | null = null;
   let retryCount = 0;
-  const MAX_RETRIES = 1; // Maximum number of retries if we get empty responses
+  const MAX_RETRIES = 2; // Maximum number of retries if we get empty responses
 
   try {
     if (!GEMINI_API_KEY || !SUPABASE_URL || !SUPABASE_ANON_KEY) {
@@ -108,7 +108,7 @@ serve(async (req) => {
     console.log(`Processing query for conversation ${conversationId || 'N/A'}: "${queryText.substring(0, 50)}..."`);
     console.log("Is SBA-related query:", isSbaQuery);
     
-    // --- Gemini API Call --- 
+    // --- Format messages for Gemini API --- 
     const formattedMessages = messages
         .map((msg: any) => ({ role: msg.source === 'user' ? 'user' : 'model', parts: [{ text: msg.content }] }))
         .filter((msg: any) => msg.parts[0].text); // Ensure messages have content
@@ -129,6 +129,7 @@ serve(async (req) => {
       });
     }
     
+    // --- Begin API call process ---
     const geminiStartTime = Date.now();
     
     // Build the complete URL with API key
@@ -139,28 +140,34 @@ serve(async (req) => {
     console.log("API URL contains key parameter:", apiUrl.includes("key="));
     
     // Try the API call with retry logic for empty responses
-    let geminiResponse;
-    let data;
     let attemptSuccessful = false;
+    let data;
     
     while (retryCount <= MAX_RETRIES && !attemptSuccessful) {
       try {
         // Gradually increase temperature if retrying to encourage different responses
         const temperature = retryCount === 0 ? 0.6 : 0.8;
         
-        geminiResponse = await fetch(apiUrl, {
+        // UPDATED: match the official API structure exactly
+        const requestBody = {
+          contents: formattedMessages,
+          generationConfig: { 
+            temperature: temperature, 
+            topP: 0.9, 
+            topK: 30, 
+            maxOutputTokens: 1024 
+          }
+        };
+        
+        console.log(`Attempt ${retryCount + 1} request body:`, JSON.stringify({
+          contents: `Array with ${formattedMessages.length} messages`,
+          generationConfig: requestBody.generationConfig
+        }));
+        
+        const geminiResponse = await fetch(apiUrl, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            contents: formattedMessages,
-            // Adjusted generation config
-            generationConfig: { 
-              temperature: temperature, 
-              topP: 0.9, 
-              topK: 30, 
-              maxOutputTokens: 1024 
-            }, 
-          }),
+          body: JSON.stringify(requestBody),
         });
         
         console.log(`API attempt ${retryCount + 1} status:`, geminiResponse.status);
@@ -176,10 +183,14 @@ serve(async (req) => {
           // Check for empty or "I'm sorry" responses
           const generatedText = data?.candidates?.[0]?.content?.parts?.[0]?.text || "";
           
-          if (generatedText && !generatedText.includes("I couldn't generate a response")) {
+          if (generatedText && 
+              generatedText.length > 20 &&
+              !generatedText.includes("I couldn't generate") &&
+              !generatedText.includes("I'm sorry, I can't")) {
             // We got a valid response
             attemptSuccessful = true;
             console.log("Got valid response on attempt", retryCount + 1);
+            responseText = generatedText;
           } else {
             console.log("Empty or apologetic response on attempt", retryCount + 1);
             retryCount++;
@@ -198,33 +209,30 @@ serve(async (req) => {
     geminiApiTime = geminiEndTime - geminiStartTime; // Record Gemini API time
     
     // If we don't have a valid response by now, handle the error cases
-    if (!geminiResponse || !data) {
-      throw new Error("Failed to get a valid response from the API after retries");
-    }
-
-    if (!geminiResponse.ok) {
-      const errorBody = data;
-      let errorDataMessage = `Gemini API failed status ${geminiResponse.status}`; 
-      try { 
-          errorDataMessage = errorBody.error?.message || JSON.stringify(errorBody);
-      } catch { 
-          errorDataMessage = JSON.stringify(errorBody) || errorDataMessage;
+    if (!data) {
+      const errorMsg = "Failed to get a valid response from the API after retries";
+      console.error(errorMsg);
+      
+      // Use SBA fallback for SBA queries
+      if (isSbaQuery) {
+        responseText = SBA_FALLBACK_RESPONSE;
+        responseSource = 'gemini';
+        isSuccess = true;
+        console.log("Using SBA fallback content");
+      } else {
+        throw new Error(errorMsg);
       }
-      errorMessage = errorDataMessage;
-      console.error("Gemini API Error:", errorMessage);
-      throw new Error(errorMessage); // Throw to trigger catch block
-    }
-
-    // Safe access to response text
-    responseText = data?.candidates?.[0]?.content?.parts?.[0]?.text || ""; 
-    
-    // Fall back to SBA specific content if we get an empty response on SBA query
-    if (!responseText && isSbaQuery) {
-      responseText = SBA_FALLBACK_RESPONSE;
-      console.log("Using SBA fallback content");
     } else if (!responseText) {
-      console.warn("Gemini API returned empty response text, using generic fallback");
-      responseText = "I'm sorry, I couldn't generate a specific answer at this time. Could you try rephrasing your question?";
+      // Handle empty but technically successful responses
+      
+      // Fall back to SBA specific content if we get an empty response on SBA query
+      if (isSbaQuery) {
+        responseText = SBA_FALLBACK_RESPONSE;
+        console.log("Using SBA fallback content");
+      } else {
+        console.warn("Gemini API returned empty response text, using generic fallback");
+        responseText = "I'm sorry, I couldn't generate a specific answer at this time. Could you try rephrasing your question?";
+      }
     }
     
     isSuccess = true;

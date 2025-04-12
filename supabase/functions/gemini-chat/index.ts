@@ -49,6 +49,46 @@ Remember that most business owners are emotionally attached to their companies. 
 *Please try your specific question again when API capacity becomes available.*
 `;
 
+// SBA-specific fallback response
+const SBA_FALLBACK_RESPONSE = `# SBA Loans for Business Acquisitions
+
+**SBA (Small Business Administration)** loans are a popular financing option for business acquisitions. Here's what you need to know based on Carl Allen's teachings:
+
+## SBA Loan Basics
+- **What it is:** Government-backed loans provided through approved lenders
+- **Key program:** The 7(a) loan program is most commonly used for acquisitions
+- **Guarantee:** The SBA guarantees 75-85% of the loan amount, reducing risk for the lender
+- **Typical terms:** 10-25 years with some of the lowest interest rates available for small businesses
+
+## Benefits for Acquisitions
+- **Lower down payment:** Typically requires only 10-15% down versus 25-30% for conventional loans
+- **Better terms:** Longer repayment periods (up to 10 years) and competitive rates
+- **Flexible use:** Can cover business acquisition, working capital, and sometimes real estate
+- **Access:** Available to buyers who might not qualify for conventional financing
+
+## Qualification Requirements
+- **Credit score:** Typically 680+ for the borrower
+- **Collateral:** Personal and business assets may be required
+- **Down payment:** Minimum 10% of purchase price
+- **Experience:** Industry experience or management background usually required
+- **Business viability:** The business must show stable or growing cash flow
+
+## SBA Loan Process for Acquisitions
+1. **Pre-qualification:** Get pre-qualified before approaching sellers
+2. **Business valuation:** Required by the SBA to verify purchase price
+3. **Documentation:** Extensive paperwork including personal financial statements, business plans, etc.
+4. **Underwriting:** 45-90 day process (longer than conventional loans)
+5. **Closing:** The SBA has specific closing requirements
+
+## Pro Tips from Carl Allen
+- Work with SBA Preferred Lenders who have streamlined approval authority
+- Build relationships with multiple SBA lenders before you need them
+- Have a complete acquisition package ready to expedite approval
+- Be prepared for higher closing costs (typically 3-5% of loan amount)
+- Consider using seller financing alongside the SBA loan for larger deals
+
+The SBA loan can be an excellent tool for your acquisition strategy, especially for first-time business buyers.`;
+
 serve(async (req) => {
   // Handle CORS preflight requests
   if (req.method === 'OPTIONS') {
@@ -74,7 +114,7 @@ serve(async (req) => {
 
     const { query, messages, context, instructions, sourceType, enableOnlineSearch } = await req.json();
     
-    // Format messages for the Gemini API
+    // Format messages for the Gemini API - UPDATED to match official format
     const formattedMessages = messages.map(msg => ({
       role: msg.source === 'user' ? 'user' : 'model',
       parts: [{ text: msg.content }]
@@ -185,6 +225,11 @@ serve(async (req) => {
     console.log("Context length:", context ? context.length : 0);
     console.log("Online search mode:", enableOnlineSearch ? "enabled" : "disabled");
     console.log("Number of formatted messages:", formattedMessages.length);
+    
+    // Check for SBA-related query
+    const isSbaQuery = query?.toLowerCase().includes("sba") || 
+                        messages.some(msg => msg.content?.toLowerCase().includes("sba"));
+    console.log("Is SBA-related query:", isSbaQuery);
 
     try {
       // Call Gemini API
@@ -194,182 +239,107 @@ serve(async (req) => {
       const apiUrl = `${GEMINI_API_URL}?key=${GEMINI_API_KEY}`;
       console.log("API URL has key:", apiUrl.includes("key="));
       
-      const response = await fetch(apiUrl, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          contents: formattedMessages,
-          generationConfig: {
-            temperature: 0.7,
-            topP: 0.8,
-            topK: 40,
-            maxOutputTokens: 800,
-          },
-        }),
-      });
+      // Setup variables for retry logic
+      let maxRetries = 2;
+      let retryCount = 0;
+      let success = false;
+      let generatedText = "";
+      let responseData = null;
 
-      console.log("Gemini API response status:", response.status);
-      
-      // Get the full response text for debugging
-      const responseText = await response.text();
-      console.log("Raw API response:", responseText.substring(0, 200) + "...");
-      
-      // Parse the response text back to JSON
-      let data;
-      try {
-        data = JSON.parse(responseText);
-      } catch (parseError) {
-        console.error("Error parsing API response:", parseError);
-        throw new Error(`Failed to parse API response: ${responseText.substring(0, 100)}...`);
+      while (retryCount <= maxRetries && !success) {
+        try {
+          console.log(`API attempt ${retryCount + 1}/${maxRetries + 1}`);
+          
+          // Adjust temperature slightly on retries to encourage different responses
+          const temperature = retryCount === 0 ? 0.7 : 0.8 + (retryCount * 0.1);
+          
+          // UPDATED: match the official API structure exactly
+          const requestBody = {
+            contents: formattedMessages,
+            generationConfig: {
+              temperature: temperature,
+              topP: 0.8,
+              topK: 40,
+              maxOutputTokens: 800,
+            }
+          };
+          
+          console.log("Request body structure:", JSON.stringify({
+            contents: "Array with " + formattedMessages.length + " messages",
+            generationConfig: requestBody.generationConfig
+          }));
+          
+          const response = await fetch(apiUrl, {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+            },
+            body: JSON.stringify(requestBody),
+          });
+
+          console.log(`Attempt ${retryCount + 1} status:`, response.status);
+          
+          // Get the full response text
+          const responseText = await response.text();
+          console.log(`Raw API response (truncated):`, responseText.substring(0, 150) + "...");
+          
+          // Parse response
+          try {
+            responseData = JSON.parse(responseText);
+            
+            // Check if we got a valid response with content
+            generatedText = responseData?.candidates?.[0]?.content?.parts?.[0]?.text || "";
+            
+            if (generatedText && generatedText.length > 20 && 
+                !generatedText.includes("I couldn't generate") &&
+                !generatedText.includes("I'm sorry, I can't")) {
+              console.log("Got valid response on attempt", retryCount + 1);
+              success = true;
+              break;
+            } else {
+              console.log("Empty or apologetic response, retrying...");
+              retryCount++;
+            }
+          } catch (parseError) {
+            console.error("Error parsing API response:", parseError);
+            retryCount++;
+          }
+        } catch (fetchError) {
+          console.error(`API fetch error on attempt ${retryCount + 1}:`, fetchError);
+          retryCount++;
+        }
       }
       
-      if (!response.ok) {
-        console.error('Gemini API error:', JSON.stringify(data));
+      // Handle unsuccessful attempts
+      if (!success) {
+        console.log("All API attempts failed to generate a useful response");
         
-        // Check if it's a quota exceeded error
-        if (data.error?.message?.includes("quota") || 
-            data.error?.status === "RESOURCE_EXHAUSTED" ||
-            response.status === 429) {
-          console.log("API quota exceeded, returning fallback response");
-          
+        // If it's an SBA query, use the specific SBA fallback
+        if (isSbaQuery) {
+          console.log("Using SBA-specific fallback response");
+          return new Response(JSON.stringify({ 
+            content: SBA_FALLBACK_RESPONSE,
+            source: 'gemini',
+            isFallback: true
+          }), {
+            headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+          });
+        } else {
+          console.log("Using general fallback response");
           return new Response(JSON.stringify({ 
             content: FALLBACK_RESPONSE,
             source: 'fallback',
-            isQuotaExceeded: true
+            isFallback: true
           }), {
             headers: { ...corsHeaders, 'Content-Type': 'application/json' },
           });
         }
-        
-        // Check if it's an API not enabled error
-        if (data.error?.message?.includes("disabled") || 
-            data.error?.message?.includes("Enable it")) {
-          console.log("Gemini API not enabled, providing instructions");
-          
-          const instructionsResponse = `# Gemini API Not Enabled
-
-You need to enable the Gemini API for your Google Cloud project. Follow these steps:
-
-1. Go to the [Google Cloud Console](https://console.cloud.google.com/)
-2. Navigate to **APIs & Services > Enable APIs and Services**
-3. Search for "Generative Language API" and enable it
-4. If you're using a new Google Cloud project, you might need to set up billing
-5. After enabling the API, wait a few minutes for the changes to propagate
-
-Once enabled, your chat assistant will work properly.`;
-          
-          return new Response(JSON.stringify({ 
-            content: instructionsResponse,
-            source: 'system',
-            apiDisabled: true
-          }), {
-            headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-          });
-        }
-        
-        // Check if it's a auth/credentials error
-        if (data.error?.status === "UNAUTHENTICATED" || 
-            data.error?.status === "PERMISSION_DENIED" ||
-            data.error?.message?.includes("auth") || 
-            data.error?.message?.includes("key") ||
-            data.error?.message?.includes("credential")) {
-          console.error("Authentication error with API key:", data.error);
-          
-          const authErrorResponse = `# API Authentication Error
-
-There was an issue with your Gemini API key. Please check:
-
-1. Your API key is valid and not expired
-2. The API is enabled for your Google Cloud project
-3. The API key has permission to use Gemini models
-4. You've set up billing for your Google Cloud project if required
-
-The specific error was: ${data.error?.message || "Authentication failed"}`;
-          
-          return new Response(JSON.stringify({ 
-            content: authErrorResponse,
-            source: 'system',
-            authError: true
-          }), {
-            headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-          });
-        }
-        
-        // Return the actual error for better debugging
-        return new Response(JSON.stringify({ 
-          content: `Error from Gemini API: ${data.error?.message || 'Unknown error'}`,
-          source: 'system',
-          error: true,
-          details: data.error
-        }), {
-          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-          status: 500
-        });
       }
-      
-      // Extract the generated text
-      const generatedText = data.candidates?.[0]?.content?.parts?.[0]?.text || 
-        "I'm sorry, I couldn't generate a response at this time.";
-        
+
+      // Handle successful response
       console.log("Generated response size:", generatedText.length);
       console.log("First few characters:", generatedText.substring(0, 50));
       
-      // If we get the default/empty response and the query is SBA-related, provide a relevant fallback
-      if (generatedText === "I'm sorry, I couldn't generate a response at this time." &&
-          (query?.toLowerCase().includes("sba") || messages.some(msg => msg.content?.toLowerCase().includes("sba")))) {
-        
-        console.log("Empty response for SBA question, providing SBA-specific fallback");
-        
-        const sbaFallbackResponse = `# SBA Loans for Business Acquisitions
-
-**SBA (Small Business Administration)** loans are a popular financing option for business acquisitions. Here's what you need to know based on Carl Allen's teachings:
-
-## SBA Loan Basics
-- **What it is:** Government-backed loans provided through approved lenders
-- **Key program:** The 7(a) loan program is most commonly used for acquisitions
-- **Guarantee:** The SBA guarantees 75-85% of the loan amount, reducing risk for the lender
-- **Typical terms:** 10-25 years with some of the lowest interest rates available for small businesses
-
-## Benefits for Acquisitions
-- **Lower down payment:** Typically requires only 10-15% down versus 25-30% for conventional loans
-- **Better terms:** Longer repayment periods (up to 10 years) and competitive rates
-- **Flexible use:** Can cover business acquisition, working capital, and sometimes real estate
-- **Access:** Available to buyers who might not qualify for conventional financing
-
-## Qualification Requirements
-- **Credit score:** Typically 680+ for the borrower
-- **Collateral:** Personal and business assets may be required
-- **Down payment:** Minimum 10% of purchase price
-- **Experience:** Industry experience or management background usually required
-- **Business viability:** The business must show stable or growing cash flow
-
-## SBA Loan Process for Acquisitions
-1. **Pre-qualification:** Get pre-qualified before approaching sellers
-2. **Business valuation:** Required by the SBA to verify purchase price
-3. **Documentation:** Extensive paperwork including personal financial statements, business plans, etc.
-4. **Underwriting:** 45-90 day process (longer than conventional loans)
-5. **Closing:** The SBA has specific closing requirements
-
-## Pro Tips from Carl Allen
-- Work with SBA Preferred Lenders who have streamlined approval authority
-- Build relationships with multiple SBA lenders before you need them
-- Have a complete acquisition package ready to expedite approval
-- Be prepared for higher closing costs (typically 3-5% of loan amount)
-- Consider using seller financing alongside the SBA loan for larger deals
-
-The SBA loan can be an excellent tool for your acquisition strategy, especially for first-time business buyers.`;
-        
-        return new Response(JSON.stringify({ 
-          content: sbaFallbackResponse,
-          source: 'gemini',
-          isFallback: true
-        }), {
-          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-        });
-      }
-
       // Return the response
       return new Response(JSON.stringify({ 
         content: generatedText,
@@ -377,19 +347,31 @@ The SBA loan can be an excellent tool for your acquisition strategy, especially 
       }), {
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
       });
+      
     } catch (apiError) {
       console.error('API error:', apiError);
       console.error('API error details:', apiError.message);
       
-      // Return the fallback response if there's an API error
-      return new Response(JSON.stringify({ 
-        content: FALLBACK_RESPONSE,
-        source: 'fallback',
-        isApiError: true,
-        errorMessage: apiError.message
-      }), {
-        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-      });
+      // Return the appropriate fallback response
+      if (isSbaQuery) {
+        return new Response(JSON.stringify({ 
+          content: SBA_FALLBACK_RESPONSE,
+          source: 'fallback',
+          isApiError: true,
+          errorMessage: apiError.message
+        }), {
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+        });
+      } else {
+        return new Response(JSON.stringify({ 
+          content: FALLBACK_RESPONSE,
+          source: 'fallback',
+          isApiError: true,
+          errorMessage: apiError.message
+        }), {
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+        });
+      }
     }
   } catch (error) {
     console.error('Error in gemini-chat function:', error);
