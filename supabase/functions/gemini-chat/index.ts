@@ -127,10 +127,8 @@ serve(async (req) => {
       }
     }
 
-    // Add business owner persona instructions
-    sourceSpecificInstructions += "
-
-The person asking this question is likely a business owner or entrepreneur interested in acquiring businesses. They're looking for practical, actionable advice they can implement in their acquisition journey. Focus on risk mitigation, funding strategies, seller psychology, and concrete steps they can take.";
+    // Add business owner persona instructions - FIX: Adding proper string concatenation here
+    sourceSpecificInstructions += "\n\nThe person asking this question is likely a business owner or entrepreneur interested in acquiring businesses. They're looking for practical, actionable advice they can implement in their acquisition journey. Focus on risk mitigation, funding strategies, seller psychology, and concrete steps they can take.";
 
     // Add online search specific instructions if enabled
     if (enableOnlineSearch) {
