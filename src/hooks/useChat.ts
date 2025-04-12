@@ -43,7 +43,7 @@ export function useChat({
   } = useMessages({ userId, conversationId: actualConversationId });
   
   const {
-    hasMetadataColumn,
+    hasMetadataColumn, // Now correctly destructured
     createNewConversation,
     saveMessages,
     updateConversationTitle,

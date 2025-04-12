@@ -11,8 +11,22 @@ interface UseConversationProps {
 
 export function useConversation({ userId }: UseConversationProps) {
   const [conversationId, setConversationId] = useState<string | null>(null);
+  const [hasMetadataColumn, setHasMetadataColumn] = useState<boolean>(true); // Added state for metadata column
   const navigate = useNavigate();
   const { toast } = useToast();
+
+  // Check if metadata column exists when hook mounts
+  useEffect(() => {
+    const checkMetadata = async () => {
+      if (supabase) {
+        const hasMetadata = await checkMetadataColumnExists(supabase);
+        setHasMetadataColumn(hasMetadata);
+        console.log('Metadata column exists:', hasMetadata);
+      }
+    };
+    
+    checkMetadata();
+  }, []);
 
   const createNewConversation = async (initialMessage?: string): Promise<string | null> => {
     if (!userId) return null;
@@ -123,6 +137,7 @@ export function useConversation({ userId }: UseConversationProps) {
   return {
     conversationId,
     setConversationId,
+    hasMetadataColumn, // Return the hasMetadataColumn state
     createNewConversation,
     saveMessages,
     updateConversationTitle,

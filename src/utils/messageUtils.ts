@@ -1,4 +1,3 @@
-
 /**
  * Message type definitions and utility functions
  */
@@ -6,7 +5,7 @@
 /**
  * Simple message source type - used throughout the application
  */
-export type MessageSource = 'user' | 'system' | 'gemini';
+export type MessageSource = 'user' | 'system' | 'gemini' | 'transcript' | 'web' | 'fallback';
 
 /**
  * Simplified API message format for backend communication
