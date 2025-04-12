@@ -3,6 +3,7 @@ import { useState } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/components/ui/use-toast';
 import { useNavigate } from 'react-router-dom';
+import { prepareMessageForDb } from '@/utils/messageUtils';
 
 interface UseConversationProps {
   userId: string | undefined;
@@ -53,30 +54,21 @@ export function useConversation({ userId }: UseConversationProps) {
     conversationId: string,
     userId: string,
     userMessage: string,
-    responseMessage: { content: string, source: 'gemini' | 'system', citation?: string[] }
+    responseMessage: { content: string, source: 'gemini' | 'system' | 'web' | 'fallback' | 'transcript', citation?: string[] }
   ) => {
     try {
       console.log(`Saving messages for conversation: ${conversationId}`);
       
-      // Structure follows database schema - expanded with better logging
+      // Use the utility function to prepare messages with proper metadata
       const messages = [
-        { 
-          conversation_id: conversationId, 
-          content: userMessage, 
-          is_user: true,
-          metadata: {
-            source: 'user'
-          }
-        },
-        {
-          conversation_id: conversationId,
-          content: responseMessage.content, 
-          is_user: false,
-          metadata: { 
-            source: responseMessage.source, 
-            citation: responseMessage.citation 
-          }
-        }
+        prepareMessageForDb(conversationId, userMessage, true),
+        prepareMessageForDb(
+          conversationId, 
+          responseMessage.content, 
+          false, 
+          responseMessage.source, 
+          responseMessage.citation
+        )
       ];
       
       console.log('Inserting messages with data:', JSON.stringify(messages, null, 2));

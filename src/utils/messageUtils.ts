@@ -119,3 +119,27 @@ export function formatDbMessagesForUi(dbMessages: DbMessage[]): MessageData[] {
   console.log(`Formatting ${dbMessages.length} database messages to UI format`);
   return dbMessages.map(msg => dbMessageToUiMessage(msg));
 }
+
+/**
+ * Prepares a message object with metadata for saving to the database
+ * This ensures consistent message structure when saving to Supabase
+ */
+export function prepareMessageForDb(
+  conversationId: string, 
+  content: string, 
+  isUser: boolean,
+  source?: MessageSource,
+  citation?: string[]
+) {
+  return {
+    conversation_id: conversationId,
+    content: content,
+    is_user: isUser,
+    metadata: !isUser ? {
+      source: source || 'gemini',
+      citation: citation || undefined
+    } : {
+      source: 'user'
+    }
+  };
+}

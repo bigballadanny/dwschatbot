@@ -2,8 +2,8 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 
 const GEMINI_API_KEY = Deno.env.get('GEMINI_API_KEY');
-// Using Gemini 2.0 API
-const GEMINI_API_URL = "https://generativelanguage.googleapis.com/v1/models/gemini-2.0-pro:generateContent";
+// Update to use correct Gemini API endpoint
+const GEMINI_API_URL = "https://generativelanguage.googleapis.com/v1/models/gemini-1.5-flash:generateContent";
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -159,52 +159,65 @@ serve(async (req) => {
     console.log("Context length:", context ? context.length : 0);
     console.log("Online search mode:", enableOnlineSearch ? "enabled" : "disabled");
 
-    try {
-      // Call Gemini API
-      console.log(`Calling Gemini API at: ${GEMINI_API_URL}`);
-      const response = await fetch(`${GEMINI_API_URL}?key=${GEMINI_API_KEY}`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          contents: formattedMessages,
-          generationConfig: {
-            temperature: 0.7,
-            topP: 0.8,
-            topK: 40,
-            maxOutputTokens: 800,
+    // Implement retry logic
+    let retryCount = 0;
+    const maxRetries = 2;
+    
+    while (retryCount <= maxRetries) {
+      try {
+        // Call Gemini API
+        console.log(`Calling Gemini API (attempt ${retryCount + 1}) at: ${GEMINI_API_URL}`);
+        
+        const response = await fetch(`${GEMINI_API_URL}?key=${GEMINI_API_KEY}`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
           },
-        }),
-      });
-
-      // Handle API response
-      const data = await response.json();
-      
-      if (!response.ok) {
-        console.error('Gemini API error:', data);
+          body: JSON.stringify({
+            contents: formattedMessages,
+            generationConfig: {
+              temperature: 0.7,
+              topP: 0.8,
+              topK: 40,
+              maxOutputTokens: 800,
+            },
+          }),
+        });
         
-        // Handle quota exceeded error
-        if (data.error?.message?.includes("quota") || 
-            data.error?.status === "RESOURCE_EXHAUSTED" ||
-            response.status === 429) {
-          console.log("API quota exceeded, returning fallback response");
+        // Handle API response
+        if (!response.ok) {
+          const errorData = await response.json();
+          console.error('Gemini API error:', errorData);
           
-          return new Response(JSON.stringify({ 
-            content: FALLBACK_RESPONSE,
-            source: 'fallback',
-            isQuotaExceeded: true
-          }), {
-            headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-          });
-        }
-        
-        // Handle API not enabled error
-        if (data.error?.message?.includes("disabled") || 
-            data.error?.message?.includes("Enable it")) {
-          console.log("Gemini API not enabled, providing instructions");
+          // Handle quota exceeded error
+          if (errorData.error?.message?.includes("quota") || 
+              errorData.error?.status === "RESOURCE_EXHAUSTED" ||
+              response.status === 429) {
+            
+            if (retryCount < maxRetries) {
+              console.log(`API quota exceeded, retrying (${retryCount + 1}/${maxRetries})...`);
+              retryCount++;
+              // Exponential backoff: 1s, 2s
+              await new Promise(resolve => setTimeout(resolve, retryCount * 1000));
+              continue;
+            }
+            
+            console.log("API quota exceeded after retries, returning fallback response");
+            return new Response(JSON.stringify({ 
+              content: FALLBACK_RESPONSE,
+              source: 'fallback',
+              isQuotaExceeded: true
+            }), {
+              headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+            });
+          }
           
-          const instructionsResponse = `## Gemini API Not Enabled
+          // Handle API not enabled error
+          if (errorData.error?.message?.includes("disabled") || 
+              errorData.error?.message?.includes("Enable it")) {
+            console.log("Gemini API not enabled, providing instructions");
+            
+            const instructionsResponse = `## Gemini API Not Enabled
 
 You need to enable the Gemini API for your Google Cloud project:
 
@@ -215,43 +228,54 @@ You need to enable the Gemini API for your Google Cloud project:
 5. Wait a few minutes for changes to propagate
 
 Once enabled, your chat assistant will work properly.`;
+            
+            return new Response(JSON.stringify({ 
+              content: instructionsResponse,
+              source: 'system',
+              apiDisabled: true
+            }), {
+              headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+            });
+          }
           
-          return new Response(JSON.stringify({ 
-            content: instructionsResponse,
-            source: 'system',
-            apiDisabled: true
-          }), {
-            headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-          });
+          throw new Error(`Gemini API error: ${errorData.error?.message || 'Unknown error'}`);
         }
         
-        throw new Error(`Gemini API error: ${data.error?.message || 'Unknown error'}`);
-      }
-      
-      // Extract the generated text
-      const generatedText = data.candidates?.[0]?.content?.parts?.[0]?.text || 
-        "I'm sorry, I couldn't generate a response at this time.";
+        const data = await response.json();
         
-      console.log("Generated response size:", generatedText.length);
+        // Extract the generated text
+        const generatedText = data.candidates?.[0]?.content?.parts?.[0]?.text || 
+          "I'm sorry, I couldn't generate a response at this time.";
+          
+        console.log("Generated response size:", generatedText.length);
 
-      // Return the response
-      return new Response(JSON.stringify({ 
-        content: generatedText,
-        source: enableOnlineSearch && sourceType === 'web' ? 'web' : 'gemini' 
-      }), {
-        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-      });
-    } catch (apiError) {
-      console.error('API error:', apiError);
-      
-      // Return fallback response for API errors
-      return new Response(JSON.stringify({ 
-        content: FALLBACK_RESPONSE,
-        source: 'fallback',
-        isQuotaExceeded: true
-      }), {
-        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-      });
+        // Return the response
+        return new Response(JSON.stringify({ 
+          content: generatedText,
+          source: enableOnlineSearch && sourceType === 'web' ? 'web' : 'gemini' 
+        }), {
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+        });
+      } catch (apiError) {
+        if (retryCount < maxRetries) {
+          console.error(`API error on attempt ${retryCount + 1}:`, apiError);
+          retryCount++;
+          // Exponential backoff
+          await new Promise(resolve => setTimeout(resolve, retryCount * 1000));
+          continue;
+        }
+        
+        console.error('API error after all retries:', apiError);
+        
+        // Return fallback response for API errors
+        return new Response(JSON.stringify({ 
+          content: FALLBACK_RESPONSE,
+          source: 'fallback',
+          isQuotaExceeded: true
+        }), {
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+        });
+      }
     }
   } catch (error) {
     console.error('Error in gemini-chat function:', error);
