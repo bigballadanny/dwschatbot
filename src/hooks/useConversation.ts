@@ -11,28 +11,8 @@ interface UseConversationProps {
 
 export function useConversation({ userId }: UseConversationProps) {
   const [conversationId, setConversationId] = useState<string | null>(null);
-  const [hasMetadataColumn, setHasMetadataColumn] = useState<boolean | null>(null);
   const navigate = useNavigate();
   const { toast } = useToast();
-
-  // Check if the metadata column exists when the hook initializes
-  useEffect(() => {
-    const checkMetadata = async () => {
-      if (userId) {
-        try {
-          const hasMetadata = await checkMetadataColumnExists(supabase);
-          setHasMetadataColumn(hasMetadata);
-          console.log(`Database ${hasMetadata ? 'supports' : 'does not support'} metadata column`);
-        } catch (error) {
-          console.error('Error checking metadata support:', error);
-          // Default to false to be safe
-          setHasMetadataColumn(false);
-        }
-      }
-    };
-    
-    checkMetadata();
-  }, [userId]);
 
   const createNewConversation = async (initialMessage?: string): Promise<string | null> => {
     if (!userId) return null;
@@ -54,6 +34,7 @@ export function useConversation({ userId }: UseConversationProps) {
       if (data) {
         const newConversationId = data.id;
         setConversationId(newConversationId);
+        console.log('Successfully created new conversation:', newConversationId);
         return newConversationId;
       } else {
         throw new Error("Conversation creation returned no data.");
@@ -75,29 +56,16 @@ export function useConversation({ userId }: UseConversationProps) {
     responseMessage: { content: string, source: 'gemini' | 'system', citation?: string[] }
   ): Promise<boolean> => {
     try {
-      console.log(`Attempting to save messages to conversation: ${conversationId}`);
+      console.log(`Saving messages to conversation: ${conversationId}`);
       
-      // If we haven't checked for metadata column yet, do it now
-      if (hasMetadataColumn === null) {
-        try {
-          const metadata = await checkMetadataColumnExists(supabase);
-          setHasMetadataColumn(metadata);
-          console.log(`Metadata check completed: ${metadata ? 'supported' : 'not supported'}`);
-        } catch (err) {
-          console.error('Error checking metadata on save:', err);
-          setHasMetadataColumn(false);
-        }
-      }
-      
-      // Prepare message objects based on metadata support
+      // Since we've now added the metadata column, we can safely prepare messages with metadata
       const messageObjects = prepareMessagesForDb(
         conversationId, 
         userMessage, 
-        responseMessage, 
-        !!hasMetadataColumn
+        responseMessage
       );
       
-      console.log(`Saving messages with metadata support: ${!!hasMetadataColumn}`);
+      console.log('Message objects prepared for insertion:', messageObjects.length);
       
       // Insert both messages
       const { error } = await supabase
@@ -106,34 +74,6 @@ export function useConversation({ userId }: UseConversationProps) {
       
       if (error) {
         console.error('Error saving messages:', error);
-        
-        // If we get an error and thought metadata was supported, try again without metadata
-        if (hasMetadataColumn && error.message && error.message.includes('metadata')) {
-          console.log('Error suggests metadata is not supported, retrying without metadata');
-          setHasMetadataColumn(false);
-          
-          // Prepare objects again without metadata
-          const fallbackObjects = prepareMessagesForDb(
-            conversationId,
-            userMessage,
-            responseMessage,
-            false
-          );
-          
-          // Try again without metadata
-          const { error: fallbackError } = await supabase
-            .from('messages')
-            .insert(fallbackObjects);
-            
-          if (fallbackError) {
-            console.error('Error in fallback save:', fallbackError);
-            return false;
-          }
-          
-          console.log('Successfully saved messages without metadata after fallback');
-          return true;
-        }
-        
         return false;
       }
       
@@ -183,7 +123,6 @@ export function useConversation({ userId }: UseConversationProps) {
   return {
     conversationId,
     setConversationId,
-    hasMetadataColumn,
     createNewConversation,
     saveMessages,
     updateConversationTitle,

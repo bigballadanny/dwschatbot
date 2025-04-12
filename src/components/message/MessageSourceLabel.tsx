@@ -1,8 +1,7 @@
 
 import React from 'react';
 import { cn } from "@/lib/utils";
-
-export type MessageSource = 'user' | 'system' | 'transcript' | 'gemini' | 'error' | 'web' | 'fallback';
+import { MessageSource } from '@/utils/messageUtils';
 
 interface MessageSourceLabelProps {
   source: MessageSource;

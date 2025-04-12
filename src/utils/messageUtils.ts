@@ -88,18 +88,23 @@ export function convertMessagesToApi(
 /**
  * Convert a database message to UI message format
  * This helps transform data from Supabase to the format used in the UI
- * Enhanced to handle cases where metadata might not exist
+ * Enhanced to handle cases where metadata might not exist or be null
  */
 export function dbMessageToUiMessage(dbMessage: DbMessage): MessageData {
-  // Use explicit type for return value to ensure type safety
+  // Default source based on is_user flag
+  let source: MessageSource = dbMessage.is_user ? 'user' : 'gemini';
+  
+  // Override source if metadata exists and has a source
+  if (dbMessage.metadata && dbMessage.metadata.source) {
+    source = dbMessage.metadata.source as MessageSource;
+  }
+  
+  // Create the message data with all fields properly populated
   const messageData: MessageData = {
     content: dbMessage.content,
-    // Determine message source with fallback logic
-    source: dbMessage.is_user ? 'user' : 
-            (dbMessage.metadata?.source as MessageSource || 'gemini'),
+    source: source,
     timestamp: new Date(dbMessage.created_at),
-    citation: dbMessage.metadata?.citation ? 
-              [dbMessage.metadata.citation] : undefined
+    citation: dbMessage.metadata?.citation ? [dbMessage.metadata.citation] : undefined
   };
   
   return messageData;
@@ -119,22 +124,12 @@ export async function checkMetadataColumnExists(supabaseClient: any): Promise<bo
       .select('metadata')
       .limit(1);
     
-    // If there's an error specifically mentioning metadata column not existing
-    if (error && error.message && error.message.includes('metadata')) {
-      console.log('Metadata column does not exist in messages table:', error.message);
+    if (error) {
+      console.error('Error checking for metadata column:', error);
       return false;
     }
     
-    // Check if the data returned has a metadata field defined
-    // This helps catch cases where the column exists but might be empty
-    if (data && data.length > 0) {
-      const hasMetadataField = 'metadata' in data[0];
-      console.log(`Metadata column ${hasMetadataField ? 'exists' : 'does not exist'} in messages table`);
-      return hasMetadataField;
-    }
-    
-    // Default to assuming metadata exists if we can query it without errors
-    console.log('Assuming metadata column exists since no error occurred');
+    console.log('Metadata column check successful');
     return true;
   } catch (e) {
     console.error('Unexpected error checking metadata column:', e);
@@ -143,15 +138,16 @@ export async function checkMetadataColumnExists(supabaseClient: any): Promise<bo
 }
 
 /**
- * Prepare message objects for database insertion with or without metadata
- * This is a helper function to create message objects based on schema support
+ * Prepare message objects for database insertion with metadata
+ * This creates properly formatted message objects for insertion into the database
  */
 export function prepareMessagesForDb(
   conversationId: string, 
   userMessage: string,
-  responseMessage: { content: string, source: 'gemini' | 'system', citation?: string[] },
-  hasMetadataSupport: boolean
+  responseMessage: { content: string, source: 'gemini' | 'system', citation?: string[] }
 ): any[] {
+  console.log('Preparing messages for database with metadata');
+  
   // User message is always simple
   const userMessageObj = { 
     conversation_id: conversationId, 
@@ -159,28 +155,16 @@ export function prepareMessagesForDb(
     is_user: true 
   };
   
-  // Response message depends on metadata support
-  let responseMessageObj;
-  
-  if (hasMetadataSupport) {
-    // Use metadata if the column exists
-    responseMessageObj = {
-      conversation_id: conversationId,
-      content: responseMessage.content,
-      is_user: false,
-      metadata: { 
-        source: responseMessage.source, 
-        citation: responseMessage.citation?.[0] 
-      }
-    };
-  } else {
-    // Fallback: Just save the content without metadata
-    responseMessageObj = {
-      conversation_id: conversationId,
-      content: responseMessage.content,
-      is_user: false
-    };
-  }
+  // Response message with metadata
+  const responseMessageObj = {
+    conversation_id: conversationId,
+    content: responseMessage.content,
+    is_user: false,
+    metadata: { 
+      source: responseMessage.source, 
+      citation: responseMessage.citation?.[0] 
+    }
+  };
   
   return [userMessageObj, responseMessageObj];
 }

@@ -96,6 +96,7 @@ export type Database = {
           created_at: string
           id: string
           is_user: boolean | null
+          metadata: Json | null
         }
         Insert: {
           content: string
@@ -103,6 +104,7 @@ export type Database = {
           created_at?: string
           id?: string
           is_user?: boolean | null
+          metadata?: Json | null
         }
         Update: {
           content?: string
@@ -110,6 +112,7 @@ export type Database = {
           created_at?: string
           id?: string
           is_user?: boolean | null
+          metadata?: Json | null
         }
         Relationships: [
           {

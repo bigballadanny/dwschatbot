@@ -54,10 +54,12 @@ export function useMessages({ userId, conversationId }: UseMessagesProps) {
       if (data && data.length > 0) {
         console.log(`Found ${data.length} messages for conversation ${convId}`);
         
-        // Transform database messages to UI message format using the utility function
+        // Transform database messages to UI message format using the improved utility function
         // Cast data to DbMessage[] to avoid type instantiation issues
         const dbMessages = data as DbMessage[];
         const formattedMessages = dbMessages.map(msg => dbMessageToUiMessage(msg));
+        
+        console.log('Messages formatted for UI:', formattedMessages.length);
         
         setMessages(formattedMessages);
         setHasInteracted(true);
