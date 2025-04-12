@@ -14,8 +14,8 @@ interface ConversationItemProps {
 }
 
 const ConversationItem = ({ id, title, isActive, timestamp, onDelete }: ConversationItemProps) => {
-  // We'll keep formatting the timestamp in the code for analytics/debugging purposes
-  // but we won't display it in the UI anymore
+  // Keep formatting the timestamp in the code for analytics/debugging purposes
+  // but not display it in the UI
   const formattedTime = timestamp ? (
     isToday(timestamp) 
       ? format(timestamp, 'h:mm a') 

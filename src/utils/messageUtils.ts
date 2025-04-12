@@ -1,3 +1,4 @@
+
 /**
  * Message type definitions and utility functions
  */
