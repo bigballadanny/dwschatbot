@@ -19,6 +19,23 @@ const corsHeaders = {
 // Generic fallback response
 const FALLBACK_RESPONSE = `I apologize, but I'm having trouble processing your request at the moment. Please try asking your question again in a slightly different way or try again later when the service has more capacity.`;
 
+// System instructions to improve conversation quality
+const SYSTEM_PROMPT = `
+You are an AI assistant designed to have natural conversations. Here are your instructions:
+
+1. Respond to voice questions directly and clearly
+2. Use proper markdown formatting:
+   - **Bold** for emphasis
+   - # Headings for main topics
+   - ## Subheadings for subtopics
+   - Bullet lists for multiple points
+   - Numbered lists for sequential steps
+
+3. Always acknowledge questions with a direct answer first
+4. When providing structured information, use clear sections
+5. Maintain a conversational, helpful tone
+`;
+
 // --- Analytics Logging Function (Keep as is) ---
 async function logAnalytics(
     supabase: SupabaseClient,
@@ -98,9 +115,19 @@ serve(async (req) => {
         .filter((msg: any) => msg.parts[0].text); // Ensure messages have content
 
     // Add system instructions if not present
-    const systemInstruction = "You are an AI assistant powered by Gemini, designed to help with business acquisition questions.";
-    if (!formattedMessages.some((msg: any) => msg.parts[0].text.includes("assistant"))) {
-      formattedMessages.unshift({ role: 'model', parts: [{ text: systemInstruction }] });
+    let hasSystemPrompt = false;
+    for (const msg of formattedMessages) {
+      if (msg.role === 'model' && msg.parts[0].text.includes("You are an AI assistant")) {
+        hasSystemPrompt = true;
+        break;
+      }
+    }
+
+    if (!hasSystemPrompt) {
+      formattedMessages.unshift({
+        role: 'model',
+        parts: [{ text: SYSTEM_PROMPT }]
+      });
     }
     
     // --- Begin API call process ---

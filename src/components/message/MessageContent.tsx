@@ -1,6 +1,8 @@
 
 import React from 'react';
 import { Loader2 } from 'lucide-react';
+import ReactMarkdown from 'react-markdown';
+import remarkGfm from 'remark-gfm';
 
 interface MessageContentProps {
   content: string;
@@ -8,70 +10,6 @@ interface MessageContentProps {
 }
 
 const MessageContent: React.FC<MessageContentProps> = ({ content, isLoading }) => {
-  const formattedContent = React.useMemo(() => {
-    let sanitizedText = content
-      .replace(/<strong>/g, '**')
-      .replace(/<\/strong>/g, '**')
-      .replace(/<em>/g, '*')
-      .replace(/<\/em>/g, '*');
-    
-    let formattedText = sanitizedText.replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>').replace(/\*(.*?)\*/g, '<em>$1</em>');
-    
-    formattedText = formattedText.replace(/^- (.*)/gm, '• $1');
-    formattedText = formattedText.replace(/^• (.*)/gm, '• $1');
-    
-    formattedText = formattedText.replace(/^(\d+)\. (.*)/gm, '$1. $2');
-    
-    return formattedText.split('\n\n').map((paragraph, index) => {
-      if (paragraph.includes('\n• ')) {
-        const listItems = paragraph.split('\n• ');
-        const title = listItems.shift();
-        
-        return (
-          <div key={index} className={index > 0 ? 'mt-4' : ''}>
-            {title && <p dangerouslySetInnerHTML={{ __html: title }} />}
-            <ul className="list-disc pl-5 mt-2 space-y-1">
-              {listItems.map((item, i) => (
-                <li key={i} dangerouslySetInnerHTML={{ __html: item }} />
-              ))}
-            </ul>
-          </div>
-        );
-      } 
-      else if (/\n\d+\.\s/.test(paragraph)) {
-        const listItems = paragraph.split(/\n(\d+\.\s)/);
-        const title = listItems.shift();
-        
-        const numberItems = [];
-        for (let i = 0; i < listItems.length; i += 2) {
-          if (i + 1 < listItems.length) {
-            numberItems.push(listItems[i] + listItems[i + 1]);
-          }
-        }
-        
-        return (
-          <div key={index} className={index > 0 ? 'mt-4' : ''}>
-            {title && <p dangerouslySetInnerHTML={{ __html: title }} />}
-            <ol className="list-decimal pl-5 mt-2 space-y-1">
-              {numberItems.map((item, i) => (
-                <li key={i} dangerouslySetInnerHTML={{ __html: item }} />
-              ))}
-            </ol>
-          </div>
-        );
-      } 
-      else {
-        return (
-          <p 
-            key={index} 
-            className={index > 0 ? 'mt-3' : ''} 
-            dangerouslySetInnerHTML={{ __html: paragraph }}
-          />
-        );
-      }
-    });
-  }, [content]);
-
   if (isLoading) {
     return (
       <div className="flex items-center space-x-2">
@@ -81,7 +19,30 @@ const MessageContent: React.FC<MessageContentProps> = ({ content, isLoading }) =
     );
   }
 
-  return <div className="message-content prose prose-sm dark:prose-invert max-w-none">{formattedContent}</div>;
+  return (
+    <div className="message-content prose prose-invert max-w-none">
+      <ReactMarkdown
+        remarkPlugins={[remarkGfm]}
+        components={{
+          h1: ({ node, ...props }) => <h1 className="text-xl font-bold mt-4 mb-2" {...props} />,
+          h2: ({ node, ...props }) => <h2 className="text-lg font-bold mt-3 mb-2" {...props} />,
+          h3: ({ node, ...props }) => <h3 className="text-md font-bold mt-2 mb-1" {...props} />,
+          p: ({ node, ...props }) => <p className="mb-2" {...props} />,
+          ul: ({ node, ...props }) => <ul className="list-disc pl-5 mb-2" {...props} />,
+          ol: ({ node, ...props }) => <ol className="list-decimal pl-5 mb-2" {...props} />,
+          li: ({ node, ...props }) => <li className="mb-1" {...props} />,
+          strong: ({ node, ...props }) => <strong className="font-bold" {...props} />,
+          em: ({ node, ...props }) => <em className="italic" {...props} />,
+          code: ({ node, inline, ...props }) => 
+            inline 
+              ? <code className="bg-zinc-700 px-1 rounded text-sm" {...props} />
+              : <code className="block bg-zinc-800 p-3 rounded-md text-sm whitespace-pre-wrap my-2" {...props} />
+        }}
+      >
+        {content}
+      </ReactMarkdown>
+    </div>
+  );
 };
 
 export default MessageContent;

@@ -1,3 +1,4 @@
+
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 
 const GEMINI_API_KEY = Deno.env.get('GEMINI_API_KEY');
@@ -10,38 +11,33 @@ const corsHeaders = {
 };
 
 const FALLBACK_RESPONSE = `
-# Business Acquisition Fundamentals
+# Unable to Connect to AI Service
 
-Here are fundamental concepts about business acquisitions:
+I apologize, but I'm currently having trouble connecting to the AI service. This may be due to:
 
-## The Acquisition Process
-1. **Define Your Acquisition Criteria**
-   • Industry focus
-   • Size parameters (revenue and EBITDA)
-   • Geographic location
-   • Owner situation
+- High service demand
+- Temporary connection issues
+- API capacity limits
 
-2. **Deal Origination** strategies:
-   • Direct outreach
-   • Business broker relationships
-   • Professional networks
-   • Industry associations
-   • LinkedIn campaigns
+Please try your question again in a moment.
 
-3. **Deal Structure Options**
-   • Seller financing
-   • Earn-outs
-   • SBA loans
-   • Real estate considerations
+*The system will automatically retry with alternative models if needed.*
+`;
 
-## Due Diligence Essentials
-• Financial verification
-• Customer concentration assessment
-• Owner dependency evaluation
-• Employee assessment
-• Systems & processes documentation
+const SYSTEM_PROMPT = `
+You are an AI assistant designed to have natural conversations. Here are your instructions:
 
-*Please try your specific question again when API capacity becomes available.*
+1. Respond to user questions directly and clearly
+2. Use proper markdown formatting:
+   - **Bold** for emphasis
+   - # Headings for main topics
+   - ## Subheadings for subtopics
+   - Bullet lists for multiple points
+   - Numbered lists for sequential steps
+
+3. Always acknowledge questions with a direct answer first
+4. When providing structured information, use clear sections
+5. Maintain a conversational, helpful tone
 `;
 
 serve(async (req) => {
@@ -65,25 +61,33 @@ serve(async (req) => {
 
     const { query, messages, context, instructions, sourceType, enableOnlineSearch } = await req.json();
     
+    // Format messages with proper role assignment
     const formattedMessages = messages.map(msg => ({
       role: msg.source === 'user' ? 'user' : 'model',
       parts: [{ text: msg.content }]
     }));
 
-    if (formattedMessages.length === 0 || 
-        !formattedMessages.some(msg => msg.role === 'model' && msg.parts[0].text.includes("assistant"))) {
+    // Add system instructions if not present
+    let hasSystemPrompt = false;
+    for (const msg of formattedMessages) {
+      if (msg.role === 'model' && msg.parts[0].text.includes("You are an AI assistant")) {
+        hasSystemPrompt = true;
+        break;
+      }
+    }
+
+    if (!hasSystemPrompt) {
       formattedMessages.unshift({
         role: 'model',
-        parts: [{ 
-          text: "I'm an AI assistant specializing in business acquisitions. I provide practical advice for entrepreneurs looking to acquire companies."
-        }]
+        parts: [{ text: SYSTEM_PROMPT }]
       });
     }
 
+    // Add additional context if provided
     if (context) {
       formattedMessages.unshift({
         role: 'model',
-        parts: [{ text: context }]
+        parts: [{ text: `Context: ${context}` }]
       });
     }
     
