@@ -1,4 +1,3 @@
-
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import "https://deno.land/x/xhr@0.1.0/mod.ts";
 import { createClient, SupabaseClient } from 'https://esm.sh/@supabase/supabase-js@2';
@@ -99,13 +98,12 @@ serve(async (req) => {
 
     const geminiStartTime = Date.now();
     
-    // Extract API key from environment and construct the URL
-    const apiKey = GEMINI_API_KEY;
-    const apiUrl = GEMINI_API_URL.includes('key=GEMINI_API_KEY') 
-      ? GEMINI_API_URL.replace('GEMINI_API_KEY', apiKey) 
-      : `${GEMINI_API_URL}?key=${apiKey}`;
+    // Build the complete URL with API key
+    const apiUrl = `${GEMINI_API_URL}?key=${GEMINI_API_KEY}`;
     
-    console.log("Calling Gemini API URL:", apiUrl.substring(0, apiUrl.indexOf('?')));
+    // Log just the base URL (without API key) for debugging
+    console.log("Calling Gemini API URL:", apiUrl.split('?')[0]);
+    console.log("API URL contains key parameter:", apiUrl.includes("key="));
     
     const geminiResponse = await fetch(apiUrl, {
       method: 'POST',

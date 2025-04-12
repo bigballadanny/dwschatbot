@@ -190,11 +190,9 @@ serve(async (req) => {
       // Call Gemini API
       console.log("Calling Gemini API with URL:", GEMINI_API_URL);
       
-      // Extract API key from environment
-      const apiKey = Deno.env.get('GEMINI_API_KEY');
-      
-      // Use the constructed URL with the API key
-      const apiUrl = GEMINI_API_URL.replace('GEMINI_API_KEY', apiKey || '');
+      // Build the complete URL with API key
+      const apiUrl = `${GEMINI_API_URL}?key=${GEMINI_API_KEY}`;
+      console.log("API URL has key:", apiUrl.includes("key="));
       
       const response = await fetch(apiUrl, {
         method: 'POST',
