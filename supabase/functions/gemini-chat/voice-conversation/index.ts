@@ -4,12 +4,18 @@ import { createClient, SupabaseClient } from 'https://esm.sh/@supabase/supabase-
 
 // Env variables
 const GEMINI_API_KEY = Deno.env.get('GEMINI_API_KEY');
+const VERTEX_AI_SERVICE_ACCOUNT = Deno.env.get('VERTEX_AI_SERVICE_ACCOUNT');
 const SUPABASE_URL = Deno.env.get('SUPABASE_URL');
 const SUPABASE_ANON_KEY = Deno.env.get('SUPABASE_ANON_KEY');
 
 // Use Gemini 2.0 Flash with fallback to 1.5 Pro
 const GEMINI_2_API_URL = "https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent";
 const GEMINI_FALLBACK_API_URL = "https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-pro:generateContent";
+
+// Vertex AI API endpoints
+const VERTEX_LOCATION = "us-central1";
+const VERTEX_MODEL_ID = "gemini-1.5-pro";
+const VERTEX_API_VERSION = "v1";
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -35,6 +41,166 @@ You are an AI assistant designed to have natural conversations. Here are your in
 4. When providing structured information, use clear sections
 5. Maintain a conversational, helpful tone
 `;
+
+// Function to handle Vertex AI authentication
+async function getVertexAccessToken() {
+  try {
+    if (!VERTEX_AI_SERVICE_ACCOUNT) {
+      throw new Error("Vertex AI service account not configured");
+    }
+    
+    // Parse the service account JSON
+    const serviceAccount = JSON.parse(VERTEX_AI_SERVICE_ACCOUNT);
+    
+    // Use the client_email and private_key from the service account to get a token
+    const jwtToken = await createJWT(serviceAccount);
+    
+    // Exchange JWT for Google OAuth token
+    const tokenResponse = await fetch(
+      `https://oauth2.googleapis.com/token`,
+      {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({
+          grant_type: 'urn:ietf:params:oauth:grant-type:jwt-bearer',
+          assertion: jwtToken
+        })
+      }
+    );
+    
+    const tokenData = await tokenResponse.json();
+    
+    if (!tokenData.access_token) {
+      console.error("Failed to get access token:", tokenData);
+      throw new Error("Failed to authenticate with Vertex AI");
+    }
+    
+    return tokenData.access_token;
+  } catch (error) {
+    console.error("Error getting Vertex AI access token:", error);
+    throw error;
+  }
+}
+
+// Helper function to create a JWT token
+async function createJWT(serviceAccount) {
+  const now = Math.floor(Date.now() / 1000);
+  const expiry = now + 3600; // 1 hour
+  
+  const header = {
+    alg: 'RS256',
+    typ: 'JWT',
+    kid: serviceAccount.private_key_id
+  };
+  
+  const payload = {
+    iss: serviceAccount.client_email,
+    sub: serviceAccount.client_email,
+    aud: 'https://oauth2.googleapis.com/token',
+    iat: now,
+    exp: expiry,
+    scope: 'https://www.googleapis.com/auth/cloud-platform'
+  };
+  
+  // Encode header and payload
+  const encodedHeader = btoa(JSON.stringify(header)).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
+  const encodedPayload = btoa(JSON.stringify(payload)).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
+  
+  // Create signature
+  const signatureInput = `${encodedHeader}.${encodedPayload}`;
+  
+  // We need to implement RSA-SHA256 signing
+  // For this example, we'll use a placeholder as implementing RSA-SHA256 in Deno
+  // would require additional crypto libraries
+  // In a real implementation, you would use the appropriate crypto library
+  
+  // This is a simplified approach and would need proper RSA-SHA256 implementation
+  const privateKey = serviceAccount.private_key;
+  // Convert PEM encoded key to binary
+  const binaryKey = atob(privateKey.replace(/-----BEGIN PRIVATE KEY-----|-----END PRIVATE KEY-----|\n/g, ''));
+  
+  // Create a crypto key from the binary
+  const cryptoKey = await crypto.subtle.importKey(
+    "pkcs8",
+    new TextEncoder().encode(binaryKey),
+    {
+      name: "RSASSA-PKCS1-v1_5",
+      hash: { name: "SHA-256" }
+    },
+    false,
+    ["sign"]
+  );
+  
+  // Sign the data
+  const signature = await crypto.subtle.sign(
+    { name: "RSASSA-PKCS1-v1_5" },
+    cryptoKey,
+    new TextEncoder().encode(signatureInput)
+  );
+  
+  const encodedSignature = btoa(String.fromCharCode(...new Uint8Array(signature)))
+    .replace(/\+/g, '-')
+    .replace(/\//g, '_')
+    .replace(/=+$/, '');
+  
+  return `${signatureInput}.${encodedSignature}`;
+}
+
+// Function to call Vertex AI Prediction API
+async function callVertexAI(messages, temperature = 0.7) {
+  try {
+    const accessToken = await getVertexAccessToken();
+    
+    const serviceAccount = JSON.parse(VERTEX_AI_SERVICE_ACCOUNT);
+    const projectId = serviceAccount.project_id;
+    
+    const endpoint = `https://${VERTEX_LOCATION}-aiplatform.googleapis.com/${VERTEX_API_VERSION}/projects/${projectId}/locations/${VERTEX_LOCATION}/publishers/google/models/${VERTEX_MODEL_ID}:predict`;
+    
+    const requestBody = {
+      instances: [
+        {
+          messages: messages.map(msg => ({
+            role: msg.role === 'model' ? 'assistant' : msg.role,
+            content: msg.parts[0].text
+          }))
+        }
+      ],
+      parameters: {
+        temperature: temperature,
+        maxOutputTokens: 2048,
+        topP: 0.95,
+        topK: 40
+      }
+    };
+    
+    const response = await fetch(endpoint, {
+      method: 'POST',
+      headers: {
+        'Authorization': `Bearer ${accessToken}`,
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify(requestBody)
+    });
+    
+    if (!response.ok) {
+      const errorText = await response.text();
+      console.error("Vertex AI API error:", errorText);
+      throw new Error(`Vertex AI API error: ${response.status} ${response.statusText}`);
+    }
+    
+    const data = await response.json();
+    
+    // Extract the generated text from the response
+    const generatedText = data.predictions[0]?.candidates[0]?.content || "";
+    
+    return generatedText;
+  } catch (error) {
+    console.error("Error calling Vertex AI:", error);
+    throw error;
+  }
+}
 
 // --- Analytics Logging Function (Keep as is) ---
 async function logAnalytics(
@@ -90,9 +256,13 @@ serve(async (req) => {
   let retryCount = 0;
   let modelUsed = "gemini-2.0-flash";
   const MAX_RETRIES = 2; // Maximum number of retries if we get empty responses
+  
+  // Check if we have Vertex AI credentials or Gemini API key
+  const useVertexAI = !!VERTEX_AI_SERVICE_ACCOUNT;
+  const useGemini = !!GEMINI_API_KEY;
 
   try {
-    if (!GEMINI_API_KEY || !SUPABASE_URL || !SUPABASE_ANON_KEY) {
+    if ((!useVertexAI && !useGemini) || !SUPABASE_URL || !SUPABASE_ANON_KEY) {
       throw new Error("Missing required environment variables");
     }
 
@@ -109,7 +279,7 @@ serve(async (req) => {
     
     console.log(`Processing query for conversation ${conversationId || 'N/A'}: "${queryText.substring(0, 50)}..."`);
     
-    // --- Format messages for Gemini API --- 
+    // --- Format messages for API --- 
     const formattedMessages = messages
         .map((msg: any) => ({ role: msg.source === 'user' ? 'user' : 'model', parts: [{ text: msg.content }] }))
         .filter((msg: any) => msg.parts[0].text); // Ensure messages have content
@@ -135,78 +305,99 @@ serve(async (req) => {
     
     // Try the API call with retry logic for empty responses
     let attemptSuccessful = false;
-    let data;
     
-    while (retryCount <= MAX_RETRIES && !attemptSuccessful) {
+    // Try Vertex AI first if available
+    if (useVertexAI) {
       try {
-        // Use Gemini 2.0 for first attempt, fall back to 1.5 if needed
-        const useGemini2 = (retryCount < 1);
-        const apiUrl = `${useGemini2 ? GEMINI_2_API_URL : GEMINI_FALLBACK_API_URL}?key=${GEMINI_API_KEY}`;
-        modelUsed = useGemini2 ? "gemini-2.0-flash" : "gemini-1.5-pro";
+        console.log("Calling Vertex AI API for voice conversation");
+        responseText = await callVertexAI(formattedMessages);
         
-        // Gradually increase temperature if retrying to encourage different responses
-        const temperature = retryCount === 0 ? 0.7 : 0.8;
-        
-        // Match the official API structure exactly
-        const requestBody = {
-          contents: formattedMessages,
-          generationConfig: { 
-            temperature: temperature, 
-            topP: 0.9, 
-            topK: 30, 
-            maxOutputTokens: 4096  // Increased token limit
-          }
-        };
-        
-        console.log(`Attempt ${retryCount + 1} using model: ${modelUsed}`);
-        console.log(`Request with ${formattedMessages.length} messages, temperature: ${temperature}`);
-        
-        const geminiResponse = await fetch(apiUrl, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify(requestBody),
-        });
-        
-        console.log(`API attempt ${retryCount + 1} status:`, geminiResponse.status);
-        
-        // Get the full response text for debugging
-        const responseText = await geminiResponse.text();
-        console.log(`API attempt ${retryCount + 1} raw response (truncated):`, responseText.substring(0, 100) + "...");
-        
-        // Parse the text response back to JSON
-        try {
-          data = JSON.parse(responseText);
-          
-          // Check for empty or "I'm sorry" responses
-          const generatedText = data?.candidates?.[0]?.content?.parts?.[0]?.text || "";
-          
-          if (generatedText && 
-              generatedText.length > 20 &&
-              !generatedText.includes("I couldn't generate") &&
-              !generatedText.includes("I'm sorry, I can't")) {
-            // We got a valid response
-            attemptSuccessful = true;
-            console.log("Got valid response on attempt", retryCount + 1, "with model:", modelUsed);
-            responseText = generatedText;
-          } else {
-            console.log("Empty or apologetic response on attempt", retryCount + 1);
-            retryCount++;
-          }
-        } catch (parseError) {
-          console.error("Error parsing API response:", parseError);
-          retryCount++; // Count parsing errors as failed attempts
+        if (responseText && responseText.length > 20) {
+          console.log("Vertex AI response successful, length:", responseText.length);
+          attemptSuccessful = true;
+          modelUsed = "vertex-ai";
+        } else {
+          console.log("Vertex AI returned empty response");
         }
-      } catch (fetchError) {
-        console.error(`API fetch error on attempt ${retryCount + 1}:`, fetchError);
-        retryCount++;
+      } catch (vertexError) {
+        console.error("Vertex AI error:", vertexError);
+        // If Vertex AI fails and we have Gemini, we'll fall back to it
+      }
+    }
+    
+    // If Vertex AI didn't work or wasn't available, try Gemini
+    if (!attemptSuccessful && useGemini) {
+      while (retryCount <= MAX_RETRIES && !attemptSuccessful) {
+        try {
+          // Use Gemini 2.0 for first attempt, fall back to 1.5 if needed
+          const useGemini2 = (retryCount < 1);
+          const apiUrl = `${useGemini2 ? GEMINI_2_API_URL : GEMINI_FALLBACK_API_URL}?key=${GEMINI_API_KEY}`;
+          modelUsed = useGemini2 ? "gemini-2.0-flash" : "gemini-1.5-pro";
+          
+          // Gradually increase temperature if retrying to encourage different responses
+          const temperature = retryCount === 0 ? 0.7 : 0.8;
+          
+          // Match the official API structure exactly
+          const requestBody = {
+            contents: formattedMessages,
+            generationConfig: { 
+              temperature: temperature, 
+              topP: 0.9, 
+              topK: 30, 
+              maxOutputTokens: 4096  // Increased token limit
+            }
+          };
+          
+          console.log(`Attempt ${retryCount + 1} using model: ${modelUsed}`);
+          console.log(`Request with ${formattedMessages.length} messages, temperature: ${temperature}`);
+          
+          const geminiResponse = await fetch(apiUrl, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(requestBody),
+          });
+          
+          console.log(`API attempt ${retryCount + 1} status:`, geminiResponse.status);
+          
+          // Get the full response text for debugging
+          const responseBody = await geminiResponse.text();
+          console.log(`API attempt ${retryCount + 1} raw response (truncated):`, responseBody.substring(0, 100) + "...");
+          
+          // Parse the text response back to JSON
+          try {
+            const data = JSON.parse(responseBody);
+            
+            // Check for empty or "I'm sorry" responses
+            const generatedText = data?.candidates?.[0]?.content?.parts?.[0]?.text || "";
+            
+            if (generatedText && 
+                generatedText.length > 20 &&
+                !generatedText.includes("I couldn't generate") &&
+                !generatedText.includes("I'm sorry, I can't")) {
+              // We got a valid response
+              attemptSuccessful = true;
+              console.log("Got valid response on attempt", retryCount + 1, "with model:", modelUsed);
+              responseText = generatedText;
+            } else {
+              console.log("Empty or apologetic response on attempt", retryCount + 1);
+              retryCount++;
+            }
+          } catch (parseError) {
+            console.error("Error parsing API response:", parseError);
+            retryCount++; // Count parsing errors as failed attempts
+          }
+        } catch (fetchError) {
+          console.error(`API fetch error on attempt ${retryCount + 1}:`, fetchError);
+          retryCount++;
+        }
       }
     }
     
     const geminiEndTime = Date.now();
-    geminiApiTime = geminiEndTime - geminiStartTime; // Record Gemini API time
+    geminiApiTime = geminiEndTime - geminiStartTime; // Record API time
     
     // If we don't have a valid response by now, handle the error cases
-    if (!data) {
+    if (!attemptSuccessful || !responseText) {
       const errorMsg = "Failed to get a valid response from the API after retries";
       console.error(errorMsg);
       
@@ -214,11 +405,6 @@ serve(async (req) => {
       responseSource = 'fallback';
       isSuccess = true;
       console.log("Using fallback content");
-    } else if (!responseText) {
-      // Handle empty but technically successful responses
-      console.warn("Gemini API returned empty response text, using generic fallback");
-      responseText = FALLBACK_RESPONSE;
-      responseSource = 'fallback';
     }
     
     isSuccess = true;
@@ -239,7 +425,7 @@ serve(async (req) => {
     } else if (usedOnlineSearch && !citation) {
       responseSource = 'web';
     } else if (!citation) {
-      responseSource = 'gemini'; // Default if no citation
+      responseSource = useVertexAI ? 'vertex' : 'gemini'; // Default source based on what was used
     }
 
     // --- Log Analytics (Success) ---

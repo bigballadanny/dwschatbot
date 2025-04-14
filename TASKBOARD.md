@@ -3,13 +3,31 @@
 
 This file tracks our current tasks, priorities, and ongoing work. Completed tasks will be moved to CHANGELOG.md after completion, and this board will be regularly updated to reflect our current focus.
 
-## Current Sprint (Phase 8)
+## Current Sprint (Phase 9)
+
+### Vertex AI Integration 🚀
+- [x] Add Google Vertex AI integration to replace/supplement Gemini API
+- [ ] Optimize token usage in conversations
+- [ ] Implement proper JWT auth for Vertex AI
+- [ ] Enhance error handling for AI service switching
+
+### Optimization Tasks ⚡
+- [ ] Improve message caching strategy
+- [ ] Implement proper token bucket rate limiting
+- [ ] Add request batching for frequently asked questions
+- [ ] Optimize context window usage
 
 ### UI Improvements ✨
 - [ ] Enhance message list animations and transitions
 - [ ] Fix scrolling behavior in chat interface
 - [ ] Improve sidebar UI and interaction
 - [ ] Review and fix any responsive design issues
+
+## Testing Plan 🧪
+- [ ] Test Vertex AI vs Gemini API performance
+- [ ] Monitor quota usage and rate limits
+- [ ] Verify fallback mechanisms work properly
+- [ ] Test recovery from API failures
 
 ## Upcoming Tasks
 
@@ -27,7 +45,7 @@ This file tracks our current tasks, priorities, and ongoing work. Completed task
 
 ## Quick Wins 🎯
 - [x] Fix message persistence bugs
-- [ ] Optimize loading states for better user experience
+- [x] Implement fallback mechanisms for API failures
 - [ ] Improve error messaging across application
 - [ ] Add keyboard shortcuts for power users
 
