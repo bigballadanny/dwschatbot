@@ -6,6 +6,7 @@ import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { useToast } from "@/components/ui/use-toast"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
+import { supabase } from "@/integrations/supabase/client";
 import {
   createServiceAccountWithRawKey,
   extractKeyBase64Content,
@@ -84,27 +85,40 @@ const VertexTest = () => {
     setIsLoading(true);
     try {
       const parsed = JSON.parse(serviceAccountInput);
-      const result = await fetch('/api/test-auth', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify(parsed),
-      }).then(res => res.json());
       
-      if (result.success) {
+      // Use Supabase Edge Function instead of direct API call
+      const { data, error } = await supabase.functions.invoke('test-auth-jwt', {
+        method: 'POST',
+        body: { 
+          serviceAccount: parsed,
+          testAuth: true 
+        },
+      });
+      
+      if (error) {
+        console.error("Error calling test-auth-jwt function:", error);
+        toast({
+          title: "Authentication Failed",
+          description: `Error: ${error.message || "An unexpected error occurred"}`,
+          variant: "destructive"
+        });
+        return;
+      }
+      
+      if (data.success) {
         toast({
           title: "Authentication Passed",
-          description: "Successfully authenticated with the service account",
+          description: data.message || "Successfully authenticated with the service account",
         });
       } else {
         toast({
           title: "Authentication Failed",
-          description: result.error || "Authentication failed",
+          description: data.message || "Authentication failed",
           variant: "destructive"
         });
       }
     } catch (error) {
+      console.error("Error in testServiceAccount:", error);
       toast({
         title: "Error",
         description: error.message || "An unexpected error occurred",
