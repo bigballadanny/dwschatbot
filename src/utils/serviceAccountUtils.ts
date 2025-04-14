@@ -7,6 +7,10 @@
  * - Improper line breaks
  */
 export function normalizePrivateKey(privateKey: string): string {
+  if (!privateKey) {
+    throw new Error("Private key is empty or undefined");
+  }
+
   // Remove any existing PEM markers and whitespace to get clean base64
   let cleanBase64 = privateKey
     .replace(/-----BEGIN PRIVATE KEY-----|-----END PRIVATE KEY-----|\s/g, '')
@@ -16,8 +20,9 @@ export function normalizePrivateKey(privateKey: string): string {
   cleanBase64 = cleanBase64.replace(/[^A-Za-z0-9+/=]/g, '');
   
   // Ensure the base64 string length is valid (must be divisible by 4)
-  while (cleanBase64.length % 4 !== 0) {
-    cleanBase64 += '=';
+  const remainder = cleanBase64.length % 4;
+  if (remainder > 0) {
+    cleanBase64 += '='.repeat(4 - remainder);
   }
   
   // Format with proper line breaks (64 characters per line)
@@ -37,20 +42,25 @@ export function normalizePrivateKey(privateKey: string): string {
  */
 export function preprocessServiceAccountJson(jsonInput: string): string {
   try {
-    // Parse the JSON to get the object
-    let serviceAccount = JSON.parse(jsonInput);
+    // Handle the case where jsonInput might be an object already
+    let parsedJson: any;
+    if (typeof jsonInput === 'object') {
+      parsedJson = jsonInput;
+    } else {
+      // Parse the JSON to get the object
+      parsedJson = JSON.parse(jsonInput);
+    }
     
     // If private_key exists, normalize its format
-    if (serviceAccount.private_key) {
-      serviceAccount.private_key = normalizePrivateKey(serviceAccount.private_key);
+    if (parsedJson.private_key) {
+      parsedJson.private_key = normalizePrivateKey(parsedJson.private_key);
     }
     
     // Convert back to properly formatted JSON string
-    return JSON.stringify(serviceAccount, null, 2);
+    return JSON.stringify(parsedJson, null, 2);
   } catch (error) {
-    // If there's a parsing error, return the original input
     console.error("Error preprocessing service account JSON:", error);
-    return jsonInput;
+    return jsonInput; // Return the original input on error
   }
 }
 
@@ -121,4 +131,51 @@ export function diagnosticServiceAccountJson(serviceAccount: any): {
     },
     suggestions
   };
+}
+
+/**
+ * Creates a properly formatted PEM key from base64 content
+ */
+export function formatPEMKey(base64Content: string, type: string = "PRIVATE KEY"): string {
+  // Clean the base64 content first
+  let cleanBase64 = base64Content.replace(/\s/g, '');
+  
+  // Remove any non-base64 characters
+  cleanBase64 = cleanBase64.replace(/[^A-Za-z0-9+/=]/g, '');
+  
+  // Ensure the base64 string length is valid
+  const remainder = cleanBase64.length % 4;
+  if (remainder > 0) {
+    cleanBase64 += '='.repeat(4 - remainder);
+  }
+  
+  // Format with proper line breaks (64 characters per line)
+  let formattedContent = `-----BEGIN ${type}-----\n`;
+  for (let i = 0; i < cleanBase64.length; i += 64) {
+    formattedContent += cleanBase64.slice(i, i + 64) + '\n';
+  }
+  formattedContent += `-----END ${type}-----`;
+  
+  return formattedContent;
+}
+
+/**
+ * Validates base64 content for proper encoding
+ */
+export function isValidBase64(str: string): boolean {
+  try {
+    // Remove all non-base64 characters and whitespace
+    const cleanStr = str.replace(/[^A-Za-z0-9+/=]/g, '');
+    
+    // Check if the string is empty after cleaning
+    if (cleanStr.length === 0) {
+      return false;
+    }
+    
+    // Attempt to decode
+    atob(cleanStr);
+    return true;
+  } catch (e) {
+    return false;
+  }
 }
