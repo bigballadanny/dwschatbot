@@ -39,13 +39,12 @@ const MessageList: React.FC<MessageListProps> = ({
   // Throttled scroll handler to improve performance
   const handleScroll = useThrottle((event: React.UIEvent<HTMLDivElement>) => {
     const element = event.currentTarget;
-    const isScrolledToBottom = 
-      Math.abs(element.scrollHeight - element.scrollTop - element.clientHeight) < 50;
-    
-    if (!isScrolledToBottom) {
-      setHasScrolled(true);
-    } else {
-      setHasScrolled(false);
+    // Check if element exists before accessing its properties
+    if (element) {
+      const isScrolledToBottom = 
+        Math.abs(element.scrollHeight - element.scrollTop - element.clientHeight) < 50;
+      
+      setHasScrolled(!isScrolledToBottom);
     }
   }, 100);
   

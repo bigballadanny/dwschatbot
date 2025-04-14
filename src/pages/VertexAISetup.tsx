@@ -1,10 +1,22 @@
 
 import { VertexAIValidator } from '@/components/VertexAIValidator';
+import { Button } from '@/components/ui/button';
+import { Link } from 'react-router-dom';
+import { ArrowLeft } from 'lucide-react';
 
 export default function VertexAISetup() {
   return (
     <div className="container mx-auto py-8">
-      <h1 className="text-2xl font-bold mb-6">Vertex AI Setup</h1>
+      <div className="flex items-center mb-6">
+        <Link to="/">
+          <Button variant="outline" size="sm" className="mr-4">
+            <ArrowLeft className="h-4 w-4 mr-2" />
+            Back to Chat
+          </Button>
+        </Link>
+        <h1 className="text-2xl font-bold">Vertex AI Setup</h1>
+      </div>
+      
       <p className="text-gray-600 mb-8">
         Use this page to validate your Vertex AI service account configuration and troubleshoot any issues.
       </p>
@@ -41,6 +53,17 @@ export default function VertexAISetup() {
             </p>
           </div>
         </div>
+      </div>
+      
+      <div className="mt-8 bg-blue-50 p-4 rounded border border-blue-100">
+        <h3 className="font-medium text-blue-800">How to Fix Service Account JSON</h3>
+        <ol className="list-decimal ml-4 mt-2 space-y-2 text-sm text-blue-700">
+          <li>Go to your Google Cloud Console and download a fresh copy of your service account key</li>
+          <li>Open the JSON file in a text editor and ensure it's properly formatted</li>
+          <li>When adding to Supabase Secrets, use a text editor that preserves newlines</li>
+          <li>Make sure the entire JSON is wrapped in curly braces and there are no syntax errors</li>
+          <li>After updating, click the "Validate Service Account" button to check if the issues are resolved</li>
+        </ol>
       </div>
     </div>
   );

@@ -7,20 +7,23 @@ This file tracks our current tasks, priorities, and ongoing work. Completed task
 
 ### Vertex AI Integration 🚀
 - [x] Add Google Vertex AI integration to replace/supplement Gemini API
-- [ ] Fix Vertex AI authentication issues with service account JSON
-- [ ] Optimize token usage in conversations
+- [x] Fix Vertex AI authentication issues with service account JSON
 - [x] Add service account validation tool
+- [x] Fix UI issues with service account validator
+- [ ] Optimize token usage in conversations
 - [ ] Enhance error handling for AI service switching
 
 ### Optimization Tasks ⚡
+- [x] Fix message list scrolling issues
 - [ ] Improve message caching strategy
 - [ ] Implement proper token bucket rate limiting
 - [ ] Add request batching for frequently asked questions
 - [ ] Optimize context window usage
 
 ### UI Improvements ✨
+- [x] Add easy navigation to Vertex AI setup page
+- [x] Fix scrolling behavior in chat interface
 - [ ] Enhance message list animations and transitions
-- [ ] Fix scrolling behavior in chat interface
 - [ ] Improve sidebar UI and interaction
 - [ ] Review and fix any responsive design issues
 
@@ -48,6 +51,8 @@ This file tracks our current tasks, priorities, and ongoing work. Completed task
 - [x] Fix message persistence bugs
 - [x] Implement fallback mechanisms for API failures
 - [x] Create Vertex AI service account validator
+- [x] Fix UI bugs in MessageList component
+- [x] Add easy access to Vertex AI setup page
 - [ ] Improve error messaging across application
 - [ ] Add keyboard shortcuts for power users
 
