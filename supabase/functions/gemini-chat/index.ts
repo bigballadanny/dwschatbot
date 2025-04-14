@@ -1,5 +1,6 @@
 
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
+import { validateChatApiRequest } from "../../src/utils/apiValidation.ts";
 
 const GEMINI_API_KEY = Deno.env.get('GEMINI_API_KEY');
 const VERTEX_AI_SERVICE_ACCOUNT = Deno.env.get('VERTEX_AI_SERVICE_ACCOUNT');
@@ -574,20 +575,22 @@ serve(async (req) => {
       });
     }
     
-    const { messages: clientMessages, query, enableOnlineSearch = false, conversationId } = requestData;
-    
-    // Input validation - make sure messages is an array
-    if (!Array.isArray(clientMessages)) {
-      console.error("Invalid request: messages is not an array");
+    // Validate request using our validation utility
+    const validation = validateChatApiRequest(requestData);
+    if (!validation.isValid) {
+      console.error("Request validation failed:", validation.error, validation.errorDetails);
       return new Response(JSON.stringify({
-        error: "Invalid request: messages must be an array",
-        content: FALLBACK_RESPONSE,
+        error: validation.error,
+        errorDetails: validation.errorDetails,
+        content: "I couldn't process your request due to validation errors. Please try again.",
         source: "system"
       }), {
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
         status: 400
       });
     }
+    
+    const { messages: clientMessages, query, enableOnlineSearch = false, conversationId } = requestData;
     
     // Prepare messages for the AI
     let messages = [];
