@@ -13,6 +13,7 @@ This file tracks our current tasks, priorities, and ongoing work. Completed task
 - [x] Fix layout issues with sidebar after adding Vertex AI integration
 - [ ] Optimize token usage in conversations
 - [x] Enhance error handling for AI service switching
+- [x] Fix generateCacheKey function in gemini-chat edge function
 
 ### Optimization Tasks ⚡
 - [x] Fix message list scrolling issues
@@ -29,6 +30,7 @@ This file tracks our current tasks, priorities, and ongoing work. Completed task
 - [ ] Enhance message list animations and transitions
 - [x] Improve sidebar UI and interaction
 - [x] Fix responsive design issues
+- [x] Fix missing sidebar on all pages
 
 ## Testing Plan 🧪
 - [ ] Test Vertex AI vs Gemini API performance
@@ -57,6 +59,8 @@ This file tracks our current tasks, priorities, and ongoing work. Completed task
 - [x] Fix UI bugs in MessageList component
 - [x] Add easy access to Vertex AI setup page
 - [x] Fix layout issues with SidebarProvider
+- [x] Fix missing sidebar on all pages
+- [x] Fix error in gemini-chat edge function
 - [ ] Improve error messaging across application
 - [ ] Add keyboard shortcuts for power users
 

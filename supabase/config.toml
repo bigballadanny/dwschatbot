@@ -45,3 +45,4 @@ enabled = true
 [edge_functions]
 [edge_functions.validate-service-account]
 verify_jwt = true
+

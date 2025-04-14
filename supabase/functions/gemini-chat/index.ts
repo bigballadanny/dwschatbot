@@ -344,12 +344,32 @@ function recordRequest() {
   requestTimestamps.push(Date.now());
 }
 
+// Fixed function to safely generate cache key
 function generateCacheKey(messages) {
+  if (!Array.isArray(messages) || messages.length === 0) {
+    return "empty-cache-key";
+  }
+  
+  // Use only the last 3 messages (if available) to generate the key
   const relevantMessages = messages.slice(-3);
-  return JSON.stringify(relevantMessages.map(msg => ({
-    role: msg.role,
-    content: msg.parts[0].text
-  })));
+  
+  // Safely extract content - handling potential undefined values
+  return JSON.stringify(relevantMessages.map(msg => {
+    // Ensure message is an object and has the required properties
+    if (!msg || typeof msg !== 'object') {
+      return { role: 'unknown', content: 'invalid-message' };
+    }
+    
+    const role = msg.role || 'unknown';
+    let content = 'empty-content';
+    
+    // Safely extract text from parts if available
+    if (Array.isArray(msg.parts) && msg.parts.length > 0 && msg.parts[0] && 'text' in msg.parts[0]) {
+      content = msg.parts[0].text || 'empty-text';
+    }
+    
+    return { role, content };
+  }));
 }
 
 serve(async (req) => {
@@ -402,6 +422,19 @@ serve(async (req) => {
       messageCount: clientMessages ? clientMessages.length : 0,
       using: useVertexAI ? "Vertex AI" : "Gemini"
     });
+    
+    // Input validation - make sure messages is an array
+    if (!Array.isArray(clientMessages)) {
+      console.error("Invalid request: messages is not an array");
+      return new Response(JSON.stringify({
+        error: "Invalid request: messages must be an array",
+        content: FALLBACK_RESPONSE,
+        source: "system"
+      }), {
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+        status: 400
+      });
+    }
     
     // Prepare messages for the AI
     let messages = [];

@@ -4,6 +4,7 @@ import { ThemeProvider } from '@/components/ThemeProvider';
 import { Toaster } from '@/components/ui/sonner';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { SidebarProvider } from "@/components/ui/sidebar";
+import ChatSidebar from '@/components/ChatSidebar';
 
 import Index from '@/pages/Index';
 import Auth from '@/pages/Auth';
@@ -34,6 +35,8 @@ function App() {
             <AuthProvider>
               <AdminProvider>
                 <div className="flex w-full min-h-screen">
+                  <ChatSidebar />
+                  
                   {/* The SidebarOpenButton will automatically render only when sidebar is collapsed */}
                   <SidebarOpenButton />
                   
