@@ -8,10 +8,18 @@ const corsHeaders = {
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
 };
 
-// Helper function to proper format a PEM key
+// Helper function to proper format a PEM key with improved base64 validation
 function formatPEMKey(base64Content) {
   // Clean the base64 content first (remove any whitespace)
-  const cleanBase64 = base64Content.replace(/\s/g, '');
+  let cleanBase64 = base64Content.replace(/\s/g, '');
+  
+  // Remove any non-base64 characters that might have been introduced
+  cleanBase64 = cleanBase64.replace(/[^A-Za-z0-9+/=]/g, '');
+  
+  // Ensure the base64 string length is valid (must be divisible by 4)
+  while (cleanBase64.length % 4 !== 0) {
+    cleanBase64 += '=';
+  }
   
   // Format with 64 characters per line
   let formattedContent = '-----BEGIN PRIVATE KEY-----\n';
@@ -23,7 +31,7 @@ function formatPEMKey(base64Content) {
   return formattedContent;
 }
 
-// Create JWT token for Google OAuth with enhanced error handling
+// Create JWT token for Google OAuth with enhanced error handling and base64 validation
 async function createJWT(serviceAccount) {
   try {
     console.log("Starting JWT creation process");
@@ -72,74 +80,161 @@ async function createJWT(serviceAccount) {
     console.log("Processing private key");
     let privateKey = serviceAccount.private_key;
     
-    // Handle escaped newlines and standardize format
-    if (privateKey.includes('\\n')) {
-      console.log("Converting escaped newlines to actual newlines");
-      privateKey = privateKey.replace(/\\n/g, '\n');
-    }
-    
-    // Check if key has proper markers
-    const hasBeginMarker = privateKey.includes("-----BEGIN PRIVATE KEY-----");
-    const hasEndMarker = privateKey.includes("-----END PRIVATE KEY-----");
-    
-    // If the key doesn't have proper format, reformat it
-    if (!hasBeginMarker || !hasEndMarker) {
-      console.log("Key is missing markers, reformatting");
-      
-      // Extract just the base64 content, removing any existing formatting
-      const baseContent = privateKey.replace(/-----BEGIN PRIVATE KEY-----|-----END PRIVATE KEY-----|\s/g, '');
-      privateKey = formatPEMKey(baseContent);
-      
-      console.log("Key reformatted with proper PEM structure");
-    }
-    
-    // Extract base64 content between the markers
-    const cleanKey = privateKey
-      .replace(/-----BEGIN PRIVATE KEY-----|-----END PRIVATE KEY-----/g, '')
-      .replace(/\s/g, '');
-    
-    console.log(`Clean key length: ${cleanKey.length}`);
-    
     try {
+      // Handle escaped newlines and standardize format
+      if (privateKey.includes('\\n')) {
+        console.log("Converting escaped newlines to actual newlines");
+        privateKey = privateKey.replace(/\\n/g, '\n');
+      }
+      
+      // Check if key has proper markers
+      const hasBeginMarker = privateKey.includes("-----BEGIN PRIVATE KEY-----");
+      const hasEndMarker = privateKey.includes("-----END PRIVATE KEY-----");
+      
+      // If the key doesn't have proper format, reformat it
+      if (!hasBeginMarker || !hasEndMarker) {
+        console.log("Key is missing markers, reformatting");
+        
+        // Extract just the base64 content, removing any existing formatting
+        const baseContent = privateKey.replace(/-----BEGIN PRIVATE KEY-----|-----END PRIVATE KEY-----|\s/g, '');
+        privateKey = formatPEMKey(baseContent);
+        
+        console.log("Key reformatted with proper PEM structure");
+      }
+      
+      // Extract base64 content between the markers for debugging
+      const cleanKey = privateKey
+        .replace(/-----BEGIN PRIVATE KEY-----|-----END PRIVATE KEY-----/g, '')
+        .replace(/\s/g, '');
+      
+      console.log(`Clean key length: ${cleanKey.length}`);
+      
+      // Additional validation to ensure the key has valid base64 content
+      if (cleanKey.length === 0) {
+        throw new Error("Private key is empty after cleaning");
+      }
+      
+      // Remove any non-base64 characters that might have been introduced
+      const validBase64Key = cleanKey.replace(/[^A-Za-z0-9+/=]/g, '');
+      
+      // Ensure the base64 string length is valid
+      let paddedKey = validBase64Key;
+      while (paddedKey.length % 4 !== 0) {
+        paddedKey += '=';
+      }
+      
       // Convert PEM encoded key to binary
-      const binaryKey = atob(cleanKey);
-      console.log(`Binary key length: ${binaryKey.length}`);
+      let binaryKey;
+      try {
+        binaryKey = atob(paddedKey);
+        console.log(`Binary key length: ${binaryKey.length}`);
+        
+        // Additional validation - if binary key is too short, there's likely an encoding issue
+        if (binaryKey.length < 100) {
+          throw new Error(`Binary key is suspiciously short (${binaryKey.length} bytes). Possible base64 decoding issue.`);
+        }
+      } catch (base64Error) {
+        console.error("Base64 decoding error:", base64Error);
+        throw new Error(`Failed to decode private key: ${base64Error.message}. Please check the key format.`);
+      }
       
       // Create a crypto key from the binary
-      const cryptoKey = await crypto.subtle.importKey(
-        "pkcs8",
-        new TextEncoder().encode(binaryKey),
-        {
-          name: "RSASSA-PKCS1-v1_5",
-          hash: { name: "SHA-256" }
-        },
-        false,
-        ["sign"]
-      );
-      
-      console.log("Crypto key created successfully, signing JWT");
-      
-      // Sign the data
-      const signature = await crypto.subtle.sign(
-        { name: "RSASSA-PKCS1-v1_5" },
-        cryptoKey,
-        new TextEncoder().encode(signatureInput)
-      );
-      
-      const encodedSignature = btoa(String.fromCharCode(...new Uint8Array(signature)))
-        .replace(/\+/g, '-')
-        .replace(/\//g, '_')
-        .replace(/=+$/, '');
-      
-      console.log("JWT token creation completed successfully");
-      return `${signatureInput}.${encodedSignature}`;
-    } catch (cryptoError) {
-      console.error("Error during crypto operations:", cryptoError);
-      throw new Error(`JWT crypto error: ${cryptoError.message}`);
+      try {
+        const cryptoKey = await crypto.subtle.importKey(
+          "pkcs8",
+          new TextEncoder().encode(binaryKey),
+          {
+            name: "RSASSA-PKCS1-v1_5",
+            hash: { name: "SHA-256" }
+          },
+          false,
+          ["sign"]
+        );
+        
+        console.log("Crypto key created successfully, signing JWT");
+        
+        // Sign the data
+        const signature = await crypto.subtle.sign(
+          { name: "RSASSA-PKCS1-v1_5" },
+          cryptoKey,
+          new TextEncoder().encode(signatureInput)
+        );
+        
+        const encodedSignature = btoa(String.fromCharCode(...new Uint8Array(signature)))
+          .replace(/\+/g, '-')
+          .replace(/\//g, '_')
+          .replace(/=+$/, '');
+        
+        console.log("JWT token creation completed successfully");
+        return `${signatureInput}.${encodedSignature}`;
+      } catch (cryptoError) {
+        console.error("Error creating crypto key:", cryptoError);
+        throw new Error(`JWT crypto error: ${cryptoError.message}. The private key may be invalid.`);
+      }
+    } catch (keyProcessingError) {
+      console.error("Error processing private key:", keyProcessingError);
+      throw new Error(`Private key processing error: ${keyProcessingError.message}`);
     }
   } catch (error) {
     console.error("Error creating JWT token:", error);
     throw error;
+  }
+}
+
+// A test mode that just validates the structure of the service account without making API calls
+async function validateServiceAccount(serviceAccount) {
+  const results = {
+    isValid: false,
+    issues: [],
+    privateKeyAnalysis: {}
+  };
+  
+  try {
+    // Check required fields
+    const requiredFields = ["type", "project_id", "private_key_id", "private_key", "client_email"];
+    const missingFields = requiredFields.filter(field => !serviceAccount[field]);
+    
+    if (missingFields.length > 0) {
+      results.issues.push(`Missing required fields: ${missingFields.join(", ")}`);
+    }
+    
+    // Check private key format
+    if (serviceAccount.private_key) {
+      const privateKey = serviceAccount.private_key;
+      const hasBeginMarker = privateKey.includes("-----BEGIN PRIVATE KEY-----");
+      const hasEndMarker = privateKey.includes("-----END PRIVATE KEY-----");
+      const hasNewlines = privateKey.includes("\n");
+      const containsEscapedNewlines = privateKey.includes('\\n');
+      
+      results.privateKeyAnalysis = {
+        length: privateKey.length,
+        hasBeginMarker,
+        hasEndMarker, 
+        hasNewlines,
+        containsEscapedNewlines
+      };
+      
+      if (!hasBeginMarker || !hasEndMarker) {
+        results.issues.push("Private key is missing BEGIN/END markers");
+      }
+      
+      if (containsEscapedNewlines && !hasNewlines) {
+        results.issues.push("Private key has escaped newlines (\\n) but no actual newlines");
+      }
+    } else {
+      results.issues.push("Private key is missing");
+    }
+    
+    // Basic validation is successful if we have all required fields
+    results.isValid = missingFields.length === 0;
+    
+    return results;
+  } catch (error) {
+    return {
+      isValid: false,
+      issues: [`Validation error: ${error.message}`],
+      privateKeyAnalysis: {}
+    };
   }
 }
 
@@ -160,6 +255,48 @@ serve(async (req) => {
       }
     } catch (parseError) {
       console.log("No request body or invalid JSON");
+    }
+    
+    // Check if validation-only mode was requested
+    if (requestBody.validateOnly === true) {
+      console.log("Running in validation-only mode");
+      
+      // Use either provided service account or system service account
+      let serviceAccount;
+      if (requestBody.serviceAccount) {
+        console.log("Using provided service account for validation");
+        serviceAccount = requestBody.serviceAccount;
+      } else if (VERTEX_AI_SERVICE_ACCOUNT) {
+        console.log("Using environment service account for validation");
+        try {
+          serviceAccount = JSON.parse(VERTEX_AI_SERVICE_ACCOUNT);
+        } catch (parseError) {
+          return new Response(JSON.stringify({
+            success: false,
+            message: "Could not parse service account from environment variable",
+            error: `Parse error: ${parseError.message}`
+          }), {
+            headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+          });
+        }
+      } else {
+        return new Response(JSON.stringify({
+          success: false,
+          message: "No service account provided"
+        }), {
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+        });
+      }
+      
+      const validationResult = await validateServiceAccount(serviceAccount);
+      return new Response(JSON.stringify({
+        success: validationResult.isValid,
+        message: validationResult.isValid ? "Service account structure is valid" : "Service account has issues",
+        issues: validationResult.issues,
+        privateKeyAnalysis: validationResult.privateKeyAnalysis
+      }), {
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+      });
     }
     
     // Use either provided service account or system service account

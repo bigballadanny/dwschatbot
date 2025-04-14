@@ -22,6 +22,8 @@ const VertexTest = () => {
   const [logs, setLogs] = useState<string[]>([]);
   const [diagnosticsMode, setDiagnosticsMode] = useState<string>('basic');
   const [serviceAccountSummary, setServiceAccountSummary] = useState<any>(null);
+  const [serviceAccountInput, setServiceAccountInput] = useState<string>('');
+  const [serviceAccountValidation, setServiceAccountValidation] = useState<any>(null);
   
   const addLog = (message: string, type: 'info' | 'error' | 'success' = 'info') => {
     const timestamp = new Date().toLocaleTimeString();
@@ -162,6 +164,102 @@ const VertexTest = () => {
     }
   };
   
+  const validateServiceAccount = async () => {
+    try {
+      setIsLoading(true);
+      setError(null);
+      
+      const processedJson = preprocessServiceAccountJson(serviceAccountInput);
+      
+      addLog('Validating service account structure...', 'info');
+      
+      const { data, error } = await supabase.functions.invoke('test-auth-jwt', {
+        body: { 
+          validateOnly: true,
+          serviceAccount: JSON.parse(processedJson)
+        }
+      });
+      
+      if (error) {
+        addLog(`Validation error: ${error.message}`, 'error');
+        setError(`Validation error: ${error.message}`);
+        setServiceAccountValidation(null);
+      } else {
+        setServiceAccountValidation(data);
+        
+        if (data.success) {
+          addLog('Service account structure appears valid', 'success');
+        } else {
+          addLog(`Service account validation found issues: ${data.issues.join(', ')}`, 'error');
+        }
+      }
+    } catch (err) {
+      console.error("Service account validation error:", err);
+      addLog(`Error validating service account: ${err instanceof Error ? err.message : String(err)}`, 'error');
+      setError(`Error: ${err instanceof Error ? err.message : String(err)}`);
+      setServiceAccountValidation(null);
+    } finally {
+      setIsLoading(false);
+    }
+  };
+  
+  const setServiceAccount = async () => {
+    try {
+      setIsLoading(true);
+      setError(null);
+      
+      const processedJson = preprocessServiceAccountJson(serviceAccountInput);
+      
+      try {
+        const parsedAccount = JSON.parse(processedJson);
+        const validation = validateServiceAccountJson(parsedAccount);
+        
+        if (!validation.isValid) {
+          addLog(`Invalid service account: Missing fields: ${validation.missingFields.join(', ')}`, 'error');
+          setError(`Invalid service account: Missing required fields: ${validation.missingFields.join(', ')}`);
+          return;
+        }
+        
+        addLog('Testing JWT creation with the provided service account...', 'info');
+        
+        const { data, error } = await supabase.functions.invoke('test-auth-jwt', {
+          body: { 
+            serviceAccount: parsedAccount,
+            testAuth: false
+          }
+        });
+        
+        if (error) {
+          addLog(`JWT test failed: ${error.message}`, 'error');
+          setError(`JWT test failed: ${error.message}`);
+          return;
+        }
+        
+        if (!data.success) {
+          addLog(`JWT test failed: ${data.message}`, 'error');
+          setError(`JWT test failed: ${data.message}`);
+          return;
+        }
+        
+        addLog('Service account validated successfully. In a production app, you would save this to secure storage.', 'success');
+        
+        toast({
+          title: "Service Account Validated",
+          description: "The service account JSON was validated successfully and appears to have the correct format.",
+        });
+      } catch (parseError) {
+        addLog(`Invalid JSON format: ${parseError instanceof Error ? parseError.message : String(parseError)}`, 'error');
+        setError(`Invalid JSON format: ${parseError instanceof Error ? parseError.message : String(parseError)}`);
+      }
+    } catch (err) {
+      console.error("Error setting service account:", err);
+      addLog(`Error: ${err instanceof Error ? err.message : String(err)}`, 'error');
+      setError(`Error: ${err instanceof Error ? err.message : String(err)}`);
+    } finally {
+      setIsLoading(false);
+    }
+  };
+  
   return (
     <SidebarInset>
       <div className="container mx-auto py-6 space-y-8">
@@ -195,6 +293,7 @@ const VertexTest = () => {
           <TabsList>
             <TabsTrigger value="tests">API Tests</TabsTrigger>
             <TabsTrigger value="validator">Service Account</TabsTrigger>
+            <TabsTrigger value="input">Input JSON</TabsTrigger>
             <TabsTrigger value="logs">Logs</TabsTrigger>
             <TabsTrigger value="setup">Setup Guide</TabsTrigger>
           </TabsList>
@@ -321,6 +420,103 @@ const VertexTest = () => {
           
           <TabsContent value="validator">
             <VertexAIValidator />
+          </TabsContent>
+          
+          <TabsContent value="input" className="space-y-4">
+            <Card>
+              <CardHeader>
+                <CardTitle className="flex items-center">
+                  <ShieldAlert className="mr-2 h-5 w-5 text-primary" />
+                  Service Account JSON Input
+                </CardTitle>
+                <CardDescription>
+                  Paste your Google Cloud service account JSON to validate and test it
+                </CardDescription>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                <Alert>
+                  <Info className="h-4 w-4" />
+                  <AlertTitle>JSON Validation Tool</AlertTitle>
+                  <AlertDescription>
+                    This tool helps identify common issues with service account files without sending your credentials to any external servers.
+                  </AlertDescription>
+                </Alert>
+                
+                <Textarea 
+                  placeholder="Paste your JSON service account here..." 
+                  className="min-h-[200px] font-mono text-sm"
+                  value={serviceAccountInput}
+                  onChange={(e) => setServiceAccountInput(e.target.value)}
+                />
+                
+                <div className="flex gap-2 justify-end">
+                  <Button
+                    variant="outline"
+                    onClick={validateServiceAccount}
+                    disabled={isLoading || !serviceAccountInput}
+                  >
+                    {isLoading ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}
+                    Validate Format
+                  </Button>
+                  <Button
+                    onClick={setServiceAccount}
+                    disabled={isLoading || !serviceAccountInput}
+                  >
+                    {isLoading ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}
+                    Test JWT Creation
+                  </Button>
+                </div>
+                
+                {serviceAccountValidation && (
+                  <div className="mt-4">
+                    <Alert variant={serviceAccountValidation.success ? "success" : "destructive"}>
+                      {serviceAccountValidation.success 
+                        ? <CheckCircle className="h-4 w-4" /> 
+                        : <AlertCircle className="h-4 w-4" />}
+                      <AlertTitle>
+                        {serviceAccountValidation.success 
+                          ? "Service Account Valid" 
+                          : "Service Account Issues"}
+                      </AlertTitle>
+                      <AlertDescription>
+                        {serviceAccountValidation.success 
+                          ? "The service account JSON has the correct structure." 
+                          : (
+                            <ul className="list-disc pl-5 space-y-1">
+                              {serviceAccountValidation.issues.map((issue, i) => (
+                                <li key={i}>{issue}</li>
+                              ))}
+                            </ul>
+                          )}
+                          
+                        {serviceAccountValidation.privateKeyAnalysis && (
+                          <div className="mt-2 text-xs border-t pt-2">
+                            <p className="font-medium mb-1">Private Key Analysis:</p>
+                            <ul className="list-disc pl-5 space-y-0.5">
+                              <li>Length: {serviceAccountValidation.privateKeyAnalysis.length} chars</li>
+                              <li>Has BEGIN marker: {serviceAccountValidation.privateKeyAnalysis.hasBeginMarker ? "Yes" : "No"}</li>
+                              <li>Has END marker: {serviceAccountValidation.privateKeyAnalysis.hasEndMarker ? "Yes" : "No"}</li>
+                              <li>Has newlines: {serviceAccountValidation.privateKeyAnalysis.hasNewlines ? "Yes" : "No"}</li>
+                              <li>Has escaped newlines: {serviceAccountValidation.privateKeyAnalysis.containsEscapedNewlines ? "Yes" : "No"}</li>
+                            </ul>
+                          </div>
+                        )}
+                      </AlertDescription>
+                    </Alert>
+                  </div>
+                )}
+                
+                {error && (
+                  <Alert variant="destructive">
+                    <AlertCircle className="h-4 w-4" />
+                    <AlertTitle>Error</AlertTitle>
+                    <AlertDescription>
+                      {error}
+                    </AlertDescription>
+                  </Alert>
+                )}
+              </CardContent>
+            </Card>
           </TabsContent>
           
           <TabsContent value="logs">
