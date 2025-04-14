@@ -191,26 +191,39 @@ serve(async (req) => {
   }
   
   try {
-    if (!VERTEX_AI_SERVICE_ACCOUNT) {
-      console.error("No service account configured");
-      return new Response(JSON.stringify({
-        success: false,
-        message: "No Vertex AI service account configured"
-      }), {
-        headers: { ...corsHeaders, 'Content-Type': 'application/json' }
-      });
+    let requestBody = {};
+    try {
+      if (req.method === 'POST') {
+        requestBody = await req.json();
+      }
+    } catch (parseError) {
+      console.log("No request body or invalid JSON");
     }
     
+    // Check if a service account was provided in the request
     let serviceAccount;
-    try {
-      serviceAccount = JSON.parse(VERTEX_AI_SERVICE_ACCOUNT);
-      console.log("Successfully parsed service account JSON");
-    } catch (parseError) {
-      console.error("Failed to parse service account:", parseError);
+    if (requestBody.serviceAccount) {
+      console.log("Using service account from request body");
+      serviceAccount = requestBody.serviceAccount;
+    } else if (VERTEX_AI_SERVICE_ACCOUNT) {
+      try {
+        serviceAccount = JSON.parse(VERTEX_AI_SERVICE_ACCOUNT);
+        console.log("Using service account from environment variable");
+      } catch (parseError) {
+        console.error("Failed to parse service account:", parseError);
+        return new Response(JSON.stringify({
+          success: false,
+          message: "Invalid service account format",
+          error: parseError.message
+        }), {
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+        });
+      }
+    } else {
+      console.error("No service account configured or provided");
       return new Response(JSON.stringify({
         success: false,
-        message: "Invalid service account format",
-        error: parseError.message
+        message: "No Vertex AI service account configured or provided"
       }), {
         headers: { ...corsHeaders, 'Content-Type': 'application/json' }
       });
@@ -220,15 +233,6 @@ serve(async (req) => {
       const jwt = await createJWT(serviceAccount);
       
       // Check if we should test authentication
-      let requestBody = {};
-      try {
-        if (req.method === 'POST') {
-          requestBody = await req.json();
-        }
-      } catch (parseError) {
-        console.log("No request body or invalid JSON");
-      }
-      
       const testAuthResult = requestBody.testAuth === true 
         ? await testAuth(jwt) 
         : { testAuth: false };
