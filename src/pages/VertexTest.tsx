@@ -12,6 +12,7 @@ import { VertexAIValidator } from '@/components/VertexAIValidator';
 import { Badge } from '@/components/ui/badge';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion";
+import { preprocessServiceAccountJson, validateServiceAccountJson } from '@/utils/serviceAccountUtils';
 
 const VertexTest = () => {
   const [isLoading, setIsLoading] = useState(false);
