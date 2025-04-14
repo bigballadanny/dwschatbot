@@ -30,6 +30,7 @@ const VertexTest = () => {
   const [formattedJson, setFormattedJson] = useState('');
   const [isLoading, setIsLoading] = useState(false);
   const [supabaseFormatted, setSupabaseFormatted] = useState('');
+  const [jwtTestResult, setJwtTestResult] = useState(null);
   const { toast } = useToast();
   
   const validateServiceAccount = async () => {
@@ -119,6 +120,75 @@ const VertexTest = () => {
       }
     } catch (error) {
       console.error("Error in testServiceAccount:", error);
+      toast({
+        title: "Error",
+        description: error.message || "An unexpected error occurred",
+        variant: "destructive"
+      });
+    } finally {
+      setIsLoading(false);
+    }
+  };
+  
+  const testJwtCreation = async () => {
+    if (!serviceAccountInput.trim()) {
+      toast({
+        title: "No input",
+        description: "Please enter a service account JSON first",
+        variant: "destructive"
+      });
+      return;
+    }
+    
+    setIsLoading(true);
+    setJwtTestResult(null);
+    
+    try {
+      const parsed = JSON.parse(serviceAccountInput);
+      
+      // Test just the JWT creation part
+      const { data, error } = await supabase.functions.invoke('validate-service-account', {
+        method: 'POST',
+        body: { 
+          testMode: 'jwt',
+          serviceAccount: parsed 
+        },
+      });
+      
+      if (error) {
+        console.error("Error testing JWT creation:", error);
+        toast({
+          title: "JWT Test Failed",
+          description: `Error: ${error.message || "An unexpected error occurred"}`,
+          variant: "destructive"
+        });
+        setJwtTestResult({
+          success: false,
+          error: error.message
+        });
+        return;
+      }
+      
+      setJwtTestResult(data);
+      
+      if (data.success) {
+        toast({
+          title: "JWT Creation Successful",
+          description: data.message || "Successfully created JWT token",
+        });
+      } else {
+        toast({
+          title: "JWT Creation Failed",
+          description: data.message || "Failed to create JWT token",
+          variant: "destructive"
+        });
+      }
+    } catch (error) {
+      console.error("Error in testJwtCreation:", error);
+      setJwtTestResult({
+        success: false,
+        error: error.message
+      });
       toast({
         title: "Error",
         description: error.message || "An unexpected error occurred",
@@ -299,7 +369,7 @@ const VertexTest = () => {
                   />
                 </div>
                 
-                <div className="flex gap-2 justify-end">
+                <div className="flex gap-2 justify-end flex-wrap">
                   <Button
                     variant="secondary"
                     onClick={extractAndDisplayRawJson}
@@ -321,6 +391,14 @@ const VertexTest = () => {
                     disabled={isLoading || !serviceAccountInput}
                   >
                     Validate
+                  </Button>
+                  <Button
+                    variant="outline"
+                    onClick={testJwtCreation}
+                    disabled={isLoading || !serviceAccountInput}
+                    className="border-amber-500 text-amber-700 hover:bg-amber-50"
+                  >
+                    Test JWT Only
                   </Button>
                   <Button
                     variant="default"
@@ -409,6 +487,36 @@ const VertexTest = () => {
               )}
             </CardContent>
           </Card>
+          
+          {jwtTestResult && (
+            <Card className={`${jwtTestResult.success ? "border-green-200 bg-green-50 dark:bg-green-950 dark:border-green-800" : "border-red-200 bg-red-50 dark:bg-red-950 dark:border-red-800"}`}>
+              <CardHeader>
+                <CardTitle>{jwtTestResult.success ? "JWT Test Successful" : "JWT Test Failed"}</CardTitle>
+                <CardDescription className={jwtTestResult.success ? "text-green-800 dark:text-green-300" : "text-red-800 dark:text-red-300"}>
+                  {jwtTestResult.message || (jwtTestResult.success ? "JWT token created successfully" : "Failed to create JWT token")}
+                </CardDescription>
+              </CardHeader>
+              <CardContent>
+                <div className="bg-gray-50 dark:bg-gray-900 p-4 rounded">
+                  {jwtTestResult.success ? (
+                    <p className="text-green-700 dark:text-green-400">
+                      ✓ JWT token was created successfully
+                      {jwtTestResult.tokenLength && (
+                        <span className="block mt-2 text-sm">Token length: {jwtTestResult.tokenLength} characters</span>
+                      )}
+                    </p>
+                  ) : (
+                    <div className="text-red-700 dark:text-red-400">
+                      <p className="font-medium">✗ JWT token creation failed</p>
+                      {jwtTestResult.error && (
+                        <p className="mt-2 text-sm overflow-auto max-h-40">{jwtTestResult.error}</p>
+                      )}
+                    </div>
+                  )}
+                </div>
+              </CardContent>
+            </Card>
+          )}
           
           {supabaseFormatted && (
             <Card className="border-green-200 bg-green-50 dark:bg-green-950 dark:border-green-800">

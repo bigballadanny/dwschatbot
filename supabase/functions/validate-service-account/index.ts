@@ -431,7 +431,7 @@ async function validateServiceAccount(serviceAccountJSON, options = { skipTests:
   }
 }
 
-// Create a new test-auth-jwt function
+// Create a new test-jwt-creation function
 async function testJwtCreation(serviceAccountJSON) {
   try {
     console.log("Testing JWT creation specifically");
@@ -477,31 +477,35 @@ serve(async (req) => {
     // Check for skipTests option
     const skipTests = requestBody.skipTests === true;
     
-    if (!VERTEX_AI_SERVICE_ACCOUNT) {
-      console.error("No service account configured");
-      return new Response(JSON.stringify({
-        success: false,
-        message: "No Vertex AI service account configured",
-        errors: ["Service account not found in environment variables"]
-      }), {
-        status: 200, // Use 200 to avoid UI errors
-        headers: { ...corsHeaders, 'Content-Type': 'application/json' }
-      });
-    }
-    
+    // Get service account from request or fallback to env
     let serviceAccount;
-    try {
-      serviceAccount = JSON.parse(VERTEX_AI_SERVICE_ACCOUNT);
-      console.log("Successfully parsed service account JSON");
-    } catch (parseError) {
-      console.error("Failed to parse service account:", parseError);
-      const errorDetail = `Parse error: ${parseError.message}. First 20 chars: "${VERTEX_AI_SERVICE_ACCOUNT?.substring(0, 20)}..."`;
-      
+    if (requestBody.serviceAccount) {
+      serviceAccount = requestBody.serviceAccount;
+      console.log("Using service account from request");
+    } else if (VERTEX_AI_SERVICE_ACCOUNT) {
+      try {
+        serviceAccount = JSON.parse(VERTEX_AI_SERVICE_ACCOUNT);
+        console.log("Using service account from environment");
+      } catch (parseError) {
+        console.error("Failed to parse service account from environment:", parseError);
+        const errorDetail = `Parse error: ${parseError.message}. First 20 chars: "${VERTEX_AI_SERVICE_ACCOUNT?.substring(0, 20)}..."`;
+        
+        return new Response(JSON.stringify({
+          success: false,
+          message: "Invalid service account format in environment",
+          errors: ["Failed to parse service account JSON from environment", errorDetail],
+          rawLength: VERTEX_AI_SERVICE_ACCOUNT?.length || 0
+        }), {
+          status: 200, // Use 200 to avoid UI errors
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+        });
+      }
+    } else {
+      console.error("No service account provided in request or environment");
       return new Response(JSON.stringify({
         success: false,
-        message: "Invalid service account format",
-        errors: ["Failed to parse service account JSON", errorDetail],
-        rawLength: VERTEX_AI_SERVICE_ACCOUNT?.length || 0
+        message: "No Vertex AI service account provided",
+        errors: ["Service account not found in request or environment variables"]
       }), {
         status: 200, // Use 200 to avoid UI errors
         headers: { ...corsHeaders, 'Content-Type': 'application/json' }
