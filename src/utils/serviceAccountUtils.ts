@@ -48,13 +48,13 @@ export function normalizePrivateKey(privateKey: string): string {
  */
 export function preprocessServiceAccountJson(jsonInput: string): string {
   try {
-    // Handle the case where jsonInput might be an object already
     let parsedJson: any;
-    if (typeof jsonInput === 'object') {
-      parsedJson = jsonInput;
-    } else {
-      // Parse the JSON to get the object
+    
+    // Handle string vs object input
+    if (typeof jsonInput === 'string') {
       parsedJson = JSON.parse(jsonInput);
+    } else {
+      parsedJson = jsonInput;
     }
     
     // If private_key exists, normalize its format
@@ -72,7 +72,7 @@ export function preprocessServiceAccountJson(jsonInput: string): string {
     return JSON.stringify(parsedJson, null, 2);
   } catch (error) {
     console.error("Error preprocessing service account JSON:", error);
-    return jsonInput; // Return the original input on error
+    return typeof jsonInput === 'string' ? jsonInput : JSON.stringify(jsonInput);
   }
 }
 
@@ -192,11 +192,14 @@ export function isValidBase64(str: string): boolean {
     }
     
     // Test decoding a small section to validate format
-    // without risking memory issues on very large strings
+    // This method is safer than trying to decode the entire string
     const testSection = validatedStr.substring(0, Math.min(100, validatedStr.length));
-    atob(testSection);
-    
-    return true;
+    try {
+      atob(testSection);
+      return true;
+    } catch (e) {
+      return false;
+    }
   } catch (e) {
     console.error("Base64 validation error:", e);
     return false;
@@ -299,5 +302,36 @@ export function extractRawJsonForDisplay(serviceAccountJson: string): string {
     console.error("Could not parse JSON for display:", error);
     // If parsing fails, just return the original input
     return serviceAccountJson;
+  }
+}
+
+/**
+ * Utility to generate a proper service account JSON for Supabase Secrets
+ * This handles special requirements for storing in environment variables
+ */
+export function prepareServiceAccountForSupabase(serviceAccount: any): string {
+  try {
+    // Ensure the service account is an object
+    const accountObj = typeof serviceAccount === 'string' 
+      ? JSON.parse(serviceAccount) 
+      : serviceAccount;
+    
+    // Make a copy to avoid modifying the original
+    const preparedAccount = {...accountObj};
+    
+    // Ensure private key is properly formatted
+    if (preparedAccount.private_key) {
+      // First normalize to PEM format
+      const normalizedKey = normalizePrivateKey(preparedAccount.private_key);
+      
+      // For Supabase storage, we need actual newlines, not escaped ones
+      preparedAccount.private_key = normalizedKey;
+    }
+    
+    // Convert to a properly formatted JSON string
+    return JSON.stringify(preparedAccount);
+  } catch (error) {
+    console.error("Error preparing service account for Supabase:", error);
+    throw error;
   }
 }
