@@ -244,3 +244,41 @@ export function extractKeyBase64Content(privateKey: string): string {
     .replace(/-----BEGIN PRIVATE KEY-----|-----END PRIVATE KEY-----/g, '')
     .replace(/\s/g, '');
 }
+
+/**
+ * Creates a service account object with a raw base64 private key
+ */
+export function createServiceAccountWithRawKey(projectId: string, clientEmail: string, privateKeyId: string, rawBase64Key: string): any {
+  try {
+    // Validate the raw base64 key
+    if (!isValidBase64(rawBase64Key)) {
+      throw new Error("The provided key is not valid base64");
+    }
+    
+    // Create proper PEM formatted key
+    const formattedKey = formatPEMKey(rawBase64Key, 'PRIVATE KEY');
+    
+    // Create a minimal service account object
+    return {
+      type: "service_account",
+      project_id: projectId.trim(),
+      private_key_id: privateKeyId.trim(),
+      private_key: formattedKey,
+      client_email: clientEmail.trim(),
+    };
+  } catch (error) {
+    console.error("Error creating service account with raw key:", error);
+    throw error;
+  }
+}
+
+/**
+ * Extracts just the raw base64 content from a private key string or file
+ */
+export function extractRawBase64FromKey(input: string): string {
+  // Remove all whitespace, headers and footers
+  return input
+    .replace(/-----BEGIN PRIVATE KEY-----|-----END PRIVATE KEY-----/g, '')
+    .replace(/\s/g, '')
+    .replace(/\\n/g, '');
+}

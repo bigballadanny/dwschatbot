@@ -5,18 +5,24 @@ import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea"; 
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
-import { CheckCircle, AlertCircle, Loader2, Info, Terminal, ShieldAlert, Bug } from 'lucide-react';
+import { CheckCircle, AlertCircle, Loader2, Info, Terminal, ShieldAlert, Bug, FileCode, Key } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from "@/components/ui/use-toast";
 import { VertexAIValidator } from '@/components/VertexAIValidator';
 import { Badge } from '@/components/ui/badge';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion";
+import { Form, FormControl, FormDescription, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
+import { zodResolver } from "@hookform/resolvers/zod";
+import { useForm } from "react-hook-form";
+import * as z from "zod";
 import { 
   preprocessServiceAccountJson, 
   validateServiceAccountJson,
   repairServiceAccountKey,
-  diagnosticServiceAccountJson
+  diagnosticServiceAccountJson,
+  createServiceAccountWithRawKey,
+  extractRawBase64FromKey
 } from '@/utils/serviceAccountUtils';
 import { useDebounce } from '@/utils/performanceUtils';
 
@@ -31,12 +37,13 @@ const VertexTest = () => {
   const [serviceAccountSummary, setServiceAccountSummary] = useState<any>(null);
   const [serviceAccountInput, setServiceAccountInput] = useState<string>('');
   const [serviceAccountValidation, setServiceAccountValidation] = useState<any>(null);
-  
+  const [isProcessingRawKey, setIsProcessingRawKey] = useState(false);
+
   const addLog = (message: string, type: 'info' | 'error' | 'success' = 'info') => {
     const timestamp = new Date().toLocaleTimeString();
     setLogs(prev => [...prev, `[${timestamp}] [${type.toUpperCase()}] ${message}`]);
   };
-  
+
   useEffect(() => {
     const fetchServiceAccountSummary = async () => {
       try {
@@ -66,11 +73,11 @@ const VertexTest = () => {
     
     fetchServiceAccountSummary();
   }, []);
-  
+
   const clearLogs = () => {
     setLogs([]);
   };
-  
+
   const runBasicTest = async () => {
     setIsLoading(true);
     setError(null);
@@ -129,7 +136,7 @@ const VertexTest = () => {
       setIsLoading(false);
     }
   };
-  
+
   const runJwtTest = async () => {
     setIsLoading(true);
     setError(null);
@@ -170,7 +177,7 @@ const VertexTest = () => {
       setIsLoading(false);
     }
   };
-  
+
   const validateServiceAccount = async () => {
     try {
       setIsLoading(true);
@@ -221,7 +228,7 @@ const VertexTest = () => {
       setIsLoading(false);
     }
   };
-  
+
   const setServiceAccount = async () => {
     try {
       setIsLoading(true);
@@ -283,7 +290,127 @@ const VertexTest = () => {
       setIsLoading(false);
     }
   };
-  
+
+  const rawKeyFormSchema = z.object({
+    projectId: z.string().min(1, "Project ID is required"),
+    clientEmail: z.string().email("Must be a valid email address"),
+    privateKeyId: z.string().min(1, "Private Key ID is required"),
+    rawBase64Key: z.string().min(100, "Raw Base64 key looks too short")
+  });
+
+  const rawKeyForm = useForm<z.infer<typeof rawKeyFormSchema>>({
+    resolver: zodResolver(rawKeyFormSchema),
+    defaultValues: {
+      projectId: "",
+      clientEmail: "",
+      privateKeyId: "",
+      rawBase64Key: ""
+    },
+  });
+
+  const onRawKeySubmit = async (values: z.infer<typeof rawKeyFormSchema>) => {
+    setIsProcessingRawKey(true);
+    setError(null);
+    
+    try {
+      addLog('Creating service account from raw key...', 'info');
+      
+      const serviceAccount = createServiceAccountWithRawKey(
+        values.projectId,
+        values.clientEmail,
+        values.privateKeyId,
+        values.rawBase64Key
+      );
+      
+      addLog('Testing JWT creation with constructed service account...', 'info');
+      const { data, error } = await supabase.functions.invoke('test-auth-jwt', {
+        body: { 
+          serviceAccount: serviceAccount,
+          testAuth: true
+        }
+      });
+      
+      if (error) {
+        addLog(`JWT test failed: ${error.message}`, 'error');
+        setError(`JWT test failed: ${error.message}`);
+        return;
+      }
+      
+      if (!data.success) {
+        addLog(`JWT test failed: ${data.message}`, 'error');
+        setError(`JWT test failed: ${data.message}`);
+        return;
+      }
+      
+      addLog('Service account with raw key validated successfully!', 'success');
+      
+      toast({
+        title: "Authentication Successful",
+        description: "The raw key was processed successfully and authenticated with Google.",
+      });
+    } catch (err) {
+      console.error("Error processing raw key:", err);
+      addLog(`Error: ${err instanceof Error ? err.message : String(err)}`, 'error');
+      setError(`Error: ${err instanceof Error ? err.message : String(err)}`);
+      
+      toast({
+        title: "Raw Key Processing Failed",
+        description: err instanceof Error ? err.message : "Unknown error",
+        variant: "destructive"
+      });
+    } finally {
+      setIsProcessingRawKey(false);
+    }
+  };
+
+  const handleProcessExistingKey = () => {
+    try {
+      if (!serviceAccountInput) {
+        toast({
+          title: "No input found",
+          description: "Please paste a service account JSON first",
+          variant: "destructive"
+        });
+        return;
+      }
+      
+      try {
+        const parsedAccount = JSON.parse(preprocessServiceAccountJson(serviceAccountInput));
+        const privateKey = parsedAccount.private_key || "";
+        
+        if (!privateKey) {
+          toast({
+            title: "No private key found",
+            description: "The service account JSON doesn't contain a private_key field",
+            variant: "destructive"
+          });
+          return;
+        }
+        
+        const rawBase64 = extractRawBase64FromKey(privateKey);
+        
+        rawKeyForm.setValue("projectId", parsedAccount.project_id || "");
+        rawKeyForm.setValue("clientEmail", parsedAccount.client_email || "");
+        rawKeyForm.setValue("privateKeyId", parsedAccount.private_key_id || "");
+        rawKeyForm.setValue("rawBase64Key", rawBase64);
+        
+        toast({
+          title: "Key Extracted",
+          description: "The private key has been extracted. Switch to the Raw Key tab to use it.",
+        });
+      } catch (error) {
+        console.error("Error parsing service account:", error);
+        toast({
+          title: "Parsing Error",
+          description: "Could not parse the service account JSON",
+          variant: "destructive"
+        });
+      }
+    } catch (err) {
+      console.error("Error in handleProcessExistingKey:", err);
+    }
+  };
+
   return (
     <SidebarInset>
       <div className="container mx-auto py-6 space-y-8">
@@ -318,6 +445,7 @@ const VertexTest = () => {
             <TabsTrigger value="tests">API Tests</TabsTrigger>
             <TabsTrigger value="validator">Service Account</TabsTrigger>
             <TabsTrigger value="input">Input JSON</TabsTrigger>
+            <TabsTrigger value="rawKey">Raw Key</TabsTrigger>
             <TabsTrigger value="logs">Logs</TabsTrigger>
             <TabsTrigger value="setup">Setup Guide</TabsTrigger>
           </TabsList>
@@ -539,6 +667,160 @@ const VertexTest = () => {
                     </AlertDescription>
                   </Alert>
                 )}
+              </CardContent>
+            </Card>
+          </TabsContent>
+          
+          <TabsContent value="rawKey" className="space-y-4">
+            <Card>
+              <CardHeader>
+                <CardTitle className="flex items-center">
+                  <Key className="mr-2 h-5 w-5 text-primary" />
+                  Raw Base64 Private Key Input
+                </CardTitle>
+                <CardDescription>
+                  Use this alternative method to authenticate by providing the raw base64 content of your private key
+                </CardDescription>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                <Alert variant="default" className="bg-blue-50 border-blue-200">
+                  <Info className="h-4 w-4 text-blue-500" />
+                  <AlertTitle>Alternative Authentication Method</AlertTitle>
+                  <AlertDescription className="text-sm">
+                    <p className="mb-2">
+                      This method bypasses common issues with service account JSON formatting by working directly with the
+                      raw base64 content of your private key.
+                    </p>
+                    <ol className="list-decimal pl-5 space-y-1">
+                      <li>If you already pasted a service account JSON in the Input JSON tab, click "Extract from JSON" below.</li>
+                      <li>Otherwise, fill in the project details and paste just the raw base64 content of your private key.</li>
+                    </ol>
+                  </AlertDescription>
+                </Alert>
+                
+                <div className="flex justify-end">
+                  <Button 
+                    variant="outline" 
+                    size="sm" 
+                    onClick={handleProcessExistingKey}
+                    className="mb-4"
+                  >
+                    <FileCode className="mr-2 h-4 w-4" />
+                    Extract from JSON
+                  </Button>
+                </div>
+                
+                <Form {...rawKeyForm}>
+                  <form onSubmit={rawKeyForm.handleSubmit(onRawKeySubmit)} className="space-y-4">
+                    <FormField
+                      control={rawKeyForm.control}
+                      name="projectId"
+                      render={({ field }) => (
+                        <FormItem>
+                          <FormLabel>Google Cloud Project ID</FormLabel>
+                          <FormControl>
+                            <Input placeholder="my-project-123456" {...field} />
+                          </FormControl>
+                          <FormDescription>
+                            The project ID from your Google Cloud Console
+                          </FormDescription>
+                          <FormMessage />
+                        </FormItem>
+                      )}
+                    />
+                    
+                    <FormField
+                      control={rawKeyForm.control}
+                      name="clientEmail"
+                      render={({ field }) => (
+                        <FormItem>
+                          <FormLabel>Service Account Email</FormLabel>
+                          <FormControl>
+                            <Input placeholder="service-account@project-id.iam.gserviceaccount.com" {...field} />
+                          </FormControl>
+                          <FormDescription>
+                            The client_email from your service account
+                          </FormDescription>
+                          <FormMessage />
+                        </FormItem>
+                      )}
+                    />
+                    
+                    <FormField
+                      control={rawKeyForm.control}
+                      name="privateKeyId"
+                      render={({ field }) => (
+                        <FormItem>
+                          <FormLabel>Private Key ID</FormLabel>
+                          <FormControl>
+                            <Input placeholder="abcdef1234567890abcdef1234567890abcdef12" {...field} />
+                          </FormControl>
+                          <FormDescription>
+                            The private_key_id from your service account
+                          </FormDescription>
+                          <FormMessage />
+                        </FormItem>
+                      )}
+                    />
+                    
+                    <FormField
+                      control={rawKeyForm.control}
+                      name="rawBase64Key"
+                      render={({ field }) => (
+                        <FormItem>
+                          <FormLabel>Raw Base64 Private Key</FormLabel>
+                          <FormControl>
+                            <Textarea 
+                              placeholder="MIIEvgIBADANBgkqhkiG9w0BAQEFAA..." 
+                              className="font-mono text-sm min-h-[150px]"
+                              {...field} 
+                            />
+                          </FormControl>
+                          <FormDescription>
+                            Only the base64 content of your private key, without header/footer or formatting
+                          </FormDescription>
+                          <FormMessage />
+                        </FormItem>
+                      )}
+                    />
+                    
+                    <Button 
+                      type="submit" 
+                      disabled={isProcessingRawKey}
+                      className="w-full"
+                    >
+                      {isProcessingRawKey ? (
+                        <>
+                          <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                          Processing...
+                        </>
+                      ) : (
+                        'Test Authentication with Raw Key'
+                      )}
+                    </Button>
+                  </form>
+                </Form>
+                
+                {error && (
+                  <Alert variant="destructive" className="mt-4">
+                    <AlertCircle className="h-4 w-4" />
+                    <AlertTitle>Error</AlertTitle>
+                    <AlertDescription>
+                      {error}
+                    </AlertDescription>
+                  </Alert>
+                )}
+                
+                <div className="text-xs text-muted-foreground mt-4">
+                  <h4 className="font-semibold mb-1">How to find your private key's raw base64 content:</h4>
+                  <ol className="list-decimal pl-5 space-y-0.5">
+                    <li>Open your service account JSON file</li>
+                    <li>Find the "private_key" field</li>
+                    <li>Remove the "-----BEGIN PRIVATE KEY-----" and "-----END PRIVATE KEY-----" markers</li>
+                    <li>Remove all newline characters (\n) and spaces</li>
+                    <li>The remaining content is the raw base64 key</li>
+                  </ol>
+                </div>
               </CardContent>
             </Card>
           </TabsContent>

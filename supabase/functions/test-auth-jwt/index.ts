@@ -1,4 +1,3 @@
-
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 
 const VERTEX_AI_SERVICE_ACCOUNT = Deno.env.get('VERTEX_AI_SERVICE_ACCOUNT');
@@ -131,51 +130,88 @@ async function createJWT(serviceAccount) {
       // Convert PEM encoded key to binary
       let binaryKey;
       try {
-        binaryKey = atob(paddedKey);
-        console.log(`Binary key length: ${binaryKey.length}`);
+        // Important fix: Use different approach for the binary conversion
+        console.log("Attempting direct binary key import from base64");
         
-        // Additional validation - if binary key is too short, there's likely an encoding issue
-        if (binaryKey.length < 100) {
-          throw new Error(`Binary key is suspiciously short (${binaryKey.length} bytes). Possible base64 decoding issue.`);
+        try {
+          // Try direct crypto key import from raw key material
+          const keyBuffer = Uint8Array.from(atob(paddedKey), c => c.charCodeAt(0));
+          
+          // Create a crypto key from the binary
+          const cryptoKey = await crypto.subtle.importKey(
+            "pkcs8",
+            keyBuffer,
+            {
+              name: "RSASSA-PKCS1-v1_5",
+              hash: { name: "SHA-256" }
+            },
+            false,
+            ["sign"]
+          );
+          
+          console.log("Crypto key created successfully via direct import, signing JWT");
+          
+          // Sign the data
+          const signature = await crypto.subtle.sign(
+            { name: "RSASSA-PKCS1-v1_5" },
+            cryptoKey,
+            new TextEncoder().encode(signatureInput)
+          );
+          
+          const encodedSignature = btoa(String.fromCharCode(...new Uint8Array(signature)))
+            .replace(/\+/g, '-')
+            .replace(/\//g, '_')
+            .replace(/=+$/, '');
+          
+          console.log("JWT token creation completed successfully");
+          return `${signatureInput}.${encodedSignature}`;
+          
+        } catch (directImportError) {
+          console.error("Direct key import failed:", directImportError);
+          
+          // Fallback to original approach
+          console.log("Falling back to traditional PEM decoding");
+          
+          binaryKey = atob(paddedKey);
+          console.log(`Binary key length: ${binaryKey.length}`);
+          
+          // Additional validation - if binary key is too short, there's likely an encoding issue
+          if (binaryKey.length < 100) {
+            throw new Error(`Binary key is suspiciously short (${binaryKey.length} bytes). Possible base64 decoding issue.`);
+          }
+          
+          // Create a crypto key from the binary
+          const cryptoKey = await crypto.subtle.importKey(
+            "pkcs8",
+            new TextEncoder().encode(binaryKey),
+            {
+              name: "RSASSA-PKCS1-v1_5",
+              hash: { name: "SHA-256" }
+            },
+            false,
+            ["sign"]
+          );
+          
+          console.log("Crypto key created successfully via fallback method, signing JWT");
+          
+          // Sign the data
+          const signature = await crypto.subtle.sign(
+            { name: "RSASSA-PKCS1-v1_5" },
+            cryptoKey,
+            new TextEncoder().encode(signatureInput)
+          );
+          
+          const encodedSignature = btoa(String.fromCharCode(...new Uint8Array(signature)))
+            .replace(/\+/g, '-')
+            .replace(/\//g, '_')
+            .replace(/=+$/, '');
+          
+          console.log("JWT token creation completed successfully");
+          return `${signatureInput}.${encodedSignature}`;
         }
       } catch (base64Error) {
         console.error("Base64 decoding error:", base64Error);
         throw new Error(`Failed to decode private key: ${base64Error.message}. Please check the key format.`);
-      }
-      
-      // Ensure we're using unescaped raw private key for crypto operations
-      try {
-        // Create a crypto key from the binary
-        const cryptoKey = await crypto.subtle.importKey(
-          "pkcs8",
-          new TextEncoder().encode(binaryKey),
-          {
-            name: "RSASSA-PKCS1-v1_5",
-            hash: { name: "SHA-256" }
-          },
-          false,
-          ["sign"]
-        );
-        
-        console.log("Crypto key created successfully, signing JWT");
-        
-        // Sign the data
-        const signature = await crypto.subtle.sign(
-          { name: "RSASSA-PKCS1-v1_5" },
-          cryptoKey,
-          new TextEncoder().encode(signatureInput)
-        );
-        
-        const encodedSignature = btoa(String.fromCharCode(...new Uint8Array(signature)))
-          .replace(/\+/g, '-')
-          .replace(/\//g, '_')
-          .replace(/=+$/, '');
-        
-        console.log("JWT token creation completed successfully");
-        return `${signatureInput}.${encodedSignature}`;
-      } catch (cryptoError) {
-        console.error("Error creating crypto key:", cryptoError);
-        throw new Error(`JWT crypto error: ${cryptoError.message}. The private key may be invalid.`);
       }
     } catch (keyProcessingError) {
       console.error("Error processing private key:", keyProcessingError);
