@@ -12,7 +12,13 @@ import { Switch } from '@/components/ui/switch';
 import { Label } from '@/components/ui/label';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Textarea } from '@/components/ui/textarea';
-import { preprocessServiceAccountJson, validateServiceAccountJson } from '@/utils/serviceAccountUtils';
+import { 
+  preprocessServiceAccountJson, 
+  validateServiceAccountJson, 
+  repairServiceAccountKey,
+  diagnosticServiceAccountJson 
+} from '@/utils/serviceAccountUtils';
+import { useDebounce } from '@/utils/performanceUtils';
 
 export function VertexAIValidator() {
   const [isValidating, setIsValidating] = useState(false);
@@ -185,6 +191,9 @@ export function VertexAIValidator() {
       let parsedJson;
       try {
         parsedJson = JSON.parse(processedJson);
+        parsedJson = repairServiceAccountKey(parsedJson);
+        const diagnostics = diagnosticServiceAccountJson(parsedJson);
+        console.log("Private key diagnostics:", diagnostics);
       } catch (parseError) {
         setJsonParseError(`Invalid JSON format: ${parseError.message}`);
         toast({

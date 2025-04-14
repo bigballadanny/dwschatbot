@@ -12,7 +12,13 @@ import { VertexAIValidator } from '@/components/VertexAIValidator';
 import { Badge } from '@/components/ui/badge';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion";
-import { preprocessServiceAccountJson, validateServiceAccountJson } from '@/utils/serviceAccountUtils';
+import { 
+  preprocessServiceAccountJson, 
+  validateServiceAccountJson,
+  repairServiceAccountKey,
+  diagnosticServiceAccountJson
+} from '@/utils/serviceAccountUtils';
+import { useDebounce } from '@/utils/performanceUtils';
 
 const VertexTest = () => {
   const [isLoading, setIsLoading] = useState(false);
@@ -174,10 +180,22 @@ const VertexTest = () => {
       
       addLog('Validating service account structure...', 'info');
       
+      let parsedAccount;
+      try {
+        parsedAccount = JSON.parse(processedJson);
+        
+        parsedAccount = repairServiceAccountKey(parsedAccount);
+      } catch (parseError) {
+        addLog(`JSON parsing error: ${parseError instanceof Error ? parseError.message : String(parseError)}`, 'error');
+        setError(`Invalid JSON format: ${parseError instanceof Error ? parseError.message : String(parseError)}`);
+        setIsLoading(false);
+        return;
+      }
+      
       const { data, error } = await supabase.functions.invoke('test-auth-jwt', {
         body: { 
           validateOnly: true,
-          serviceAccount: JSON.parse(processedJson)
+          serviceAccount: parsedAccount
         }
       });
       
@@ -212,7 +230,9 @@ const VertexTest = () => {
       const processedJson = preprocessServiceAccountJson(serviceAccountInput);
       
       try {
-        const parsedAccount = JSON.parse(processedJson);
+        let parsedAccount = JSON.parse(processedJson);
+        parsedAccount = repairServiceAccountKey(parsedAccount);
+        
         const validation = validateServiceAccountJson(parsedAccount);
         
         if (!validation.isValid) {
@@ -220,6 +240,9 @@ const VertexTest = () => {
           setError(`Invalid service account: Missing required fields: ${validation.missingFields.join(', ')}`);
           return;
         }
+        
+        const diagnostics = diagnosticServiceAccountJson(parsedAccount);
+        addLog(`Private key diagnostics: Length=${diagnostics.privateKeyStats.length}, Has markers=${diagnostics.privateKeyStats.hasBeginMarker && diagnostics.privateKeyStats.hasEndMarker}`, 'info');
         
         addLog('Testing JWT creation with the provided service account...', 'info');
         

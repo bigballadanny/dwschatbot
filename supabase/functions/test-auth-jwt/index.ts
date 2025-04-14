@@ -102,6 +102,11 @@ async function createJWT(serviceAccount) {
         console.log("Key reformatted with proper PEM structure");
       }
       
+      // Ensure there's a trailing newline after the END marker
+      if (!privateKey.endsWith('\n')) {
+        privateKey += '\n';
+      }
+
       // Extract base64 content between the markers for debugging
       const cleanKey = privateKey
         .replace(/-----BEGIN PRIVATE KEY-----|-----END PRIVATE KEY-----/g, '')
@@ -138,8 +143,9 @@ async function createJWT(serviceAccount) {
         throw new Error(`Failed to decode private key: ${base64Error.message}. Please check the key format.`);
       }
       
-      // Create a crypto key from the binary
+      // Ensure we're using unescaped raw private key for crypto operations
       try {
+        // Create a crypto key from the binary
         const cryptoKey = await crypto.subtle.importKey(
           "pkcs8",
           new TextEncoder().encode(binaryKey),
