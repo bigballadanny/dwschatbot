@@ -1,17 +1,47 @@
 
-project_id = "bfscrjrjwbzpldamcrbz"
+project_id = "any"
 
-[functions.gemini-chat]
-verify_jwt = false
+[api]
+enabled = true
+port = 54321
+schemas = ["public", "storage"]
+extra_search_path = ["public", "extensions"]
+max_rows = 1000
 
-[functions.gemini-chat.voice-conversation]
-verify_jwt = false
+[db]
+port = 54322
+shadow_port = 54320
+major_version = 15
 
-[functions.analytics-insights]
+[db.pooler]
+enabled = false
+port = 54329
+pool_mode = "transaction"
+default_pool_size = 20
+max_client_conn = 100
+
+[realtime]
+enabled = true
+
+[studio]
+enabled = true
+port = 54323
+api_url = "http://localhost"
+
+[storage]
+enabled = true
+
+[auth]
+enabled = true
+site_url = "http://localhost:3000"
+
+[inbucket]
+enabled = true
+port = 54324
+
+[vector]
+enabled = true
+
+[edge_functions]
+[edge_functions.validate-service-account]
 verify_jwt = true
-
-[functions.text-to-speech]
-verify_jwt = false
-
-[functions.validate-service-account]
-verify_jwt = false
