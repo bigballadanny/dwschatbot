@@ -84,6 +84,12 @@ async function getVertexAccessToken() {
         console.error("Service account missing required fields:", missingFields);
         throw new Error(`Service account missing required fields: ${missingFields.join(", ")}`);
       }
+
+      // Apply special fix for primitive key format errors
+      if (serviceAccount.private_key) {
+        serviceAccount.private_key = fixPrivateKeyFormat(serviceAccount.private_key);
+        console.log("Applied private key formatting fixes");
+      }
     } catch (parseError) {
       console.error("Failed to parse service account JSON:", parseError);
       throw new Error("Invalid Vertex AI service account JSON format");
@@ -138,6 +144,66 @@ async function getVertexAccessToken() {
     console.error("Error getting Vertex AI access token:", error);
     throw error;
   }
+}
+
+// Special function to fix primitive key format issues
+function fixPrivateKeyFormat(privateKey) {
+  if (!privateKey) return privateKey;
+  
+  try {
+    // First, handle escaped newlines by replacing them with actual newlines
+    let processedKey = privateKey.replace(/\\n/g, '\n');
+    
+    // Check if the key already has proper PEM markers
+    const hasBeginMarker = processedKey.includes('-----BEGIN PRIVATE KEY-----');
+    const hasEndMarker = processedKey.includes('-----END PRIVATE KEY-----');
+    
+    // If the key already has proper markers, extract just the base64 content
+    if (hasBeginMarker && hasEndMarker) {
+      // Extract just the base64 content between markers
+      let base64Content = processedKey
+        .replace(/-----BEGIN PRIVATE KEY-----|-----END PRIVATE KEY-----/g, '')
+        .replace(/\s/g, '');
+      
+      // Format with proper structure - EXACTLY 64 characters per line
+      return formatPEMKey(base64Content);
+    } 
+    // If the key doesn't have proper markers, treat the whole thing as base64 content
+    else {
+      // Clean the input to get just the base64 content
+      let base64Content = processedKey.replace(/\s/g, '');
+      
+      // Format into proper PEM structure
+      return formatPEMKey(base64Content);
+    }
+  } catch (error) {
+    console.error("Error fixing private key format:", error);
+    return privateKey; // Return original if we can't fix it
+  }
+}
+
+// Helper function to create properly formatted PEM key
+function formatPEMKey(base64Content) {
+  // Clean the base64 content first
+  let cleanBase64 = base64Content.replace(/\s/g, '');
+  
+  // Remove any non-base64 characters
+  cleanBase64 = cleanBase64.replace(/[^A-Za-z0-9+/=]/g, '');
+  
+  // Ensure the base64 string length is valid (must be a multiple of 4)
+  const remainder = cleanBase64.length % 4;
+  if (remainder > 0) {
+    cleanBase64 += '='.repeat(4 - remainder);
+  }
+  
+  // Format with EXACTLY 64 characters per line - THIS IS CRITICAL for ASN.1 SEQUENCE parsing
+  let formattedContent = `-----BEGIN PRIVATE KEY-----\n`;
+  for (let i = 0; i < cleanBase64.length; i += 64) {
+    formattedContent += cleanBase64.slice(i, i + 64) + '\n';
+  }
+  formattedContent += `-----END PRIVATE KEY-----`;
+  
+  return formattedContent;
 }
 
 // Helper function to fetch with timeout
@@ -551,8 +617,17 @@ serve(async (req) => {
         return true;
       }).map(msg => {
         // Normalize message format
-        const role = msg.source === 'user' ? 'user' : 'model';
-        const content = msg.content || '';
+        const role = msg.role || (msg.source === 'user' ? 'user' : 'model');
+        let content = '';
+        
+        // Extract content based on available properties
+        if (typeof msg.content === 'string') {
+          content = msg.content;
+        } else if (msg.parts && Array.isArray(msg.parts) && msg.parts[0] && msg.parts[0].text) {
+          content = msg.parts[0].text;
+        } else {
+          content = '';
+        }
         
         return {
           role: role,

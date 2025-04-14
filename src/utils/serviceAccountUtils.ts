@@ -1,3 +1,15 @@
+
+/**
+ * Service Account Utilities
+ * 
+ * This file contains utilities to handle Google Cloud service account JSON formatting, 
+ * validation, and repair. It focuses on resolving common issues like:
+ * 
+ * 1. Private key formatting (escaped newlines, incorrect PEM structure)
+ * 2. Sequence length errors in ASN.1 parsing
+ * 3. Special formatting for different storage mechanisms
+ */
+
 /**
  * Formats and normalizes a private key to ensure it has proper PEM structure
  * This handles common issues with service account JSON including:
@@ -347,7 +359,7 @@ export function prepareServiceAccountForSupabase(serviceAccount: any): string {
 }
 
 /**
- * Special EXPERIMENTAL helper to fix primitive key format issues
+ * Special helper to fix primitive key format issues
  * This is for the "incorrect length for PRIVATE [2] (primitive)" error
  */
 export function fixPrimitiveKeyFormat(serviceAccount: any): any {
