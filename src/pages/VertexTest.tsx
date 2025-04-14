@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from 'react';
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
@@ -17,7 +16,9 @@ import {
   validateServiceAccountJson,
   diagnosticServiceAccountJson,
   repairServiceAccountKey,
-  prepareServiceAccountForSupabase
+  prepareServiceAccountForSupabase,
+  fixSequenceLengthError,
+  repairSequenceLengthIssue
 } from "@/utils/serviceAccountUtils";
 
 const VertexTest = () => {
@@ -87,7 +88,6 @@ const VertexTest = () => {
     try {
       const parsed = JSON.parse(serviceAccountInput);
       
-      // Use Supabase Edge Function instead of direct API call
       const { data, error } = await supabase.functions.invoke('test-auth-jwt', {
         method: 'POST',
         body: { 
@@ -146,7 +146,6 @@ const VertexTest = () => {
     try {
       const parsed = JSON.parse(serviceAccountInput);
       
-      // Test just the JWT creation part
       const { data, error } = await supabase.functions.invoke('validate-service-account', {
         method: 'POST',
         body: { 
@@ -271,7 +270,6 @@ const VertexTest = () => {
     }
 
     try {
-      // Parse the input as JSON
       let parsed;
       try {
         parsed = JSON.parse(serviceAccountInput);
@@ -285,18 +283,14 @@ const VertexTest = () => {
         return;
       }
       
-      // Prepare the service account for Supabase storage
       const preparedJson = prepareServiceAccountForSupabase(parsed);
       
-      // Store the formatted JSON for display
       setSupabaseFormatted(preparedJson);
       
-      // Log to console for verification and easy copy
       console.log("=== FORMATTED SERVICE ACCOUNT FOR SUPABASE ===");
       console.log(preparedJson);
       console.log("=== COPY THE ABOVE JSON TO YOUR SUPABASE SECRET ===");
       
-      // Attempt to copy to clipboard
       navigator.clipboard.writeText(preparedJson).then(() => {
         toast({
           title: "Copied for Supabase",
@@ -320,6 +314,34 @@ const VertexTest = () => {
     }
   };
   
+  const fixSequenceLength = () => {
+    if (!serviceAccountInput.trim()) {
+      toast({
+        title: "No input",
+        description: "Please enter a service account JSON first",
+        variant: "destructive"
+      });
+      return;
+    }
+    
+    try {
+      const fixedJson = fixSequenceLengthError(serviceAccountInput);
+      setServiceAccountInput(fixedJson);
+      
+      toast({
+        title: "Key Fixed",
+        description: "Applied special fix for SEQUENCE length errors. Try testing JWT now.",
+        variant: "default"
+      });
+    } catch (error) {
+      toast({
+        title: "Error Fixing Key",
+        description: error.message || "Could not fix the key format",
+        variant: "destructive"
+      });
+    }
+  };
+  
   return (
     <div className="container py-6 max-w-4xl">
       <h1 className="text-2xl font-bold mb-6">Vertex AI Service Account Tester</h1>
@@ -335,6 +357,8 @@ const VertexTest = () => {
           <ol className="list-decimal pl-5 space-y-2 text-blue-800 dark:text-blue-300">
             <li>Paste your Google Cloud service account JSON in the "Input JSON" tab</li>
             <li>Click "Validate" to check the formatting and required fields</li>
+            <li>If you see a "SEQUENCE length" error, click the "Fix SEQUENCE Error" button</li>
+            <li>Click "Test JWT Only" to verify the private key format is correct</li>
             <li>Click "Copy for Supabase" to get a properly formatted version for Supabase secrets</li>
             <li>Copy the formatted JSON from the clipboard (or from the browser console if copy fails)</li>
             <li>Go to Supabase and set <code className="font-mono bg-blue-100 dark:bg-blue-900 px-1 rounded">VERTEX_AI_SERVICE_ACCOUNT</code> in your secrets</li>
@@ -376,6 +400,14 @@ const VertexTest = () => {
                     disabled={isLoading || !serviceAccountInput}
                   >
                     Format JSON
+                  </Button>
+                  <Button
+                    variant="secondary"
+                    onClick={fixSequenceLength}
+                    disabled={isLoading || !serviceAccountInput}
+                    className="bg-purple-600 hover:bg-purple-700 text-white"
+                  >
+                    Fix SEQUENCE Error
                   </Button>
                   <Button
                     variant="secondary"

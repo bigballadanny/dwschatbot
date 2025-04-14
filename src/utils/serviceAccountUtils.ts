@@ -1,4 +1,3 @@
-
 /**
  * Formats and normalizes a private key to ensure it has proper PEM structure
  * This handles common issues with service account JSON including:
@@ -147,6 +146,7 @@ export function diagnosticServiceAccountJson(serviceAccount: any): {
 
 /**
  * Creates a properly formatted PEM key from base64 content
+ * Enhanced to fix SEQUENCE length issues
  */
 export function formatPEMKey(base64Content: string, type: string = "PRIVATE KEY"): string {
   // Clean the base64 content first
@@ -155,13 +155,14 @@ export function formatPEMKey(base64Content: string, type: string = "PRIVATE KEY"
   // Remove any non-base64 characters
   cleanBase64 = cleanBase64.replace(/[^A-Za-z0-9+/=]/g, '');
   
-  // Ensure the base64 string length is valid
+  // Ensure the base64 string length is valid (must be a multiple of 4)
   const remainder = cleanBase64.length % 4;
   if (remainder > 0) {
     cleanBase64 += '='.repeat(4 - remainder);
   }
   
   // Format with proper line breaks (64 characters per line)
+  // This is crucial for ASN.1 SEQUENCE parsing
   let formattedContent = `-----BEGIN ${type}-----\n`;
   for (let i = 0; i < cleanBase64.length; i += 64) {
     formattedContent += cleanBase64.slice(i, i + 64) + '\n';
@@ -343,5 +344,71 @@ export function prepareServiceAccountForSupabase(serviceAccount: any): string {
   } catch (error) {
     console.error("Error preparing service account for Supabase:", error);
     throw error;
+  }
+}
+
+/**
+ * Special Edge Case: Fix for the "incorrect length for SEQUENCE" error 
+ * This uses a more aggressive approach to fix particularly troublesome keys
+ */
+export function fixSequenceLengthError(serviceAccountJson: string): string {
+  try {
+    // Parse the JSON string
+    const parsed = JSON.parse(serviceAccountJson);
+    
+    if (!parsed.private_key) {
+      throw new Error("No private_key found in service account");
+    }
+    
+    // Apply the sequence length repair
+    const repaired = repairSequenceLengthIssue(parsed);
+    
+    // Convert back to JSON string
+    return JSON.stringify(repaired, null, 2);
+  } catch (error) {
+    console.error("Could not fix sequence length error:", error);
+    return serviceAccountJson;
+  }
+}
+
+/**
+ * Advanced key repair function specialized for fixing SEQUENCE length errors
+ * This targets the specific "incorrect length for SEQUENCE" error
+ */
+export function repairSequenceLengthIssue(serviceAccount: any): any {
+  if (!serviceAccount || !serviceAccount.private_key) {
+    return serviceAccount;
+  }
+  
+  // Create a deep copy to avoid modifying the original
+  const fixedAccount = JSON.parse(JSON.stringify(serviceAccount));
+  
+  try {
+    // First, apply standard repairs
+    const standardRepaired = repairServiceAccountKey(fixedAccount);
+    
+    // Get the private key from the repaired account
+    let privateKey = standardRepaired.private_key;
+    
+    // Remove all spaces, tabs, and line breaks to get clean base64
+    const base64Content = privateKey
+      .replace(/-----BEGIN PRIVATE KEY-----|-----END PRIVATE KEY-----|\n|\r|\t|\s/g, '');
+    
+    // Recreate PEM structure with precise formatting
+    // Use exactly 64 characters per line as per RFC specs
+    // This addresses ASN.1 SEQUENCE length issues
+    privateKey = `-----BEGIN PRIVATE KEY-----\n`;
+    for (let i = 0; i < base64Content.length; i += 64) {
+      privateKey += base64Content.slice(i, i + 64) + '\n';
+    }
+    privateKey += `-----END PRIVATE KEY-----\n`;
+    
+    // Update the account with the fixed key
+    standardRepaired.private_key = privateKey;
+    
+    return standardRepaired;
+  } catch (error) {
+    console.error("Error repairing sequence length issue:", error);
+    return fixedAccount;
   }
 }

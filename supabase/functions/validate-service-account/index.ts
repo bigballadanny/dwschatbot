@@ -36,9 +36,18 @@ async function fetchWithTimeout(url, options, timeoutMs) {
 // Format PEM key properly (critical for JWT signing)
 function formatPEM(base64Content, type) {
   // Clean the base64 content first
-  const cleanBase64 = base64Content.replace(/\s/g, '');
+  let cleanBase64 = base64Content.replace(/\s/g, '');
   
-  // Format with 64 characters per line
+  // Remove any non-base64 characters
+  cleanBase64 = cleanBase64.replace(/[^A-Za-z0-9+/=]/g, '');
+  
+  // Ensure the base64 string length is valid (must be multiple of 4)
+  const remainder = cleanBase64.length % 4;
+  if (remainder > 0) {
+    cleanBase64 += '='.repeat(4 - remainder);
+  }
+  
+  // Format with exactly 64 characters per line (crucial for ASN.1 SEQUENCE parsing)
   let formattedContent = '';
   for (let i = 0; i < cleanBase64.length; i += 64) {
     formattedContent += cleanBase64.slice(i, i + 64) + '\n';
@@ -103,13 +112,13 @@ async function createJWT(serviceAccount) {
         // First remove any existing markers/newlines to get clean base64
         privateKey = privateKey.replace(/-----BEGIN PRIVATE KEY-----|-----END PRIVATE KEY-----|\n|\r/g, '');
         
-        // Now wrap with proper format
+        // Now wrap with proper format - using enhanced formatter
         privateKey = formatPEM(privateKey, "PRIVATE KEY");
         
         console.log("Key reformatted with proper PEM structure");
       } 
       
-      // Ensure the key has proper line breaks 
+      // Ensure the key has proper line breaks and exactly 64 chars per line
       if (!privateKey.includes("\n")) {
         console.log("Key missing newlines, reformatting");
         // Remove markers first to get clean base64
@@ -117,9 +126,15 @@ async function createJWT(serviceAccount) {
           .replace(/-----BEGIN PRIVATE KEY-----|-----END PRIVATE KEY-----/g, '')
           .replace(/\s/g, '');
         
-        // Reformat with proper PEM structure
+        // Reformat with proper PEM structure with exactly 64 chars per line
         privateKey = formatPEM(cleanKey, "PRIVATE KEY");
       }
+      
+      // Extra handling for SEQUENCE length errors - reformat even if it has markers
+      // but ensure we maintain exactly 64 chars per line which is crucial
+      const base64Content = privateKey
+        .replace(/-----BEGIN PRIVATE KEY-----|-----END PRIVATE KEY-----|\n|\r|\t|\s/g, '');
+      privateKey = formatPEM(base64Content, "PRIVATE KEY");
       
       // Debug for key format
       console.log(`Private key format after processing - BEGIN marker: ${privateKey.includes("-----BEGIN PRIVATE KEY-----")}, END marker: ${privateKey.includes("-----END PRIVATE KEY-----")}, has newlines: ${privateKey.includes("\n")}`);

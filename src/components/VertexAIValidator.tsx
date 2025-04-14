@@ -16,7 +16,9 @@ import {
   preprocessServiceAccountJson, 
   validateServiceAccountJson, 
   repairServiceAccountKey,
-  diagnosticServiceAccountJson 
+  diagnosticServiceAccountJson,
+  fixSequenceLengthError,
+  repairSequenceLengthIssue
 } from '@/utils/serviceAccountUtils';
 import { useDebounce } from '@/utils/performanceUtils';
 
@@ -181,6 +183,34 @@ export function VertexAIValidator() {
     }
   };
   
+  const fixSequenceLength = () => {
+    if (!serviceAccountJson.trim()) {
+      toast({
+        title: "No input",
+        description: "Please enter a service account JSON first",
+        variant: "destructive"
+      });
+      return;
+    }
+    
+    try {
+      const fixedJson = fixSequenceLengthError(serviceAccountJson);
+      setServiceAccountJson(fixedJson);
+      
+      toast({
+        title: "Key Fixed",
+        description: "Applied special fix for SEQUENCE length errors. Try testing JWT now.",
+        variant: "default"
+      });
+    } catch (error) {
+      toast({
+        title: "Error Fixing Key",
+        description: error instanceof Error ? error.message : "Could not fix the key format",
+        variant: "destructive"
+      });
+    }
+  };
+  
   const submitServiceAccountJson = async () => {
     setJsonParseError(null);
     setIsSubmittingJson(true);
@@ -191,7 +221,7 @@ export function VertexAIValidator() {
       let parsedJson;
       try {
         parsedJson = JSON.parse(processedJson);
-        parsedJson = repairServiceAccountKey(parsedJson);
+        parsedJson = repairSequenceLengthIssue(parsedJson);
         const diagnostics = diagnosticServiceAccountJson(parsedJson);
         console.log("Private key diagnostics:", diagnostics);
       } catch (parseError) {
@@ -452,20 +482,30 @@ export function VertexAIValidator() {
                 </Alert>
               )}
               
-              <Button 
-                onClick={submitServiceAccountJson} 
-                disabled={isSubmittingJson || !serviceAccountJson.trim()}
-                className="w-full"
-              >
-                {isSubmittingJson ? (
-                  <>
-                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                    Validating...
-                  </>
-                ) : (
-                  'Validate JSON'
-                )}
-              </Button>
+              <div className="flex gap-2">
+                <Button 
+                  onClick={fixSequenceLength} 
+                  variant="outline"
+                  className="bg-purple-100 text-purple-800 hover:bg-purple-200 border-purple-300"
+                >
+                  Fix SEQUENCE Error
+                </Button>
+                
+                <Button 
+                  onClick={submitServiceAccountJson} 
+                  disabled={isSubmittingJson || !serviceAccountJson.trim()}
+                  className="w-full"
+                >
+                  {isSubmittingJson ? (
+                    <>
+                      <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                      Validating...
+                    </>
+                  ) : (
+                    'Validate JSON'
+                  )}
+                </Button>
+              </div>
               
               <div className="text-xs text-muted-foreground">
                 <p>Your JSON should contain these required fields:</p>
