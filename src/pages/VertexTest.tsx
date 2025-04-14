@@ -188,15 +188,25 @@ const VertexTest = () => {
       // Parse the input as JSON
       const parsed = JSON.parse(serviceAccountInput);
       
-      // Prepare the service account for Supabase storage
+      // Prepare the service account for Supabase storage with more robust formatting
       const preparedJson = prepareServiceAccountForSupabase(parsed);
       
-      // Copy to clipboard
-      navigator.clipboard.writeText(preparedJson);
-      
-      toast({
-        title: "Copied for Supabase",
-        description: "Formatted service account JSON copied to clipboard. Paste this value directly into your Supabase secrets.",
+      // Attempt to copy to clipboard with additional error handling
+      navigator.clipboard.writeText(preparedJson).then(() => {
+        toast({
+          title: "Copied for Supabase",
+          description: "Formatted service account JSON copied to clipboard. Paste this value directly into your Supabase secrets.",
+        });
+        
+        // Optional: Log the prepared JSON to console for verification
+        console.log("Prepared Supabase Service Account JSON:", preparedJson);
+      }).catch(err => {
+        console.error("Clipboard copy failed:", err);
+        toast({
+          title: "Copy Failed",
+          description: "Could not copy to clipboard. Please manually copy the JSON.",
+          variant: "destructive"
+        });
       });
     } catch (error) {
       toast({
