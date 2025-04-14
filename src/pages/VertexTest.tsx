@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect } from 'react';
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
@@ -27,6 +28,7 @@ const VertexTest = () => {
   const [validationResult, setValidationResult] = useState(null);
   const [formattedJson, setFormattedJson] = useState('');
   const [isLoading, setIsLoading] = useState(false);
+  const [supabaseFormatted, setSupabaseFormatted] = useState('');
   const { toast } = useToast();
   
   const validateServiceAccount = async () => {
@@ -186,32 +188,49 @@ const VertexTest = () => {
 
     try {
       // Parse the input as JSON
-      const parsed = JSON.parse(serviceAccountInput);
+      let parsed;
+      try {
+        parsed = JSON.parse(serviceAccountInput);
+      } catch (parseError) {
+        console.error("JSON parse error:", parseError);
+        toast({
+          title: "Invalid JSON",
+          description: "Please enter valid JSON service account credentials",
+          variant: "destructive"
+        });
+        return;
+      }
       
-      // Prepare the service account for Supabase storage with more robust formatting
+      // Prepare the service account for Supabase storage
       const preparedJson = prepareServiceAccountForSupabase(parsed);
       
-      // Attempt to copy to clipboard with additional error handling
+      // Store the formatted JSON for display
+      setSupabaseFormatted(preparedJson);
+      
+      // Log to console for verification and easy copy
+      console.log("=== FORMATTED SERVICE ACCOUNT FOR SUPABASE ===");
+      console.log(preparedJson);
+      console.log("=== COPY THE ABOVE JSON TO YOUR SUPABASE SECRET ===");
+      
+      // Attempt to copy to clipboard
       navigator.clipboard.writeText(preparedJson).then(() => {
         toast({
           title: "Copied for Supabase",
-          description: "Formatted service account JSON copied to clipboard. Paste this value directly into your Supabase secrets.",
+          description: "Properly formatted JSON copied to clipboard. Check your console log for the formatted JSON if needed.",
         });
-        
-        // Optional: Log the prepared JSON to console for verification
-        console.log("Prepared Supabase Service Account JSON:", preparedJson);
       }).catch(err => {
         console.error("Clipboard copy failed:", err);
         toast({
-          title: "Copy Failed",
-          description: "Could not copy to clipboard. Please manually copy the JSON.",
+          title: "Copy to Clipboard Failed",
+          description: "Please check the console and manually copy the formatted JSON from there.",
           variant: "destructive"
         });
       });
     } catch (error) {
+      console.error("Error in copyForSupabase:", error);
       toast({
         title: "Error Formatting",
-        description: "Could not format JSON for Supabase. Ensure it's valid JSON.",
+        description: `Formatting failed: ${error.message}. Please check the console for more details.`,
         variant: "destructive"
       });
     }
@@ -221,22 +240,22 @@ const VertexTest = () => {
     <div className="container py-6 max-w-4xl">
       <h1 className="text-2xl font-bold mb-6">Vertex AI Service Account Tester</h1>
       
-      <Card className="mb-6">
+      <Card className="mb-6 border-blue-200 bg-blue-50 dark:bg-blue-950 dark:border-blue-800">
         <CardHeader>
           <CardTitle>Instructions</CardTitle>
-          <CardDescription>
-            This tool helps you validate and test your Vertex AI service account credentials.
+          <CardDescription className="text-blue-800 dark:text-blue-300">
+            Follow these steps to set up your Vertex AI credentials:
           </CardDescription>
         </CardHeader>
         <CardContent>
-          <ul className="list-disc pl-5">
-            <li>Enter your service account JSON in the "Input JSON" tab.</li>
-            <li>Alternatively, enter raw key details in the "Raw Key Input" tab.</li>
-            <li>Click "Validate" to check for required fields and basic JSON validity.</li>
-            <li>Click "Test Auth" to test authentication with the service account.</li>
-            <li>Use the "Format JSON" button to display a formatted version of your JSON.</li>
-            <li>Use the "Copy for Supabase" button to copy a version of the JSON that is formatted for Supabase secrets.</li>
-          </ul>
+          <ol className="list-decimal pl-5 space-y-2 text-blue-800 dark:text-blue-300">
+            <li>Paste your Google Cloud service account JSON in the "Input JSON" tab</li>
+            <li>Click "Validate" to check the formatting and required fields</li>
+            <li>Click "Copy for Supabase" to get a properly formatted version for Supabase secrets</li>
+            <li>Copy the formatted JSON from the clipboard (or from the browser console if copy fails)</li>
+            <li>Go to Supabase and set <code className="font-mono bg-blue-100 dark:bg-blue-900 px-1 rounded">VERTEX_AI_SERVICE_ACCOUNT</code> in your secrets</li>
+            <li>Return here and click "Test Auth" to verify your credentials are working</li>
+          </ol>
         </CardContent>
       </Card>
       
@@ -278,6 +297,7 @@ const VertexTest = () => {
                     variant="secondary"
                     onClick={copyForSupabase}
                     disabled={isLoading || !serviceAccountInput}
+                    className="bg-green-600 hover:bg-green-700 text-white"
                   >
                     Copy for Supabase
                   </Button>
@@ -367,7 +387,7 @@ const VertexTest = () => {
             </CardHeader>
             <CardContent>
               {validationResult ? (
-                <pre className="font-mono text-sm">
+                <pre className="font-mono text-sm bg-gray-50 dark:bg-gray-900 p-4 rounded overflow-auto">
                   {JSON.stringify(validationResult, null, 2)}
                 </pre>
               ) : (
@@ -375,6 +395,35 @@ const VertexTest = () => {
               )}
             </CardContent>
           </Card>
+          
+          {supabaseFormatted && (
+            <Card className="border-green-200 bg-green-50 dark:bg-green-950 dark:border-green-800">
+              <CardHeader>
+                <CardTitle>Supabase Formatted JSON</CardTitle>
+                <CardDescription className="text-green-800 dark:text-green-300">
+                  This format is ready for Supabase secrets
+                </CardDescription>
+              </CardHeader>
+              <CardContent>
+                <div className="bg-gray-50 dark:bg-gray-900 p-4 rounded">
+                  <p className="mb-2 text-green-700 dark:text-green-400">
+                    ✓ The JSON has been copied to your clipboard and is correctly formatted for Supabase
+                  </p>
+                  <p className="text-sm text-gray-600 dark:text-gray-400">
+                    You can also find this JSON in your browser console if needed
+                  </p>
+                </div>
+                <div className="mt-4">
+                  <Button 
+                    onClick={() => navigator.clipboard.writeText(supabaseFormatted)}
+                    className="bg-green-600 hover:bg-green-700 text-white"
+                  >
+                    Copy Again
+                  </Button>
+                </div>
+              </CardContent>
+            </Card>
+          )}
           
           <Card>
             <CardHeader>
@@ -385,7 +434,7 @@ const VertexTest = () => {
             </CardHeader>
             <CardContent>
               {formattedJson ? (
-                <pre className="font-mono text-sm">
+                <pre className="font-mono text-sm bg-gray-50 dark:bg-gray-900 p-4 rounded overflow-auto">
                   {formattedJson}
                 </pre>
               ) : (

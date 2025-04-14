@@ -321,11 +321,21 @@ export function prepareServiceAccountForSupabase(serviceAccount: any): string {
     
     // Ensure private key is properly formatted
     if (preparedAccount.private_key) {
-      // First normalize to PEM format
-      const normalizedKey = normalizePrivateKey(preparedAccount.private_key);
-      
-      // For Supabase storage, we need actual newlines, not escaped ones
-      preparedAccount.private_key = normalizedKey;
+      try {
+        // First normalize to PEM format
+        const normalizedKey = normalizePrivateKey(preparedAccount.private_key);
+        
+        // For Supabase storage, we need to properly escape newlines
+        // This is critical for JWT validation to work
+        preparedAccount.private_key = normalizedKey.replace(/\n/g, '\\n');
+        
+        console.log("Private key normalized and properly escaped for Supabase");
+      } catch (error) {
+        console.error("Error normalizing private key:", error);
+        throw new Error(`Failed to prepare private key: ${error.message}`);
+      }
+    } else {
+      throw new Error("No private_key found in service account");
     }
     
     // Convert to a properly formatted JSON string
