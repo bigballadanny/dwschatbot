@@ -22,7 +22,8 @@ import {
   repairServiceAccountKey,
   diagnosticServiceAccountJson,
   createServiceAccountWithRawKey,
-  extractRawBase64FromKey
+  extractRawBase64FromKey,
+  extractRawJsonForDisplay
 } from '@/utils/serviceAccountUtils';
 import { useDebounce } from '@/utils/performanceUtils';
 
@@ -411,6 +412,36 @@ const VertexTest = () => {
     }
   };
 
+  const extractAndDisplayRawJson = () => {
+    if (!serviceAccountInput.trim()) {
+      toast({
+        title: "No input",
+        description: "Please enter a service account JSON first",
+        variant: "destructive"
+      });
+      return;
+    }
+
+    try {
+      // Format the JSON for display
+      const formattedJson = extractRawJsonForDisplay(serviceAccountInput);
+      
+      // Update the input with the formatted version
+      setServiceAccountInput(formattedJson);
+      
+      toast({
+        title: "JSON Formatted",
+        description: "The service account JSON has been formatted for better readability",
+      });
+    } catch (error) {
+      toast({
+        title: "Formatting Error",
+        description: "Could not format the JSON. Make sure it's valid JSON.",
+        variant: "destructive"
+      });
+    }
+  };
+
   return (
     <SidebarInset>
       <div className="container mx-auto py-6 space-y-8">
@@ -603,6 +634,13 @@ const VertexTest = () => {
                 
                 <div className="flex gap-2 justify-end">
                   <Button
+                    variant="secondary"
+                    onClick={extractAndDisplayRawJson}
+                    disabled={isLoading || !serviceAccountInput}
+                  >
+                    Format JSON
+                  </Button>
+                  <Button
                     variant="outline"
                     onClick={validateServiceAccount}
                     disabled={isLoading || !serviceAccountInput}
@@ -691,7 +729,7 @@ const VertexTest = () => {
                       This method bypasses common issues with service account JSON formatting by working directly with the
                       raw base64 content of your private key.
                     </p>
-                    <ol className="list-decimal pl-5 space-y-1">
+                    <ol className="list-decimal pl-5 space-y-0.5">
                       <li>If you already pasted a service account JSON in the Input JSON tab, click "Extract from JSON" below.</li>
                       <li>Otherwise, fill in the project details and paste just the raw base64 content of your private key.</li>
                     </ol>

@@ -1,3 +1,4 @@
+
 /**
  * Formats and normalizes a private key to ensure it has proper PEM structure
  * This handles common issues with service account JSON including:
@@ -281,4 +282,22 @@ export function extractRawBase64FromKey(input: string): string {
     .replace(/-----BEGIN PRIVATE KEY-----|-----END PRIVATE KEY-----/g, '')
     .replace(/\s/g, '')
     .replace(/\\n/g, '');
+}
+
+/**
+ * Utility to extract raw base64 from a service account JSON
+ * Useful when you need to get the raw base64 for manual input
+ */
+export function extractRawJsonForDisplay(serviceAccountJson: string): string {
+  try {
+    // Try to parse the JSON string
+    const parsed = JSON.parse(serviceAccountJson);
+    
+    // Return a pretty-printed version
+    return JSON.stringify(parsed, null, 2);
+  } catch (error) {
+    console.error("Could not parse JSON for display:", error);
+    // If parsing fails, just return the original input
+    return serviceAccountJson;
+  }
 }
