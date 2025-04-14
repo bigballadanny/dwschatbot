@@ -2,11 +2,20 @@
 import React from 'react';
 import { Link } from 'react-router-dom';
 import { Button } from "@/components/ui/button";
-import { Headphones } from 'lucide-react'; // Keep if used elsewhere, remove if only for the banner
+import { Headphones } from 'lucide-react';
 import { useAuth } from '@/context/AuthContext';
 import { useAdmin } from '@/context/AdminContext';
-import { Avatar, AvatarFallback } from "@/components/ui/avatar"; // Removed AvatarImage as it wasn't used
+import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
+import {
+  NavigationMenu,
+  NavigationMenuContent,
+  NavigationMenuItem,
+  NavigationMenuLink,
+  NavigationMenuList,
+  NavigationMenuTrigger,
+  navigationMenuTriggerStyle,
+} from "@/components/ui/navigation-menu";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -22,7 +31,109 @@ const Header: React.FC = () => {
 
   return (
     <header className="border-b shadow-sm bg-background/95 backdrop-blur-sm sticky top-0 z-50">
-      <div className="container mx-auto px-4 py-3 flex items-center justify-end">
+      <div className="container mx-auto px-4 py-3 flex items-center justify-between">
+        {/* Navigation Menu */}
+        <NavigationMenu>
+          <NavigationMenuList>
+            <NavigationMenuItem>
+              <Link to="/" className={navigationMenuTriggerStyle()}>
+                Home
+              </Link>
+            </NavigationMenuItem>
+            
+            <NavigationMenuItem>
+              <Link to="/war-room" className={navigationMenuTriggerStyle()}>
+                War Room
+              </Link>
+            </NavigationMenuItem>
+            
+            {isAdmin && (
+              <NavigationMenuItem>
+                <NavigationMenuTrigger>Admin</NavigationMenuTrigger>
+                <NavigationMenuContent>
+                  <ul className="grid w-[200px] gap-3 p-4">
+                    <li>
+                      <NavigationMenuLink asChild>
+                        <Link 
+                          to="/analytics" 
+                          className="block select-none space-y-1 rounded-md p-3 leading-none no-underline outline-none transition-colors hover:bg-accent hover:text-accent-foreground focus:bg-accent focus:text-accent-foreground"
+                        >
+                          <div className="text-sm font-medium leading-none">Analytics</div>
+                          <p className="line-clamp-2 text-sm leading-snug text-muted-foreground">
+                            View user analytics and insights
+                          </p>
+                        </Link>
+                      </NavigationMenuLink>
+                    </li>
+                    <li>
+                      <NavigationMenuLink asChild>
+                        <Link 
+                          to="/transcripts" 
+                          className="block select-none space-y-1 rounded-md p-3 leading-none no-underline outline-none transition-colors hover:bg-accent hover:text-accent-foreground focus:bg-accent focus:text-accent-foreground"
+                        >
+                          <div className="text-sm font-medium leading-none">Transcripts</div>
+                          <p className="line-clamp-2 text-sm leading-snug text-muted-foreground">
+                            Manage conversation transcripts
+                          </p>
+                        </Link>
+                      </NavigationMenuLink>
+                    </li>
+                    <li>
+                      <NavigationMenuLink asChild>
+                        <Link 
+                          to="/admin" 
+                          className="block select-none space-y-1 rounded-md p-3 leading-none no-underline outline-none transition-colors hover:bg-accent hover:text-accent-foreground focus:bg-accent focus:text-accent-foreground"
+                        >
+                          <div className="text-sm font-medium leading-none">Admin Management</div>
+                          <p className="line-clamp-2 text-sm leading-snug text-muted-foreground">
+                            Manage admin users and permissions
+                          </p>
+                        </Link>
+                      </NavigationMenuLink>
+                    </li>
+                  </ul>
+                </NavigationMenuContent>
+              </NavigationMenuItem>
+            )}
+            
+            {/* Developer Tools Menu */}
+            <NavigationMenuItem>
+              <NavigationMenuTrigger>Developer Tools</NavigationMenuTrigger>
+              <NavigationMenuContent>
+                <ul className="grid w-[200px] gap-3 p-4">
+                  <li>
+                    <NavigationMenuLink asChild>
+                      <Link 
+                        to="/vertex-setup" 
+                        className="block select-none space-y-1 rounded-md p-3 leading-none no-underline outline-none transition-colors hover:bg-accent hover:text-accent-foreground focus:bg-accent focus:text-accent-foreground"
+                      >
+                        <div className="text-sm font-medium leading-none">Vertex AI Setup</div>
+                        <p className="line-clamp-2 text-sm leading-snug text-muted-foreground">
+                          Configure Vertex AI integration
+                        </p>
+                      </Link>
+                    </NavigationMenuLink>
+                  </li>
+                  <li>
+                    <NavigationMenuLink asChild>
+                      <Link 
+                        to="/vertex-test" 
+                        className="block select-none space-y-1 rounded-md p-3 leading-none no-underline outline-none transition-colors hover:bg-accent hover:text-accent-foreground focus:bg-accent focus:text-accent-foreground"
+                      >
+                        <div className="text-sm font-medium leading-none">Vertex Test</div>
+                        <p className="line-clamp-2 text-sm leading-snug text-muted-foreground">
+                          Test Vertex AI functionality
+                        </p>
+                      </Link>
+                    </NavigationMenuLink>
+                  </li>
+                </ul>
+              </NavigationMenuContent>
+            </NavigationMenuItem>
+          </NavigationMenuList>
+        </NavigationMenu>
+
+        {/* User Account Section */}
         <div className="flex items-center space-x-3">
           {/* Text-to-Speech Button Removed
           {user && (
@@ -68,16 +179,14 @@ const Header: React.FC = () => {
                 {isAdmin && (
                   <>
                     <DropdownMenuItem asChild>
-                      {/* Link to the new analytics page */}
                       <Link to="/analytics">Analytics Dashboard</Link>
                     </DropdownMenuItem>
                     <DropdownMenuItem asChild>
                       <Link to="/transcripts">Manage Transcripts</Link>
                     </DropdownMenuItem>
-                     {/* Optionally add other admin links like user management here */}
-                     <DropdownMenuItem asChild>
-                       <Link to="/admin">Admin Management</Link>
-                     </DropdownMenuItem>
+                    <DropdownMenuItem asChild>
+                      <Link to="/admin">Admin Management</Link>
+                    </DropdownMenuItem>
                   </>
                 )}
                 <DropdownMenuItem onClick={signOut} className="text-red-500 focus:text-red-700 focus:bg-red-50 dark:focus:bg-red-950/50 cursor-pointer">
