@@ -1,16 +1,28 @@
 
-project_id = "any"
+# A string used to distinguish different Supabase projects on the same host. Defaults to the working
+# directory name when running `supabase init`.
+project_id = "Lovable AI"
+node_version = 18
 
 [api]
-enabled = true
+# Port to use for the API URL.
 port = 54321
-schemas = ["public", "storage"]
-extra_search_path = ["public", "extensions"]
+# Schemas to expose in your API. Tables, views and stored procedures in this schema will get API
+# endpoints. public and storage are always included.
+schemas = ["public", "storage", "graphql_public"]
+# Extra schemas to add to the search_path of every request. public is always included.
+extra_search_paths = ["public", "extensions"]
+# Maximum rows to return from a view, table, or stored procedure. Limits payload size for accidental
+# or malicious requests.
 max_rows = 1000
 
 [db]
+# Port to use for the local database URL.
 port = 54322
+# Port used by db diff command to initialize the shadow database.
 shadow_port = 54320
+# The database major version to use. This has to be the same as your remote database's. Run `SHOW
+# server_version;` on the remote database to check.
 major_version = 15
 
 [db.pooler]
@@ -22,27 +34,203 @@ max_client_conn = 100
 
 [realtime]
 enabled = true
+ip_version = "IPV4"
 
 [studio]
 enabled = true
+# Port to use for Supabase Studio.
 port = 54323
+# External URL of the API server that frontend connects to.
 api_url = "http://localhost"
+
+# Email testing server. Emails sent with the local dev setup are not actually sent - the emails are
+# monitored and accessible from the dashboard and REST API.
+[inbucket]
+enabled = true
+# Port to use for the email testing server web interface.
+port = 54324
+# Uncomment to expose additional ports for testing user applications that send emails.
+# smtp_port = 54325
+# pop3_port = 54326
 
 [storage]
 enabled = true
+# The maximum file size allowed (e.g. "5MB", "500KB").
+file_size_limit = "50MiB"
 
 [auth]
 enabled = true
+# The base URL of your website. Used as an allow-list for redirects and for constructing URLs used
+# in emails.
 site_url = "http://localhost:3000"
+# List of third-party providers enabled for login.
+additional_redirect_urls = ["https://localhost:3000"]
+# How long tokens are valid for, in seconds. Defaults to 3600 (1 hour), maximum 604,800 seconds (one
+# week).
+jwt_expiry = 3600
+# If disabled, the refresh token will never expire.
+enable_refresh_token_rotation = true
+# Allows refresh tokens to be reused after expiry, up to the specified interval in seconds.
+refresh_token_reuse_interval = 10
+# Allow/disallow new user signups to your project.
+enable_signup = true
 
-[inbucket]
-enabled = true
-port = 54324
+[auth.email]
+# Allow/disallow new user signups via email to your project.
+enable_signup = true
+# If enabled, a user will be required to confirm any email change on both the old, and new email
+# addresses. If disabled, only the new email is required to confirm.
+double_confirm_changes = true
+# If enabled, users need to confirm their email address before signing in.
+enable_confirmations = false
 
-[vector]
-enabled = true
+[auth.sms]
+# Allow/disallow new user signups via SMS to your project.
+enable_signup = true
+# If enabled, users need to confirm their phone number before signing in.
+enable_confirmations = false
 
-[edge_functions]
-[edge_functions.validate-service-account]
+[auth.external.apple]
+enabled = false
+# Overrides the default auth redirectUrl.
+# redirect_uri = ""
+# Overrides the default auth provider URL. Used to support self-hosted gitlab, single-tenant Azure,
+# or any other third-party OIDC providers.
+# url = ""
+
+[auth.external.azure]
+enabled = false
+# Overrides the default auth redirectUrl.
+# redirect_uri = ""
+# Overrides the default auth provider URL. Used to support self-hosted gitlab, single-tenant Azure,
+# or any other third-party OIDC providers.
+# url = ""
+
+[auth.external.bitbucket]
+enabled = false
+# Overrides the default auth redirectUrl.
+# redirect_uri = ""
+# Overrides the default auth provider URL. Used to support self-hosted gitlab, single-tenant Azure,
+# or any other third-party OIDC providers.
+# url = ""
+
+[auth.external.discord]
+enabled = false
+# Overrides the default auth redirectUrl.
+# redirect_uri = ""
+# Overrides the default auth provider URL. Used to support self-hosted gitlab, single-tenant Azure,
+# or any other third-party OIDC providers.
+# url = ""
+
+[auth.external.facebook]
+enabled = false
+# Overrides the default auth redirectUrl.
+# redirect_uri = ""
+# Overrides the default auth provider URL. Used to support self-hosted gitlab, single-tenant Azure,
+# or any other third-party OIDC providers.
+# url = ""
+
+[auth.external.github]
+enabled = false
+# Overrides the default auth redirectUrl.
+# redirect_uri = ""
+# Overrides the default auth provider URL. Used to support self-hosted gitlab, single-tenant Azure,
+# or any other third-party OIDC providers.
+# url = ""
+
+[auth.external.gitlab]
+enabled = false
+# Overrides the default auth redirectUrl.
+# redirect_uri = ""
+# Overrides the default auth provider URL. Used to support self-hosted gitlab, single-tenant Azure,
+# or any other third-party OIDC providers.
+# url = ""
+
+[auth.external.google]
+enabled = false
+# Overrides the default auth redirectUrl.
+# redirect_uri = ""
+# Overrides the default auth provider URL. Used to support self-hosted gitlab, single-tenant Azure,
+# or any other third-party OIDC providers.
+# url = ""
+
+[auth.external.keycloak]
+enabled = false
+# Overrides the default auth redirectUrl.
+# redirect_uri = ""
+# Overrides the default auth provider URL. Used to support self-hosted gitlab, single-tenant Azure,
+# or any other third-party OIDC providers.
+# url = ""
+
+[auth.external.linkedin]
+enabled = false
+# Overrides the default auth redirectUrl.
+# redirect_uri = ""
+# Overrides the default auth provider URL. Used to support self-hosted gitlab, single-tenant Azure,
+# or any other third-party OIDC providers.
+# url = ""
+
+[auth.external.notion]
+enabled = false
+# Overrides the default auth redirectUrl.
+# redirect_uri = ""
+# Overrides the default auth provider URL. Used to support self-hosted gitlab, single-tenant Azure,
+# or any other third-party OIDC providers.
+# url = ""
+
+[auth.external.spotify]
+enabled = false
+# Overrides the default auth redirectUrl.
+# redirect_uri = ""
+# Overrides the default auth provider URL. Used to support self-hosted gitlab, single-tenant Azure,
+# or any other third-party OIDC providers.
+# url = ""
+
+[auth.external.slack]
+enabled = false
+# Overrides the default auth redirectUrl.
+# redirect_uri = ""
+# Overrides the default auth provider URL. Used to support self-hosted gitlab, single-tenant Azure,
+# or any other third-party OIDC providers.
+# url = ""
+
+[auth.external.twitch]
+enabled = false
+# Overrides the default auth redirectUrl.
+# redirect_uri = ""
+# Overrides the default auth provider URL. Used to support self-hosted gitlab, single-tenant Azure,
+# or any other third-party OIDC providers.
+# url = ""
+
+[auth.external.twitter]
+enabled = false
+# Overrides the default auth redirectUrl.
+# redirect_uri = ""
+# Overrides the default auth provider URL. Used to support self-hosted gitlab, single-tenant Azure,
+# or any other third-party OIDC providers.
+# url = ""
+
+[auth.external.workos]
+enabled = false
+# Overrides the default auth redirectUrl.
+# redirect_uri = ""
+# Overrides the default auth provider URL. Used to support self-hosted gitlab, single-tenant Azure,
+# or any other third-party OIDC providers.
+# url = ""
+
+[functions]
+[functions.test-auth-jwt]
+verify_jwt = true
+[functions.validate-service-account]
+verify_jwt = true
+[functions.gemini-chat]
+verify_jwt = true
+[functions.voice-conversation]
 verify_jwt = true
 
+[analytics]
+enabled = false
+port = 54327
+vector_port = 54328
+# Configure one of the supported backends: "postgres", "bigquery"
+backend = "postgres"
