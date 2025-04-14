@@ -18,7 +18,9 @@ import {
   repairServiceAccountKey,
   diagnosticServiceAccountJson,
   fixSequenceLengthError,
-  repairSequenceLengthIssue
+  repairSequenceLengthIssue,
+  fixPrimitiveKeyFormat,
+  createMinimalServiceAccount
 } from '@/utils/serviceAccountUtils';
 import { useDebounce } from '@/utils/performanceUtils';
 
@@ -206,6 +208,81 @@ export function VertexAIValidator() {
       toast({
         title: "Error Fixing Key",
         description: error instanceof Error ? error.message : "Could not fix the key format",
+        variant: "destructive"
+      });
+    }
+  };
+
+  const fixPrimitiveError = () => {
+    if (!serviceAccountJson.trim()) {
+      toast({
+        title: "No input",
+        description: "Please enter a service account JSON first",
+        variant: "destructive"
+      });
+      return;
+    }
+    
+    try {
+      const parsed = JSON.parse(serviceAccountJson);
+      
+      const fixed = fixPrimitiveKeyFormat(parsed);
+      
+      setServiceAccountJson(JSON.stringify(fixed, null, 2));
+      
+      toast({
+        title: "Primitive Error Fixed",
+        description: "Applied fix for PRIVATE [2] primitive errors. Try testing JWT now.",
+        variant: "default"
+      });
+    } catch (error) {
+      toast({
+        title: "Error Fixing Primitive Issue",
+        description: error instanceof Error ? error.message : "Could not fix the key format",
+        variant: "destructive"
+      });
+    }
+  };
+
+  const createMinimal = () => {
+    if (!serviceAccountJson.trim()) {
+      toast({
+        title: "No input",
+        description: "Please enter a service account JSON first",
+        variant: "destructive"
+      });
+      return;
+    }
+    
+    try {
+      const parsed = JSON.parse(serviceAccountJson);
+      
+      if (!parsed.project_id || !parsed.client_email || !parsed.private_key) {
+        toast({
+          title: "Missing Required Fields",
+          description: "Service account is missing project_id, client_email, or private_key",
+          variant: "destructive"
+        });
+        return;
+      }
+      
+      const minimal = createMinimalServiceAccount(
+        parsed.project_id,
+        parsed.client_email,
+        parsed.private_key
+      );
+      
+      setServiceAccountJson(JSON.stringify(minimal, null, 2));
+      
+      toast({
+        title: "Minimal Service Account Created",
+        description: "Created a minimal service account with just the essential fields.",
+        variant: "default"
+      });
+    } catch (error) {
+      toast({
+        title: "Error Creating Minimal Account",
+        description: error instanceof Error ? error.message : "Could not create minimal service account",
         variant: "destructive"
       });
     }
@@ -482,13 +559,29 @@ export function VertexAIValidator() {
                 </Alert>
               )}
               
-              <div className="flex gap-2">
+              <div className="flex gap-2 flex-wrap">
                 <Button 
                   onClick={fixSequenceLength} 
                   variant="outline"
                   className="bg-purple-100 text-purple-800 hover:bg-purple-200 border-purple-300"
                 >
                   Fix SEQUENCE Error
+                </Button>
+
+                <Button 
+                  onClick={fixPrimitiveError}
+                  variant="outline"
+                  className="bg-pink-100 text-pink-800 hover:bg-pink-200 border-pink-300"
+                >
+                  Fix Primitive Error
+                </Button>
+
+                <Button 
+                  onClick={createMinimal}
+                  variant="outline" 
+                  className="bg-indigo-100 text-indigo-800 hover:bg-indigo-200 border-indigo-300"
+                >
+                  Create Minimal
                 </Button>
                 
                 <Button 

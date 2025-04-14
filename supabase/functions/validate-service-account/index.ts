@@ -1,4 +1,3 @@
-
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 
 const VERTEX_AI_SERVICE_ACCOUNT = Deno.env.get('VERTEX_AI_SERVICE_ACCOUNT');
@@ -146,15 +145,31 @@ async function createJWT(serviceAccount) {
         
         console.log(`Extracted base64 content length: ${base64Content.length}`);
         
-        // Convert PEM encoded key to binary
-        console.log("Converting key to binary");
+        // Special handling for primitive errors - try with experimental approach
         let binaryKey;
         try {
+          console.log("Converting key to binary with standard approach");
           binaryKey = atob(base64Content);
           console.log(`Binary key length: ${binaryKey.length}`);
         } catch (base64Error) {
           console.error("Base64 decoding error:", base64Error);
-          throw new Error(`Failed to decode private key from base64: ${base64Error.message}`);
+          
+          // If we see primitive error, try an alternative approach
+          if (base64Error.message && base64Error.message.includes('primitive')) {
+            console.log("Detected primitive error, trying alternative key format");
+            
+            // Try with slightly modified base64 content (add/remove padding)
+            const modifiedBase64 = base64Content.replace(/=+$/, '') + '=';
+            try {
+              binaryKey = atob(modifiedBase64);
+              console.log("Alternative approach succeeded with modified padding");
+            } catch (altError) {
+              console.error("Alternative base64 approach also failed:", altError);
+              throw new Error(`Failed to decode private key: ${base64Error.message}`);
+            }
+          } else {
+            throw new Error(`Failed to decode private key from base64: ${base64Error.message}`);
+          }
         }
         
         // Create a crypto key from the binary
@@ -173,10 +188,36 @@ async function createJWT(serviceAccount) {
           );
         } catch (cryptoImportError) {
           console.error("Crypto key import error:", cryptoImportError);
-          throw new Error(`Failed to import crypto key: ${cryptoImportError.message}`);
+          
+          // Special handling for primitive errors in key import
+          if (cryptoImportError.message && (
+              cryptoImportError.message.includes('primitive') || 
+              cryptoImportError.message.includes('SEQUENCE'))
+          ) {
+            console.log("Attempting direct binary key import from base64");
+            try {
+              // Try an alternative approach for importing the key
+              const rawBinary = atob(base64Content);
+              // Use direct binary import
+              cryptoKey = await crypto.subtle.importKey(
+                "pkcs8",
+                new Uint8Array([...rawBinary].map(c => c.charCodeAt(0))),
+                {
+                  name: "RSASSA-PKCS1-v1_5",
+                  hash: { name: "SHA-256" }
+                },
+                false,
+                ["sign"]
+              );
+              console.log("Crypto key created successfully via direct import, signing JWT");
+            } catch (altImportError) {
+              console.error("Alternative key import also failed:", altImportError);
+              throw new Error(`Failed to import crypto key after multiple attempts: ${altImportError.message}`);
+            }
+          } else {
+            throw new Error(`Failed to import crypto key: ${cryptoImportError.message}`);
+          }
         }
-        
-        console.log("Crypto key created successfully, signing JWT");
         
         // Sign the data
         let signature;

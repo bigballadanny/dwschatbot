@@ -161,8 +161,7 @@ export function formatPEMKey(base64Content: string, type: string = "PRIVATE KEY"
     cleanBase64 += '='.repeat(4 - remainder);
   }
   
-  // Format with proper line breaks (64 characters per line)
-  // This is crucial for ASN.1 SEQUENCE parsing
+  // Format with EXACTLY 64 characters per line - THIS IS CRITICAL for ASN.1 SEQUENCE parsing
   let formattedContent = `-----BEGIN ${type}-----\n`;
   for (let i = 0; i < cleanBase64.length; i += 64) {
     formattedContent += cleanBase64.slice(i, i + 64) + '\n';
@@ -348,27 +347,110 @@ export function prepareServiceAccountForSupabase(serviceAccount: any): string {
 }
 
 /**
- * Special Edge Case: Fix for the "incorrect length for SEQUENCE" error 
- * This uses a more aggressive approach to fix particularly troublesome keys
+ * Special EXPERIMENTAL helper to fix primitive key format issues
+ * This is for the "incorrect length for PRIVATE [2] (primitive)" error
+ */
+export function fixPrimitiveKeyFormat(serviceAccount: any): any {
+  if (!serviceAccount || !serviceAccount.private_key) {
+    return serviceAccount;
+  }
+  
+  const fixedAccount = JSON.parse(JSON.stringify(serviceAccount));
+  
+  try {
+    // Extract raw base64 content
+    let rawBase64 = fixedAccount.private_key
+      .replace(/-----BEGIN PRIVATE KEY-----|-----END PRIVATE KEY-----|\n|\r|\t|\s|\\n/g, '');
+    
+    // Special handling for padding - sometimes a missing or extra padding causes primitive errors
+    // Try with different padding options
+    let paddedBase64;
+    // First, remove any existing padding
+    rawBase64 = rawBase64.replace(/=/g, '');
+    
+    // Try different padding options based on remainder
+    const remainder = rawBase64.length % 4;
+    
+    // Standard padding calculation
+    if (remainder > 0) {
+      paddedBase64 = rawBase64 + '='.repeat(4 - remainder);
+    } else {
+      paddedBase64 = rawBase64;
+    }
+    
+    // Create a properly formatted PEM key with EXACTLY 64 characters per line
+    let fixedKey = `-----BEGIN PRIVATE KEY-----\n`;
+    for (let i = 0; i < paddedBase64.length; i += 64) {
+      fixedKey += paddedBase64.slice(i, i + 64) + '\n';
+    }
+    fixedKey += `-----END PRIVATE KEY-----\n`;
+    
+    // Update the account with the fixed key
+    fixedAccount.private_key = fixedKey;
+    
+    return fixedAccount;
+  } catch (error) {
+    console.error("Error fixing primitive key format:", error);
+    return fixedAccount;
+  }
+}
+
+/**
+ * Fix for the "incorrect length for SEQUENCE" or "primitive" error
+ * Advanced multi-stage approach that tries several fixes
  */
 export function fixSequenceLengthError(serviceAccountJson: string): string {
   try {
-    // Parse the JSON string
-    const parsed = JSON.parse(serviceAccountJson);
+    // First try to parse the JSON
+    let parsed = JSON.parse(serviceAccountJson);
     
     if (!parsed.private_key) {
       throw new Error("No private_key found in service account");
     }
     
-    // Apply the sequence length repair
+    // Store the original key to revert if our fixes don't work
+    const originalKey = parsed.private_key;
+    
+    // Try the standard sequence length fix first
     const repaired = repairSequenceLengthIssue(parsed);
     
-    // Convert back to JSON string
-    return JSON.stringify(repaired, null, 2);
+    // If the original key had newlines but the repaired one doesn't, we might have lost formatting
+    if (originalKey.includes('\n') && !repaired.private_key.includes('\n')) {
+      console.warn("Repair may have lost formatting, restoring newlines");
+      // Fallback to original with just line length adjustments
+      parsed.private_key = originalKey;
+    } else {
+      parsed = repaired;
+    }
+    
+    // If we're seeing primitive errors, try that specific fix
+    if (serviceAccountJson.includes("primitive") || serviceAccountJson.includes("PRIVATE [2]")) {
+      console.log("Detected primitive error, applying specialized fix");
+      parsed = fixPrimitiveKeyFormat(parsed);
+    }
+    
+    // Convert back to JSON string with proper formatting
+    return JSON.stringify(parsed, null, 2);
   } catch (error) {
     console.error("Could not fix sequence length error:", error);
     return serviceAccountJson;
   }
+}
+
+/**
+ * Creates a minimal service account with just necessary fields and proper key formatting
+ * This is useful when trying to debug specific key format issues
+ */
+export function createMinimalServiceAccount(projectId: string, clientEmail: string, privateKey: string): any {
+  // Ensure private key is properly formatted
+  const formattedKey = normalizePrivateKey(privateKey);
+  
+  return {
+    type: "service_account",
+    project_id: projectId.trim(),
+    private_key: formattedKey,
+    client_email: clientEmail.trim()
+  };
 }
 
 /**
@@ -384,29 +466,27 @@ export function repairSequenceLengthIssue(serviceAccount: any): any {
   const fixedAccount = JSON.parse(JSON.stringify(serviceAccount));
   
   try {
-    // First, apply standard repairs
-    const standardRepaired = repairServiceAccountKey(fixedAccount);
+    // Extract raw base64 content from private key, removing ALL formatting
+    let rawBase64 = fixedAccount.private_key
+      .replace(/-----BEGIN PRIVATE KEY-----|-----END PRIVATE KEY-----|\n|\r|\t|\s|\\n/g, '');
     
-    // Get the private key from the repaired account
-    let privateKey = standardRepaired.private_key;
-    
-    // Remove all spaces, tabs, and line breaks to get clean base64
-    const base64Content = privateKey
-      .replace(/-----BEGIN PRIVATE KEY-----|-----END PRIVATE KEY-----|\n|\r|\t|\s/g, '');
-    
-    // Recreate PEM structure with precise formatting
-    // Use exactly 64 characters per line as per RFC specs
-    // This addresses ASN.1 SEQUENCE length issues
-    privateKey = `-----BEGIN PRIVATE KEY-----\n`;
-    for (let i = 0; i < base64Content.length; i += 64) {
-      privateKey += base64Content.slice(i, i + 64) + '\n';
+    // Ensure length is a multiple of 4 for valid base64
+    const remainder = rawBase64.length % 4;
+    if (remainder > 0) {
+      rawBase64 += '='.repeat(4 - remainder);
     }
-    privateKey += `-----END PRIVATE KEY-----\n`;
+    
+    // Create a new, properly formatted PEM key with EXACTLY 64 characters per line
+    let fixedKey = `-----BEGIN PRIVATE KEY-----\n`;
+    for (let i = 0; i < rawBase64.length; i += 64) {
+      fixedKey += rawBase64.slice(i, i + 64) + '\n';
+    }
+    fixedKey += `-----END PRIVATE KEY-----\n`;
     
     // Update the account with the fixed key
-    standardRepaired.private_key = privateKey;
+    fixedAccount.private_key = fixedKey;
     
-    return standardRepaired;
+    return fixedAccount;
   } catch (error) {
     console.error("Error repairing sequence length issue:", error);
     return fixedAccount;

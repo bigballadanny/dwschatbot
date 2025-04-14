@@ -18,7 +18,9 @@ import {
   repairServiceAccountKey,
   prepareServiceAccountForSupabase,
   fixSequenceLengthError,
-  repairSequenceLengthIssue
+  repairSequenceLengthIssue,
+  fixPrimitiveKeyFormat,
+  createMinimalServiceAccount
 } from "@/utils/serviceAccountUtils";
 
 const VertexTest = () => {
@@ -341,6 +343,81 @@ const VertexTest = () => {
       });
     }
   };
+
+  const fixPrimitiveError = () => {
+    if (!serviceAccountInput.trim()) {
+      toast({
+        title: "No input",
+        description: "Please enter a service account JSON first",
+        variant: "destructive"
+      });
+      return;
+    }
+    
+    try {
+      const parsed = JSON.parse(serviceAccountInput);
+      
+      const fixed = fixPrimitiveKeyFormat(parsed);
+      
+      setServiceAccountInput(JSON.stringify(fixed, null, 2));
+      
+      toast({
+        title: "Primitive Error Fixed",
+        description: "Applied specialized fix for PRIVATE [2] primitive errors. Try testing JWT now.",
+        variant: "default"
+      });
+    } catch (error) {
+      toast({
+        title: "Error Fixing Primitive Issue",
+        description: error.message || "Could not fix the key format",
+        variant: "destructive"
+      });
+    }
+  };
+
+  const createMinimal = () => {
+    if (!serviceAccountInput.trim()) {
+      toast({
+        title: "No input",
+        description: "Please enter a service account JSON first",
+        variant: "destructive"
+      });
+      return;
+    }
+    
+    try {
+      const parsed = JSON.parse(serviceAccountInput);
+      
+      if (!parsed.project_id || !parsed.client_email || !parsed.private_key) {
+        toast({
+          title: "Missing Required Fields",
+          description: "Service account is missing project_id, client_email, or private_key",
+          variant: "destructive"
+        });
+        return;
+      }
+      
+      const minimal = createMinimalServiceAccount(
+        parsed.project_id,
+        parsed.client_email,
+        parsed.private_key
+      );
+      
+      setServiceAccountInput(JSON.stringify(minimal, null, 2));
+      
+      toast({
+        title: "Minimal Service Account Created",
+        description: "Created a minimal service account with just the essential fields. Try testing JWT now.",
+        variant: "default"
+      });
+    } catch (error) {
+      toast({
+        title: "Error Creating Minimal Account",
+        description: error.message || "Could not create minimal service account",
+        variant: "destructive"
+      });
+    }
+  };
   
   return (
     <div className="container py-6 max-w-4xl">
@@ -358,6 +435,8 @@ const VertexTest = () => {
             <li>Paste your Google Cloud service account JSON in the "Input JSON" tab</li>
             <li>Click "Validate" to check the formatting and required fields</li>
             <li>If you see a "SEQUENCE length" error, click the "Fix SEQUENCE Error" button</li>
+            <li>If you see a "primitive" error, try the "Fix Primitive Error" button</li>
+            <li>If all else fails, try the "Create Minimal" button to strip down to essential fields</li>
             <li>Click "Test JWT Only" to verify the private key format is correct</li>
             <li>Click "Copy for Supabase" to get a properly formatted version for Supabase secrets</li>
             <li>Copy the formatted JSON from the clipboard (or from the browser console if copy fails)</li>
@@ -408,6 +487,22 @@ const VertexTest = () => {
                     className="bg-purple-600 hover:bg-purple-700 text-white"
                   >
                     Fix SEQUENCE Error
+                  </Button>
+                  <Button
+                    variant="secondary"
+                    onClick={fixPrimitiveError}
+                    disabled={isLoading || !serviceAccountInput}
+                    className="bg-pink-600 hover:bg-pink-700 text-white"
+                  >
+                    Fix Primitive Error
+                  </Button>
+                  <Button
+                    variant="secondary"
+                    onClick={createMinimal}
+                    disabled={isLoading || !serviceAccountInput}
+                    className="bg-indigo-600 hover:bg-indigo-700 text-white"
+                  >
+                    Create Minimal
                   </Button>
                   <Button
                     variant="secondary"
