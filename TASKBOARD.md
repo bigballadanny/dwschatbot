@@ -14,10 +14,13 @@ This file tracks our current tasks, priorities, and ongoing work. Completed task
 - [ ] Optimize token usage in conversations
 - [x] Enhance error handling for AI service switching
 - [x] Fix generateCacheKey function in gemini-chat edge function
+- [ ] Implement Vertex AI diagnostics and testing tools
+- [ ] Fix JWT token generation in Vertex AI authentication
 
 ### Optimization Tasks ⚡
 - [x] Fix message list scrolling issues
 - [x] Fix layout issues with the main application UI
+- [x] Fix sidebar missing from pages
 - [ ] Improve message caching strategy
 - [ ] Implement proper token bucket rate limiting
 - [ ] Add request batching for frequently asked questions
@@ -63,6 +66,7 @@ This file tracks our current tasks, priorities, and ongoing work. Completed task
 - [x] Fix error in gemini-chat edge function
 - [ ] Improve error messaging across application
 - [ ] Add keyboard shortcuts for power users
+- [ ] Create diagnostics page for Vertex AI testing
 
 ## Process Guidelines
 

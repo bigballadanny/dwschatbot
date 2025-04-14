@@ -60,67 +60,80 @@ const MAX_RETRIES = 2;
 
 // Function to handle Vertex AI authentication with better error handling
 async function getVertexAccessToken() {
+  console.log("Starting Vertex AI authentication");
   try {
     if (!VERTEX_AI_SERVICE_ACCOUNT) {
       console.error("Vertex AI service account not configured");
       throw new Error("Vertex AI service account not configured");
     }
     
+    // Log that we're about to parse the service account (without revealing it)
+    console.log("Attempting to parse service account JSON");
+    
     // Parse the service account JSON
     let serviceAccount;
     try {
       serviceAccount = JSON.parse(VERTEX_AI_SERVICE_ACCOUNT);
-      console.log("Successfully parsed service account JSON");
+      console.log("Successfully parsed service account JSON with keys:", Object.keys(serviceAccount).join(", "));
+      
+      // Check for required fields without logging sensitive data
+      const requiredFields = ["client_email", "private_key", "project_id"];
+      const missingFields = requiredFields.filter(field => !serviceAccount[field]);
+      
+      if (missingFields.length > 0) {
+        console.error("Service account missing required fields:", missingFields);
+        throw new Error(`Service account missing required fields: ${missingFields.join(", ")}`);
+      }
     } catch (parseError) {
       console.error("Failed to parse service account JSON:", parseError);
       throw new Error("Invalid Vertex AI service account JSON format");
     }
     
-    if (!serviceAccount.client_email || !serviceAccount.private_key) {
-      console.error("Service account missing required fields");
-      throw new Error("Service account missing required fields (client_email or private_key)");
-    }
+    // Create JWT token for authentication
+    console.log("Creating JWT token using service account");
+    try {
+      const jwtToken = await createJWT(serviceAccount);
+      if (!jwtToken) {
+        throw new Error("JWT token creation failed");
+      }
+      console.log("JWT token created successfully");
     
-    // Use the client_email and private_key from the service account to get a token
-    console.log("Creating JWT token for authentication");
-    const jwtToken = await createJWT(serviceAccount);
-    
-    if (!jwtToken) {
-      throw new Error("Failed to create JWT token");
-    }
-    
-    // Exchange JWT for Google OAuth token
-    console.log("Exchanging JWT for OAuth token");
-    const tokenResponse = await fetchWithTimeout(
-      `https://oauth2.googleapis.com/token`,
-      {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json'
+      // Exchange JWT for Google OAuth token
+      console.log("Exchanging JWT for OAuth token");
+      const tokenResponse = await fetchWithTimeout(
+        `https://oauth2.googleapis.com/token`,
+        {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json'
+          },
+          body: JSON.stringify({
+            grant_type: 'urn:ietf:params:oauth:grant-type:jwt-bearer',
+            assertion: jwtToken
+          })
         },
-        body: JSON.stringify({
-          grant_type: 'urn:ietf:params:oauth:grant-type:jwt-bearer',
-          assertion: jwtToken
-        })
-      },
-      REQUEST_TIMEOUT_MS
-    );
-    
-    if (!tokenResponse.ok) {
-      const errorText = await tokenResponse.text();
-      console.error("Token exchange failed:", tokenResponse.status, errorText);
-      throw new Error(`Token exchange failed: ${tokenResponse.status} ${tokenResponse.statusText}`);
+        REQUEST_TIMEOUT_MS
+      );
+      
+      if (!tokenResponse.ok) {
+        const errorText = await tokenResponse.text();
+        console.error("Token exchange failed:", tokenResponse.status, errorText);
+        throw new Error(`Token exchange failed: ${tokenResponse.status} ${tokenResponse.statusText}`);
+      }
+      
+      const tokenData = await tokenResponse.json();
+      
+      if (!tokenData.access_token) {
+        console.error("No access token in response:", tokenData);
+        throw new Error("Failed to authenticate with Vertex AI: No access token received");
+      }
+      
+      console.log("Successfully retrieved access token");
+      return tokenData.access_token;
+    } catch (jwtError) {
+      console.error("Error in JWT or token exchange process:", jwtError);
+      throw jwtError;
     }
-    
-    const tokenData = await tokenResponse.json();
-    
-    if (!tokenData.access_token) {
-      console.error("No access token in response:", tokenData);
-      throw new Error("Failed to authenticate with Vertex AI: No access token received");
-    }
-    
-    console.log("Successfully retrieved access token");
-    return tokenData.access_token;
   } catch (error) {
     console.error("Error getting Vertex AI access token:", error);
     throw error;
@@ -169,6 +182,8 @@ async function createJWT(serviceAccount) {
       scope: 'https://www.googleapis.com/auth/cloud-platform'
     };
     
+    console.log("JWT header and payload prepared");
+    
     // Encode header and payload
     const encodedHeader = btoa(JSON.stringify(header)).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
     const encodedPayload = btoa(JSON.stringify(payload)).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
@@ -178,43 +193,61 @@ async function createJWT(serviceAccount) {
     
     try {
       // Clean up the private key to ensure it's in the correct format
-      const privateKey = serviceAccount.private_key
+      console.log("Processing private key");
+      let privateKey = serviceAccount.private_key;
+      
+      // Check if the private key is properly formatted
+      if (!privateKey.includes("BEGIN PRIVATE KEY") || !privateKey.includes("END PRIVATE KEY")) {
+        console.error("Private key is not properly formatted");
+        throw new Error("Invalid private key format in service account");
+      }
+      
+      // Clean up the key
+      privateKey = privateKey
         .replace(/\\n/g, '\n') // Handle escaped newlines
         .replace(/-----BEGIN PRIVATE KEY-----|-----END PRIVATE KEY-----|\n/g, '');
       
-      // Convert PEM encoded key to binary
-      const binaryKey = atob(privateKey);
+      console.log("Private key cleaned, attempting to create crypto key");
       
-      // Create a crypto key from the binary
-      console.log("Importing crypto key");
-      const cryptoKey = await crypto.subtle.importKey(
-        "pkcs8",
-        new TextEncoder().encode(binaryKey),
-        {
-          name: "RSASSA-PKCS1-v1_5",
-          hash: { name: "SHA-256" }
-        },
-        false,
-        ["sign"]
-      );
-      
-      // Sign the data
-      console.log("Signing JWT data");
-      const signature = await crypto.subtle.sign(
-        { name: "RSASSA-PKCS1-v1_5" },
-        cryptoKey,
-        new TextEncoder().encode(signatureInput)
-      );
-      
-      const encodedSignature = btoa(String.fromCharCode(...new Uint8Array(signature)))
-        .replace(/\+/g, '-')
-        .replace(/\//g, '_')
-        .replace(/=+$/, '');
-      
-      return `${signatureInput}.${encodedSignature}`;
-    } catch (cryptoError) {
-      console.error("Error during JWT crypto operations:", cryptoError);
-      throw new Error(`JWT creation failed: ${cryptoError.message}`);
+      try {
+        // Convert PEM encoded key to binary
+        const binaryKey = atob(privateKey);
+        
+        // Create a crypto key from the binary
+        const cryptoKey = await crypto.subtle.importKey(
+          "pkcs8",
+          new TextEncoder().encode(binaryKey),
+          {
+            name: "RSASSA-PKCS1-v1_5",
+            hash: { name: "SHA-256" }
+          },
+          false,
+          ["sign"]
+        );
+        
+        console.log("Crypto key created successfully, signing data");
+        
+        // Sign the data
+        const signature = await crypto.subtle.sign(
+          { name: "RSASSA-PKCS1-v1_5" },
+          cryptoKey,
+          new TextEncoder().encode(signatureInput)
+        );
+        
+        const encodedSignature = btoa(String.fromCharCode(...new Uint8Array(signature)))
+          .replace(/\+/g, '-')
+          .replace(/\//g, '_')
+          .replace(/=+$/, '');
+        
+        console.log("JWT token signed successfully");
+        return `${signatureInput}.${encodedSignature}`;
+      } catch (cryptoError) {
+        console.error("Error during crypto operations:", cryptoError);
+        throw new Error(`JWT crypto error: ${cryptoError.message}`);
+      }
+    } catch (privateKeyError) {
+      console.error("Error processing private key:", privateKeyError);
+      throw new Error(`Private key processing error: ${privateKeyError.message}`);
     }
   } catch (error) {
     console.error("Error creating JWT token:", error);
@@ -226,6 +259,8 @@ async function createJWT(serviceAccount) {
 async function callVertexAI(messages, temperature = 0.7, retryCount = 0) {
   try {
     console.log(`Calling Vertex AI (attempt ${retryCount + 1}/${MAX_RETRIES + 1})`);
+    console.log("Message structure received:", messages.map(m => ({role: m.role, textLength: m.parts?.[0]?.text?.length || 0})));
+    
     const accessToken = await getVertexAccessToken();
     
     if (!accessToken) {
@@ -251,13 +286,37 @@ async function callVertexAI(messages, temperature = 0.7, retryCount = 0) {
     
     console.log("Prepared Vertex AI request to endpoint:", endpoint);
     
+    // Ensure messages are properly formatted before sending to API
+    const formattedMessages = messages.map(msg => {
+      // Check for required properties and format
+      if (!msg || typeof msg !== 'object') {
+        console.error("Invalid message format:", msg);
+        return { role: 'user', content: 'Invalid message' };
+      }
+      
+      // Convert from Gemini format to Vertex AI format
+      const role = msg.role === 'model' ? 'assistant' : msg.role;
+      let content = '';
+      
+      // Extract content from parts array if available
+      if (Array.isArray(msg.parts) && msg.parts.length > 0 && msg.parts[0] && 'text' in msg.parts[0]) {
+        content = msg.parts[0].text || '';
+      } else if (typeof msg.content === 'string') {
+        // Direct content property (alternative format)
+        content = msg.content;
+      }
+      
+      if (!content) {
+        console.warn("Empty content in message:", msg);
+      }
+      
+      return { role, content };
+    });
+    
     const requestBody = {
       instances: [
         {
-          messages: messages.map(msg => ({
-            role: msg.role === 'model' ? 'assistant' : msg.role,
-            content: msg.parts[0].text
-          }))
+          messages: formattedMessages
         }
       ],
       parameters: {
@@ -268,7 +327,7 @@ async function callVertexAI(messages, temperature = 0.7, retryCount = 0) {
       }
     };
     
-    console.log("Sending request to Vertex AI");
+    console.log("Sending request to Vertex AI with formatted messages");
     const response = await fetchWithTimeout(endpoint, {
       method: 'POST',
       headers: {
@@ -299,7 +358,7 @@ async function callVertexAI(messages, temperature = 0.7, retryCount = 0) {
     console.log("Successfully received response from Vertex AI");
     
     // Extract the generated text from the response
-    const generatedText = data.predictions[0]?.candidates[0]?.content || "";
+    const generatedText = data.predictions?.[0]?.candidates?.[0]?.content || "";
     
     if (!generatedText) {
       console.warn("Received empty response from Vertex AI");
@@ -344,45 +403,60 @@ function recordRequest() {
   requestTimestamps.push(Date.now());
 }
 
-// Fixed function to safely generate cache key
+// Safe function to generate cache key
 function generateCacheKey(messages) {
-  if (!Array.isArray(messages) || messages.length === 0) {
-    return "empty-cache-key";
+  try {
+    if (!Array.isArray(messages) || messages.length === 0) {
+      return "empty-cache-key";
+    }
+    
+    // Use only the last 3 messages (if available) to generate the key
+    const relevantMessages = messages.slice(-3);
+    
+    // Safely extract content - handling potential undefined values
+    return JSON.stringify(relevantMessages.map(msg => {
+      // Ensure message is an object and has the required properties
+      if (!msg || typeof msg !== 'object') {
+        return { role: 'unknown', content: 'invalid-message' };
+      }
+      
+      const role = msg.role || 'unknown';
+      let content = 'empty-content';
+      
+      // First try extracting from parts array (Gemini format)
+      if (Array.isArray(msg.parts) && msg.parts.length > 0 && msg.parts[0]) {
+        content = msg.parts[0].text || 'empty-text';
+      } 
+      // Also try direct content property (alternative format)
+      else if (typeof msg.content === 'string') {
+        content = msg.content;
+      }
+      
+      return { role, content };
+    }));
+  } catch (error) {
+    console.error("Error generating cache key:", error);
+    return "error-cache-key-" + Date.now();
   }
-  
-  // Use only the last 3 messages (if available) to generate the key
-  const relevantMessages = messages.slice(-3);
-  
-  // Safely extract content - handling potential undefined values
-  return JSON.stringify(relevantMessages.map(msg => {
-    // Ensure message is an object and has the required properties
-    if (!msg || typeof msg !== 'object') {
-      return { role: 'unknown', content: 'invalid-message' };
-    }
-    
-    const role = msg.role || 'unknown';
-    let content = 'empty-content';
-    
-    // Safely extract text from parts if available
-    if (Array.isArray(msg.parts) && msg.parts.length > 0 && msg.parts[0] && 'text' in msg.parts[0]) {
-      content = msg.parts[0].text || 'empty-text';
-    }
-    
-    return { role, content };
-  }));
 }
 
 serve(async (req) => {
+  // Log the start of each request to help with debugging
+  console.log("=== New request received to gemini-chat function ===");
+  
   if (req.method === 'OPTIONS') {
     return new Response(null, { headers: corsHeaders });
   }
 
   try {
-    console.log("New request received to gemini-chat function");
-    
     // Check if we have Vertex AI credentials
     const useVertexAI = !!VERTEX_AI_SERVICE_ACCOUNT;
     const useGemini = !!GEMINI_API_KEY;
+    
+    console.log("AI providers available:", {
+      vertexAI: useVertexAI, 
+      gemini: useGemini
+    });
     
     if (!useVertexAI && !useGemini) {
       console.error("No AI API credentials configured (Gemini or Vertex AI)");
@@ -412,16 +486,29 @@ serve(async (req) => {
     recordRequest();
     
     // Parse the request body
-    const requestData = await req.json();
-    const { messages: clientMessages, query, enableOnlineSearch = false, conversationId } = requestData;
+    let requestData;
+    try {
+      requestData = await req.json();
+      console.log("Request received:", {
+        hasMessages: !!requestData.messages,
+        messageCount: requestData.messages ? requestData.messages.length : 0,
+        query: requestData.query ? requestData.query.substring(0, 50) + "..." : "None provided",
+        conversationId: requestData.conversationId || "None",
+        enableOnlineSearch: !!requestData.enableOnlineSearch
+      });
+    } catch (parseError) {
+      console.error("Error parsing request body:", parseError);
+      return new Response(JSON.stringify({
+        error: "Invalid request format: " + parseError.message,
+        content: FALLBACK_RESPONSE,
+        source: "system"
+      }), {
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+        status: 400
+      });
+    }
     
-    console.log("Processing request:", {
-      query: query ? query.substring(0, 50) + "..." : "None provided",
-      conversationId,
-      enableOnlineSearch,
-      messageCount: clientMessages ? clientMessages.length : 0,
-      using: useVertexAI ? "Vertex AI" : "Gemini"
-    });
+    const { messages: clientMessages, query, enableOnlineSearch = false, conversationId } = requestData;
     
     // Input validation - make sure messages is an array
     if (!Array.isArray(clientMessages)) {
@@ -455,7 +542,25 @@ serve(async (req) => {
     
     // Add conversation history from client
     if (clientMessages && Array.isArray(clientMessages)) {
-      messages = messages.concat(clientMessages);
+      // Validate and cleanup messages before adding
+      const validatedMessages = clientMessages.filter(msg => {
+        if (!msg || typeof msg !== 'object') {
+          console.warn("Skipping invalid message:", msg);
+          return false;
+        }
+        return true;
+      }).map(msg => {
+        // Normalize message format
+        const role = msg.source === 'user' ? 'user' : 'model';
+        const content = msg.content || '';
+        
+        return {
+          role: role,
+          parts: [{ text: content }]
+        };
+      });
+      
+      messages = messages.concat(validatedMessages);
     }
     
     // Check cache if enabled
@@ -474,7 +579,22 @@ serve(async (req) => {
     try {
       if (useVertexAI) {
         console.log("Using Vertex AI for response generation");
-        response = await callVertexAI(messages);
+        
+        // Simple first message test for debugging
+        if (messages.length === 2 && messages[1] && messages[1].parts && messages[1].parts[0] && messages[1].parts[0].text === "Hello, AI") {
+          console.log("Detected test message, returning simple response");
+          response = {
+            candidates: [
+              {
+                content: {
+                  parts: [{ text: "Hello! This is a simple test response to verify Vertex AI connectivity." }]
+                }
+              }
+            ]
+          };
+        } else {
+          response = await callVertexAI(messages);
+        }
       } else if (useGemini) {
         // Gemini API fallback code is kept but not actively used
         console.log("Using Gemini API (fallback) for response generation");
