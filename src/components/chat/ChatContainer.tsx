@@ -65,9 +65,9 @@ const ChatContainer: React.FC<ChatContainerProps> = ({
             <AlertDescription className="flex flex-col gap-2">
               <p>We're having trouble connecting to the AI service. This may be due to:</p>
               <ul className="list-disc pl-5">
-                <li>API key or configuration issues</li>
-                <li>Service quota limits</li>
-                <li>Temporary service outage</li>
+                <li>Service account configuration issues</li>
+                <li>Authentication problems</li>
+                <li>Temporary API service outage</li>
               </ul>
               <Button 
                 variant="outline" 

@@ -1,23 +1,8 @@
 
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 
-const GEMINI_API_KEY = Deno.env.get('GEMINI_API_KEY');
 const VERTEX_AI_SERVICE_ACCOUNT = Deno.env.get('VERTEX_AI_SERVICE_ACCOUNT');
-const GEMINI_2_API_URL = "https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent";
-const GEMINI_FALLBACK_API_URL = "https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-pro:generateContent";
-
-// Vertex AI API endpoints - will be extracted from service account
-const VERTEX_LOCATION = "us-central1";
-const VERTEX_MODEL_ID = "gemini-1.5-pro";
-const VERTEX_API_VERSION = "v1";
-
-const CACHE_ENABLED = true;
-const CACHE_TTL = 24 * 60 * 60 * 1000; // 24 hours in milliseconds
-const messageCache = new Map(); // Simple in-memory cache
-
-const MAX_REQUESTS_PER_MIN = 45; // Set lower than actual limit for safety
-const REQUEST_WINDOW_MS = 60 * 1000; // 1 minute
-const requestTimestamps = [];
+const USE_GEMINI_FALLBACK = false; // Disabled as requested
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -29,13 +14,11 @@ const FALLBACK_RESPONSE = `
 
 I apologize, but I'm currently having trouble connecting to the AI service. This may be due to:
 
-- High service demand
+- Service account configuration issues
 - Temporary connection issues
 - API capacity limits
 
-Please try your question again in a moment.
-
-*The system will automatically retry with alternative models if needed.*
+Please check the service account configuration and try again.
 `;
 
 const SYSTEM_PROMPT = `
@@ -58,29 +41,22 @@ You are an AI assistant designed to have natural conversations. Here are your in
 const REQUEST_TIMEOUT_MS = 30000; // 30 seconds
 const MAX_RETRIES = 2;
 
-// Add the validation utility directly in the edge function
-// This replaces the external import with an inline implementation
-interface ValidationResult {
-  isValid: boolean;
-  error?: string;
-  errorDetails?: Record<string, string>;
-}
-
 /**
  * Validates a chat API request object 
  * @param request The request data to validate
  * @returns ValidationResult with validation status and any errors
  */
-function validateChatApiRequest(request: any): ValidationResult {
+function validateChatApiRequest(request) {
   // Check if request is null/undefined
   if (!request) {
+    console.error("Request body is missing");
     return {
       isValid: false,
       error: "Request body is missing"
     };
   }
 
-  const errors: Record<string, string> = {};
+  const errors = {};
   
   // Validate messages array
   if (!Array.isArray(request.messages)) {
@@ -121,6 +97,7 @@ function validateChatApiRequest(request: any): ValidationResult {
   
   // Return validation result
   if (Object.keys(errors).length > 0) {
+    console.error("Request validation errors:", errors);
     return {
       isValid: false,
       error: "Invalid request format",
@@ -135,9 +112,8 @@ function validateChatApiRequest(request: any): ValidationResult {
 
 /**
  * Helper to normalize message format between different API formats
- * Handles both Vertex AI and OpenAI/Gemini formats
  */
-function normalizeMessage(message: any): { role: string, content: string } {
+function normalizeMessage(message) {
   if (!message) {
     return { role: 'user', content: '' };
   }
@@ -166,34 +142,81 @@ function normalizeMessage(message: any): { role: string, content: string } {
   return { role, content };
 }
 
-/**
- * Tests if a value appears to be a valid UUID
- */
-function isValidUuid(value: any): boolean {
-  if (typeof value !== 'string') return false;
+// Helper function to fetch with timeout
+async function fetchWithTimeout(url, options, timeoutMs) {
+  const controller = new AbortController();
+  const id = setTimeout(() => controller.abort(), timeoutMs);
   
-  // Simple UUID format validation
-  const uuidPattern = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
-  return uuidPattern.test(value);
+  try {
+    const response = await fetch(url, {
+      ...options,
+      signal: controller.signal
+    });
+    return response;
+  } catch (error) {
+    if (error.name === 'AbortError') {
+      throw new Error(`Request timed out after ${timeoutMs}ms`);
+    }
+    throw error;
+  } finally {
+    clearTimeout(id);
+  }
 }
 
-/**
- * Sanitizes user input to prevent common security issues
- * @param input The user input to sanitize
- * @returns Sanitized string
- */
-function sanitizeUserInput(input: string): string {
-  if (typeof input !== 'string') {
-    return '';
+// Validate the service account configuration
+function validateServiceAccount(serviceAccount) {
+  // Check if service account is defined
+  if (!serviceAccount) {
+    throw new Error("VERTEX_AI_SERVICE_ACCOUNT environment variable is not set");
   }
-  
-  // Basic sanitization for display contexts
-  return input
-    .replace(/</g, '&lt;')
-    .replace(/>/g, '&gt;')
-    .replace(/&/g, '&amp;')
-    .replace(/"/g, '&quot;')
-    .replace(/'/g, '&#039;');
+
+  try {
+    // Try to parse the JSON
+    const parsed = JSON.parse(serviceAccount);
+    
+    // Check for required fields
+    const requiredFields = ["client_email", "private_key", "project_id"];
+    const missingFields = requiredFields.filter(field => !parsed[field]);
+    
+    if (missingFields.length > 0) {
+      throw new Error(`Service account missing required fields: ${missingFields.join(", ")}`);
+    }
+    
+    // Check if private key is valid
+    if (!parsed.private_key.includes("BEGIN PRIVATE KEY") || !parsed.private_key.includes("END PRIVATE KEY")) {
+      throw new Error("Invalid private key format in service account");
+    }
+    
+    return parsed;
+  } catch (error) {
+    if (error instanceof SyntaxError) {
+      throw new Error("VERTEX_AI_SERVICE_ACCOUNT is not valid JSON");
+    }
+    throw error;
+  }
+}
+
+// Function to get project details from the service account
+function getProjectDetails() {
+  try {
+    if (!VERTEX_AI_SERVICE_ACCOUNT) {
+      throw new Error("VERTEX_AI_SERVICE_ACCOUNT environment variable is not set");
+    }
+    
+    const serviceAccount = JSON.parse(VERTEX_AI_SERVICE_ACCOUNT);
+    return {
+      projectId: serviceAccount.project_id,
+      clientEmail: serviceAccount.client_email,
+      hasPrivateKey: !!serviceAccount.private_key
+    };
+  } catch (error) {
+    return {
+      error: error.message,
+      projectId: null,
+      clientEmail: null,
+      hasPrivateKey: false
+    };
+  }
 }
 
 // Function to handle Vertex AI authentication with better error handling
@@ -211,26 +234,12 @@ async function getVertexAccessToken() {
     // Parse the service account JSON
     let serviceAccount;
     try {
-      serviceAccount = JSON.parse(VERTEX_AI_SERVICE_ACCOUNT);
-      console.log("Successfully parsed service account JSON with keys:", Object.keys(serviceAccount).join(", "));
-      
-      // Check for required fields without logging sensitive data
-      const requiredFields = ["client_email", "private_key", "project_id"];
-      const missingFields = requiredFields.filter(field => !serviceAccount[field]);
-      
-      if (missingFields.length > 0) {
-        console.error("Service account missing required fields:", missingFields);
-        throw new Error(`Service account missing required fields: ${missingFields.join(", ")}`);
-      }
-
-      // Apply special fix for primitive key format errors
-      if (serviceAccount.private_key) {
-        serviceAccount.private_key = fixPrivateKeyFormat(serviceAccount.private_key);
-        console.log("Applied private key formatting fixes");
-      }
+      serviceAccount = validateServiceAccount(VERTEX_AI_SERVICE_ACCOUNT);
+      console.log("Successfully parsed service account JSON with client_email:", serviceAccount.client_email);
+      console.log("Project ID:", serviceAccount.project_id);
     } catch (parseError) {
-      console.error("Failed to parse service account JSON:", parseError);
-      throw new Error("Invalid Vertex AI service account JSON format");
+      console.error("Service account validation error:", parseError.message);
+      throw parseError;
     }
     
     // Create JWT token for authentication
@@ -344,27 +353,6 @@ function formatPEMKey(base64Content) {
   return formattedContent;
 }
 
-// Helper function to fetch with timeout
-async function fetchWithTimeout(url, options, timeoutMs) {
-  const controller = new AbortController();
-  const id = setTimeout(() => controller.abort(), timeoutMs);
-  
-  try {
-    const response = await fetch(url, {
-      ...options,
-      signal: controller.signal
-    });
-    return response;
-  } catch (error) {
-    if (error.name === 'AbortError') {
-      throw new Error(`Request timed out after ${timeoutMs}ms`);
-    }
-    throw error;
-  } finally {
-    clearTimeout(id);
-  }
-}
-
 // Helper function to create a JWT token with improved error handling
 async function createJWT(serviceAccount) {
   try {
@@ -400,22 +388,24 @@ async function createJWT(serviceAccount) {
       console.log("Processing private key");
       let privateKey = serviceAccount.private_key;
       
-      // Check if the private key is properly formatted
+      // Apply special fix for primitive key format errors
+      privateKey = fixPrivateKeyFormat(privateKey);
+      
+      // Check if the private key is properly formatted after fix
       if (!privateKey.includes("BEGIN PRIVATE KEY") || !privateKey.includes("END PRIVATE KEY")) {
-        console.error("Private key is not properly formatted");
-        throw new Error("Invalid private key format in service account");
+        console.error("Private key is still not properly formatted after fix");
+        throw new Error("Invalid private key format in service account even after formatting");
       }
       
-      // Clean up the key
-      privateKey = privateKey
-        .replace(/\\n/g, '\n') // Handle escaped newlines
+      // Clean up the key for binary conversion
+      const cleanKey = privateKey
         .replace(/-----BEGIN PRIVATE KEY-----|-----END PRIVATE KEY-----|\n/g, '');
       
       console.log("Private key cleaned, attempting to create crypto key");
       
       try {
         // Convert PEM encoded key to binary
-        const binaryKey = atob(privateKey);
+        const binaryKey = atob(cleanKey);
         
         // Create a crypto key from the binary
         const cryptoKey = await crypto.subtle.importKey(
@@ -463,7 +453,10 @@ async function createJWT(serviceAccount) {
 async function callVertexAI(messages, temperature = 0.7, retryCount = 0) {
   try {
     console.log(`Calling Vertex AI (attempt ${retryCount + 1}/${MAX_RETRIES + 1})`);
-    console.log("Message structure received:", messages.map(m => ({role: m.role, textLength: m.parts?.[0]?.text?.length || 0})));
+    console.log("Message structure received:", messages.map(m => ({
+      role: m.role, 
+      contentLength: typeof m.parts?.[0]?.text === 'string' ? m.parts[0].text.length : 0
+    })));
     
     const accessToken = await getVertexAccessToken();
     
@@ -484,6 +477,10 @@ async function callVertexAI(messages, temperature = 0.7, retryCount = 0) {
       console.error("Error extracting project ID:", error);
       throw new Error("Failed to extract project ID from service account");
     }
+    
+    const VERTEX_LOCATION = "us-central1"; // Default location
+    const VERTEX_MODEL_ID = "gemini-1.5-pro"; // Default model
+    const VERTEX_API_VERSION = "v1"; // Default API version
     
     const VERTEX_API_BASE_URL = `https://${VERTEX_LOCATION}-aiplatform.googleapis.com/${VERTEX_API_VERSION}`;
     const endpoint = `${VERTEX_API_BASE_URL}/projects/${projectId}/locations/${VERTEX_LOCATION}/publishers/google/models/${VERTEX_MODEL_ID}:predict`;
@@ -532,6 +529,10 @@ async function callVertexAI(messages, temperature = 0.7, retryCount = 0) {
     };
     
     console.log("Sending request to Vertex AI with formatted messages");
+    
+    // Log the full request body for debugging
+    console.log("Request body:", JSON.stringify(requestBody));
+    
     const response = await fetchWithTimeout(endpoint, {
       method: 'POST',
       headers: {
@@ -594,53 +595,42 @@ async function callVertexAI(messages, temperature = 0.7, retryCount = 0) {
   }
 }
 
-function checkRateLimit() {
-  const now = Date.now();
-  while (requestTimestamps.length > 0 && requestTimestamps[0] < now - REQUEST_WINDOW_MS) {
-    requestTimestamps.shift();
-  }
-  
-  return requestTimestamps.length >= MAX_REQUESTS_PER_MIN;
-}
-
-function recordRequest() {
-  requestTimestamps.push(Date.now());
-}
-
-// Safe function to generate cache key
-function generateCacheKey(messages) {
+// Add a function to check service account health
+function checkServiceAccountHealth() {
   try {
-    if (!Array.isArray(messages) || messages.length === 0) {
-      return "empty-cache-key";
+    if (!VERTEX_AI_SERVICE_ACCOUNT) {
+      return {
+        isValid: false,
+        error: "VERTEX_AI_SERVICE_ACCOUNT environment variable is not set"
+      };
     }
     
-    // Use only the last 3 messages (if available) to generate the key
-    const relevantMessages = messages.slice(-3);
+    const parsed = JSON.parse(VERTEX_AI_SERVICE_ACCOUNT);
+    const healthCheck = {
+      isValid: true,
+      hasProjectId: Boolean(parsed.project_id),
+      hasClientEmail: Boolean(parsed.client_email),
+      hasPrivateKey: Boolean(parsed.private_key),
+      privateKeyFormat: parsed.private_key ? 
+        (parsed.private_key.includes("BEGIN PRIVATE KEY") ? "valid" : "invalid") : "missing"
+    };
     
-    // Safely extract content - handling potential undefined values
-    return JSON.stringify(relevantMessages.map(msg => {
-      // Ensure message is an object and has the required properties
-      if (!msg || typeof msg !== 'object') {
-        return { role: 'unknown', content: 'invalid-message' };
-      }
-      
-      const role = msg.role || 'unknown';
-      let content = 'empty-content';
-      
-      // First try extracting from parts array (Gemini format)
-      if (Array.isArray(msg.parts) && msg.parts.length > 0 && msg.parts[0]) {
-        content = msg.parts[0].text || 'empty-text';
-      } 
-      // Also try direct content property (alternative format)
-      else if (typeof msg.content === 'string') {
-        content = msg.content;
-      }
-      
-      return { role, content };
-    }));
+    if (!healthCheck.hasProjectId || !healthCheck.hasClientEmail || !healthCheck.hasPrivateKey) {
+      healthCheck.isValid = false;
+      healthCheck.error = "Missing required fields in service account";
+    }
+    
+    if (healthCheck.privateKeyFormat !== "valid") {
+      healthCheck.isValid = false;
+      healthCheck.error = "Invalid private key format";
+    }
+    
+    return healthCheck;
   } catch (error) {
-    console.error("Error generating cache key:", error);
-    return "error-cache-key-" + Date.now();
+    return {
+      isValid: false,
+      error: error.message
+    };
   }
 }
 
@@ -651,21 +641,34 @@ serve(async (req) => {
   if (req.method === 'OPTIONS') {
     return new Response(null, { headers: corsHeaders });
   }
+  
+  // Handle health check endpoint
+  if (req.method === 'GET') {
+    const url = new URL(req.url);
+    if (url.pathname.endsWith('/health')) {
+      const healthStatus = {
+        status: "ok",
+        timestamp: new Date().toISOString(),
+        serviceAccount: checkServiceAccountHealth()
+      };
+      
+      return new Response(JSON.stringify(healthStatus), {
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      });
+    }
+  }
 
   try {
     // Check if we have Vertex AI credentials
-    const useVertexAI = !!VERTEX_AI_SERVICE_ACCOUNT;
-    const useGemini = !!GEMINI_API_KEY;
+    const serviceAccountValid = VERTEX_AI_SERVICE_ACCOUNT ? 
+      checkServiceAccountHealth().isValid : false;
     
-    console.log("AI providers available:", {
-      vertexAI: useVertexAI, 
-      gemini: useGemini
-    });
+    console.log("Vertex AI service account valid:", serviceAccountValid);
     
-    if (!useVertexAI && !useGemini) {
-      console.error("No AI API credentials configured (Gemini or Vertex AI)");
+    if (!serviceAccountValid) {
+      console.error("No valid Vertex AI service account configured");
       return new Response(JSON.stringify({ 
-        error: "The AI service is not properly configured. Please configure Vertex AI service account or Gemini API key.",
+        error: "The AI service is not properly configured. Please check the Vertex AI service account.",
         content: FALLBACK_RESPONSE,
         source: "system"
       }), {
@@ -673,21 +676,6 @@ serve(async (req) => {
         status: 500
       });
     }
-    
-    // Rate limiting check
-    if (checkRateLimit()) {
-      console.warn("Rate limit exceeded");
-      return new Response(JSON.stringify({
-        error: "Rate limit exceeded. Please try again later.",
-        content: "I'm receiving too many requests right now. Please try again in a minute.",
-        source: "system"
-      }), {
-        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-        status: 429
-      });
-    }
-    
-    recordRequest();
     
     // Parse the request body
     let requestData;
@@ -778,44 +766,23 @@ serve(async (req) => {
       messages = messages.concat(validatedMessages);
     }
     
-    // Check cache if enabled
-    const cacheKey = generateCacheKey(messages);
-    const cachedResult = CACHE_ENABLED && messageCache.get(cacheKey);
-    
-    if (cachedResult && Date.now() - cachedResult.timestamp < CACHE_TTL) {
-      console.log("Returning cached response");
-      return new Response(JSON.stringify(cachedResult.data), {
-        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-      });
-    }
-    
     let response;
     
     try {
-      if (useVertexAI) {
-        console.log("Using Vertex AI for response generation");
-        
-        // Simple first message test for debugging
-        if (messages.length === 2 && messages[1] && messages[1].parts && messages[1].parts[0] && messages[1].parts[0].text === "Hello, AI") {
-          console.log("Detected test message, returning simple response");
-          response = {
-            candidates: [
-              {
-                content: {
-                  parts: [{ text: "Hello! This is a simple test response to verify Vertex AI connectivity." }]
-                }
+      // Simple first message test for debugging
+      if (messages.length === 2 && messages[1] && messages[1].parts && messages[1].parts[0] && messages[1].parts[0].text === "Hello, AI") {
+        console.log("Detected test message, returning simple response");
+        response = {
+          candidates: [
+            {
+              content: {
+                parts: [{ text: "Hello! This is a simple test response to verify Vertex AI connectivity." }]
               }
-            ]
-          };
-        } else {
-          response = await callVertexAI(messages);
-        }
-      } else if (useGemini) {
-        // Gemini API fallback code is kept but not actively used
-        console.log("Using Gemini API (fallback) for response generation");
-        throw new Error("Gemini API fallback not fully implemented");
+            }
+          ]
+        };
       } else {
-        throw new Error("No AI provider available");
+        response = await callVertexAI(messages);
       }
     } catch (aiError) {
       console.error("AI provider error:", aiError);
@@ -848,26 +815,8 @@ serve(async (req) => {
     // Prepare the response data
     const responseData = {
       content: responseText,
-      source: useVertexAI ? "vertex" : "gemini"
+      source: "vertex"
     };
-    
-    // Store in cache if enabled
-    if (CACHE_ENABLED) {
-      messageCache.set(cacheKey, {
-        timestamp: Date.now(),
-        data: responseData
-      });
-      
-      // Limit cache size
-      if (messageCache.size > 100) {
-        // Delete oldest entries
-        const entries = Array.from(messageCache.entries());
-        entries.sort((a, b) => a[1].timestamp - b[1].timestamp);
-        for (let i = 0; i < Math.min(10, entries.length / 2); i++) {
-          messageCache.delete(entries[i][0]);
-        }
-      }
-    }
     
     console.log("Successfully generated response");
     return new Response(JSON.stringify(responseData), {
