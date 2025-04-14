@@ -7,8 +7,9 @@ This file tracks our current tasks, priorities, and ongoing work. Completed task
 
 ### Vertex AI Integration 🚀
 - [x] Add Google Vertex AI integration to replace/supplement Gemini API
+- [ ] Fix Vertex AI authentication issues with service account JSON
 - [ ] Optimize token usage in conversations
-- [ ] Implement proper JWT auth for Vertex AI
+- [x] Add service account validation tool
 - [ ] Enhance error handling for AI service switching
 
 ### Optimization Tasks ⚡
@@ -46,6 +47,7 @@ This file tracks our current tasks, priorities, and ongoing work. Completed task
 ## Quick Wins 🎯
 - [x] Fix message persistence bugs
 - [x] Implement fallback mechanisms for API failures
+- [x] Create Vertex AI service account validator
 - [ ] Improve error messaging across application
 - [ ] Add keyboard shortcuts for power users
 
