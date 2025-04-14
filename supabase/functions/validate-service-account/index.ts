@@ -36,6 +36,7 @@ async function fetchWithTimeout(url, options, timeoutMs) {
 // Create JWT token for Google OAuth
 async function createJWT(serviceAccount) {
   try {
+    console.log("Starting JWT creation process");
     const now = Math.floor(Date.now() / 1000);
     const expiry = now + 3600; // 1 hour
     
@@ -58,46 +59,72 @@ async function createJWT(serviceAccount) {
     const encodedHeader = btoa(JSON.stringify(header)).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
     const encodedPayload = btoa(JSON.stringify(payload)).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
     
-    // Create signature
+    // Create signature input
     const signatureInput = `${encodedHeader}.${encodedPayload}`;
     
     try {
-      // Clean up the private key to ensure it's in the correct format
-      const privateKey = serviceAccount.private_key
-        .replace(/\\n/g, '\n') // Handle escaped newlines
-        .replace(/-----BEGIN PRIVATE KEY-----|-----END PRIVATE KEY-----|\n/g, '');
+      // IMPORTANT: Modified key handling - first check format then clean it up properly
+      console.log("Processing private key");
+      let privateKey = serviceAccount.private_key;
       
-      // Convert PEM encoded key to binary
-      const binaryKey = atob(privateKey);
+      // Log key format details (without exposing the key)
+      console.log(`Key format check - contains BEGIN: ${privateKey.includes("BEGIN PRIVATE KEY")}, contains END: ${privateKey.includes("END PRIVATE KEY")}, length: ${privateKey.length}`);
       
-      // Create a crypto key from the binary
-      const cryptoKey = await crypto.subtle.importKey(
-        "pkcs8",
-        new TextEncoder().encode(binaryKey),
-        {
-          name: "RSASSA-PKCS1-v1_5",
-          hash: { name: "SHA-256" }
-        },
-        false,
-        ["sign"]
-      );
+      if (!privateKey.includes("BEGIN PRIVATE KEY") || !privateKey.includes("END PRIVATE KEY")) {
+        console.log("Private key is missing header/footer markers, attempting to fix format");
+      }
       
-      // Sign the data
-      const signature = await crypto.subtle.sign(
-        { name: "RSASSA-PKCS1-v1_5" },
-        cryptoKey,
-        new TextEncoder().encode(signatureInput)
-      );
+      // Always normalize the key format - first strip any existing markers and whitespace
+      privateKey = privateKey.replace(/-----BEGIN PRIVATE KEY-----|-----END PRIVATE KEY-----|\n|\r/g, '');
       
-      const encodedSignature = btoa(String.fromCharCode(...new Uint8Array(signature)))
-        .replace(/\+/g, '-')
-        .replace(/\//g, '_')
-        .replace(/=+$/, '');
+      // Now log a safe representation of the key length after cleaning
+      console.log(`Private key length after initial cleanup: ${privateKey.length}`);
       
-      return `${signatureInput}.${encodedSignature}`;
-    } catch (cryptoError) {
-      console.error("Error during JWT crypto operations:", cryptoError);
-      throw new Error(`JWT creation failed: ${cryptoError.message}`);
+      // Try to create crypto key
+      try {
+        // Convert PEM encoded key to binary
+        console.log("Converting key to binary");
+        const binaryKey = atob(privateKey);
+        console.log(`Binary key length: ${binaryKey.length}`);
+        
+        // Create a crypto key from the binary
+        console.log("Importing crypto key");
+        const cryptoKey = await crypto.subtle.importKey(
+          "pkcs8",
+          new TextEncoder().encode(binaryKey),
+          {
+            name: "RSASSA-PKCS1-v1_5",
+            hash: { name: "SHA-256" }
+          },
+          false,
+          ["sign"]
+        );
+        
+        console.log("Crypto key created successfully, signing JWT");
+        
+        // Sign the data
+        const signature = await crypto.subtle.sign(
+          { name: "RSASSA-PKCS1-v1_5" },
+          cryptoKey,
+          new TextEncoder().encode(signatureInput)
+        );
+        
+        console.log("JWT signed successfully, encoding signature");
+        const encodedSignature = btoa(String.fromCharCode(...new Uint8Array(signature)))
+          .replace(/\+/g, '-')
+          .replace(/\//g, '_')
+          .replace(/=+$/, '');
+        
+        console.log("JWT token creation completed successfully");
+        return `${signatureInput}.${encodedSignature}`;
+      } catch (cryptoError) {
+        console.error("Error during JWT crypto operations:", cryptoError);
+        console.log("Detailed error:", JSON.stringify(cryptoError));
+        throw new Error(`JWT creation failed: ${cryptoError.message || "Unknown crypto error"}`);
+      }
+    } catch (keyError) {
+      console.error("Error processing private key:", keyError);
+      throw new Error(`Private key processing error: ${keyError.message}`);
     }
   } catch (error) {
     console.error("Error creating JWT token:", error);
@@ -108,11 +135,14 @@ async function createJWT(serviceAccount) {
 // Get access token from Google OAuth
 async function getAccessToken(serviceAccount) {
   try {
+    console.log("Starting access token acquisition");
     const jwtToken = await createJWT(serviceAccount);
     
     if (!jwtToken) {
       throw new Error("Failed to create JWT token");
     }
+    
+    console.log("JWT token created, exchanging for OAuth token");
     
     // Exchange JWT for Google OAuth token
     const tokenResponse = await fetchWithTimeout(
@@ -133,17 +163,20 @@ async function getAccessToken(serviceAccount) {
     if (!tokenResponse.ok) {
       const errorText = await tokenResponse.text();
       console.error("Token exchange failed:", tokenResponse.status, errorText);
-      throw new Error(`Token exchange failed: ${tokenResponse.status} ${tokenResponse.statusText}`);
+      throw new Error(`Token exchange failed: ${tokenResponse.status} ${tokenResponse.statusText} - ${errorText}`);
     }
     
     const tokenData = await tokenResponse.json();
     
     if (!tokenData.access_token) {
+      console.error("No access token in response:", JSON.stringify(tokenData));
       throw new Error("No access token in response");
     }
     
+    console.log("Access token acquired successfully");
     return tokenData.access_token;
   } catch (error) {
+    console.error("Error getting access token:", error);
     throw error;
   }
 }
@@ -151,6 +184,7 @@ async function getAccessToken(serviceAccount) {
 // Test API access with the token
 async function testAPIAccess(serviceAccount) {
   try {
+    console.log("Testing API access");
     const accessToken = await getAccessToken(serviceAccount);
     
     const projectId = serviceAccount.project_id;
@@ -160,6 +194,8 @@ async function testAPIAccess(serviceAccount) {
     
     const VERTEX_API_BASE_URL = `https://${VERTEX_LOCATION}-aiplatform.googleapis.com/${VERTEX_API_VERSION}`;
     const endpoint = `${VERTEX_API_BASE_URL}/projects/${projectId}/locations/${VERTEX_LOCATION}/publishers/google/models/${VERTEX_MODEL_ID}`;
+    
+    console.log(`Testing API access to endpoint: ${endpoint}`);
     
     // Just check if the model is accessible
     const response = await fetchWithTimeout(endpoint, {
@@ -175,6 +211,7 @@ async function testAPIAccess(serviceAccount) {
       throw new Error(`API access failed: ${response.status} ${response.statusText} - ${errorText}`);
     }
     
+    console.log("API access test successful");
     return true;
   } catch (error) {
     console.error("API access test failed:", error);
@@ -184,6 +221,7 @@ async function testAPIAccess(serviceAccount) {
 
 // Main validation function
 async function validateServiceAccount(serviceAccountJSON) {
+  console.log("Starting service account validation");
   const errors = [];
   const results = {
     success: false,
@@ -193,44 +231,82 @@ async function validateServiceAccount(serviceAccountJSON) {
       authentication: false,
       modelAccess: false
     },
-    serviceAccount: null
+    serviceAccount: null,
+    debug: {
+      jwtCreationSuccess: false,
+      accessTokenSuccess: false
+    }
   };
   
   try {
-    // 1. Check required fields
+    // 1. Debug dump (safely) - without exposing sensitive details
+    console.log("Service account validation - checking structure");
+    console.log("Keys present in service account:", Object.keys(serviceAccountJSON).join(", "));
+    
+    // 2. Check required fields
     const requiredFields = [
       'type', 'project_id', 'private_key_id', 'private_key', 
       'client_email', 'client_id', 'auth_uri', 'token_uri', 
       'auth_provider_x509_cert_url', 'client_x509_cert_url'
     ];
     
+    console.log("Checking required fields");
     for (const field of requiredFields) {
       const hasField = field in serviceAccountJSON && serviceAccountJSON[field];
       results.fields[field] = hasField;
+      
+      // Add additional debug info for private_key
+      if (field === 'private_key' && hasField) {
+        const privateKey = serviceAccountJSON.private_key;
+        results.debug.privateKeyLength = privateKey.length;
+        results.debug.hasBeginMarker = privateKey.includes('BEGIN PRIVATE KEY');
+        results.debug.hasEndMarker = privateKey.includes('END PRIVATE KEY');
+        results.debug.hasNewlines = privateKey.includes('\n');
+      }
+      
       if (!hasField) {
+        console.log(`Missing required field: ${field}`);
         errors.push(`Missing required field: ${field}`);
       }
     }
     
-    // 2. Check if type is service_account
+    // 3. Check if type is service_account
     if (serviceAccountJSON.type !== 'service_account') {
+      console.log(`Invalid account type: ${serviceAccountJSON.type}`);
       errors.push(`Invalid account type: ${serviceAccountJSON.type}. Must be "service_account"`);
     }
     
-    // 3. Test authentication
+    // 4. Test JWT creation specifically
     try {
-      await getAccessToken(serviceAccountJSON);
-      results.permissions.authentication = true;
-    } catch (authError) {
-      errors.push(`Authentication failed: ${authError.message}`);
+      await createJWT(serviceAccountJSON);
+      results.debug.jwtCreationSuccess = true;
+      console.log("JWT creation test passed");
+    } catch (jwtError) {
+      console.error("JWT creation test failed:", jwtError);
+      errors.push(`JWT creation failed: ${jwtError.message}`);
     }
     
-    // 4. Test API access (only if authentication succeeded)
+    // 5. Test authentication
+    if (results.debug.jwtCreationSuccess) {
+      try {
+        await getAccessToken(serviceAccountJSON);
+        results.permissions.authentication = true;
+        results.debug.accessTokenSuccess = true;
+        console.log("Authentication test passed");
+      } catch (authError) {
+        console.error("Authentication test failed:", authError);
+        errors.push(`Authentication failed: ${authError.message}`);
+      }
+    }
+    
+    // 6. Test API access (only if authentication succeeded)
     if (results.permissions.authentication) {
       try {
         await testAPIAccess(serviceAccountJSON);
         results.permissions.modelAccess = true;
+        console.log("API access test passed");
       } catch (apiError) {
+        console.error("API access test failed:", apiError);
         errors.push(`API access failed: ${apiError.message}`);
       }
     }
@@ -246,6 +322,7 @@ async function validateServiceAccount(serviceAccountJSON) {
       type: serviceAccountJSON.type
     };
     
+    console.log(`Service account validation completed. Success: ${results.success}`);
     return results;
   } catch (error) {
     console.error("Validation error:", error);
@@ -253,20 +330,22 @@ async function validateServiceAccount(serviceAccountJSON) {
       success: false,
       errors: [`Validation error: ${error.message}`],
       fields: results.fields,
-      permissions: results.permissions
+      permissions: results.permissions,
+      debug: results.debug
     };
   }
 }
 
 serve(async (req) => {
+  // Log start of request for debugging
+  console.log("=== validate-service-account function called ===");
+  
   // Handle CORS
   if (req.method === 'OPTIONS') {
     return new Response(null, { headers: corsHeaders });
   }
   
   try {
-    console.log("Starting service account validation");
-    
     if (!VERTEX_AI_SERVICE_ACCOUNT) {
       console.error("No service account configured");
       return new Response(JSON.stringify({
@@ -282,13 +361,16 @@ serve(async (req) => {
     let serviceAccount;
     try {
       serviceAccount = JSON.parse(VERTEX_AI_SERVICE_ACCOUNT);
-      console.log("Successfully parsed service account");
+      console.log("Successfully parsed service account JSON");
     } catch (parseError) {
       console.error("Failed to parse service account:", parseError);
+      const errorDetail = `Parse error: ${parseError.message}. First 20 chars: "${VERTEX_AI_SERVICE_ACCOUNT?.substring(0, 20)}..."`;
+      
       return new Response(JSON.stringify({
         success: false,
         message: "Invalid service account format",
-        errors: ["Failed to parse service account JSON"]
+        errors: ["Failed to parse service account JSON", errorDetail],
+        rawLength: VERTEX_AI_SERVICE_ACCOUNT?.length || 0
       }), {
         status: 400,
         headers: { ...corsHeaders, 'Content-Type': 'application/json' }
