@@ -44,19 +44,21 @@ export function VertexAIValidator() {
       
       if (error) {
         console.error("Error validating service account:", error);
+        toast({
+          title: "Validation Error",
+          description: "There was an error communicating with the validation service",
+          variant: "destructive"
+        });
+        
         setResults({
           success: false,
-          message: `Validation failed: ${error.message}`,
-          errors: [error.message]
-        });
-        toast({
-          title: "Validation Failed",
-          description: error.message,
-          variant: "destructive"
+          message: `Communication error: ${error.message || "Unknown error"}`,
+          errors: [error.message || "Unknown error"]
         });
         return;
       }
       
+      // The function now always returns 200 status, so we check success in the data
       if (data.success) {
         setResults({
           success: true,

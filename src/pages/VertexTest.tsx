@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from 'react';
 import { SidebarInset } from "@/components/ui/sidebar";
 import { Button } from "@/components/ui/button";
@@ -24,13 +23,11 @@ const VertexTest = () => {
   const [diagnosticsMode, setDiagnosticsMode] = useState<string>('basic');
   const [serviceAccountSummary, setServiceAccountSummary] = useState<any>(null);
   
-  // Helper function to add logs
   const addLog = (message: string, type: 'info' | 'error' | 'success' = 'info') => {
     const timestamp = new Date().toLocaleTimeString();
     setLogs(prev => [...prev, `[${timestamp}] [${type.toUpperCase()}] ${message}`]);
   };
   
-  // Get service account summary on mount
   useEffect(() => {
     const fetchServiceAccountSummary = async () => {
       try {
@@ -76,7 +73,6 @@ const VertexTest = () => {
     try {
       const startTime = performance.now();
       
-      // Simple test with a basic message structure
       addLog('Sending request to gemini-chat function...', 'info');
       const { data, error } = await supabase.functions.invoke('gemini-chat', {
         body: {
@@ -125,7 +121,6 @@ const VertexTest = () => {
     }
   };
   
-  // Run raw JWT generation test
   const runJwtTest = async () => {
     setIsLoading(true);
     setError(null);
@@ -394,7 +389,7 @@ const VertexTest = () => {
                     <AccordionTrigger>2. Format the Service Account JSON Correctly</AccordionTrigger>
                     <AccordionContent className="space-y-2">
                       <p>The service account JSON must be properly formatted. Common issues:</p>
-                      <Alert variant="warning" className="bg-amber-50 border-amber-200">
+                      <Alert variant="default" className="bg-amber-50 border-amber-200">
                         <Bug className="h-4 w-4" />
                         <AlertTitle>Common Issues</AlertTitle>
                         <AlertDescription className="space-y-2 text-sm">
