@@ -1,4 +1,3 @@
-
 import React, { useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { supabase } from '@/integrations/supabase/client';
@@ -13,6 +12,7 @@ import { Switch } from '@/components/ui/switch';
 import { Label } from '@/components/ui/label';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Textarea } from '@/components/ui/textarea';
+import { preprocessServiceAccountJson, validateServiceAccountJson } from '@/utils/serviceAccountUtils';
 
 export function VertexAIValidator() {
   const [isValidating, setIsValidating] = useState(false);
@@ -39,7 +39,6 @@ export function VertexAIValidator() {
     setResults(null);
     
     try {
-      // Progress simulation - authentication can take time
       const progressInterval = setInterval(() => {
         setProgress(prev => {
           const newProgress = prev + (Math.random() * 10);
@@ -47,7 +46,6 @@ export function VertexAIValidator() {
         });
       }, 300);
       
-      // Call the validation edge function
       const { data, error } = await supabase.functions.invoke('validate-service-account', {
         body: { skipTests }
       });
@@ -71,7 +69,6 @@ export function VertexAIValidator() {
         return;
       }
       
-      // The function now always returns 200 status, so we check success in the data
       if (data.success) {
         setResults({
           success: true,
@@ -123,7 +120,6 @@ export function VertexAIValidator() {
     setJwtTestResults(null);
     
     try {
-      // Progress simulation
       const progressInterval = setInterval(() => {
         setProgress(prev => {
           const newProgress = prev + (Math.random() * 15);
@@ -131,7 +127,6 @@ export function VertexAIValidator() {
         });
       }, 200);
       
-      // Call the validation edge function in JWT test mode
       const { data, error } = await supabase.functions.invoke('validate-service-account', {
         body: { testMode: 'jwt' }
       });
@@ -185,10 +180,11 @@ export function VertexAIValidator() {
     setIsSubmittingJson(true);
     
     try {
-      // First verify the JSON can be parsed
+      const processedJson = preprocessServiceAccountJson(serviceAccountJson);
+      
       let parsedJson;
       try {
-        parsedJson = JSON.parse(serviceAccountJson);
+        parsedJson = JSON.parse(processedJson);
       } catch (parseError) {
         setJsonParseError(`Invalid JSON format: ${parseError.message}`);
         toast({
@@ -200,11 +196,9 @@ export function VertexAIValidator() {
         return;
       }
       
-      // Check for required fields
-      const requiredFields = ["type", "project_id", "private_key_id", "private_key", "client_email"];
-      const missingFields = requiredFields.filter(field => !parsedJson[field]);
+      const { isValid, missingFields } = validateServiceAccountJson(parsedJson);
       
-      if (missingFields.length > 0) {
+      if (!isValid) {
         setJsonParseError(`Missing required fields: ${missingFields.join(", ")}`);
         toast({
           title: "Invalid Service Account",
@@ -215,7 +209,6 @@ export function VertexAIValidator() {
         return;
       }
       
-      // Submit to the API
       const { data, error } = await supabase.functions.invoke('test-auth-jwt', {
         body: { serviceAccount: parsedJson, testAuth: true }
       });
@@ -239,7 +232,6 @@ export function VertexAIValidator() {
         setShowInputForm(false);
         setServiceAccountJson('');
         
-        // Trigger a validation to refresh the status
         setTimeout(() => {
           validateServiceAccount();
         }, 1000);
