@@ -1,4 +1,3 @@
-
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 
 const VERTEX_AI_SERVICE_ACCOUNT = Deno.env.get('VERTEX_AI_SERVICE_ACCOUNT');
@@ -37,7 +36,6 @@ You are an AI assistant designed to have natural conversations. Here are your in
 5. Maintain a conversational, helpful tone
 `;
 
-// Configuration for timeouts and retries
 const REQUEST_TIMEOUT_MS = 30000; // 30 seconds
 const MAX_RETRIES = 2;
 
@@ -642,20 +640,22 @@ serve(async (req) => {
     return new Response(null, { headers: corsHeaders });
   }
   
+  // Parse the URL to extract path information
+  const url = new URL(req.url);
+  const path = url.pathname.split('/').filter(Boolean);
+  const endpoint = path[path.length - 1]; // Get the last part of the path
+  
   // Handle health check endpoint
-  if (req.method === 'GET') {
-    const url = new URL(req.url);
-    if (url.pathname.endsWith('/health')) {
-      const healthStatus = {
-        status: "ok",
-        timestamp: new Date().toISOString(),
-        serviceAccount: checkServiceAccountHealth()
-      };
-      
-      return new Response(JSON.stringify(healthStatus), {
-        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-      });
-    }
+  if (req.method === 'GET' && endpoint === 'health') {
+    const healthStatus = {
+      status: "ok",
+      timestamp: new Date().toISOString(),
+      serviceAccount: checkServiceAccountHealth()
+    };
+    
+    return new Response(JSON.stringify(healthStatus), {
+      headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+    });
   }
 
   try {
