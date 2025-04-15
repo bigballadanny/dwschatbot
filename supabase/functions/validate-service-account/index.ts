@@ -2,7 +2,8 @@ import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 
 const VERTEX_AI_SERVICE_ACCOUNT = Deno.env.get('VERTEX_AI_SERVICE_ACCOUNT');
 const VERTEX_LOCATION = "us-central1";
-const VERTEX_MODEL_ID = "gemini-1.5-pro";
+// Set model ID based on documentation for Vertex AI API
+const VERTEX_MODEL_ID = "gemini-2.0-flash-001"; 
 const VERTEX_API_VERSION = "v1";
 const REQUEST_TIMEOUT_MS = 10000;
 
@@ -49,10 +50,13 @@ function formatPEM(base64Content, type) {
   // Format with exactly 64 characters per line (crucial for ASN.1 SEQUENCE parsing)
   let formattedContent = '';
   for (let i = 0; i < cleanBase64.length; i += 64) {
-    formattedContent += cleanBase64.slice(i, i + 64) + '\n';
+    formattedContent += cleanBase64.slice(i, i + 64) + '
+';
   }
   
-  return `-----BEGIN ${type}-----\n${formattedContent}-----END ${type}-----\n`;
+  return `-----BEGIN ${type}-----
+${formattedContent}-----END ${type}-----
+`;
 }
 
 // Create JWT token for Google OAuth - with enhanced debugging and consistent formatting
@@ -93,9 +97,12 @@ async function createJWT(serviceAccount) {
       let privateKey = serviceAccount.private_key;
       
       // Handle escaped newlines by replacing them with actual newlines
-      if (privateKey.includes('\\n')) {
+      if (privateKey.includes('
+')) {
         console.log("Converting escaped newlines to actual newlines");
-        privateKey = privateKey.replace(/\\n/g, '\n');
+        privateKey = privateKey.replace(/
+/g, '
+');
       }
       
       // Check if key has proper markers
@@ -109,7 +116,8 @@ async function createJWT(serviceAccount) {
         console.log("Key is missing markers, attempting to normalize format");
         
         // First remove any existing markers/newlines to get clean base64
-        privateKey = privateKey.replace(/-----BEGIN PRIVATE KEY-----|-----END PRIVATE KEY-----|\n|\r/g, '');
+        privateKey = privateKey.replace(/-----BEGIN PRIVATE KEY-----|-----END PRIVATE KEY-----|
+|/g, '');
         
         // Now wrap with proper format - using enhanced formatter
         privateKey = formatPEM(privateKey, "PRIVATE KEY");
@@ -118,7 +126,8 @@ async function createJWT(serviceAccount) {
       } 
       
       // Ensure the key has proper line breaks and exactly 64 chars per line
-      if (!privateKey.includes("\n")) {
+      if (!privateKey.includes("
+")) {
         console.log("Key missing newlines, reformatting");
         // Remove markers first to get clean base64
         const cleanKey = privateKey
@@ -132,16 +141,19 @@ async function createJWT(serviceAccount) {
       // Extra handling for SEQUENCE length errors - reformat even if it has markers
       // but ensure we maintain exactly 64 chars per line which is crucial
       const base64Content = privateKey
-        .replace(/-----BEGIN PRIVATE KEY-----|-----END PRIVATE KEY-----|\n|\r|\t|\s/g, '');
+        .replace(/-----BEGIN PRIVATE KEY-----|-----END PRIVATE KEY-----|
+||	|\s/g, '');
       privateKey = formatPEM(base64Content, "PRIVATE KEY");
       
       // Debug for key format
-      console.log(`Private key format after processing - BEGIN marker: ${privateKey.includes("-----BEGIN PRIVATE KEY-----")}, END marker: ${privateKey.includes("-----END PRIVATE KEY-----")}, has newlines: ${privateKey.includes("\n")}`);
+      console.log(`Private key format after processing - BEGIN marker: ${privateKey.includes("-----BEGIN PRIVATE KEY-----")}, END marker: ${privateKey.includes("-----END PRIVATE KEY-----")}, has newlines: ${privateKey.includes("
+")}`);
       
       try {
         // Extract base64-encoded key content (without headers/footers and newlines)
         const base64Content = privateKey
-          .replace(/-----BEGIN PRIVATE KEY-----|-----END PRIVATE KEY-----|\n|\r/g, '');
+          .replace(/-----BEGIN PRIVATE KEY-----|-----END PRIVATE KEY-----|
+|/g, '');
         
         console.log(`Extracted base64 content length: ${base64Content.length}`);
         
@@ -384,8 +396,10 @@ async function validateServiceAccount(serviceAccountJSON, options = { skipTests:
         results.debug.privateKeyLength = privateKey.length;
         results.debug.hasBeginMarker = privateKey.includes('BEGIN PRIVATE KEY');
         results.debug.hasEndMarker = privateKey.includes('END PRIVATE KEY');
-        results.debug.hasNewlines = privateKey.includes('\n');
-        results.debug.hasEscapedNewlines = privateKey.includes('\\n');
+        results.debug.hasNewlines = privateKey.includes('
+');
+        results.debug.hasEscapedNewlines = privateKey.includes('
+');
       }
       
       if (!hasField) {

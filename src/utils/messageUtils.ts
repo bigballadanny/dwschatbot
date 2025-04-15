@@ -8,12 +8,12 @@
 export type MessageSource = 'user' | 'system' | 'gemini' | 'transcript' | 'web' | 'fallback';
 
 /**
- * Simplified API message format for backend communication
- * This aligns with what the backend expects
+ * API message format expected by the Vertex AI :generateContent endpoint
+ * And also now expected by our gemini-chat backend function's validation
  */
-export interface ApiMessage {
-  role: 'user' | 'assistant' | 'system';
-  content: string;
+export interface ApiMessageWithParts {
+  role: 'user' | 'model' | 'system'; // Use 'model' for assistant role
+  parts: { text: string }[];
 }
 
 /**
@@ -46,41 +46,45 @@ export interface DbMessage {
 }
 
 /**
- * Converts UI messages to API format for sending to backend
+ * Converts UI messages to the API format with 'parts' structure
  * This function takes UI message format and converts to the API format expected by the backend
  */
 export function convertMessagesToApi(
   messages: MessageData[],
   newUserContent: string
-): ApiMessage[] {
-  // Filter out loading messages
-  const validMessages = messages.filter(msg => !msg.isLoading);
-  
-  // Map valid messages to API format
-  const apiMessages: ApiMessage[] = validMessages.map(message => {
-    // Map source to role using a simple mapping function
-    let role: 'user' | 'assistant' | 'system';
-    
+): ApiMessageWithParts[] { // Updated return type
+  // Filter out loading messages and the initial system prompt if needed (depends on backend handling)
+  const validMessages = messages.filter(msg => !msg.isLoading); // Keep system messages for now
+
+  // Map valid messages to API format with 'parts'
+  const apiMessages: ApiMessageWithParts[] = validMessages.map(message => {
+    // Map source to role (user, model, system)
+    let role: 'user' | 'model' | 'system';
+
     if (message.source === 'user') {
       role = 'user';
     } else if (message.source === 'system') {
       role = 'system';
     } else {
-      role = 'assistant';
+      // Treat 'gemini', 'transcript', 'web', 'fallback' as 'model' role for the API
+      role = 'model';
     }
-    
+
+    // Ensure content is a string, default to empty string if not
+    const textContent = typeof message.content === 'string' ? message.content : '';
+
     return {
       role,
-      content: message.content
+      parts: [{ text: textContent }] // Use the parts structure
     };
   });
-  
-  // Add the new user message
+
+  // Add the new user message in the correct format
   apiMessages.push({
     role: 'user',
-    content: newUserContent
+    parts: [{ text: newUserContent }] // Use the parts structure
   });
-  
+
   return apiMessages;
 }
 
@@ -91,23 +95,30 @@ export function convertMessagesToApi(
  */
 export function dbMessageToUiMessage(dbMessage: DbMessage): MessageData {
   // Default source based on is_user flag
-  let source: MessageSource = dbMessage.is_user ? 'user' : 'gemini';
-  
+  let source: MessageSource = dbMessage.is_user ? 'user' : 'gemini'; // Default AI source to gemini
+
   // Override source if metadata exists and has a source
   if (dbMessage.metadata && dbMessage.metadata.source) {
-    source = dbMessage.metadata.source as MessageSource;
+    // Ensure the source from metadata is one of the allowed MessageSource types
+    const validSources: MessageSource[] = ['user', 'system', 'gemini', 'transcript', 'web', 'fallback'];
+    if (validSources.includes(dbMessage.metadata.source as MessageSource)) {
+       source = dbMessage.metadata.source as MessageSource;
+    } else {
+        console.warn(`Invalid source found in metadata: ${dbMessage.metadata.source}. Defaulting based on is_user.`);
+    }
   }
-  
+
   // Create the message data with all fields properly populated
   const messageData: MessageData = {
-    content: dbMessage.content,
+    content: dbMessage.content ?? '', // Ensure content is always a string
     source: source,
     timestamp: new Date(dbMessage.created_at),
     citation: dbMessage.metadata?.citation ? [dbMessage.metadata.citation] : undefined
   };
-  
+
   return messageData;
 }
+
 
 /**
  * Check if the database schema supports the metadata column
@@ -116,54 +127,65 @@ export function dbMessageToUiMessage(dbMessage: DbMessage): MessageData {
 export async function checkMetadataColumnExists(supabaseClient: any): Promise<boolean> {
   try {
     console.log('Checking if metadata column exists in the messages table...');
-    
+
     // Try to select a record with explicit metadata field
     const { data, error } = await supabaseClient
       .from('messages')
-      .select('metadata')
+      .select('metadata', { count: 'exact', head: true }) // More efficient check
       .limit(1);
-    
-    if (error) {
-      console.error('Error checking for metadata column:', error);
+
+    // Error doesn't necessarily mean column doesn't exist (e.g., RLS issues),
+    // but if the error message indicates the column is missing, return false.
+    if (error && error.message.includes('column "metadata" does not exist')) {
+       console.warn('Metadata column does not exist on messages table.');
       return false;
+    } else if (error) {
+        // Log other errors but assume column might exist or access is denied
+        console.error('Error checking for metadata column (may be RLS or other issue):', error.message);
+         // Cautiously return true or handle based on specific error codes if needed
+         return true; // Assume exists unless specific "does not exist" error
     }
-    
-    console.log('Metadata column check successful');
-    return true;
+
+    console.log('Metadata column check successful (column likely exists).');
+    return true; // Column exists or query didn't error specifically on its absence
   } catch (e) {
     console.error('Unexpected error checking metadata column:', e);
-    return false;
+    return false; // Assume non-existent on unexpected errors
   }
 }
+
 
 /**
  * Prepare message objects for database insertion with metadata
  * This creates properly formatted message objects for insertion into the database
  */
 export function prepareMessagesForDb(
-  conversationId: string, 
-  userMessage: string,
-  responseMessage: { content: string, source: 'gemini' | 'system', citation?: string[] }
-): any[] {
-  console.log('Preparing messages for database with metadata');
-  
-  // User message is always simple
-  const userMessageObj = { 
-    conversation_id: conversationId, 
-    content: userMessage, 
-    is_user: true 
+  conversationId: string,
+  userMessageContent: string, // Expecting just the content string
+  responseMessage: { content: string, source: MessageSource, citation?: string[] } // Using MessageSource type
+): any[] { // Return type could be more specific e.g., Partial<DbMessage>[]
+  console.log('Preparing messages for database insertion with metadata');
+
+  // User message object
+  const userMessageObj = {
+    conversation_id: conversationId,
+    content: userMessageContent,
+    is_user: true,
+    metadata: { source: 'user' } // Add source to user message metadata
   };
-  
-  // Response message with metadata
+
+  // Response message object with metadata
   const responseMessageObj = {
     conversation_id: conversationId,
     content: responseMessage.content,
     is_user: false,
-    metadata: { 
-      source: responseMessage.source, 
-      citation: responseMessage.citation?.[0] 
+    metadata: {
+      source: responseMessage.source, // Store the actual source (gemini, system, etc.)
+      // Store citation array directly if your DB supports JSONB, otherwise handle single string/null
+      citation: responseMessage.citation // Assuming metadata column is JSONB
+      // citation: responseMessage.citation?.[0] // Use this if metadata.citation is text
     }
   };
-  
+
   return [userMessageObj, responseMessageObj];
 }
