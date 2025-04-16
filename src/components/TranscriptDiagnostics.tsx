@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect } from 'react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
@@ -29,10 +30,13 @@ const TranscriptDiagnostics: React.FC<TranscriptDiagnosticsProps> = ({
     if (transcript?.file_path) {
       const fileType = transcript.file_type || 'text';
       const iconName = generateFileIcon(fileType);
+      
+      // Fixed approach to dynamically import and set the icon
       import('lucide-react').then(module => {
         const IconComponent = module[iconName.charAt(0).toUpperCase() + iconName.slice(1)];
         if (IconComponent && typeof IconComponent === 'function') {
-          setFileIcon(() => IconComponent as LucideIcon);
+          // Use proper type casting to ensure IconComponent is treated as LucideIcon
+          setFileIcon(IconComponent as LucideIcon);
         }
       });
     }

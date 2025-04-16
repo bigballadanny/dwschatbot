@@ -144,23 +144,39 @@ async function generateSummary(content: string, title: string, source: string): 
     const serviceAccount = JSON.parse(VERTEX_AI_SERVICE_ACCOUNT);
     const projectId = serviceAccount.project_id;
     
-    // Configure the Vertex AI Endpoint
-    const endpoint = `https://us-central1-aiplatform.googleapis.com/v1/projects/${projectId}/locations/us-central1/publishers/google/models/gemini-1.5-pro:generateContent`;
+    // Configure the Vertex AI Endpoint - Upgrading to gemini-2.0-pro for better insights
+    const endpoint = `https://us-central1-aiplatform.googleapis.com/v1/projects/${projectId}/locations/us-central1/publishers/google/models/gemini-2.0-pro:generateContent`;
     
-    // Create context-aware prompt for the summary
+    // Create an enhanced context-aware prompt for the summary that extracts "golden nuggets"
     const prompt = `
-      You are a professional document summarizer. Summarize the following transcript titled "${title}" from ${source}. 
-      This is a business transcript about business acquisitions and entrepreneurship.
+      You are a professional transcript analyst specializing in business acquisitions and entrepreneurship. 
       
-      Provide:
-      1. A concise summary (3-4 paragraphs)
-      2. 5-7 key points or takeaways, formatted as an array of objects with 'point' and 'explanation' properties
-
+      Analyze the following transcript titled "${title}" from ${source} with a focus on extracting actionable insights.
+      
+      Your task is to provide:
+      1. A concise summary (3-4 paragraphs) highlighting the key themes and business strategies discussed
+      
+      2. "GOLDEN NUGGETS" - Extract 5-7 of the most valuable insights or strategies that are:
+         - Directly actionable for entrepreneurs
+         - Represent concrete business strategies or frameworks
+         - Contain specific methodologies that could be applied by others
+      
+      For each "golden nugget", provide:
+         a) A clear, concise title for the strategy/insight (5-8 words)
+         b) A detailed explanation of how to implement it (2-3 sentences)
+         c) The specific benefit or outcome of implementing this strategy
+         
+      Format each key point as a JSON object with properties:
+      {
+        "point": "Strategy Name/Title",
+        "explanation": "Implementation details and benefits"
+      }
+      
       Transcript content:
       ${content}
     `;
     
-    // Call Vertex AI
+    // Call Vertex AI with enhanced configuration
     const response = await fetch(endpoint, {
       method: 'POST',
       headers: {
@@ -175,7 +191,7 @@ async function generateSummary(content: string, title: string, source: string): 
           }
         ],
         generationConfig: {
-          temperature: 0.2,
+          temperature: 0.2, // Low temperature for factual, consistent output
           topK: 40,
           topP: 0.95,
           maxOutputTokens: 4096,
@@ -196,16 +212,14 @@ async function generateSummary(content: string, title: string, source: string): 
     }
 
     // Extract the summary and key points from the response
-    // The response is expected to have a summary followed by key points
     let summary = '';
     const keyPoints = [];
     
-    // Simple parsing logic - can be improved based on actual response format
     try {
       // Find where the key points section begins
-      const keyPointsStart = aiResponse.indexOf("Key Points:") !== -1 
-        ? aiResponse.indexOf("Key Points:") 
-        : aiResponse.indexOf("key points:");
+      const keyPointsStart = aiResponse.indexOf("Golden Nuggets:") !== -1 
+        ? aiResponse.indexOf("Golden Nuggets:") 
+        : aiResponse.indexOf("GOLDEN NUGGETS:");
         
       if (keyPointsStart !== -1) {
         // Extract the summary (everything before key points)

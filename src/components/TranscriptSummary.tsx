@@ -65,30 +65,53 @@ const TranscriptSummary: React.FC<TranscriptSummaryProps> = ({ transcriptId, use
   const processKeyPoints = (keyPoints: Json): KeyPoint[] => {
     if (!keyPoints) return [];
     
-    if (Array.isArray(keyPoints)) {
-      return keyPoints.map(point => {
-        if (typeof point === 'object' && point !== null) {
-          return {
-            point: point.point || 'Unknown point',
-            explanation: point.explanation || ''
+    try {
+      if (Array.isArray(keyPoints)) {
+        return keyPoints.map(item => {
+          if (typeof item === 'object' && item !== null) {
+            const point = item as Record<string, any>;
+            return {
+              point: point.point?.toString() || 'Unknown point',
+              explanation: point.explanation?.toString() || ''
+            };
+          }
+          return { 
+            point: String(item), 
+            explanation: '' 
           };
-        }
-        return { point: String(point), explanation: '' };
-      });
-    }
-    
-    if (typeof keyPoints === 'string') {
-      try {
-        const parsed = JSON.parse(keyPoints);
-        if (Array.isArray(parsed)) {
-          return processKeyPoints(parsed);
-        }
-      } catch (e) {
-        return [{ point: keyPoints, explanation: '' }];
+        });
       }
+      
+      if (typeof keyPoints === 'string') {
+        try {
+          const parsed = JSON.parse(keyPoints);
+          if (Array.isArray(parsed)) {
+            return processKeyPoints(parsed);
+          }
+          return [{ point: keyPoints, explanation: '' }];
+        } catch (e) {
+          return [{ point: keyPoints, explanation: '' }];
+        }
+      }
+      
+      if (typeof keyPoints === 'object' && keyPoints !== null && !Array.isArray(keyPoints)) {
+        const points = Object.entries(keyPoints).map(([key, value]) => {
+          if (typeof value === 'object' && value !== null && 'point' in value) {
+            return {
+              point: String(value.point),
+              explanation: 'explanation' in value ? String(value.explanation) : ''
+            };
+          }
+          return { point: key, explanation: String(value) };
+        });
+        
+        return points.length > 0 ? points : [{ point: 'Data structure issue', explanation: 'Could not extract key points' }];
+      }
+    } catch (err) {
+      console.error('Error processing key points:', err);
     }
     
-    return [];
+    return [{ point: 'Processing error', explanation: 'Could not process key points data' }];
   };
 
   const generateSummary = async () => {

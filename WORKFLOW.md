@@ -1,3 +1,4 @@
+
 # WORKFLOW.md
 
 ## 1. Overview & Goals
@@ -48,6 +49,7 @@ This project utilizes different operational modes to handle various aspects of d
     -   [x] Fix generateCacheKey function in gemini-chat edge function
     -   [ ] Implement Vertex AI diagnostics and testing tools (Priority: Medium) - Status: To Do
     -   [ ] Fix JWT token generation in Vertex AI authentication (Priority: High) - Status: To Do
+    -   [ ] Upgrade to Gemini 2.0 Pro model for enhanced summarization (Priority: High) - Status: In Progress
 *   **Optimization Tasks ⚡**
     -   [x] Fix message list scrolling issues
     -   [x] Fix layout issues with the main application UI
@@ -81,6 +83,13 @@ This project utilizes different operational modes to handle various aspects of d
     -   [ ] Improve error messaging across application (Priority: Low) - Status: To Do
     -   [ ] Add keyboard shortcuts for power users (Priority: Low) - Status: To Do
     -   [ ] Create diagnostics page for Vertex AI testing (Priority: Medium) - Status: To Do (Related to Vertex AI Integration task)
+*   **Golden Nuggets Extraction 💎** 
+    -   [ ] Enhance summary generation with golden nuggets extraction (Priority: High) - Status: In Progress
+    -   [ ] Update transcript summary UI to highlight golden nuggets (Priority: Medium) - Status: To Do
+    -   [ ] Add search functionality for golden nuggets (Priority: Medium) - Status: To Do
+    -   [ ] Create database schema for storing and retrieving golden nuggets (Priority: Medium) - Status: To Do
+    -   [ ] Implement semantic search for golden nuggets (Priority: Low) - Status: To Do
+    -   [ ] Add analytics for most valuable nuggets (Priority: Low) - Status: To Do
 
 
 *   **Backend & AI Integration 🔧**
@@ -199,6 +208,15 @@ This document tracks completed tasks and implementations, recording the history 
 -   Ensured consistent state tracking between the UI and database
 -   Optimized data flow between hooks for better maintainability
 
+### Phase 9: Type Safety Fixes & Golden Nuggets Extraction ✅
+
+-   Fixed type issues in TranscriptSummary.tsx with improved JSON processing
+-   Resolved LucideIcon type error in TranscriptDiagnostics.tsx  
+-   Enhanced the generate-transcript-summary function to use Vertex AI Gemini 2.0 Pro
+-   Updated transcript summary generation to extract "golden nuggets" (key strategic insights)
+-   Improved key points processing with robust error handling
+-   Added documentation for golden nuggets extraction plan to workflow
+
 *(Note: Wins & Lessons moved to Section 5.4)*
 
 *Migration Source: `ARCHIVED_CHANGELOG.md`*
@@ -234,9 +252,53 @@ This document tracks completed tasks and implementations, recording the history 
 
 *Migration Source: `ARCHIVED_SYNTHIOS.md` & `ARCHIVED_CHANGELOG.md` (Lessons/Wins)*
 
-## 6. Roadmap / Ideas
+## 6. Golden Nuggets Strategy
+
+### 6.1. Vision & Goals
+- Extract high-value, actionable insights ("golden nuggets") from transcript content
+- Make these insights searchable and contextually available during user conversations
+- Create a knowledge base of practical business acquisition strategies
+- Provide users with immediate access to the most valuable parts of content
+
+### 6.2. Implementation Plan
+1. **Enhanced AI Prompting:**
+   - Update Vertex AI prompts to identify and extract nuggets
+   - Use structured format for consistency and searchability
+   - Focus on actionable strategies, not just information
+
+2. **Data Structure:**
+   - Store nuggets with metadata linking to source content
+   - Include categorization and semantic embeddings for retrieval
+   - Maintain relationship to original transcript context
+
+3. **UI Enhancements:**
+   - Highlight nuggets visually in transcript summaries
+   - Enable filtering and searching specifically for nuggets
+   - Create dedicated nugget browser/explorer component
+
+4. **Chat Integration:**
+   - Reference relevant nuggets during conversations
+   - Allow users to explore related nuggets from chat interface
+   - Display source context when nuggets are presented
+
+5. **Analytics & Improvement:**
+   - Track which nuggets users find most valuable
+   - Use feedback to improve extraction process
+   - Identify content areas needing more nugget extraction
+
+### 6.3. Technical Requirements
+- Enhanced prompt engineering with Gemini 2.0 Pro models
+- Database schema updates for nugget storage
+- Semantic search capabilities for relevant retrieval
+- UI components for nugget presentation
+- Analytics to track nugget usage and value
+
+*Added in Phase 9: Enhanced Summary Generation*
+
+## 7. Roadmap / Ideas
 -   **Enhanced War Room:** Financial ratio analysis, industry comparison, due diligence checklist automation.
 -   **Learning Pathways:** Personalized recommendations, progress tracking, interactive exercises.
 -   **Community Features:** Discussion forums, expert Q&A, peer networking.
+-   **Nugget Repository:** Searchable library of golden nuggets extracted from all content.
 
 *Migration Source: `ARCHIVED_SYNTHIOS.md` (Future Innovations)*
