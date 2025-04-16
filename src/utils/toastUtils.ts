@@ -1,4 +1,3 @@
-
 import { toast } from "@/hooks/use-toast";
 
 /**
@@ -90,9 +89,9 @@ export const showLoading = (title: string, description?: string): string => {
  * @param id - The ID of the toast to dismiss
  */
 export const dismissToast = (id: string) => {
-  // Import the toast function which has a dismiss method
-  // Call the dismiss method directly from the imported toast object
-  toast.dismiss(id);
+  // We need to directly import the dismiss function from use-toast
+  const { toast: toastInstance } = require("@/hooks/use-toast");
+  toastInstance.dismiss(id);
 };
 
 /**
