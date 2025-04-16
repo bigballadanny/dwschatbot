@@ -9,6 +9,30 @@ export type Json =
 export type Database = {
   public: {
     Tables: {
+      ai_insights_cache: {
+        Row: {
+          cache_key: string
+          cached_at: string
+          created_at: string
+          id: number
+          insights_data: Json
+        }
+        Insert: {
+          cache_key: string
+          cached_at?: string
+          created_at?: string
+          id?: number
+          insights_data: Json
+        }
+        Update: {
+          cache_key?: string
+          cached_at?: string
+          created_at?: string
+          id?: number
+          insights_data?: Json
+        }
+        Relationships: []
+      }
       chat_analytics: {
         Row: {
           api_time_ms: number | null
@@ -65,6 +89,27 @@ export type Database = {
           },
         ]
       }
+      chat_cache: {
+        Row: {
+          created_at: string
+          model_used: string | null
+          query_hash: string
+          response: string
+        }
+        Insert: {
+          created_at?: string
+          model_used?: string | null
+          query_hash: string
+          response: string
+        }
+        Update: {
+          created_at?: string
+          model_used?: string | null
+          query_hash?: string
+          response?: string
+        }
+        Relationships: []
+      }
       conversations: {
         Row: {
           created_at: string
@@ -88,6 +133,51 @@ export type Database = {
           user_id?: string
         }
         Relationships: []
+      }
+      message_feedback: {
+        Row: {
+          comment: string | null
+          conversation_id: string | null
+          created_at: string
+          id: string
+          message_id: string | null
+          rating: number
+          user_id: string
+        }
+        Insert: {
+          comment?: string | null
+          conversation_id?: string | null
+          created_at?: string
+          id?: string
+          message_id?: string | null
+          rating: number
+          user_id: string
+        }
+        Update: {
+          comment?: string | null
+          conversation_id?: string | null
+          created_at?: string
+          id?: string
+          message_id?: string | null
+          rating?: number
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "message_feedback_conversation_id_fkey"
+            columns: ["conversation_id"]
+            isOneToOne: false
+            referencedRelation: "conversations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "message_feedback_message_id_fkey"
+            columns: ["message_id"]
+            isOneToOne: false
+            referencedRelation: "messages"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       messages: {
         Row: {
@@ -148,6 +238,47 @@ export type Database = {
         }
         Relationships: []
       }
+      transcript_summaries: {
+        Row: {
+          created_at: string
+          id: string
+          key_points: Json | null
+          model_used: string | null
+          summary: string
+          token_count: number | null
+          transcript_id: string
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          key_points?: Json | null
+          model_used?: string | null
+          summary: string
+          token_count?: number | null
+          transcript_id: string
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          key_points?: Json | null
+          model_used?: string | null
+          summary?: string
+          token_count?: number | null
+          transcript_id?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "transcript_summaries_transcript_id_fkey"
+            columns: ["transcript_id"]
+            isOneToOne: false
+            referencedRelation: "transcripts"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       transcripts: {
         Row: {
           content: string
@@ -155,6 +286,7 @@ export type Database = {
           file_path: string | null
           id: string
           is_processed: boolean | null
+          is_summarized: boolean | null
           source: string | null
           tags: string[] | null
           title: string
@@ -167,6 +299,7 @@ export type Database = {
           file_path?: string | null
           id?: string
           is_processed?: boolean | null
+          is_summarized?: boolean | null
           source?: string | null
           tags?: string[] | null
           title: string
@@ -179,6 +312,7 @@ export type Database = {
           file_path?: string | null
           id?: string
           is_processed?: boolean | null
+          is_summarized?: boolean | null
           source?: string | null
           tags?: string[] | null
           title?: string
