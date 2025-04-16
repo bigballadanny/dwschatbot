@@ -1,19 +1,14 @@
 
 import React, { useState, useEffect } from 'react';
-import { createClient } from '@supabase/supabase-js';
+import { supabase } from '@/integrations/supabase/client'; // Import the global supabase client
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
-import { toast } from "@/components/ui/use-toast";
+import { toast } from "@/hooks/use-toast";
 import { Sparkles, AlertCircle, CheckCircle2, RefreshCw } from 'lucide-react';
 import { SummaryContent } from './summary/SummaryContent';
 import { KeyPointsList } from './summary/KeyPointsList';
 import { GoldenNuggetsList } from './summary/GoldenNuggetsList';
-
-// Initialize Supabase client
-const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
-const supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY;
-const supabase = createClient(supabaseUrl, supabaseAnonKey);
 
 interface TranscriptSummaryProps {
   transcriptId: string;

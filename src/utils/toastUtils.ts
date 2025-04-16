@@ -90,9 +90,8 @@ export const showLoading = (title: string, description?: string): string => {
  * @param id - The ID of the toast to dismiss
  */
 export const dismissToast = (id: string) => {
-  // Fix: toast() should have no arguments and dismiss() needs the id
-  const toastInstance = toast();
-  toastInstance.dismiss(id);
+  // Fix: toast() needs no arguments, and we use the returned object to call dismiss(id)
+  toast().dismiss(id);
 };
 
 /**
