@@ -107,7 +107,6 @@ async function generateQueryHash(obj: unknown): Promise<string> {
     }
 }
 
-
 // supabase/functions/gemini-chat/index.ts
 /// <reference types="https://deno.land/x/deno/cli/types/dts/index.d.ts" />
 
@@ -154,7 +153,7 @@ const corsHeaders = {
 };
 
 const CACHE_TABLE_NAME = 'chat_cache'; // CH-04: Define cache table name
-const CURRENT_MODEL_ID = 'gemini-1.5-flash'; // CH-04: Model identifier for caching
+const CURRENT_MODEL_ID = 'gemini-pro'; // CH-04: Model identifier for caching
 
 const FALLBACK_RESPONSE = `
 # Unable to Connect to AI Service

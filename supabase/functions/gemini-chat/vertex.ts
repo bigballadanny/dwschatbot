@@ -1,3 +1,4 @@
+
 // supabase/functions/gemini-chat/vertex.ts
 /// <reference types="https://deno.land/x/deno/cli/types/dts/index.d.ts" />
 
@@ -60,8 +61,9 @@ export async function callVertexAI(
 
         // 3. Construct API Endpoint URL
         const VERTEX_LOCATION = "us-central1"; // Consider making configurable
-        const VERTEX_MODEL_ID = "gemini-1.5-flash-001"; // Use a specific, potentially newer model
-        const VERTEX_API_VERSION = "v1beta1"; // Use v1beta1 for potentially newer features/models like 1.5
+        // Changed to use the standard gemini-pro model which is more widely available
+        const VERTEX_MODEL_ID = "gemini-pro";
+        const VERTEX_API_VERSION = "v1"; // Changed to standard v1 API
         const endpoint = `https://${VERTEX_LOCATION}-aiplatform.googleapis.com/${VERTEX_API_VERSION}/projects/${projectId}/locations/${VERTEX_LOCATION}/publishers/google/models/${VERTEX_MODEL_ID}:generateContent`;
 
         console.log("Prepared Vertex AI request to endpoint:", endpoint);
@@ -72,12 +74,10 @@ export async function callVertexAI(
             contents: messages, // Directly use the pre-filtered/formatted messages
             generationConfig: {
                 temperature: temperature,
-                maxOutputTokens: 4096, // Increased token limit
+                maxOutputTokens: 2048, // Reduced token limit to match gemini-pro capabilities
                 topP: 0.95,
                 topK: 40
-                // Add responseMimeType if needed: responseMimeType: "text/plain"
             }
-            // safetySettings: [...] // Add safety settings if necessary
         };
 
         console.log("Sending request to Vertex AI with body:", JSON.stringify(requestBody, null, 2));

@@ -1,3 +1,4 @@
+
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient, SupabaseClient } from 'https://esm.sh/@supabase/supabase-js@2';
 
@@ -8,8 +9,9 @@ const SUPABASE_ANON_KEY = Deno.env.get('SUPABASE_ANON_KEY');
 
 // Vertex AI Configuration
 const VERTEX_LOCATION = "us-central1";
-const VERTEX_MODEL_ID = "gemini-2.0-flash-001"; // Standardized model
-const VERTEX_API_VERSION = "v1";
+// Update to use standard gemini-pro model
+const VERTEX_MODEL_ID = "gemini-pro"; 
+const VERTEX_API_VERSION = "v1"; // Update to standard v1 API
 const REQUEST_TIMEOUT_MS = 30000; // Timeout for AI calls
 const MAX_RETRIES = 2; // Retries for transient errors
 
