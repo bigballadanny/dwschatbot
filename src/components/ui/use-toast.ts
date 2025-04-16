@@ -1,5 +1,3 @@
 
-import { useToast, toast, success, error, warning, info } from "@/hooks/use-toast";
-
-// Re-export the toast functionality
-export { useToast, toast, success, error, warning, info };
+// Re-export to maintain backward compatibility
+export { useToast, toast } from "@/hooks/use-toast";

@@ -17,7 +17,7 @@ import { useToast } from "@/components/ui/use-toast";
 export interface CustomToastProps {
   title: string;
   description?: string;
-  variant?: 'default' | 'success' | 'warning' | 'destructive' | 'loading';
+  variant?: 'default' | 'success' | 'warning' | 'destructive' | 'info';
   action?: {
     label: string;
     onClick: () => void;
@@ -58,10 +58,10 @@ export const useCustomToast = () => {
     showToast({ title, description, variant: 'warning' });
   
   const info = (title: string, description?: string) => 
-    showToast({ title, description });
+    showToast({ title, description, variant: 'info' });
   
   const loading = (title: string, description?: string) => 
-    showToast({ title, description, variant: 'loading', duration: 100000 });
+    showToast({ title, description, variant: 'default', duration: 100000 });
   
   return {
     showToast,
@@ -76,7 +76,7 @@ export const useCustomToast = () => {
 export const ToastContent: React.FC<{
   title: string;
   description?: string;
-  variant?: 'default' | 'success' | 'warning' | 'destructive' | 'loading';
+  variant?: 'default' | 'success' | 'warning' | 'destructive' | 'info';
 }> = ({ title, description, variant = 'default' }) => {
   const getIcon = () => {
     switch (variant) {
@@ -86,8 +86,8 @@ export const ToastContent: React.FC<{
         return <AlertCircle className="h-4 w-4 text-amber-500" />;
       case 'destructive':
         return <XCircle className="h-4 w-4 text-red-500" />;
-      case 'loading':
-        return <Loader2 className="h-4 w-4 animate-spin" />;
+      case 'info':
+        return <Info className="h-4 w-4 text-blue-500" />;
       default:
         return <Info className="h-4 w-4 text-blue-500" />;
     }
