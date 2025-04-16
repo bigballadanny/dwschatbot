@@ -7,18 +7,23 @@ import { getVertexAccessToken } from "./auth.ts";
 
 // Retrieve service account from environment variables
 const VERTEX_AI_SERVICE_ACCOUNT = Deno.env.get('VERTEX_AI_SERVICE_ACCOUNT');
-const MAX_RETRIES = 2; // Max retries for API calls
+const MAX_RETRIES = 3; // Increased retries for API calls
 
-// Define the structure for the Vertex AI response (simplified)
+// Define the structure for the Vertex AI response
 interface VertexAIResponse {
     candidates: Array<{
         content: {
             parts: Array<{ text: string }>;
         };
+        finishReason?: string;
     }>;
-    // Add other potential fields if needed, e.g., usageMetadata
+    promptFeedback?: any;
+    usageMetadata?: {
+        promptTokenCount?: number;
+        candidatesTokenCount?: number;
+        totalTokenCount?: number;
+    };
 }
-
 
 /**
  * Function to call Vertex AI Prediction API (Gemini model endpoint)
@@ -60,24 +65,41 @@ export async function callVertexAI(
         }
 
         // 3. Construct API Endpoint URL
-        const VERTEX_LOCATION = "us-central1"; // Consider making configurable
-        // Using gemini-1.5-flash-002 as requested
-        const VERTEX_MODEL_ID = "gemini-1.5-flash-002";
-        const VERTEX_API_VERSION = "v1"; // Standard v1 API endpoint
+        const VERTEX_LOCATION = "us-central1"; 
+        // Updated to gemini-2.0-flash
+        const VERTEX_MODEL_ID = "gemini-2.0-flash";
+        const VERTEX_API_VERSION = "v1"; 
         const endpoint = `https://${VERTEX_LOCATION}-aiplatform.googleapis.com/${VERTEX_API_VERSION}/projects/${projectId}/locations/${VERTEX_LOCATION}/publishers/google/models/${VERTEX_MODEL_ID}:generateContent`;
 
-        console.log("Prepared Vertex AI request to endpoint:", endpoint);
+        console.log(`Prepared Vertex AI request to endpoint using model ${VERTEX_MODEL_ID}:`, endpoint);
 
-        // 4. Prepare Request Body (ensure messages are correctly formatted)
-        // The input 'messages' should already be filtered and formatted by the caller
+        // 4. Prepare Request Body
         const requestBody = {
-            contents: messages, // Directly use the pre-filtered/formatted messages
+            contents: messages,
             generationConfig: {
                 temperature: temperature,
-                maxOutputTokens: 4096, // Higher token limit for gemini-1.5 models
+                maxOutputTokens: 8192, // Increased token limit for gemini-2.0 models
                 topP: 0.95,
                 topK: 40
-            }
+            },
+            safetySettings: [
+                {
+                    category: "HARM_CATEGORY_DANGEROUS_CONTENT",
+                    threshold: "BLOCK_MEDIUM_AND_ABOVE"
+                },
+                {
+                    category: "HARM_CATEGORY_HATE_SPEECH",
+                    threshold: "BLOCK_MEDIUM_AND_ABOVE"
+                },
+                {
+                    category: "HARM_CATEGORY_SEXUALLY_EXPLICIT",
+                    threshold: "BLOCK_MEDIUM_AND_ABOVE"
+                },
+                {
+                    category: "HARM_CATEGORY_HARASSMENT",
+                    threshold: "BLOCK_MEDIUM_AND_ABOVE"
+                }
+            ]
         };
 
         console.log("Sending request to Vertex AI with body:", JSON.stringify(requestBody, null, 2));
@@ -101,7 +123,7 @@ export async function callVertexAI(
             if (retryCount < MAX_RETRIES &&
                 (response.status === 429 || response.status >= 500)) { // Retry on rate limits or server errors
                 console.log(`Retrying due to error ${response.status} (attempt ${retryCount + 2}/${MAX_RETRIES + 1})`);
-                const delay = Math.pow(2, retryCount) * 1000 + Math.random() * 1000; // Exponential backoff
+                const delay = Math.pow(2, retryCount) * 1500 + Math.random() * 1000; // Increased backoff
                 await new Promise(resolve => setTimeout(resolve, delay));
                 return callVertexAI(messages, temperature, retryCount + 1); // Recursive call
             }
@@ -111,34 +133,47 @@ export async function callVertexAI(
 
         // 7. Parse Successful Response
         const data: VertexAIResponse = await response.json();
-        console.log("Successfully received response from Vertex AI:", JSON.stringify(data, null, 2));
+        console.log("Successfully received response from Vertex AI:", 
+            JSON.stringify({
+                candidatesCount: data.candidates?.length || 0,
+                hasContent: !!data.candidates?.[0]?.content,
+                tokenInfo: data.usageMetadata || "Not provided"
+            }, null, 2));
 
         // Basic validation of the response structure
         if (!data.candidates || !Array.isArray(data.candidates) || data.candidates.length === 0 ||
             !data.candidates[0].content?.parts?.[0]?.text) {
             console.warn("Received unexpected or empty response structure from Vertex AI:", data);
-            // Consider throwing an error or returning a default structure if this is critical
-             return { // Return a default structure to avoid downstream errors
-                candidates: [{ content: { parts: [{ text: "" }] } }]
+            if (data.candidates?.[0]?.finishReason === "SAFETY") {
+                throw new Error("Content blocked due to safety filters. Please revise your query.");
+            }
+            // Return a default structure to avoid downstream errors
+            return { 
+                candidates: [{ content: { parts: [{ text: "I'm unable to provide a response to that query. Please try rephrasing or asking something different." }] } }]
             };
         }
 
-        return data; // Return the parsed data
+        return data;
 
     } catch (error) {
         console.error(`Error during callVertexAI (attempt ${retryCount + 1}):`, error);
 
-        // Retry logic for network errors or timeouts from fetchWithTimeout/getAccessToken
+        // Retry logic for network errors or timeouts
         if (retryCount < MAX_RETRIES &&
             (error.message.includes("timed out") || error.message.includes("network") || error.message.includes("fetch"))) {
             console.log(`Retrying due to connection error "${error.message}" (attempt ${retryCount + 2}/${MAX_RETRIES + 1})`);
-            const delay = Math.pow(2, retryCount) * 1000 + Math.random() * 1000;
+            const delay = Math.pow(2, retryCount) * 1500 + Math.random() * 1000;
             await new Promise(resolve => setTimeout(resolve, delay));
             return callVertexAI(messages, temperature, retryCount + 1); // Recursive call
         }
 
-        // If error is from auth or project ID extraction, it might not be retriable here
-        // Throw a consolidated error message
+        // If we've exhausted retries or have a non-retriable error:
+        // For authentication errors (which could be environmental), provide more guidance
+        if (error.message.includes("authentication") || error.message.includes("Authorization") || error.message.includes("token")) {
+            throw new Error(`Authentication failed with Vertex AI: ${error.message}. Please verify your service account configuration.`);
+        }
+
+        // For other errors, include retry information
         throw new Error(`Failed to call Vertex AI after ${retryCount + 1} attempts: ${error.message}`);
     }
 }

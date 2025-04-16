@@ -101,7 +101,7 @@ Use the following commands to explicitly switch modes:
 
 #### Implementation Plan
 1. **Enhanced AI Prompting:**
-   - Update Vertex AI Gemini 1.5 Flash 002 prompts to identify and extract nuggets
+   - Update Vertex AI Gemini 2.0 Flash prompts to identify and extract nuggets
    - Use structured format for consistency and searchability
    - Focus on actionable strategies, not just information
 
@@ -126,7 +126,7 @@ Use the following commands to explicitly switch modes:
    - Identify content areas needing more nugget extraction
 
 #### Technical Requirements
-- Enhanced prompt engineering with Vertex AI Gemini 1.5 Flash 002 models
+- Enhanced prompt engineering with Vertex AI Gemini 2.0 Flash models
 - Database schema updates for nugget storage
 - Semantic search capabilities for relevant retrieval
 - UI components for nugget presentation
@@ -145,22 +145,23 @@ Use the following commands to explicitly switch modes:
     -   [x] Reorganize WORKFLOW.md for better structure - Status: Done
     -   [x] Fix TranscriptSummary.tsx toast imports - Status: Done
     -   [x] Refactor TranscriptSummary.tsx into smaller components - Status: Done
-    -   [ ] Add Elon Musk's 5-step algorithm to workflow - Status: In Progress
+    -   [x] Add Elon Musk's 5-step algorithm to workflow - Status: Done
 
-**Current Focus (Phase 9 & Ongoing)**
+**Current Focus (Phase 11: AI Model Upgrades)**
 
 *   **Vertex AI Integration 🚀**
-    -   [ ] Optimize token usage in conversations (Priority: Medium) - Status: To Do
+    -   [x] Upgrade to Vertex AI Gemini 2.0 Flash model for enhanced features (Priority: High) - Status: Done
+    -   [ ] Optimize token usage in conversations (Priority: Medium) - Status: In Progress  
     -   [ ] Implement Vertex AI diagnostics and testing tools (Priority: Medium) - Status: To Do
-    -   [ ] Fix JWT token generation in Vertex AI authentication (Priority: High) - Status: To Do
-    -   [x] Upgrade to Vertex AI Gemini 1.5 Flash 002 model for enhanced features (Priority: High) - Status: Done
+    -   [ ] Improve JWT token generation in Vertex AI authentication (Priority: High) - Status: To Do
 *   **Optimization Tasks ⚡**
     -   [ ] Improve message caching strategy (Priority: Medium) - Status: To Do
     -   [ ] Implement proper token bucket rate limiting (Priority: Low) - Status: To Do
     -   [ ] Add request batching for frequently asked questions (Priority: Low) - Status: To Do
-    -   [ ] Optimize context window usage (Priority: Medium) - Status: To Do
+    -   [ ] Optimize context window usage with Gemini 2.0's larger capacity (Priority: Medium) - Status: To Do
 *   **UI Improvements ✨**
     -   [ ] Enhance message list animations and transitions (Priority: Low) - Status: To Do
+    -   [ ] Add model indicator in chat interface (Priority: Medium) - Status: To Do
 *   **Golden Nuggets Extraction 💎** 
     -   [x] Update transcript summary UI to highlight golden nuggets (Priority: Medium) - Status: Done
     -   [ ] Add search functionality for golden nuggets (Priority: Medium) - Status: To Do
@@ -168,14 +169,13 @@ Use the following commands to explicitly switch modes:
     -   [ ] Implement semantic search for golden nuggets (Priority: Low) - Status: To Do
     -   [ ] Add analytics for most valuable nuggets (Priority: Low) - Status: To Do
 *   **Backend & AI Integration 🔧**
-    -   [ ] Investigate analytics data capture issues (Vertex AI vs Gemini?) (Priority: High) - Status: To Do
+    -   [ ] Investigate analytics data capture issues (Priority: High) - Status: To Do
     -   [ ] Review and improve analytics graphs/data pulling (Priority: Medium) - Status: To Do
-    -   [ ] Fix "Generate AI Insights" feature (Check Vertex AI usage) (Priority: High) - Status: To Do
-    -   [ ] Improve chat prompt for M&A focus (Analyze transcripts?) (Priority: Medium) - Status: To Do
+    -   [ ] Fix "Generate AI Insights" feature with Gemini 2.0 (Priority: High) - Status: To Do
+    -   [ ] Improve chat prompt for M&A focus (Priority: Medium) - Status: To Do
     -   [ ] Investigate chat transcript usage for context (Priority: High) - Status: To Do
     -   [ ] Display references below chat responses (Priority: Medium) - Status: To Do
-    -   [ ] Repurpose/Remove Vertex AI Setup code (Button removed, check related code) (Priority: Low) - Status: To Do
-    -   [ ] Refine analytics insight prompts (Focus on admin needs, user strategies, confusion, content gaps) (Priority: Medium) - Status: To Do
+    -   [ ] Refine analytics insight prompts for Gemini 2.0 (Priority: Medium) - Status: To Do
 
 *   **UI & Responsiveness ✨**
     -   [ ] Address mobile friendliness progressively (Priority: Medium) - Status: Ongoing
@@ -203,7 +203,7 @@ Use the following commands to explicitly switch modes:
 ### 5.2. Dev Guidelines
 -   **Code Implementation:** Modular components, consistent naming, TypeScript, comments for complex logic, optimize for readability/maintainability.
 -   **AI Strategy:** Use Vertex AI Gemini models for analytical tasks, balance with performance/cost, implement fallbacks.
--   **Model Versioning:** Currently using "Vertex AI Gemini 1.5 Flash 002" as our primary model for all interactions.
+-   **Model Versioning:** Currently using "Vertex AI Gemini 2.0 Flash" as our primary model for all interactions.
 -   **File Structure:** Small, focused components (<200 lines), separate logic (hooks/utils), group related components, dedicated type files.
 
 ### 5.3. Supabase/Frontend Alignment
@@ -224,3 +224,4 @@ Use the following commands to explicitly switch modes:
 - v1.2 (2025-04-16): Integrated Elon Musk's 5-step algorithm and reorganized structure
 - v1.3 (2025-04-16): Refactored TranscriptSummary and implemented Golden Nuggets UI
 - v1.4 (2025-04-16): Updated AI model to Vertex AI Gemini 1.5 Flash 002
+- v1.5 (2025-04-17): Updated AI model to Vertex AI Gemini 2.0 Flash

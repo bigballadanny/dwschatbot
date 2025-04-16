@@ -8,11 +8,10 @@ const SUPABASE_ANON_KEY = Deno.env.get('SUPABASE_ANON_KEY');
 
 // Vertex AI Configuration
 const VERTEX_LOCATION = "us-central1";
-// Update to use gemini-1.5-flash-002 model
-const VERTEX_MODEL_ID = "gemini-1.5-flash-002"; 
+const VERTEX_MODEL_ID = "gemini-2.0-flash"; 
 const VERTEX_API_VERSION = "v1"; // Standard v1 API
 const REQUEST_TIMEOUT_MS = 30000; // Timeout for AI calls
-const MAX_RETRIES = 2; // Retries for transient errors
+const MAX_RETRIES = 3; // Increased retries for transient errors
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -215,10 +214,28 @@ serve(async (req) => {
                  contents: conversationContents,
                 generationConfig: {
                   temperature: 0.7, // Standard temperature
-                  maxOutputTokens: 2048, // Appropriate token limit for voice responses
+                  maxOutputTokens: 4096, // Appropriate token limit for voice responses
                   topP: 0.95,
                   topK: 40,
                 },
+                safetySettings: [
+                    {
+                        category: "HARM_CATEGORY_DANGEROUS_CONTENT",
+                        threshold: "BLOCK_MEDIUM_AND_ABOVE"
+                    },
+                    {
+                        category: "HARM_CATEGORY_HATE_SPEECH",
+                        threshold: "BLOCK_MEDIUM_AND_ABOVE"
+                    },
+                    {
+                        category: "HARM_CATEGORY_SEXUALLY_EXPLICIT",
+                        threshold: "BLOCK_MEDIUM_AND_ABOVE"
+                    },
+                    {
+                        category: "HARM_CATEGORY_HARASSMENT",
+                        threshold: "BLOCK_MEDIUM_AND_ABOVE"
+                    }
+                ]
             };
 
             const vertexResponse = await fetchWithTimeout(vertexEndpoint, {
@@ -230,21 +247,20 @@ serve(async (req) => {
             if (!vertexResponse.ok) {
                 const errorBody = await vertexResponse.text();
                 console.error(`Vertex AI API error on attempt ${retryCount + 1} (${vertexResponse.status}):`, errorBody);
-                 // Only retry on specific server errors / rate limits
                  if (retryCount < MAX_RETRIES && (vertexResponse.status === 429 || vertexResponse.status >= 500)) {
-                     const delay = Math.pow(2, retryCount) * 500 + Math.random() * 500; // Shorter backoff for voice?
+                     const delay = Math.pow(2, retryCount) * 1000 + Math.random() * 1000;
                      console.log(`Retrying after ${delay.toFixed(0)}ms...`);
                      await new Promise(resolve => setTimeout(resolve, delay));
                      retryCount++;
-                     continue; // Go to next iteration
+                     continue;
                  }
-                throw new Error(`Vertex AI API Error (${vertexResponse.status}): ${errorBody}`); // Throw non-retryable error
+                throw new Error(`Vertex AI API Error (${vertexResponse.status}): ${errorBody}`);
             }
 
             const vertexData = await vertexResponse.json();
             const generatedText = vertexData.candidates?.[0]?.content?.parts?.[0]?.text ?? "";
 
-             if (generatedText && generatedText.length > 10) { // Basic check for non-empty/non-trivial response
+             if (generatedText && generatedText.length > 10) {
                 responseText = generatedText;
                 attemptSuccessful = true;
                 console.log(`Vertex AI voice response successful (length: ${responseText.length})`);
@@ -252,7 +268,7 @@ serve(async (req) => {
                  const reason = vertexData.candidates?.[0]?.finishReason || 'Empty Response';
                  console.warn(`Vertex AI returned empty or short response (Reason: ${reason}) on attempt ${retryCount + 1}.`);
                  if (retryCount < MAX_RETRIES) {
-                      const delay = Math.pow(2, retryCount) * 500 + Math.random() * 500;
+                      const delay = Math.pow(2, retryCount) * 1000 + Math.random() * 1000;
                       console.log(`Retrying after ${delay.toFixed(0)}ms...`);
                       await new Promise(resolve => setTimeout(resolve, delay));
                       retryCount++;
@@ -262,25 +278,22 @@ serve(async (req) => {
             }
         } catch (error) {
             console.error(`Error during Vertex AI call attempt ${retryCount + 1}:`, error);
-             // Check if retryable network/timeout error
              if (retryCount < MAX_RETRIES && (error.message.includes("timed out") || error.message.includes("Network error"))) {
-                 const delay = Math.pow(2, retryCount) * 500 + Math.random() * 500;
+                 const delay = Math.pow(2, retryCount) * 1000 + Math.random() * 1000;
                  console.log(`Retrying after ${delay.toFixed(0)}ms due to connection error...`);
                  await new Promise(resolve => setTimeout(resolve, delay));
                  retryCount++;
              } else {
-                 throw error; // Rethrow non-retryable or final attempt error
+                 throw error;
              }
-        } // End catch block for single attempt
-    } // End while loop
+        }
+    }
 
     apiEndTime = Date.now(); // End timer after successful call or exhausted retries
 
     if (!attemptSuccessful) {
-         // This should ideally be caught by the errors above, but as a fallback:
          console.error("Failed to get successful response from Vertex AI after all retries.");
-         responseText = FALLBACK_RESPONSE; // Use fallback
-         // Log failure below
+         responseText = FALLBACK_RESPONSE;
     }
 
     // 7. Log Analytics (Success or Failure state determined above)
@@ -291,7 +304,7 @@ serve(async (req) => {
         source_type: attemptSuccessful ? 'vertex-voice' : 'error',
         api_time_ms: apiEndTime - apiStartTime,
         successful: attemptSuccessful,
-        used_online_search: false, // Assuming no online search for voice? Adjust if needed.
+        used_online_search: false,
         error_message: attemptSuccessful ? null : "Failed after retries",
         model_used: attemptSuccessful ? modelUsed : "error",
        user_id: user.id
@@ -299,18 +312,16 @@ serve(async (req) => {
 
     // 8. Return Response
      if (!attemptSuccessful) {
-         // If all retries failed, return an error response
-          return new Response(JSON.stringify({
+         return new Response(JSON.stringify({
                error: "Failed to process voice request after multiple attempts.",
                content: FALLBACK_RESPONSE,
                source: 'system-error'
           }), { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' }});
      }
 
-    // Return successful response (text only, TTS handled elsewhere)
     return new Response(JSON.stringify({
       content: responseText,
-      source: 'vertex-voice', // Indicate source
+      source: 'vertex-voice',
       model: modelUsed
     }), {
       status: 200,
@@ -320,21 +331,21 @@ serve(async (req) => {
   } catch (error) {
     // --- Centralized Error Handling ---
     console.error('Critical error in voice-conversation function:', error);
-    const totalTimeOnError = Date.now() - apiStartTime; // Use apiStartTime as base
-    // Log final failure if error occurred before analytics logging attempt
-     if (supabase) { // Check if supabase client was initialized
+    const totalTimeOnError = Date.now() - apiStartTime;
+    if (supabase) {
          await logAnalytics(supabase, {
              conversation_id: conversationId, query: queryText, response_length: null,
              source_type: 'error', api_time_ms: totalTimeOnError, successful: false,
-             used_online_search: false, error_message: error.message, model_used: "error"
+             used_online_search: false, error_message: error.message, model_used: "error",
+             user_id: user?.id || null
          });
      }
-    // Determine appropriate status code
+    
     let statusCode = 500;
     if (error.message.includes("Authorization") || error.message.includes("Authentication")) statusCode = 401;
     else if (error.message.includes("Invalid request") || error.message.includes("Missing") || error.message.includes("body")) statusCode = 400;
     else if (error.message.includes("Vertex AI API Error")) statusCode = 502;
-    else if (error.message.includes("Vertex Auth Error")) statusCode = 500; // Treat as internal config issue
+    else if (error.message.includes("Vertex Auth Error")) statusCode = 500;
 
     return new Response(JSON.stringify({
       error: `Failed to process voice request: ${error.message}`,

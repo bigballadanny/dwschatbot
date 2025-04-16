@@ -152,7 +152,7 @@ const corsHeaders = {
 };
 
 const CACHE_TABLE_NAME = 'chat_cache'; // CH-04: Define cache table name
-const CURRENT_MODEL_ID = 'gemini-1.5-flash-002'; // Updated model identifier for caching
+const CURRENT_MODEL_ID = 'gemini-2.0-flash'; // Updated model identifier for caching
 
 const FALLBACK_RESPONSE = `
 # Unable to Connect to AI Service
@@ -313,7 +313,7 @@ serve(async (req: Request) => {
     ];
 
     // 5. Handle Transcript and Token Limits
-    const maxInputTokens = 12000; // Increased for gemini-1.5-flash-002's larger context window
+    const maxInputTokens = 30000; // Increased for gemini-2.0-flash's larger context window
     const messagesForAI = truncateTranscript(combinedMessages, maxInputTokens);
     console.log(`Prepared ${messagesForAI.length} messages after potential truncation.`);
 
@@ -401,6 +401,17 @@ serve(async (req: Request) => {
       // Pass only the user/model messages to the AI function
       aiResponse = await callVertexAI(validatedMessages); // Pass the potentially truncated user/model messages
       console.log("Vertex AI call successful.");
+      
+      // Log token usage if available
+      if (aiResponse.usageMetadata) {
+        console.log("Token usage:", 
+          JSON.stringify({
+            promptTokens: aiResponse.usageMetadata.promptTokenCount,
+            responseTokens: aiResponse.usageMetadata.candidatesTokenCount,
+            totalTokens: aiResponse.usageMetadata.totalTokenCount
+          }, null, 2)
+        );
+      }
     } catch (aiError) {
       console.error("Error calling Vertex AI service:", aiError);
       return new Response(JSON.stringify({
