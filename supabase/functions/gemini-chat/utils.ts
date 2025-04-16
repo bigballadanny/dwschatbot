@@ -1,169 +1,161 @@
-// supabase/functions/gemini-chat/utils.ts
-/// <reference types="https://deno.land/x/deno/cli/types/dts/index.d.ts" />
 
-// Define the expected structure for chat messages (can be shared or refined later)
+// @ts-ignore Deno-style import, valid in Supabase Edge Functions
+import { encode } from "https://esm.sh/gpt-tokenizer@2.1.1";
+
+// Common type definitions
 export interface ChatMessage {
-  role: 'user' | 'model' | 'system';
-  parts: Array<{ text: string }>;
-  content?: string; // Keep for compatibility during normalization
-  source?: 'user' | 'gemini' | 'system'; // Keep for compatibility during normalization
+    role: 'user' | 'model' | 'system';
+    parts: {
+        text?: string;
+    }[];
 }
 
-// Define validation result structure
-interface ValidationResult {
-    isValid: boolean;
-    error?: string;
-    errorDetails?: Record<string, string>;
+export interface ChatApiRequest {
+    messages?: ChatMessage[];
+    query?: string;
+    conversationId?: string;
+    enableOnlineSearch?: boolean;
 }
-
-export const REQUEST_TIMEOUT_MS = 30000; // 30 seconds
 
 /**
- * Validates a chat API request object
- * @param request The request data to validate
- * @returns ValidationResult with validation status and any errors
+ * Validates the structure of a chat API request.
+ * @param requestData The request data to validate.
+ * @returns An object indicating if the request is valid and any error details.
  */
-export function validateChatApiRequest(request: any): ValidationResult {
-  // Check if request is null/undefined
-  if (!request) {
-    console.error("Request body is missing");
-    return {
-      isValid: false,
-      error: "Request body is missing"
-    };
-  }
-
-  const errors: Record<string, string> = {};
-
-  // Validate messages array
-  if (!Array.isArray(request.messages)) {
-    errors.messages = "Messages must be an array";
-  } else if (request.messages.length === 0) {
-    errors.messages = "Messages array cannot be empty";
-  } else {
-    // Validate message format (sample of first 5 messages)
-    const invalidMessages = request.messages.slice(0, 5).filter((msg: any) => {
-      return !msg || typeof msg !== 'object' ||
-        (!msg.content && !msg.parts) || // Must have content or parts
-        ( // Role/Source validation
-          (!msg.role || !['user', 'model', 'system'].includes(msg.role)) &&
-          (!msg.source || !['user', 'gemini', 'system'].includes(msg.source))
-        );
-    });
-
-    if (invalidMessages.length > 0) {
-      errors.messageFormat = `One or more messages have invalid format (role/source or content/parts missing). Example invalid: ${JSON.stringify(invalidMessages[0])}`;
+export function validateChatApiRequest(requestData: any): { isValid: boolean; error?: string; errorDetails?: any } {
+    // Check for basic request structure
+    if (!requestData) {
+        return { isValid: false, error: "Request body is empty." };
     }
-  }
 
-  // Validate query (optional but should be string if provided)
-  if (request.query !== undefined && (typeof request.query !== 'string' || request.query.trim().length === 0)) {
-    errors.query = "Query must be a non-empty string";
-  }
+    // Either messages or query is required
+    if (!requestData.messages && !requestData.query) {
+        return { 
+            isValid: false, 
+            error: "Either 'messages' or 'query' must be provided.", 
+            errorDetails: { messages: "Missing", query: "Missing" } 
+        };
+    }
 
-  // Validate conversationId (optional but should be string/UUID if provided)
-  if (request.conversationId !== undefined &&
-      request.conversationId !== null &&
-      (typeof request.conversationId !== 'string' || request.conversationId.trim().length === 0)) {
-    errors.conversationId = "Conversation ID must be a non-empty string";
-  }
+    // If messages provided, validate their structure
+    if (requestData.messages && !Array.isArray(requestData.messages)) {
+        return { 
+            isValid: false, 
+            error: "'messages' must be an array.", 
+            errorDetails: { messages: typeof requestData.messages } 
+        };
+    }
 
-  // Validate enableOnlineSearch (optional but should be boolean if provided)
-  if (request.enableOnlineSearch !== undefined && typeof request.enableOnlineSearch !== 'boolean') {
-    errors.enableOnlineSearch = "enableOnlineSearch must be a boolean";
-  }
+    // Check that messages have correct structure
+    if (requestData.messages && Array.isArray(requestData.messages)) {
+        for (let i = 0; i < requestData.messages.length; i++) {
+            const msg = requestData.messages[i];
+            if (!msg.role || !["user", "model", "system"].includes(msg.role)) {
+                return { 
+                    isValid: false, 
+                    error: `Message at index ${i} has an invalid 'role'. Must be 'user', 'model', or 'system'.`,
+                    errorDetails: { invalidMessage: i, role: msg.role }
+                };
+            }
+            if (!msg.parts || !Array.isArray(msg.parts) || msg.parts.length === 0) {
+                return { 
+                    isValid: false, 
+                    error: `Message at index ${i} has missing or invalid 'parts'.`,
+                    errorDetails: { invalidMessage: i, parts: msg.parts }
+                };
+            }
+        }
+    }
 
-  // Return validation result
-  if (Object.keys(errors).length > 0) {
-    console.error("Request validation errors:", errors);
-    return {
-      isValid: false,
-      error: "Invalid request format",
-      errorDetails: errors
-    };
-  }
-
-  return {
-    isValid: true
-  };
+    return { isValid: true };
 }
 
-
 /**
- * Helper to normalize message format between different API formats into the target ChatMessage format.
- * Prioritizes `role` and `parts`. Falls back to `source` and `content`.
- * @param message The raw message object from the request.
- * @returns A normalized ChatMessage object.
+ * Normalizes a chat message to ensure it has the proper structure.
+ * @param message The chat message to normalize.
+ * @returns The normalized chat message.
  */
 export function normalizeMessage(message: any): ChatMessage {
-    let role: 'user' | 'model' | 'system' = 'user'; // Default role
-    let textContent = '';
-
-    if (!message || typeof message !== 'object') {
-        console.warn("Normalizing invalid message structure:", message);
-        return { role: 'user', parts: [{ text: '' }] }; // Return default structure
-    }
-
-    // 1. Determine Role (Prioritize 'role')
-    if (message.role && ['user', 'model', 'system'].includes(message.role)) {
-        role = message.role;
-    } else if (message.source) {
-        // Map 'source' to 'role'
-        if (message.source === 'user') role = 'user';
-        else if (message.source === 'gemini') role = 'model'; // Map 'gemini' to 'model'
-        else if (message.source === 'system') role = 'system';
-        else role = 'user'; // Default fallback for unknown source
-    } else {
-        role = 'user'; // Default if neither role nor source is valid
-    }
-
-    // 2. Determine Content (Prioritize 'parts')
-    if (message.parts && Array.isArray(message.parts) && message.parts.length > 0) {
-        if (message.parts[0] && typeof message.parts[0].text === 'string') {
-            textContent = message.parts[0].text;
-        } else if (typeof message.parts[0] === 'string') { // Handle case where parts is just an array of strings
-            textContent = message.parts[0];
-        }
-    } else if (typeof message.content === 'string') {
-        // Fallback to 'content' if 'parts' is not valid
-        textContent = message.content;
-    }
-
-    // Return the standard ChatMessage structure
-    return {
-        role: role,
-        parts: [{ text: textContent }]
-        // We don't include source or content in the final normalized object
+    // Default structure
+    const normalizedMessage: ChatMessage = {
+        role: 'user', // Default role
+        parts: [
+            { text: '' }
+        ]
     };
+
+    // Copy role if it exists and is valid
+    if (message.role && ['user', 'model', 'system'].includes(message.role)) {
+        normalizedMessage.role = message.role;
+    }
+
+    // Handle parts - ensure it's an array with at least one item with text
+    if (Array.isArray(message.parts) && message.parts.length > 0) {
+        // Use existing parts if they're valid
+        normalizedMessage.parts = message.parts.map(part => ({
+            text: typeof part.text === 'string' ? part.text : ''
+        }));
+    } else if (typeof message.content === 'string') {
+        // Legacy format compatibility (content instead of parts)
+        normalizedMessage.parts = [{ text: message.content }];
+    } else if (typeof message.text === 'string') {
+        // Ultra-legacy format compatibility (text instead of parts)
+        normalizedMessage.parts = [{ text: message.text }];
+    }
+
+    return normalizedMessage;
 }
 
+/**
+ * Generates a cache key for a given query or message array, optimized for stability.
+ * @param requestData The request data to generate a cache key for.
+ * @returns A cache key string.
+ */
+export function generateCacheKey(requestData: ChatApiRequest): string {
+    try {
+        // If there's a direct query, use it
+        if (requestData.query) {
+            return `query:${requestData.query.trim().toLowerCase()}`;
+        }
+        
+        // If there are messages, find the latest user message
+        if (requestData.messages && requestData.messages.length > 0) {
+            // Extract only user messages
+            const userMessages = requestData.messages
+                .filter(msg => msg.role === 'user')
+                .map(msg => msg.parts[0]?.text || '')
+                .filter(text => text.trim().length > 0);
+                
+            if (userMessages.length > 0) {
+                // Use the last user message as the key
+                const lastUserMessage = userMessages[userMessages.length - 1];
+                
+                // Add a prefix to distinguish from direct queries
+                return `msg:${lastUserMessage.trim().toLowerCase()}`;
+            }
+        }
+        
+        // Fallback if no suitable key could be generated
+        throw new Error("No suitable content found for cache key generation");
+    } catch (error) {
+        console.error("Error generating cache key:", error);
+        // Return a timestamp-based key as fallback to prevent caching issues
+        return `fallback:${Date.now()}`;
+    }
+}
 
 /**
- * Helper function to fetch with a timeout.
- * @param url The URL to fetch.
- * @param options Fetch options (method, headers, body, etc.).
- * @param timeoutMs Timeout duration in milliseconds.
- * @returns The fetch Response object.
- * @throws Error if the request times out or another fetch error occurs.
+ * Count tokens in a message using the tokenizer
+ * @param text The text to count tokens for
+ * @returns Token count
  */
-export async function fetchWithTimeout(url: string | URL, options: RequestInit, timeoutMs: number): Promise<Response> {
-  const controller = new AbortController();
-  const id = setTimeout(() => controller.abort(), timeoutMs);
-
-  try {
-    const response = await fetch(url, {
-      ...options,
-      signal: controller.signal // Pass the abort signal to fetch
-    });
-    clearTimeout(id); // Clear timeout if fetch completes successfully
-    return response;
-  } catch (error) {
-    clearTimeout(id); // Clear timeout if fetch fails
-    if (error instanceof DOMException && error.name === 'AbortError') {
-      console.error(`Request to ${url} timed out after ${timeoutMs}ms`);
-      throw new Error(`Request timed out after ${timeoutMs}ms`);
+export function countTokens(text: string): number {
+    try {
+        if (!text) return 0;
+        return encode(text).length;
+    } catch (e) {
+        console.error("Error counting tokens:", e);
+        // Fallback approximation: ~4 chars per token
+        return Math.ceil(text.length / 4);
     }
-    console.error(`Fetch error for ${url}:`, error);
-    throw error; // Re-throw other fetch errors
-  }
 }

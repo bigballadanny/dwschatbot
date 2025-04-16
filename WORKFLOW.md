@@ -16,71 +16,80 @@ This project creates a user interface and dashboard for new users in the mergers
 3.  **War Room** for users to upload potential business documents for AI analysis
 4.  **Transcript management system** for organizing educational content
 
-## 2. Operational Modes
-Each mode serves a specific purpose in our workflow:
+## 2. Session & Interaction Tracking
 
--   **Code Mode:** Responsible for writing, debugging, and refactoring code. Implements features based on plans and specifications. Handles tasks requiring direct file manipulation and execution of coding-related commands.
--   **Architect Mode:** Focuses on planning, system design, and defining project structure. Gathers requirements, creates technical plans, and outlines workflows. Ensures the overall technical vision is sound.
--   **Ask Mode:** Provides information, answers questions about software development, technology, and project specifics. Explains concepts and clarifies details.
--   **Debug Mode:** Specializes in diagnosing and resolving issues. Identifies root causes of bugs, analyzes errors, and proposes solutions.
--   **Boomerang Mode:** Orchestrates complex tasks by breaking them down and delegating sub-tasks to the most appropriate specialized modes. Manages the overall flow of multi-step operations.
+**Current Session: #{SESSION_COUNT}** (Updated: {TIMESTAMP})  
+**Prompts Since Last Vibe Session: {PROMPT_COUNT}** (Vibe trigger at 5-7)  
+**Last Vibe Session: {LAST_VIBE_TIMESTAMP}**
+
+### Prompt Tracking System
+The workflow maintains a count of user prompts to ensure regular alignment sessions:
+- Counter increments with each substantive user interaction
+- Resets after each Vibe Session
+- Vibe Sessions automatically triggered after 5-7 prompts
+- Can be manually triggered with `Vibe Session` command
+
+### Vibe Session Guidelines
+Vibe Sessions are critical alignment meetings that should:
+1. Review all completed tasks since last session
+2. Confirm task states and update status in the board
+3. Extract and document any "golden nuggets" (key insights)
+4. Plan next priorities and task groupings
+5. Reset prompt counter after completion
+
+## 3. Operational Modes
+Our workflow uses two primary modes:
+
+- **Code Mode:** Implementation, debugging, refactoring, technical tasks
+- **Vibe Mode:** Planning, review, alignment, strategy, insights gathering
 
 ### Mode Transition Indicators
 Use the following commands to explicitly switch modes:
 - `Mode: Code` - Switch to implementation focus
-- `Mode: Architect` - Switch to planning and design focus
-- `Mode: Ask` - Switch to information and explanation focus
-- `Mode: Debug` - Switch to issue diagnosis and resolution focus
-- `Mode: Boomerang` - Switch to task orchestration and delegation focus
+- `Mode: Vibe` - Switch to planning and alignment focus
+- `Vibe Session` - Trigger a comprehensive review session
 
-## 3. Workflow & Tasks
+## 4. Workflow & Tasks
 
-### 3.1. Process
+### 4.1. Process
 -   **Task Identification & Definition:** New tasks or requirements are identified and documented in the "Board" section below. Complex tasks should be broken down into smaller, manageable chunks.
 -   **Prioritization:** Tasks are prioritized based on project goals and dependencies.
--   **Execution:** Tasks are assigned to or picked up by the appropriate mode (often Code mode for implementation). Focus on one task at a time, implementing small, targeted changes after analyzing the full scope.
+-   **Execution:** Tasks are assigned to or picked up by the appropriate mode. Focus on one task at a time, implementing small, targeted changes after analyzing the full scope.
 -   **Review & Alignment:** Regular "vibe sessions" (every 5-7 prompts) should be conducted to review progress, align understanding, and update the task board.
--   **Completion:** Tasks are marked as complete (`[x]`) only after being fully tested and verified. Completed tasks are then moved to the "Log / Changelog" section with completion date. Add new observations or bugs found during development to the board.
+-   **Completion:** Tasks are marked as complete (`[x]`) only after being fully tested and verified. Completed tasks are then moved to the CHANGELOG.md with completion date. Add new observations or bugs found during development to the board.
 -   **Philosophy:** Remember: Every challenge is an opportunity for elegant solutions! 💡
 
-### 3.2. Command Reference
+### 4.2. Command Reference
 - `Workflow Check`: Review current task statuses and update accordingly
 - `Vibe Session`: Conduct alignment meeting to review progress (every 5-7 prompts)
+- `Session Count: {n}`: Update the session counter
+- `Prompt Count: {n}`: Update the prompt counter
 
-### 3.3. Board
+### 4.3. Board
+
+**Current Focus (Phase 10: Workflow Optimization)**
+*   **Workflow Enhancement ⚙️**
+    -   [ ] Implement prompt tracking counter (Priority: High) - Status: In Progress
+    -   [ ] Create structured Vibe Session process (Priority: High) - Status: In Progress
+    -   [ ] Move completed tasks to CHANGELOG.md (Priority: Medium) - Status: In Progress
+    -   [ ] Add session metadata tracking (Priority: Medium) - Status: In Progress
+    -   [ ] Document Vertex AI model versions precisely (Priority: High) - Status: In Progress
 
 **Current Focus (Phase 9 & Ongoing)**
 
 *   **Vertex AI Integration 🚀**
-    -   [x] Add Google Vertex AI integration to replace/supplement Gemini API (2025-04-15)
-    -   [x] Fix Vertex AI authentication issues with service account JSON (2025-04-15)
-    -   [x] Add service account validation tool (2025-04-15)
-    -   [x] Fix UI issues with service account validator (2025-04-15)
-    -   [x] Fix layout issues with sidebar after adding Vertex AI integration (2025-04-15)
     -   [ ] Optimize token usage in conversations (Priority: Medium) - Status: To Do
-    -   [x] Enhance error handling for AI service switching (2025-04-15)
-    -   [x] Fix generateCacheKey function in gemini-chat edge function (2025-04-15)
     -   [ ] Implement Vertex AI diagnostics and testing tools (Priority: Medium) - Status: To Do
     -   [ ] Fix JWT token generation in Vertex AI authentication (Priority: High) - Status: To Do
-    -   [ ] Upgrade to Gemini 2.0 Pro model for enhanced summarization (Priority: High) - Status: In Progress
+    -   [ ] Upgrade to Vertex AI Gemini 1.5 Pro model for enhanced summarization (Priority: High) - Status: In Progress
 *   **Optimization Tasks ⚡**
-    -   [x] Fix message list scrolling issues (2025-04-15)
-    -   [x] Fix layout issues with the main application UI (2025-04-15)
-    -   [x] Fix sidebar missing from pages (2025-04-15)
     -   [ ] Improve message caching strategy (Priority: Medium) - Status: To Do
     -   [ ] Implement proper token bucket rate limiting (Priority: Low) - Status: To Do
     -   [ ] Add request batching for frequently asked questions (Priority: Low) - Status: To Do
     -   [ ] Optimize context window usage (Priority: Medium) - Status: To Do
 *   **UI Improvements ✨**
-    -   [x] Add easy navigation to Vertex AI setup page (2025-04-15)
-    -   [x] Fix scrolling behavior in chat interface (2025-04-15)
-    -   [x] Enhance service account validator UI (2025-04-15)
     -   [ ] Enhance message list animations and transitions (Priority: Low) - Status: To Do
-    -   [x] Improve sidebar UI and interaction (2025-04-15)
-    -   [x] Fix responsive design issues (2025-04-15)
-    -   [x] Fix missing sidebar on all pages (2025-04-15)
 *   **Golden Nuggets Extraction 💎** 
-    -   [x] Enhance summary generation with golden nuggets extraction (2025-04-16)
     -   [ ] Update transcript summary UI to highlight golden nuggets (Priority: Medium) - Status: To Do
     -   [ ] Add search functionality for golden nuggets (Priority: Medium) - Status: To Do
     -   [ ] Create database schema for storing and retrieving golden nuggets (Priority: Medium) - Status: To Do
@@ -114,101 +123,6 @@ Use the following commands to explicitly switch modes:
 
 *Task Format:* Markdown checkboxes (`[ ]` To Do, `[/]` In Progress, `[x]` Done), description, priority, status, notes.
 
-## 4. Log / Changelog
-
-This document tracks completed tasks and implementations, recording the history and evolution of the project.
-
-### Phase 1: Fix Type Issues ✅ (2025-04-10)
-
--   Fixed the "Type instantiation is excessively deep" error in messageUtils.ts
--   Created dbMessageToUiMessage utility function to align with database schema
--   Simplified type definitions and conversion logic
--   Updated useMessages hook to use the new utility function
--   Added explicit DbMessage interface to prevent deep instantiation errors
--   Verified no remaining type errors
-
-### Phase 2: Consolidate Redundant Hooks ✅ (2025-04-11)
-
--   Analyzed useChatController and useChatMessages
--   Identified overlapping functionalities
--   Consolidated hooks into a single useChat hook
--   Simplified audio handling by merging audio hooks
-
-### Phase 3: Backend and Type System Alignment ✅ (2025-04-12)
-
--   Investigated alignment between frontend types and Supabase database schema
--   Identified that messages in the database have metadata field for source and citation
--   Created proper data transformation between DB and UI formats
--   Ensured consistent data flow throughout the application
--   Fixed remaining type complexity issues
-
-### Phase 4: UI Improvements ✅ (2025-04-13)
-
--   Improved message list with better animations
--   Enhanced scrolling behavior in chat
--   Fixed popular questions to create new conversations
--   Positioned user questions at the top of chat with proper animations
--   Fixed audio echoing issue
--   Fixed isPlaying prop type errors in AudioPlayer
--   Implemented pause button functionality for audio
--   Improved overall UI aesthetics
--   Explored solid black theme implementation
--   Research and integrate latest Gemini API features
--   Updated Gemini version to 2.0
-
-### Phase 5: Bug Fixes ✅ (2025-04-13)
-
--   Fixed issue with popular questions not creating new conversations
--   Resolved scrolling issues in message list
--   Added data-testid attributes for better testing
--   Implemented proper audio cleanup to prevent memory leaks
--   Fixed voice echo and playback control issues
--   Fixed AudioPlayer prop type incompatibility
--   Fixed sidebar UI glitches
--   Ensured consistent behavior across different parts of the application
-
-### Phase 6: Analytics Dashboard Improvements ✅ (2025-04-14)
-
--   Consolidated tabs from 11 to 5 categories
--   Fixed layout issues and ensured proper responsiveness
--   Enhanced visualization with better tooltips and consistent colors
--   Added AI-powered insights feature
--   Implemented data export functionality
--   Fixed scrollability issues
--   Added content gap analysis
-
-### Phase 7: Integration with Gemini 2.0 ✅ (2025-04-14)
-
--   Updated edge function to use Gemini 2.0 API
--   Added analytics insights edge function
--   Improved edge function error handling
--   Enhanced analytics logging
--   Optimized AI response formatting
-
-### Phase 8: Message Persistence & Conversation Tracking ✅ (2025-04-15)
-
--   Fixed message saving issues by completely redesigning the metadata column detection system
--   Created specialized utility function to prepare messages for database based on schema support
--   Added robust fallback mechanisms that automatically retry insertions without metadata when needed
--   Enhanced database error handling with proper logging and tracing
--   Implemented comprehensive logging throughout the message saving process
--   Added redundant checks and validations to ensure maximum resilience
--   Fixed conversationId synchronization between URL parameters and application state
--   Improved state management between components for better stability
--   Enhanced URL navigation synchronization with conversation state
--   Added debug logs throughout the conversation flow for easier troubleshooting
--   Ensured consistent state tracking between the UI and database
--   Optimized data flow between hooks for better maintainability
-
-### Phase 9: Type Safety Fixes & Golden Nuggets Extraction ✅ (2025-04-16)
-
--   Fixed type issues in TranscriptSummary.tsx with improved JSON processing
--   Resolved LucideIcon type error in TranscriptDiagnostics.tsx  
--   Enhanced the generate-transcript-summary function to use Vertex AI Gemini 2.0 Pro
--   Updated transcript summary generation to extract "golden nuggets" (key strategic insights)
--   Improved key points processing with robust error handling
--   Added documentation for golden nuggets extraction plan to workflow
-
 ## 5. Context & Guidelines
 
 ### 5.1. Principles
@@ -219,11 +133,12 @@ This document tracks completed tasks and implementations, recording the history 
 ### 5.2. Architecture
 -   **State Management:** React Context API for global state (auth, preferences), local state for UI concerns, Supabase for persistence.
 -   **Data Flow:** Unidirectional data flow, custom hooks for fetching/processing, error boundaries.
--   **API Integration:** Supabase (backend/auth), Gemini API / Vertex AI (AI features), Edge functions (secure interactions).
+-   **API Integration:** Supabase (backend/auth), Vertex AI API (AI features), Edge functions (secure interactions).
 
 ### 5.3. Dev Guidelines
 -   **Code Implementation:** Modular components, consistent naming, TypeScript, comments for complex logic, optimize for readability/maintainability.
--   **AI Strategy:** Use Gemini/Vertex AI for appropriate analytical tasks, balance with performance/cost, implement fallbacks.
+-   **AI Strategy:** Use Vertex AI Gemini models for appropriate analytical tasks, balance with performance/cost, implement fallbacks.
+-   **Model Versioning:** Always specify EXACT Vertex AI model versions (e.g., "Vertex AI Gemini 1.5 Pro" not just "Gemini 2.0")
 -   **File Structure:** Small, focused components (<200 lines), separate logic (hooks/utils), group related components, dedicated type files.
 
 ### 5.4. Lessons & Wins
@@ -267,7 +182,7 @@ This document tracks completed tasks and implementations, recording the history 
    - Identify content areas needing more nugget extraction
 
 ### 6.3. Technical Requirements
-- Enhanced prompt engineering with Gemini 2.0 Pro models
+- Enhanced prompt engineering with Vertex AI Gemini 1.5 Pro models
 - Database schema updates for nugget storage
 - Semantic search capabilities for relevant retrieval
 - UI components for nugget presentation
@@ -281,3 +196,4 @@ This document tracks completed tasks and implementations, recording the history 
 
 ## 🔄 Version History
 - v1.0 (2025-04-16): Initial consolidated workflow with protection protocol
+- v1.1 (2025-04-16): Added prompt tracking and enhanced Vibe Session framework

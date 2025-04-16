@@ -1,292 +1,308 @@
+
 import React, { useState, useEffect } from 'react';
+import { createClient } from '@supabase/supabase-js';
 import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardHeader, CardTitle, CardDescription, CardFooter } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { ScrollArea } from "@/components/ui/scroll-area";
-import { Loader2, RefreshCw, FileText, AlertTriangle, Check } from "lucide-react";
-import { supabase } from '@/integrations/supabase/client';
-import { showSuccess, showError } from "@/utils/toastUtils";
-import { Json } from '@/integrations/supabase/types';
+import { Skeleton } from "@/components/ui/skeleton";
+import { success, error } from "@/hooks/use-toast";
+import { Sparkles, AlertCircle, CheckCircle2, RefreshCw } from 'lucide-react';
 
-interface KeyPoint {
-  point: string;
-  explanation: string;
-}
-
-interface SummaryData {
-  id: string;
-  transcript_id: string;
-  summary: string;
-  key_points: KeyPoint[];
-  token_count: number;
-  model_used: string;
-  created_at: string;
-}
+// Initialize Supabase client
+const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
+const supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY;
+const supabase = createClient(supabaseUrl, supabaseAnonKey);
 
 interface TranscriptSummaryProps {
   transcriptId: string;
   userId: string;
 }
 
+interface SummaryData {
+  id: string;
+  transcript_id: string;
+  summary: string;
+  key_points: string | string[] | { [key: string]: any }; // Flexible type to handle various API responses
+  golden_nuggets?: string[] | { [key: string]: any }; // For storing extracted golden nuggets
+  created_at: string;
+  updated_at: string;
+}
+
 const TranscriptSummary: React.FC<TranscriptSummaryProps> = ({ transcriptId, userId }) => {
-  const [summaryData, setSummaryData] = useState<SummaryData | null>(null);
-  const [loading, setLoading] = useState(false);
+  const [summary, setSummary] = useState<SummaryData | null>(null);
+  const [loading, setLoading] = useState<boolean>(true);
+  const [generating, setGenerating] = useState<boolean>(false);
   const [error, setError] = useState<string | null>(null);
-  const [generateDisabled, setGenerateDisabled] = useState(false);
+  const [keyPoints, setKeyPoints] = useState<string[]>([]);
+  const [goldenNuggets, setGoldenNuggets] = useState<string[]>([]);
 
   useEffect(() => {
     fetchSummary();
   }, [transcriptId]);
 
   const fetchSummary = async () => {
-    if (!transcriptId) return;
-
-    try {
-      const { data, error } = await supabase
-        .from('transcript_summaries')
-        .select('*')
-        .eq('transcript_id', transcriptId)
-        .single();
-
-      if (error) {
-        console.error('Error fetching summary:', error);
-      } else if (data) {
-        const processedData: SummaryData = {
-          ...data,
-          key_points: processKeyPoints(data.key_points)
-        };
-        setSummaryData(processedData);
-      }
-    } catch (err) {
-      console.error('Failed to fetch summary:', err);
-    }
-  };
-
-  const processKeyPoints = (keyPoints: Json): KeyPoint[] => {
-    if (!keyPoints) return [];
-    
-    try {
-      if (Array.isArray(keyPoints)) {
-        return keyPoints.map(item => {
-          if (typeof item === 'object' && item !== null) {
-            const point = item as Record<string, any>;
-            return {
-              point: point.point?.toString() || 'Unknown point',
-              explanation: point.explanation?.toString() || ''
-            };
-          }
-          return { 
-            point: String(item), 
-            explanation: '' 
-          };
-        });
-      }
-      
-      if (typeof keyPoints === 'string') {
-        try {
-          const parsed = JSON.parse(keyPoints);
-          if (Array.isArray(parsed)) {
-            return processKeyPoints(parsed);
-          }
-          return [{ point: keyPoints, explanation: '' }];
-        } catch (e) {
-          return [{ point: keyPoints, explanation: '' }];
-        }
-      }
-      
-      if (typeof keyPoints === 'object' && keyPoints !== null && !Array.isArray(keyPoints)) {
-        const points = Object.entries(keyPoints).map(([key, value]) => {
-          if (typeof value === 'object' && value !== null && 'point' in value) {
-            return {
-              point: String(value.point),
-              explanation: 'explanation' in value ? String(value.explanation) : ''
-            };
-          }
-          return { point: key, explanation: String(value) };
-        });
-        
-        return points.length > 0 ? points : [{ point: 'Data structure issue', explanation: 'Could not extract key points' }];
-      }
-    } catch (err) {
-      console.error('Error processing key points:', err);
-    }
-    
-    return [{ point: 'Processing error', explanation: 'Could not process key points data' }];
-  };
-
-  const generateSummary = async () => {
-    if (!transcriptId || !userId) {
-      showError("Missing Information", "Cannot generate summary without transcript ID and user ID.");
-      return;
-    }
-
-    setLoading(true);
-    setError(null);
-    setGenerateDisabled(true);
-
-    try {
-      const { data, error } = await supabase.functions.invoke('generate-transcript-summary', {
-        body: {
-          transcriptId,
-          userId
-        }
-      });
-
-      if (error || data?.error) {
-        throw new Error(error || data?.error || 'Unknown error occurred');
-      }
-
-      if (data?.summary) {
-        const processedSummary: SummaryData = {
-          ...data.summary,
-          key_points: processKeyPoints(data.summary.key_points)
-        };
-        setSummaryData(processedSummary);
-        showSuccess("Summary Generated", "The transcript summary was successfully generated.");
-      } else {
-        throw new Error('No summary data returned');
-      }
-    } catch (err: any) {
-      console.error('Failed to generate summary:', err);
-      setError(err.message || 'Failed to generate summary');
-      showError("Summary Generation Failed", err.message || 'An error occurred while generating the summary');
-      setGenerateDisabled(false);
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const regenerateSummary = async () => {
-    if (!summaryData?.id) return;
-    
     try {
       setLoading(true);
       setError(null);
       
-      await supabase
+      const { data, error: fetchError } = await supabase
         .from('transcript_summaries')
-        .delete()
-        .eq('id', summaryData.id);
+        .select('*')
+        .eq('transcript_id', transcriptId)
+        .single();
+      
+      if (fetchError) {
+        if (fetchError.code === 'PGRST116') {
+          // No data found, just reset the state
+          setSummary(null);
+          setKeyPoints([]);
+          setGoldenNuggets([]);
+        } else {
+          console.error("Error fetching summary:", fetchError);
+          setError(`Failed to fetch summary: ${fetchError.message}`);
+        }
+        return;
+      }
+      
+      if (data) {
+        setSummary(data);
         
-      await supabase
-        .from('transcripts')
-        .update({ is_summarized: false })
-        .eq('id', transcriptId);
-      
-      setSummaryData(null);
-      
-      await generateSummary();
-    } catch (err: any) {
-      console.error('Failed to regenerate summary:', err);
-      setError(err.message || 'Failed to regenerate summary');
-      showError("Regeneration Failed", "An error occurred while trying to regenerate the summary");
+        // Process key points - handle different formats that might be returned
+        try {
+          let processedKeyPoints: string[] = [];
+          if (typeof data.key_points === 'string') {
+            try {
+              // Try to parse as JSON
+              const parsed = JSON.parse(data.key_points);
+              if (Array.isArray(parsed)) {
+                processedKeyPoints = parsed;
+              } else if (typeof parsed === 'object') {
+                // Handle object format (e.g., {"1": "point one", "2": "point two"})
+                processedKeyPoints = Object.values(parsed).filter(p => typeof p === 'string') as string[];
+              }
+            } catch (e) {
+              // If not valid JSON, split by newlines or treat as a single item
+              processedKeyPoints = data.key_points.includes('\n') 
+                ? data.key_points.split('\n').filter(p => p.trim().length > 0)
+                : [data.key_points];
+            }
+          } else if (Array.isArray(data.key_points)) {
+            processedKeyPoints = data.key_points;
+          } else if (data.key_points && typeof data.key_points === 'object') {
+            processedKeyPoints = Object.values(data.key_points).filter(p => typeof p === 'string') as string[];
+          }
+          
+          setKeyPoints(processedKeyPoints);
+        } catch (keyPointError) {
+          console.error("Error processing key points:", keyPointError);
+          setKeyPoints([]);
+        }
+        
+        // Process golden nuggets if available
+        try {
+          let processedNuggets: string[] = [];
+          if (data.golden_nuggets) {
+            if (typeof data.golden_nuggets === 'string') {
+              try {
+                const parsed = JSON.parse(data.golden_nuggets);
+                if (Array.isArray(parsed)) {
+                  processedNuggets = parsed;
+                } else if (typeof parsed === 'object') {
+                  processedNuggets = Object.values(parsed).filter(n => typeof n === 'string') as string[];
+                }
+              } catch (e) {
+                processedNuggets = data.golden_nuggets.includes('\n')
+                  ? data.golden_nuggets.split('\n').filter(n => n.trim().length > 0)
+                  : [data.golden_nuggets];
+              }
+            } else if (Array.isArray(data.golden_nuggets)) {
+              processedNuggets = data.golden_nuggets;
+            } else if (typeof data.golden_nuggets === 'object') {
+              processedNuggets = Object.values(data.golden_nuggets).filter(n => typeof n === 'string') as string[];
+            }
+          }
+          setGoldenNuggets(processedNuggets);
+        } catch (nuggetError) {
+          console.error("Error processing golden nuggets:", nuggetError);
+          setGoldenNuggets([]);
+        }
+      }
     } finally {
       setLoading(false);
     }
   };
 
-  const formatDate = (dateString: string) => {
-    return new Date(dateString).toLocaleString();
+  const generateSummary = async () => {
+    if (!transcriptId || !userId) {
+      setError("Missing required information to generate summary.");
+      return;
+    }
+    
+    try {
+      setGenerating(true);
+      setError(null);
+      
+      // Call the edge function to generate summary with Vertex AI Gemini 1.5 Pro
+      const { data, error: genError } = await supabase.functions.invoke('generate-transcript-summary', {
+        body: {
+          transcriptId,
+          userId,
+          extractNuggets: true // Request golden nuggets extraction
+        }
+      });
+      
+      if (genError) {
+        console.error("Error generating summary:", genError);
+        setError(`Failed to generate summary: ${genError.message || 'Unknown error'}`);
+        error({ title: "Summary Generation Failed", description: genError.message || 'Unknown error' });
+        return;
+      }
+      
+      if (data?.success) {
+        success({ title: "Summary Generated", description: "The transcript has been successfully summarized." });
+        // Reload the summary from the database
+        fetchSummary();
+      } else {
+        setError(data?.message || "Unknown error occurred during summary generation.");
+        error({ 
+          title: "Summary Generation Issue", 
+          description: data?.message || "Unknown error occurred during summary generation."
+        });
+      }
+    } catch (e: any) {
+      console.error("Exception during summary generation:", e);
+      setError(`Exception: ${e.message || 'Unknown error'}`);
+      error({ title: "Error", description: e.message || 'An unexpected error occurred' });
+    } finally {
+      setGenerating(false);
+    }
   };
 
+  if (loading) {
+    return (
+      <div className="space-y-4 p-4">
+        <Skeleton className="h-6 w-3/4" />
+        <Skeleton className="h-24 w-full" />
+        <Skeleton className="h-4 w-1/2" />
+        <Skeleton className="h-4 w-2/3" />
+        <Skeleton className="h-4 w-3/5" />
+      </div>
+    );
+  }
+
+  if (error) {
+    return (
+      <div className="p-4 border border-red-200 rounded-md bg-red-50">
+        <div className="flex items-center gap-2 text-red-700 mb-2">
+          <AlertCircle size={16} />
+          <p className="font-semibold">Error</p>
+        </div>
+        <p className="text-red-600 text-sm">{error}</p>
+        <Button 
+          variant="outline" 
+          size="sm" 
+          className="mt-4" 
+          onClick={fetchSummary}
+        >
+          <RefreshCw className="h-4 w-4 mr-2" />
+          Retry
+        </Button>
+      </div>
+    );
+  }
+
+  if (!summary) {
+    return (
+      <div className="p-4 border border-gray-200 rounded-md">
+        <p className="text-gray-500 mb-4">No summary available for this transcript.</p>
+        <Button
+          onClick={generateSummary}
+          disabled={generating}
+          className="flex items-center"
+        >
+          {generating ? (
+            <>
+              <RefreshCw className="h-4 w-4 mr-2 animate-spin" />
+              Generating...
+            </>
+          ) : (
+            <>
+              <Sparkles className="h-4 w-4 mr-2" />
+              Generate AI Summary
+            </>
+          )}
+        </Button>
+      </div>
+    );
+  }
+
   return (
-    <Card className="w-full">
-      <CardHeader>
-        <div className="flex justify-between items-center">
-          <div>
-            <CardTitle>Transcript Summary</CardTitle>
-            <CardDescription>AI-generated summary of the transcript content</CardDescription>
-          </div>
-          {summaryData && (
-            <Badge variant="outline" className="ml-2">
-              {summaryData.model_used || 'AI Generated'}
-            </Badge>
+    <div className="space-y-6 p-4">
+      <div className="flex items-center justify-between">
+        <div className="flex items-center gap-2">
+          <Badge variant="outline" className="flex items-center gap-1">
+            <CheckCircle2 className="h-3 w-3 text-green-500" />
+            Summary Available
+          </Badge>
+          {summary.updated_at && (
+            <span className="text-xs text-gray-400">
+              Updated {new Date(summary.updated_at).toLocaleDateString()}
+            </span>
           )}
         </div>
-      </CardHeader>
-      
-      <CardContent>
-        {error && (
-          <div className="flex items-center gap-2 p-4 mb-4 bg-red-50 text-red-800 rounded-md border border-red-200">
-            <AlertTriangle className="h-5 w-5" />
-            <p className="text-sm">{error}</p>
-          </div>
-        )}
         
-        {loading ? (
-          <div className="flex flex-col items-center justify-center py-10">
-            <Loader2 className="h-10 w-10 animate-spin text-muted-foreground mb-4" />
-            <p className="text-muted-foreground">Generating summary...</p>
-            <p className="text-xs text-muted-foreground mt-2">This may take a minute or two.</p>
-          </div>
-        ) : summaryData ? (
-          <div className="space-y-6">
-            <div>
-              <h3 className="text-lg font-semibold mb-2">Summary</h3>
-              <ScrollArea className="h-[200px] border rounded-md p-4 bg-muted/20">
-                <div className="whitespace-pre-wrap">{summaryData.summary}</div>
-              </ScrollArea>
-            </div>
-            
-            <div>
-              <h3 className="text-lg font-semibold mb-2">Key Points</h3>
-              <div className="space-y-3">
-                {Array.isArray(summaryData.key_points) && summaryData.key_points.length > 0 ? (
-                  summaryData.key_points.map((point, index) => (
-                    <div key={index} className="border rounded-md p-3 bg-muted/10">
-                      <h4 className="font-medium">{point.point}</h4>
-                      {point.explanation && (
-                        <p className="text-sm text-muted-foreground mt-1">{point.explanation}</p>
-                      )}
-                    </div>
-                  ))
-                ) : (
-                  <p className="text-muted-foreground italic">No key points available</p>
-                )}
-              </div>
-            </div>
-            
-            <div className="flex justify-between items-center pt-4 border-t text-sm text-muted-foreground">
-              <div>Generated: {formatDate(summaryData.created_at)}</div>
-              {summaryData.token_count && (
-                <div>Tokens processed: ~{summaryData.token_count.toLocaleString()}</div>
-              )}
-            </div>
-          </div>
-        ) : (
-          <div className="flex flex-col items-center justify-center py-10 text-center">
-            <FileText className="h-10 w-10 text-muted-foreground mb-4" />
-            <p className="text-muted-foreground">No summary available for this transcript.</p>
-            <p className="text-xs text-muted-foreground mt-2">Generate a summary to get key insights from the content.</p>
-          </div>
-        )}
-      </CardContent>
+        <Button 
+          variant="outline" 
+          size="sm" 
+          onClick={generateSummary} 
+          disabled={generating}
+        >
+          {generating ? (
+            <RefreshCw className="h-4 w-4 animate-spin" />
+          ) : (
+            <RefreshCw className="h-4 w-4" />
+          )}
+          <span className="ml-1">Regenerate</span>
+        </Button>
+      </div>
       
-      <CardFooter className="justify-end pt-4 gap-3">
-        {summaryData ? (
-          <Button 
-            variant="outline" 
-            size="sm"
-            onClick={regenerateSummary}
-            disabled={loading}
-            className="flex items-center gap-2"
-          >
-            {loading ? <Loader2 className="h-4 w-4 animate-spin" /> : <RefreshCw className="h-4 w-4" />}
-            Regenerate
-          </Button>
-        ) : (
-          <Button 
-            variant="default" 
-            onClick={generateSummary}
-            disabled={loading || generateDisabled}
-            className="flex items-center gap-2"
-          >
-            {loading ? <Loader2 className="h-4 w-4 animate-spin" /> : <Check className="h-4 w-4" />}
-            Generate Summary
-          </Button>
-        )}
-      </CardFooter>
-    </Card>
+      <div>
+        <h3 className="text-lg font-semibold mb-2">Summary</h3>
+        <div className="text-gray-700 whitespace-pre-wrap">
+          {summary.summary}
+        </div>
+      </div>
+      
+      {goldenNuggets.length > 0 && (
+        <div>
+          <h3 className="text-lg font-semibold mb-2 flex items-center">
+            <Sparkles className="h-4 w-4 mr-2 text-amber-500" />
+            Golden Nuggets
+          </h3>
+          <ul className="space-y-2 list-none">
+            {goldenNuggets.map((nugget, idx) => (
+              <li key={idx} className="bg-amber-50 border border-amber-100 p-3 rounded-md">
+                <div className="flex">
+                  <div className="text-amber-700 font-medium">{nugget}</div>
+                </div>
+              </li>
+            ))}
+          </ul>
+        </div>
+      )}
+      
+      {keyPoints.length > 0 && (
+        <div>
+          <h3 className="text-lg font-semibold mb-2">Key Points</h3>
+          <ul className="space-y-2 list-none">
+            {keyPoints.map((point, idx) => (
+              <li key={idx} className="bg-gray-50 border border-gray-100 p-3 rounded-md">
+                {point}
+              </li>
+            ))}
+          </ul>
+        </div>
+      )}
+    </div>
   );
 };
 
