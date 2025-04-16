@@ -5,24 +5,26 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { generateFileIcon } from "@/utils/transcriptUtils";
-import { LucideIcon } from 'lucide-react';
-import { File, Play, Info, Sparkles, Check } from 'lucide-react';
+import { LucideIcon, File } from 'lucide-react';
+import { Play, Info, Sparkles, Check } from 'lucide-react';
 import TranscriptSummary from './TranscriptSummary';
 
 interface TranscriptDiagnosticsProps {
-  open: boolean;
+  open?: boolean;
   onClose: () => void;
-  transcript: any;
-  userId: string;
+  onComplete?: () => void;
+  transcript?: any;
+  userId?: string;
 }
 
 const TranscriptDiagnostics: React.FC<TranscriptDiagnosticsProps> = ({
-  open,
+  open = false,
   onClose,
+  onComplete,
   transcript,
-  userId
+  userId = ''
 }) => {
-  const [FileIcon, setFileIcon] = useState<LucideIcon>(() => File);
+  const [fileIcon, setFileIcon] = useState<LucideIcon>(() => File);
   const [defaultTab, setDefaultTab] = useState<string>('content');
   
   useEffect(() => {
@@ -30,8 +32,8 @@ const TranscriptDiagnostics: React.FC<TranscriptDiagnosticsProps> = ({
       const fileType = transcript.file_type || 'text';
       const iconName = generateFileIcon(fileType);
       import('lucide-react').then(module => {
-        const icon = module[iconName.charAt(0).toUpperCase() + iconName.slice(1)];
-        setFileIcon(icon || module.File);
+        const icon = module[iconName.charAt(0).toUpperCase() + iconName.slice(1)] || File;
+        setFileIcon(icon);
       });
     }
     
@@ -47,6 +49,7 @@ const TranscriptDiagnostics: React.FC<TranscriptDiagnosticsProps> = ({
 
   const handleClose = () => {
     onClose();
+    if (onComplete) onComplete();
   };
 
   const renderFileInfo = () => {
@@ -67,7 +70,7 @@ const TranscriptDiagnostics: React.FC<TranscriptDiagnosticsProps> = ({
       <DialogContent className="max-w-4xl h-[80vh] flex flex-col">
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
-            <FileIcon className="w-5 h-5" />
+            {fileIcon && React.createElement(fileIcon, { className: "w-5 h-5" })}
             <span className="truncate">{transcript.title}</span>
             {transcript.is_summarized && (
               <Badge variant="secondary" className="ml-2 flex items-center gap-1 text-xs">
@@ -167,3 +170,4 @@ const TranscriptDiagnostics: React.FC<TranscriptDiagnosticsProps> = ({
 };
 
 export default TranscriptDiagnostics;
+

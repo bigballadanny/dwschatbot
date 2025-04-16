@@ -13,7 +13,6 @@ import { ScrollArea } from "@/components/ui/scroll-area";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue, SelectGroup, SelectLabel } from "@/components/ui/select";
 import { useAuth } from '@/context/AuthContext';
 import { supabase } from '@/integrations/supabase/client';
-// import Header from '@/components/Header'; // Removed duplicate header import
 import { FileText, Upload, Tag as TagIcon, Loader2, X, Info, AlertTriangle, Edit, Tags, Plus, Sparkles, Settings, Filter, RefreshCw } from 'lucide-react';
 import { detectSourceCategory, formatTagForDisplay, suggestTagsFromContent, getSourceCategories } from '@/utils/transcriptUtils';
 import TranscriptDiagnostics from "@/components/TranscriptDiagnostics";
@@ -389,7 +388,6 @@ const TranscriptsPage: React.FC = () => {
 
   return (
     <div className="min-h-screen flex flex-col">
-      {/* <Header /> */} // Removed duplicate header component
       <div className="container mx-auto py-6 flex-1">
         <div className="flex justify-between items-center mb-6">
           <h1 className="text-2xl font-bold">Transcripts</h1>
@@ -816,6 +814,7 @@ const TranscriptsPage: React.FC = () => {
               open={isBulkProcessorOpen}
               onClose={handleCloseBulkProcessor}
               onComplete={handleBulkProcessingComplete}
+              userId={user?.id || ''}
             />
           </DialogContent>
         </Dialog>
@@ -828,10 +827,15 @@ const TranscriptsPage: React.FC = () => {
                 Troubleshoot and fix issues with transcript uploads
               </DialogDescription>
             </DialogHeader>
-            <TranscriptDiagnostics onComplete={() => {
-              setIsDiagnosticsOpen(false);
-              fetchTranscripts();
-            }} />
+            <TranscriptDiagnostics
+              open={isDiagnosticsOpen}
+              onClose={() => setIsDiagnosticsOpen(false)}
+              onComplete={() => {
+                fetchTranscripts();
+              }}
+              transcript={selectedTranscript}
+              userId={user?.id || ''}
+            />
           </DialogContent>
         </Dialog>
       </div>
