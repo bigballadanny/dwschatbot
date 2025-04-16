@@ -6,7 +6,6 @@ import { MessageSource } from '@/utils/messageUtils';
 
 // Firebase configuration - replace with your actual Firebase project config
 const firebaseConfig = {
-  // This will be filled in from environment variables in production
   apiKey: import.meta.env.VITE_FIREBASE_API_KEY,
   authDomain: import.meta.env.VITE_FIREBASE_AUTH_DOMAIN,
   projectId: import.meta.env.VITE_FIREBASE_PROJECT_ID,

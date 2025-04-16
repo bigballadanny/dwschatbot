@@ -1,4 +1,3 @@
-
 import { Json } from '@/integrations/supabase/types';
 
 // Define valid message sources for type safety throughout the app
@@ -103,4 +102,66 @@ export const apiMessageToUiMessage = (apiMessage: any): MessageData => {
     timestamp: new Date(),
     citation: apiMessage.citation
   };
+};
+
+/**
+ * Checks if the metadata column exists in the messages table
+ * @param supabase - Supabase client
+ * @returns Promise<boolean> - Whether the metadata column exists
+ */
+export const checkMetadataColumnExists = async (supabase: any): Promise<boolean> => {
+  try {
+    // Query a single row to inspect column names
+    const { data, error } = await supabase
+      .from('messages')
+      .select('metadata')
+      .limit(1);
+    
+    if (error) {
+      console.error('Error checking metadata column:', error);
+      return false;
+    }
+    
+    // If we got here without error, the column exists
+    return true;
+  } catch (error) {
+    console.error('Exception checking metadata column:', error);
+    return false;
+  }
+};
+
+/**
+ * Prepares message objects for database insertion
+ * @param conversationId - Conversation ID
+ * @param userMessage - User message content
+ * @param responseMessage - System response message
+ * @returns Array of prepared message objects
+ */
+export const prepareMessagesForDb = (
+  conversationId: string, 
+  userMessage: string,
+  responseMessage: { content: string, source: MessageSource, citation?: string[] }
+) => {
+  const messages = [];
+  
+  // User message
+  messages.push({
+    conversation_id: conversationId,
+    content: userMessage,
+    is_user: true,
+    metadata: {}
+  });
+  
+  // System response message
+  messages.push({
+    conversation_id: conversationId,
+    content: responseMessage.content,
+    is_user: false,
+    metadata: {
+      source: responseMessage.source,
+      citation: responseMessage.citation || []
+    }
+  });
+  
+  return messages;
 };
