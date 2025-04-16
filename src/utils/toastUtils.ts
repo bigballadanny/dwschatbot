@@ -89,9 +89,9 @@ export const showLoading = (title: string, description?: string): string => {
  * @param id - The ID of the toast to dismiss
  */
 export const dismissToast = (id: string) => {
-  // We need to directly import the dismiss function from use-toast
-  const { toast: toastInstance } = require("@/hooks/use-toast");
-  toastInstance.dismiss(id);
+  // Import directly from use-toast to avoid circular references
+  const { dismiss } = require("@/hooks/use-toast");
+  dismiss(id);
 };
 
 /**
