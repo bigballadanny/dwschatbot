@@ -113,7 +113,7 @@ const ChatInterface = forwardRef<
     setUploading(true);
     
     try {
-      await new Promise(resolve => setTimeout(resolve, 1500));
+      // Removed artificial delay: await new Promise(resolve => setTimeout(resolve, 1500));
       
       toast({
         title: "Document Uploaded",
@@ -136,7 +136,8 @@ const ChatInterface = forwardRef<
   };
   
   useEffect(() => {
-    messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
+    // Scroll to bottom, but use 'auto' for less jarring effect on updates
+    messagesEndRef.current?.scrollIntoView({ behavior: 'auto' });
   }, [messages]);
   
   return (

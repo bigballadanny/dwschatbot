@@ -10,12 +10,8 @@ interface UseMessagesProps {
 }
 
 export function useMessages({ userId, conversationId }: UseMessagesProps) {
-  // Initialize messages state with a default welcome message
-  const [messages, setMessages] = useState<MessageData[]>([{
-    content: "Hello! I'm Carl Allen's Expert Bot. Ask me anything about M&A based on Carl's teachings.",
-    source: 'system',
-    timestamp: new Date(),
-  }]);
+  // Initialize messages state as an empty array
+  const [messages, setMessages] = useState<MessageData[]>([]);
   
   const [isLoading, setIsLoading] = useState(false);
   const [hasInteracted, setHasInteracted] = useState(false);
@@ -24,11 +20,7 @@ export function useMessages({ userId, conversationId }: UseMessagesProps) {
 
   // Reset messages to initial state
   const resetMessages = () => {
-    setMessages([{
-      content: "Hello! I'm Carl Allen's Expert Bot. Ask me anything...",
-      source: 'system', 
-      timestamp: new Date(),
-    }]);
+    setMessages([]); // Reset to empty array
     setHasInteracted(false);
   };
 
@@ -81,14 +73,10 @@ export function useMessages({ userId, conversationId }: UseMessagesProps) {
           
         if (convoData) {
           console.log(`Conversation ${convId} exists but has no messages`);
-          // Initialize with empty state
-          setMessages([{
-            content: "Ask me anything...", 
-            source: 'system', 
-            timestamp: new Date(),
-          }]);
-          setHasInteracted(false);
-          return true;
+          // Conversation exists but is empty, set messages to empty array
+          setMessages([]);
+          setHasInteracted(false); // User hasn't interacted in *this* session yet
+          return true; // Indicate conversation was found (even if empty)
         } else {
           console.log(`Conversation ${convId} not found or not owned by user ${uid}`);
           return false;
