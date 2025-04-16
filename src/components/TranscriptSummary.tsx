@@ -6,6 +6,9 @@ import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
 import { toast } from "@/components/ui/use-toast";
 import { Sparkles, AlertCircle, CheckCircle2, RefreshCw } from 'lucide-react';
+import { SummaryContent } from './summary/SummaryContent';
+import { KeyPointsList } from './summary/KeyPointsList';
+import { GoldenNuggetsList } from './summary/GoldenNuggetsList';
 
 // Initialize Supabase client
 const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
@@ -17,7 +20,7 @@ interface TranscriptSummaryProps {
   userId: string;
 }
 
-interface SummaryData {
+export interface SummaryData {
   id: string;
   transcript_id: string;
   summary: string;
@@ -66,61 +69,17 @@ const TranscriptSummary: React.FC<TranscriptSummaryProps> = ({ transcriptId, use
       if (data) {
         setSummary(data);
         
-        // Process key points - handle different formats that might be returned
+        // Process key points
         try {
-          let processedKeyPoints: string[] = [];
-          if (typeof data.key_points === 'string') {
-            try {
-              // Try to parse as JSON
-              const parsed = JSON.parse(data.key_points);
-              if (Array.isArray(parsed)) {
-                processedKeyPoints = parsed;
-              } else if (typeof parsed === 'object') {
-                // Handle object format (e.g., {"1": "point one", "2": "point two"})
-                processedKeyPoints = Object.values(parsed).filter(p => typeof p === 'string') as string[];
-              }
-            } catch (e) {
-              // If not valid JSON, split by newlines or treat as a single item
-              processedKeyPoints = data.key_points.includes('\n') 
-                ? data.key_points.split('\n').filter(p => p.trim().length > 0)
-                : [data.key_points];
-            }
-          } else if (Array.isArray(data.key_points)) {
-            processedKeyPoints = data.key_points;
-          } else if (data.key_points && typeof data.key_points === 'object') {
-            processedKeyPoints = Object.values(data.key_points).filter(p => typeof p === 'string') as string[];
-          }
-          
-          setKeyPoints(processedKeyPoints);
+          setKeyPoints(processKeyPoints(data.key_points));
         } catch (keyPointError) {
           console.error("Error processing key points:", keyPointError);
           setKeyPoints([]);
         }
         
-        // Process golden nuggets if available
+        // Process golden nuggets
         try {
-          let processedNuggets: string[] = [];
-          if (data.golden_nuggets) {
-            if (typeof data.golden_nuggets === 'string') {
-              try {
-                const parsed = JSON.parse(data.golden_nuggets);
-                if (Array.isArray(parsed)) {
-                  processedNuggets = parsed;
-                } else if (typeof parsed === 'object') {
-                  processedNuggets = Object.values(parsed).filter(n => typeof n === 'string') as string[];
-                }
-              } catch (e) {
-                processedNuggets = data.golden_nuggets.includes('\n')
-                  ? data.golden_nuggets.split('\n').filter(n => n.trim().length > 0)
-                  : [data.golden_nuggets];
-              }
-            } else if (Array.isArray(data.golden_nuggets)) {
-              processedNuggets = data.golden_nuggets;
-            } else if (typeof data.golden_nuggets === 'object') {
-              processedNuggets = Object.values(data.golden_nuggets).filter(n => typeof n === 'string') as string[];
-            }
-          }
-          setGoldenNuggets(processedNuggets);
+          setGoldenNuggets(processGoldenNuggets(data.golden_nuggets));
         } catch (nuggetError) {
           console.error("Error processing golden nuggets:", nuggetError);
           setGoldenNuggets([]);
@@ -129,6 +88,63 @@ const TranscriptSummary: React.FC<TranscriptSummaryProps> = ({ transcriptId, use
     } finally {
       setLoading(false);
     }
+  };
+
+  // Helper function to process key points from various formats
+  const processKeyPoints = (rawKeyPoints: any): string[] => {
+    if (!rawKeyPoints) return [];
+    
+    let processedKeyPoints: string[] = [];
+    if (typeof rawKeyPoints === 'string') {
+      try {
+        // Try to parse as JSON
+        const parsed = JSON.parse(rawKeyPoints);
+        if (Array.isArray(parsed)) {
+          processedKeyPoints = parsed;
+        } else if (typeof parsed === 'object') {
+          // Handle object format (e.g., {"1": "point one", "2": "point two"})
+          processedKeyPoints = Object.values(parsed).filter(p => typeof p === 'string') as string[];
+        }
+      } catch (e) {
+        // If not valid JSON, split by newlines or treat as a single item
+        processedKeyPoints = rawKeyPoints.includes('\n') 
+          ? rawKeyPoints.split('\n').filter((p: string) => p.trim().length > 0)
+          : [rawKeyPoints];
+      }
+    } else if (Array.isArray(rawKeyPoints)) {
+      processedKeyPoints = rawKeyPoints;
+    } else if (rawKeyPoints && typeof rawKeyPoints === 'object') {
+      processedKeyPoints = Object.values(rawKeyPoints).filter(p => typeof p === 'string') as string[];
+    }
+    
+    return processedKeyPoints;
+  };
+
+  // Helper function to process golden nuggets from various formats
+  const processGoldenNuggets = (rawNuggets: any): string[] => {
+    if (!rawNuggets) return [];
+    
+    let processedNuggets: string[] = [];
+    if (typeof rawNuggets === 'string') {
+      try {
+        const parsed = JSON.parse(rawNuggets);
+        if (Array.isArray(parsed)) {
+          processedNuggets = parsed;
+        } else if (typeof parsed === 'object') {
+          processedNuggets = Object.values(parsed).filter(n => typeof n === 'string') as string[];
+        }
+      } catch (e) {
+        processedNuggets = rawNuggets.includes('\n')
+          ? rawNuggets.split('\n').filter((n: string) => n.trim().length > 0)
+          : [rawNuggets];
+      }
+    } else if (Array.isArray(rawNuggets)) {
+      processedNuggets = rawNuggets;
+    } else if (typeof rawNuggets === 'object') {
+      processedNuggets = Object.values(rawNuggets).filter(n => typeof n === 'string') as string[];
+    }
+    
+    return processedNuggets;
   };
 
   const generateSummary = async () => {
@@ -281,42 +297,14 @@ const TranscriptSummary: React.FC<TranscriptSummaryProps> = ({ transcriptId, use
         </Button>
       </div>
       
-      <div>
-        <h3 className="text-lg font-semibold mb-2">Summary</h3>
-        <div className="text-gray-700 whitespace-pre-wrap">
-          {summary.summary}
-        </div>
-      </div>
+      <SummaryContent summary={summary.summary} />
       
       {goldenNuggets.length > 0 && (
-        <div>
-          <h3 className="text-lg font-semibold mb-2 flex items-center">
-            <Sparkles className="h-4 w-4 mr-2 text-amber-500" />
-            Golden Nuggets
-          </h3>
-          <ul className="space-y-2 list-none">
-            {goldenNuggets.map((nugget, idx) => (
-              <li key={idx} className="bg-amber-50 border border-amber-100 p-3 rounded-md">
-                <div className="flex">
-                  <div className="text-amber-700 font-medium">{nugget}</div>
-                </div>
-              </li>
-            ))}
-          </ul>
-        </div>
+        <GoldenNuggetsList nuggets={goldenNuggets} />
       )}
       
       {keyPoints.length > 0 && (
-        <div>
-          <h3 className="text-lg font-semibold mb-2">Key Points</h3>
-          <ul className="space-y-2 list-none">
-            {keyPoints.map((point, idx) => (
-              <li key={idx} className="bg-gray-50 border border-gray-100 p-3 rounded-md">
-                {point}
-              </li>
-            ))}
-          </ul>
-        </div>
+        <KeyPointsList points={keyPoints} />
       )}
     </div>
   );
