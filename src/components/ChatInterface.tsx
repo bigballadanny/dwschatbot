@@ -6,7 +6,7 @@ import { cn } from "@/lib/utils";
 import SearchModeToggle from './SearchModeToggle';
 import { useSidebar } from "@/components/ui/sidebar";
 import { AIInputWithSearch } from "@/components/ui/ai-input-with-search";
-import { toast } from "@/components/ui/use-toast";
+import { showInfo, showError } from "@/utils/toastUtils";
 
 interface ChatInterfaceProps {
   className?: string;
@@ -48,7 +48,9 @@ const ChatInterface = forwardRef<
   
   useEffect(() => {
     if (initialQuestion && initialQuestion.trim()) {
-      setTimeout(() => handleSubmitQuestion(initialQuestion), 800);
+      // Use a longer delay to ensure the component is fully mounted
+      const timer = setTimeout(() => handleSubmitQuestion(initialQuestion), 1000);
+      return () => clearTimeout(timer);
     }
   }, [initialQuestion]);
   
@@ -59,6 +61,7 @@ const ChatInterface = forwardRef<
   const handleSubmitQuestion = async (questionText: string) => {
     if (!questionText.trim() || isLoading) return;
     
+    console.log("Submitting question:", questionText);
     setInput('');
     setIsLoading(true);
     
@@ -66,6 +69,7 @@ const ChatInterface = forwardRef<
       await onSendMessage(questionText);
     } catch (error) {
       console.error('Error submitting question:', error);
+      showError('Failed to send message', 'Please try again later.', error);
     } finally {
       setIsLoading(false);
     }
@@ -93,20 +97,12 @@ const ChatInterface = forwardRef<
     ];
     
     if (!allowedTypes.includes(file.type)) {
-      toast({
-        title: "Unsupported File Type",
-        description: "Please upload a PDF, Word, Excel, CSV, or text document.",
-        variant: "destructive"
-      });
+      showError("Unsupported File Type", "Please upload a PDF, Word, Excel, CSV, or text document.");
       return;
     }
     
     if (file.size > 10 * 1024 * 1024) { // 10MB limit
-      toast({
-        title: "File Too Large",
-        description: "Please upload a file smaller than 10MB.",
-        variant: "destructive"
-      });
+      showError("File Too Large", "Please upload a file smaller than 10MB.");
       return;
     }
     
@@ -115,21 +111,14 @@ const ChatInterface = forwardRef<
     try {
       // Removed artificial delay: await new Promise(resolve => setTimeout(resolve, 1500));
       
-      toast({
-        title: "Document Uploaded",
-        description: `"${file.name}" has been uploaded and is being analyzed.`,
-      });
+      showInfo("Document Uploaded", `"${file.name}" has been uploaded and is being analyzed.`);
       
       const filePrompt = `I've uploaded a document titled "${file.name}". Please analyze this document and provide insights.`;
       await handleSubmitQuestion(filePrompt);
       
     } catch (error) {
       console.error('Error uploading document:', error);
-      toast({
-        title: "Upload Failed",
-        description: "There was a problem uploading your document. Please try again.",
-        variant: "destructive"
-      });
+      showError("Upload Failed", "There was a problem uploading your document. Please try again.");
     } finally {
       setUploading(false);
     }
