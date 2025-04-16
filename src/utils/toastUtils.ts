@@ -1,5 +1,4 @@
-
-import { useToast } from "@/hooks/use-toast";
+import { toast } from "@/hooks/use-toast";
 
 /**
  * Toast utility functions to provide a consistent notification experience
@@ -12,8 +11,7 @@ import { useToast } from "@/hooks/use-toast";
  * @param duration - Optional duration in milliseconds (default: 5000ms)
  */
 export const showSuccess = (title: string, description?: string, duration: number = 5000) => {
-  const { toast } = useToast();
-  toast({ 
+  return toast({ 
     title, 
     description,
     variant: 'success',
@@ -29,13 +27,11 @@ export const showSuccess = (title: string, description?: string, duration: numbe
  * @param duration - Optional duration in milliseconds (default: 7000ms)
  */
 export const showError = (title: string, description?: string, error?: any, duration: number = 7000) => {
-  const { toast } = useToast();
-  
   if (error) {
     console.error(title, error);
   }
   
-  toast({ 
+  return toast({ 
     title, 
     description: description || "Please try again or contact support if the issue persists.",
     variant: 'destructive',
@@ -50,8 +46,7 @@ export const showError = (title: string, description?: string, error?: any, dura
  * @param duration - Optional duration in milliseconds (default: 5000ms)
  */
 export const showWarning = (title: string, description?: string, duration: number = 5000) => {
-  const { toast } = useToast();
-  toast({ 
+  return toast({ 
     title, 
     description,
     variant: 'warning',
@@ -66,8 +61,7 @@ export const showWarning = (title: string, description?: string, duration: numbe
  * @param duration - Optional duration in milliseconds (default: 5000ms)
  */
 export const showInfo = (title: string, description?: string, duration: number = 5000) => {
-  const { toast } = useToast();
-  toast({ 
+  return toast({ 
     title, 
     description,
     variant: 'info',
@@ -82,12 +76,11 @@ export const showInfo = (title: string, description?: string, duration: number =
  * @returns id - The toast ID to use for updating the toast later
  */
 export const showLoading = (title: string, description?: string): string => {
-  const { toast } = useToast();
   return toast({ 
     title, 
     description,
     duration: 100000, // Long duration
-    variant: 'default', // Using default since 'loading' is not supported
+    variant: 'loading', // Now loading is a valid variant
   }).id;
 };
 
@@ -96,7 +89,7 @@ export const showLoading = (title: string, description?: string): string => {
  * @param id - The ID of the toast to dismiss
  */
 export const dismissToast = (id: string) => {
-  const { dismiss } = useToast();
+  const { dismiss } = toast();
   dismiss(id);
 };
 

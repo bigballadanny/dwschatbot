@@ -33,7 +33,9 @@ export function Toaster() {
         return (
           <Toast key={id} {...props} variant={variant} className="group backdrop-blur-sm">
             <div className="flex gap-3">
-              {Icon && <Icon className={`h-5 w-5 ${variant === 'loading' ? 'animate-spin' : ''}`} />}
+              {Icon && (
+                <Icon className={`h-5 w-5 ${variant === 'loading' ? 'animate-spin' : ''}`} />
+              )}
               <div className="grid gap-1 flex-1">
                 {title && <ToastTitle>{title}</ToastTitle>}
                 {description && (

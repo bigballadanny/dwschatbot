@@ -139,7 +139,7 @@ function dispatch(action: Action) {
 
 interface Toast extends Omit<ToasterToast, "id"> {}
 
-function toast({ ...props }: Toast) {
+function toast(props: Toast) {
   const id = genId()
 
   const update = (props: ToasterToast) =>
@@ -189,6 +189,10 @@ function info(props: Toast) {
   return toast({ ...props, variant: "info" })
 }
 
+function loading(props: Toast) {
+  return toast({ ...props, variant: "loading" })
+}
+
 function useToast() {
   const [state, setState] = React.useState<State>(memoryState)
 
@@ -210,7 +214,8 @@ function useToast() {
     error,
     warning,
     info,
+    loading,
   }
 }
 
-export { toast, useToast, success, error, warning, info }
+export { toast, useToast, success, error, warning, info, loading }

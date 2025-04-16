@@ -1,3 +1,3 @@
 
 // Re-export to maintain backward compatibility
-export { useToast, toast } from "@/hooks/use-toast";
+export { useToast, toast, success, error, warning, info, loading } from "@/hooks/use-toast";

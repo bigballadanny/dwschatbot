@@ -8,6 +8,7 @@
 - ✅ Created new AlertsList component to complete the summary component set
 - ✅ Created unified useAudioManager hook to consolidate audio functionality
 - ✅ Fixed custom-toast component to use correct variant types
+- ✅ Added 'loading' variant to toast components
 - ✅ Updated toast utilities for better type safety and compatibility
 - ✅ Fixed imports to use correct paths for the shadcn hooks (@/hooks/use-toast)
 
