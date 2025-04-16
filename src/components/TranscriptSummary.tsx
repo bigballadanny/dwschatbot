@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from 'react';
 import { supabase } from '@/integrations/supabase/client'; // Import the global supabase client
 import { Button } from "@/components/ui/button";
@@ -62,11 +61,22 @@ const TranscriptSummary: React.FC<TranscriptSummaryProps> = ({ transcriptId, use
       }
       
       if (data) {
-        setSummary(data);
+        // Convert the data to match our SummaryData type
+        const summaryData: SummaryData = {
+          id: data.id,
+          transcript_id: data.transcript_id,
+          summary: data.summary,
+          key_points: data.key_points || [],
+          golden_nuggets: data.golden_nuggets || [],
+          created_at: data.created_at,
+          updated_at: data.updated_at
+        };
+        
+        setSummary(summaryData);
         
         // Process key points
         try {
-          setKeyPoints(processKeyPoints(data.key_points));
+          setKeyPoints(processKeyPoints(summaryData.key_points));
         } catch (keyPointError) {
           console.error("Error processing key points:", keyPointError);
           setKeyPoints([]);
@@ -74,7 +84,7 @@ const TranscriptSummary: React.FC<TranscriptSummaryProps> = ({ transcriptId, use
         
         // Process golden nuggets
         try {
-          setGoldenNuggets(processGoldenNuggets(data.golden_nuggets));
+          setGoldenNuggets(processGoldenNuggets(summaryData.golden_nuggets));
         } catch (nuggetError) {
           console.error("Error processing golden nuggets:", nuggetError);
           setGoldenNuggets([]);
@@ -85,7 +95,6 @@ const TranscriptSummary: React.FC<TranscriptSummaryProps> = ({ transcriptId, use
     }
   };
 
-  // Helper function to process key points from various formats
   const processKeyPoints = (rawKeyPoints: any): string[] => {
     if (!rawKeyPoints) return [];
     
@@ -115,7 +124,6 @@ const TranscriptSummary: React.FC<TranscriptSummaryProps> = ({ transcriptId, use
     return processedKeyPoints;
   };
 
-  // Helper function to process golden nuggets from various formats
   const processGoldenNuggets = (rawNuggets: any): string[] => {
     if (!rawNuggets) return [];
     

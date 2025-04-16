@@ -90,7 +90,7 @@ export const showLoading = (title: string, description?: string): string => {
  * @param id - The ID of the toast to dismiss
  */
 export const dismissToast = (id: string) => {
-  // Fix: toast() needs no arguments, and we use the returned object to call dismiss(id)
+  // Fix: call dismiss directly from the toast object
   toast().dismiss(id);
 };
 
@@ -100,7 +100,6 @@ export const dismissToast = (id: string) => {
  * @param tagName - The name of the tag
  */
 export const showTagAction = (action: 'added' | 'updated' | 'deleted', tagName: string) => {
-  // Fix: Import toast directly instead of using useToast hook
   switch (action) {
     case 'added':
       toast({
@@ -136,7 +135,6 @@ export const showTagAction = (action: 'added' | 'updated' | 'deleted', tagName: 
  * @param description - Optional description text
  */
 export const showUploadProgress = (title: string, progress: number, description?: string) => {
-  // Fix: Import toast directly instead of using useToast hook
   toast({ 
     title, 
     description: description || `Upload progress: ${progress}%`,
@@ -152,7 +150,6 @@ export const showUploadProgress = (title: string, progress: number, description?
  * @param description - Optional description text
  */
 export const showProcessingFile = (title: string, fileType: string, description?: string) => {
-  // Fix: Import toast directly instead of using useToast hook
   toast({ 
     title, 
     description: description || `Processing ${fileType} file. Please wait...`,
