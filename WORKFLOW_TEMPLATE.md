@@ -1,4 +1,5 @@
 
+
 # WORKFLOW TEMPLATE
 
 ## 🔒 IMPORTANT: WORKFLOW PROTECTION PROTOCOL 🔒
@@ -113,7 +114,9 @@ Vibe Sessions are critical alignment meetings that should:
 ## 5. Development Guidelines
 
 ### 5.1. Architecture
-[Key architectural decisions and patterns]
+- Component-based architecture with focused responsibilities
+- Clear separation between UI components, hooks, and business logic
+- Centralized state management with appropriate scoping
 
 ### 5.2. Dev Guidelines
 - Modular components with focused responsibilities
@@ -122,12 +125,26 @@ Vibe Sessions are critical alignment meetings that should:
 - Comments for complex logic
 - Optimize for readability and maintainability
 
-### 5.3. Model Versioning
+### 5.3. Code Quality Standards
+- Keep component files under 200 lines
+- Maximum function length of 50 lines
+- Extract complex logic into custom hooks
+- Prefer composition over inheritance
+- Use clear, descriptive variable and function names
+
+### 5.4. Refactoring Guidelines
+- Extract shared UI patterns into reusable components
+- Decompose large components into smaller, focused ones
+- Convert imperative code to declarative patterns where possible
+- Consolidate duplicate functionality into shared utilities
+- Optimize critical rendering paths
+
+### 5.5. Model Versioning
 - Always specify EXACT model versions (e.g., "Vertex AI Gemini 1.5 Pro" not just "Gemini 2.0")
 - Track model behavior changes and document version-specific optimizations
 - Test prompt performance across different model versions when possible
 
-### 5.4. Lessons & Improvements
+### 5.6. Lessons & Improvements
 [Key takeaways, optimizations, pitfalls to avoid]
 
 ## 6. Future Roadmap
@@ -139,3 +156,5 @@ Vibe Sessions are critical alignment meetings that should:
 ## 🔄 Version History
 - v1.0 (YYYY-MM-DD): Initial template creation
 - v1.1 (YYYY-MM-DD): Added sections and command references
+- v1.2 (2025-04-16): Added Code Quality Standards and Refactoring Guidelines
+
