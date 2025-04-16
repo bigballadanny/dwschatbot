@@ -45,6 +45,27 @@ export function showInfo(title: string, message?: string) {
   });
 }
 
+// Tag action toast - used for tag operations in the TagsInput component
+export function showTagAction(action: 'added' | 'deleted' | 'updated', tagName: string) {
+  const titles = {
+    added: `Tag Added`,
+    deleted: `Tag Removed`,
+    updated: `Tag Updated`
+  };
+  
+  const messages = {
+    added: `"${tagName}" has been added.`,
+    deleted: `"${tagName}" has been removed.`,
+    updated: `"${tagName}" has been updated.`
+  };
+  
+  toastFn({
+    title: titles[action],
+    description: messages[action],
+    variant: action === 'deleted' ? "destructive" : "default"
+  });
+}
+
 // Current AI model info - centralized for easy updates
 export const AI_MODEL_INFO = {
   CURRENT_MODEL: "gemini-2.0-flash",
