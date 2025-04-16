@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from 'react';
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription, CardFooter } from "@/components/ui/card";
@@ -7,6 +6,7 @@ import { ScrollArea } from "@/components/ui/scroll-area";
 import { Loader2, RefreshCw, FileText, AlertTriangle, Check } from "lucide-react";
 import { supabase } from '@/integrations/supabase/client';
 import { showSuccess, showError } from "@/utils/toastUtils";
+import { Json } from '@/integrations/supabase/types';
 
 interface KeyPoint {
   point: string;
@@ -51,11 +51,44 @@ const TranscriptSummary: React.FC<TranscriptSummaryProps> = ({ transcriptId, use
       if (error) {
         console.error('Error fetching summary:', error);
       } else if (data) {
-        setSummaryData(data);
+        const processedData: SummaryData = {
+          ...data,
+          key_points: processKeyPoints(data.key_points)
+        };
+        setSummaryData(processedData);
       }
     } catch (err) {
       console.error('Failed to fetch summary:', err);
     }
+  };
+
+  const processKeyPoints = (keyPoints: Json): KeyPoint[] => {
+    if (!keyPoints) return [];
+    
+    if (Array.isArray(keyPoints)) {
+      return keyPoints.map(point => {
+        if (typeof point === 'object' && point !== null) {
+          return {
+            point: point.point || 'Unknown point',
+            explanation: point.explanation || ''
+          };
+        }
+        return { point: String(point), explanation: '' };
+      });
+    }
+    
+    if (typeof keyPoints === 'string') {
+      try {
+        const parsed = JSON.parse(keyPoints);
+        if (Array.isArray(parsed)) {
+          return processKeyPoints(parsed);
+        }
+      } catch (e) {
+        return [{ point: keyPoints, explanation: '' }];
+      }
+    }
+    
+    return [];
   };
 
   const generateSummary = async () => {
@@ -81,7 +114,11 @@ const TranscriptSummary: React.FC<TranscriptSummaryProps> = ({ transcriptId, use
       }
 
       if (data?.summary) {
-        setSummaryData(data.summary);
+        const processedSummary: SummaryData = {
+          ...data.summary,
+          key_points: processKeyPoints(data.summary.key_points)
+        };
+        setSummaryData(processedSummary);
         showSuccess("Summary Generated", "The transcript summary was successfully generated.");
       } else {
         throw new Error('No summary data returned');
@@ -97,20 +134,17 @@ const TranscriptSummary: React.FC<TranscriptSummaryProps> = ({ transcriptId, use
   };
 
   const regenerateSummary = async () => {
-    // First, delete the existing summary
     if (!summaryData?.id) return;
     
     try {
       setLoading(true);
       setError(null);
       
-      // Remove existing summary
       await supabase
         .from('transcript_summaries')
         .delete()
         .eq('id', summaryData.id);
         
-      // Update transcript is_summarized flag
       await supabase
         .from('transcripts')
         .update({ is_summarized: false })
@@ -118,7 +152,6 @@ const TranscriptSummary: React.FC<TranscriptSummaryProps> = ({ transcriptId, use
       
       setSummaryData(null);
       
-      // Generate new summary
       await generateSummary();
     } catch (err: any) {
       console.error('Failed to regenerate summary:', err);
@@ -175,7 +208,7 @@ const TranscriptSummary: React.FC<TranscriptSummaryProps> = ({ transcriptId, use
             <div>
               <h3 className="text-lg font-semibold mb-2">Key Points</h3>
               <div className="space-y-3">
-                {Array.isArray(summaryData.key_points) ? (
+                {Array.isArray(summaryData.key_points) && summaryData.key_points.length > 0 ? (
                   summaryData.key_points.map((point, index) => (
                     <div key={index} className="border rounded-md p-3 bg-muted/10">
                       <h4 className="font-medium">{point.point}</h4>

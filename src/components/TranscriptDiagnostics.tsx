@@ -1,12 +1,10 @@
-
 import React, { useState, useEffect } from 'react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { generateFileIcon } from "@/utils/transcriptUtils";
-import { LucideIcon, File } from 'lucide-react';
-import { Play, Info, Sparkles, Check } from 'lucide-react';
+import { LucideIcon, File, Play, Info, Sparkles, Check } from 'lucide-react';
 import TranscriptSummary from './TranscriptSummary';
 
 interface TranscriptDiagnosticsProps {
@@ -24,7 +22,7 @@ const TranscriptDiagnostics: React.FC<TranscriptDiagnosticsProps> = ({
   transcript,
   userId = ''
 }) => {
-  const [fileIcon, setFileIcon] = useState<LucideIcon>(() => File);
+  const [fileIcon, setFileIcon] = useState<LucideIcon>(File);
   const [defaultTab, setDefaultTab] = useState<string>('content');
   
   useEffect(() => {
@@ -32,8 +30,10 @@ const TranscriptDiagnostics: React.FC<TranscriptDiagnosticsProps> = ({
       const fileType = transcript.file_type || 'text';
       const iconName = generateFileIcon(fileType);
       import('lucide-react').then(module => {
-        const icon = module[iconName.charAt(0).toUpperCase() + iconName.slice(1)] || File;
-        setFileIcon(icon);
+        const IconComponent = module[iconName.charAt(0).toUpperCase() + iconName.slice(1)];
+        if (IconComponent && typeof IconComponent === 'function') {
+          setFileIcon(() => IconComponent as LucideIcon);
+        }
       });
     }
     
@@ -170,4 +170,3 @@ const TranscriptDiagnostics: React.FC<TranscriptDiagnosticsProps> = ({
 };
 
 export default TranscriptDiagnostics;
-
