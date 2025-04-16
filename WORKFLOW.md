@@ -1,6 +1,13 @@
 
 # WORKFLOW.md
 
+## 🔒 IMPORTANT: WORKFLOW PROTECTION PROTOCOL 🔒
+
+This file is critical project documentation. Changes require:
+1. Explicit user confirmation before deletion
+2. Version backup before major changes
+3. Verification code for structural changes: "PROTECT-WORKFLOW"
+
 ## 1. Overview & Goals
 This project creates a user interface and dashboard for new users in the mergers and acquisition space to access and learn from Carl Allen's Deal Maker Society resources. Key components include:
 
@@ -9,10 +16,8 @@ This project creates a user interface and dashboard for new users in the mergers
 3.  **War Room** for users to upload potential business documents for AI analysis
 4.  **Transcript management system** for organizing educational content
 
-*Migration Source: `ARCHIVED_SYNTHIOS.md` (Project Overview section)*
-
-## 2. Modes
-This project utilizes different operational modes to handle various aspects of development and interaction:
+## 2. Operational Modes
+Each mode serves a specific purpose in our workflow:
 
 -   **Code Mode:** Responsible for writing, debugging, and refactoring code. Implements features based on plans and specifications. Handles tasks requiring direct file manipulation and execution of coding-related commands.
 -   **Architect Mode:** Focuses on planning, system design, and defining project structure. Gathers requirements, creates technical plans, and outlines workflows. Ensures the overall technical vision is sound.
@@ -20,7 +25,13 @@ This project utilizes different operational modes to handle various aspects of d
 -   **Debug Mode:** Specializes in diagnosing and resolving issues. Identifies root causes of bugs, analyzes errors, and proposes solutions.
 -   **Boomerang Mode:** Orchestrates complex tasks by breaking them down and delegating sub-tasks to the most appropriate specialized modes. Manages the overall flow of multi-step operations.
 
-*Migration Source: New content based on user request.*
+### Mode Transition Indicators
+Use the following commands to explicitly switch modes:
+- `Mode: Code` - Switch to implementation focus
+- `Mode: Architect` - Switch to planning and design focus
+- `Mode: Ask` - Switch to information and explanation focus
+- `Mode: Debug` - Switch to issue diagnosis and resolution focus
+- `Mode: Boomerang` - Switch to task orchestration and delegation focus
 
 ## 3. Workflow & Tasks
 
@@ -29,79 +40,61 @@ This project utilizes different operational modes to handle various aspects of d
 -   **Prioritization:** Tasks are prioritized based on project goals and dependencies.
 -   **Execution:** Tasks are assigned to or picked up by the appropriate mode (often Code mode for implementation). Focus on one task at a time, implementing small, targeted changes after analyzing the full scope.
 -   **Review & Alignment:** Regular "vibe sessions" (every 5-7 prompts) should be conducted to review progress, align understanding, and update the task board.
--   **Completion:** Tasks are marked as complete (`[x]`) only after being fully tested and verified. Completed tasks are then moved to the "Log / Changelog" section. Add new observations or bugs found during development to the board.
+-   **Completion:** Tasks are marked as complete (`[x]`) only after being fully tested and verified. Completed tasks are then moved to the "Log / Changelog" section with completion date. Add new observations or bugs found during development to the board.
 -   **Philosophy:** Remember: Every challenge is an opportunity for elegant solutions! 💡
 
-*Migration Source: `ARCHIVED_SYNTHIOS.md` (Development Workflow), `ARCHIVED_TASKBOARD.md` (Process Guidelines)*
+### 3.2. Command Reference
+- `Workflow Check`: Review current task statuses and update accordingly
+- `Vibe Session`: Conduct alignment meeting to review progress (every 5-7 prompts)
 
-### 3.2. Board
+### 3.3. Board
 
 **Current Focus (Phase 9 & Ongoing)**
 
 *   **Vertex AI Integration 🚀**
-    -   [x] Add Google Vertex AI integration to replace/supplement Gemini API
-    -   [x] Fix Vertex AI authentication issues with service account JSON
-    -   [x] Add service account validation tool
-    -   [x] Fix UI issues with service account validator
-    -   [x] Fix layout issues with sidebar after adding Vertex AI integration
+    -   [x] Add Google Vertex AI integration to replace/supplement Gemini API (2025-04-15)
+    -   [x] Fix Vertex AI authentication issues with service account JSON (2025-04-15)
+    -   [x] Add service account validation tool (2025-04-15)
+    -   [x] Fix UI issues with service account validator (2025-04-15)
+    -   [x] Fix layout issues with sidebar after adding Vertex AI integration (2025-04-15)
     -   [ ] Optimize token usage in conversations (Priority: Medium) - Status: To Do
-    -   [x] Enhance error handling for AI service switching
-    -   [x] Fix generateCacheKey function in gemini-chat edge function
+    -   [x] Enhance error handling for AI service switching (2025-04-15)
+    -   [x] Fix generateCacheKey function in gemini-chat edge function (2025-04-15)
     -   [ ] Implement Vertex AI diagnostics and testing tools (Priority: Medium) - Status: To Do
     -   [ ] Fix JWT token generation in Vertex AI authentication (Priority: High) - Status: To Do
     -   [ ] Upgrade to Gemini 2.0 Pro model for enhanced summarization (Priority: High) - Status: In Progress
 *   **Optimization Tasks ⚡**
-    -   [x] Fix message list scrolling issues
-    -   [x] Fix layout issues with the main application UI
-    -   [x] Fix sidebar missing from pages
+    -   [x] Fix message list scrolling issues (2025-04-15)
+    -   [x] Fix layout issues with the main application UI (2025-04-15)
+    -   [x] Fix sidebar missing from pages (2025-04-15)
     -   [ ] Improve message caching strategy (Priority: Medium) - Status: To Do
     -   [ ] Implement proper token bucket rate limiting (Priority: Low) - Status: To Do
     -   [ ] Add request batching for frequently asked questions (Priority: Low) - Status: To Do
     -   [ ] Optimize context window usage (Priority: Medium) - Status: To Do
 *   **UI Improvements ✨**
-    -   [x] Add easy navigation to Vertex AI setup page
-    -   [x] Fix scrolling behavior in chat interface
-    -   [x] Enhance service account validator UI
+    -   [x] Add easy navigation to Vertex AI setup page (2025-04-15)
+    -   [x] Fix scrolling behavior in chat interface (2025-04-15)
+    -   [x] Enhance service account validator UI (2025-04-15)
     -   [ ] Enhance message list animations and transitions (Priority: Low) - Status: To Do
-    -   [x] Improve sidebar UI and interaction
-    -   [x] Fix responsive design issues
-    -   [x] Fix missing sidebar on all pages
-*   **Testing Plan 🧪**
-    -   [ ] Test Vertex AI vs Gemini API performance (Priority: Medium) - Status: To Do
-    -   [ ] Monitor quota usage and rate limits (Priority: Medium) - Status: To Do
-    -   [x] Verify fallback mechanisms work properly
-    -   [x] Test recovery from API failures
-*   **Quick Wins / Bugs 🎯**
-    -   [x] Fix message persistence bugs
-    -   [x] Implement fallback mechanisms for API failures
-    -   [x] Create Vertex AI service account validator
-    -   [x] Fix UI bugs in MessageList component
-    -   [x] Add easy access to Vertex AI setup page
-    -   [x] Fix layout issues with SidebarProvider
-    -   [x] Fix missing sidebar on all pages
-    -   [x] Fix error in gemini-chat edge function
-    -   [ ] Improve error messaging across application (Priority: Low) - Status: To Do
-    -   [ ] Add keyboard shortcuts for power users (Priority: Low) - Status: To Do
-    -   [ ] Create diagnostics page for Vertex AI testing (Priority: Medium) - Status: To Do (Related to Vertex AI Integration task)
+    -   [x] Improve sidebar UI and interaction (2025-04-15)
+    -   [x] Fix responsive design issues (2025-04-15)
+    -   [x] Fix missing sidebar on all pages (2025-04-15)
 *   **Golden Nuggets Extraction 💎** 
-    -   [ ] Enhance summary generation with golden nuggets extraction (Priority: High) - Status: In Progress
+    -   [x] Enhance summary generation with golden nuggets extraction (2025-04-16)
     -   [ ] Update transcript summary UI to highlight golden nuggets (Priority: Medium) - Status: To Do
     -   [ ] Add search functionality for golden nuggets (Priority: Medium) - Status: To Do
     -   [ ] Create database schema for storing and retrieving golden nuggets (Priority: Medium) - Status: To Do
     -   [ ] Implement semantic search for golden nuggets (Priority: Low) - Status: To Do
     -   [ ] Add analytics for most valuable nuggets (Priority: Low) - Status: To Do
-
-
 *   **Backend & AI Integration 🔧**
     -   [ ] Investigate analytics data capture issues (Vertex AI vs Gemini?) (Priority: High) - Status: To Do
     -   [ ] Review and improve analytics graphs/data pulling (Priority: Medium) - Status: To Do
     -   [ ] Fix "Generate AI Insights" feature (Check Vertex AI usage) (Priority: High) - Status: To Do
-    -   [ ] Setup MCP Server for Supabase interaction (Priority: High) - Status: To Do
     -   [ ] Improve chat prompt for M&A focus (Analyze transcripts?) (Priority: Medium) - Status: To Do
     -   [ ] Investigate chat transcript usage for context (Priority: High) - Status: To Do
     -   [ ] Display references below chat responses (Priority: Medium) - Status: To Do
     -   [ ] Repurpose/Remove Vertex AI Setup code (Button removed, check related code) (Priority: Low) - Status: To Do
-    - [ ] Refine analytics insight prompts (Focus on admin needs, user strategies, confusion, content gaps) (Priority: Medium) - Status: To Do
+    -   [ ] Refine analytics insight prompts (Focus on admin needs, user strategies, confusion, content gaps) (Priority: Medium) - Status: To Do
 
 *   **UI & Responsiveness ✨**
     -   [ ] Address mobile friendliness progressively (Priority: Medium) - Status: Ongoing
@@ -120,13 +113,12 @@ This project utilizes different operational modes to handle various aspects of d
     -   [ ] Optimize performance for large datasets (Priority: Medium) - Status: To Do
 
 *Task Format:* Markdown checkboxes (`[ ]` To Do, `[/]` In Progress, `[x]` Done), description, priority, status, notes.
-*Migration Source: `ARCHIVED_TASKBOARD.md` (Adapted format)*
 
 ## 4. Log / Changelog
 
 This document tracks completed tasks and implementations, recording the history and evolution of the project.
 
-### Phase 1: Fix Type Issues ✅
+### Phase 1: Fix Type Issues ✅ (2025-04-10)
 
 -   Fixed the "Type instantiation is excessively deep" error in messageUtils.ts
 -   Created dbMessageToUiMessage utility function to align with database schema
@@ -135,14 +127,14 @@ This document tracks completed tasks and implementations, recording the history 
 -   Added explicit DbMessage interface to prevent deep instantiation errors
 -   Verified no remaining type errors
 
-### Phase 2: Consolidate Redundant Hooks ✅
+### Phase 2: Consolidate Redundant Hooks ✅ (2025-04-11)
 
 -   Analyzed useChatController and useChatMessages
 -   Identified overlapping functionalities
 -   Consolidated hooks into a single useChat hook
 -   Simplified audio handling by merging audio hooks
 
-### Phase 3: Backend and Type System Alignment ✅
+### Phase 3: Backend and Type System Alignment ✅ (2025-04-12)
 
 -   Investigated alignment between frontend types and Supabase database schema
 -   Identified that messages in the database have metadata field for source and citation
@@ -150,7 +142,7 @@ This document tracks completed tasks and implementations, recording the history 
 -   Ensured consistent data flow throughout the application
 -   Fixed remaining type complexity issues
 
-### Phase 4: UI Improvements ✅
+### Phase 4: UI Improvements ✅ (2025-04-13)
 
 -   Improved message list with better animations
 -   Enhanced scrolling behavior in chat
@@ -164,7 +156,7 @@ This document tracks completed tasks and implementations, recording the history 
 -   Research and integrate latest Gemini API features
 -   Updated Gemini version to 2.0
 
-### Phase 5: Bug Fixes ✅
+### Phase 5: Bug Fixes ✅ (2025-04-13)
 
 -   Fixed issue with popular questions not creating new conversations
 -   Resolved scrolling issues in message list
@@ -175,7 +167,7 @@ This document tracks completed tasks and implementations, recording the history 
 -   Fixed sidebar UI glitches
 -   Ensured consistent behavior across different parts of the application
 
-### Phase 6: Analytics Dashboard Improvements ✅
+### Phase 6: Analytics Dashboard Improvements ✅ (2025-04-14)
 
 -   Consolidated tabs from 11 to 5 categories
 -   Fixed layout issues and ensured proper responsiveness
@@ -185,7 +177,7 @@ This document tracks completed tasks and implementations, recording the history 
 -   Fixed scrollability issues
 -   Added content gap analysis
 
-### Phase 7: Integration with Gemini 2.0 ✅
+### Phase 7: Integration with Gemini 2.0 ✅ (2025-04-14)
 
 -   Updated edge function to use Gemini 2.0 API
 -   Added analytics insights edge function
@@ -193,7 +185,7 @@ This document tracks completed tasks and implementations, recording the history 
 -   Enhanced analytics logging
 -   Optimized AI response formatting
 
-### Phase 8: Message Persistence & Conversation Tracking ✅
+### Phase 8: Message Persistence & Conversation Tracking ✅ (2025-04-15)
 
 -   Fixed message saving issues by completely redesigning the metadata column detection system
 -   Created specialized utility function to prepare messages for database based on schema support
@@ -208,7 +200,7 @@ This document tracks completed tasks and implementations, recording the history 
 -   Ensured consistent state tracking between the UI and database
 -   Optimized data flow between hooks for better maintainability
 
-### Phase 9: Type Safety Fixes & Golden Nuggets Extraction ✅
+### Phase 9: Type Safety Fixes & Golden Nuggets Extraction ✅ (2025-04-16)
 
 -   Fixed type issues in TranscriptSummary.tsx with improved JSON processing
 -   Resolved LucideIcon type error in TranscriptDiagnostics.tsx  
@@ -217,10 +209,6 @@ This document tracks completed tasks and implementations, recording the history 
 -   Improved key points processing with robust error handling
 -   Added documentation for golden nuggets extraction plan to workflow
 
-*(Note: Wins & Lessons moved to Section 5.4)*
-
-*Migration Source: `ARCHIVED_CHANGELOG.md`*
-
 ## 5. Context & Guidelines
 
 ### 5.1. Principles
@@ -228,29 +216,21 @@ This document tracks completed tasks and implementations, recording the history 
 -   **Zoom In/Zoom Out Methodology:** Regularly alternate between the big picture (architecture, user journeys) and implementation details (optimizations, features) to maintain cohesion and quality.
 -   **Intuitive User Experience:** Create interfaces that feel natural and require minimal explanation (clear navigation, thoughtful hierarchy, minimal cognitive load, progressive disclosure).
 
-*Migration Source: `ARCHIVED_SYNTHIOS.md` (Core Principles)*
-
 ### 5.2. Architecture
 -   **State Management:** React Context API for global state (auth, preferences), local state for UI concerns, Supabase for persistence.
 -   **Data Flow:** Unidirectional data flow, custom hooks for fetching/processing, error boundaries.
 -   **API Integration:** Supabase (backend/auth), Gemini API / Vertex AI (AI features), Edge functions (secure interactions).
-
-*Migration Source: `ARCHIVED_SYNTHIOS.md` (Technical Architecture)*
 
 ### 5.3. Dev Guidelines
 -   **Code Implementation:** Modular components, consistent naming, TypeScript, comments for complex logic, optimize for readability/maintainability.
 -   **AI Strategy:** Use Gemini/Vertex AI for appropriate analytical tasks, balance with performance/cost, implement fallbacks.
 -   **File Structure:** Small, focused components (<200 lines), separate logic (hooks/utils), group related components, dedicated type files.
 
-*Migration Source: `ARCHIVED_SYNTHIOS.md` (Relevant sections)*
-
 ### 5.4. Lessons & Wins
 -   **Key Wins:** Reduced load time (40%), improved chat UX, intuitive analytics, fixed critical persistence issues, resilient saving mechanism, schema compatibility layer.
 -   **Optimizations/Lessons Applied:** Breaking tasks down, regular "vibe sessions", structured documentation, consistent types, user testing, defensive programming, robust fallbacks, comprehensive logging.
 -   **Common Pitfalls to Avoid:** Overengineering, neglecting UX, forgetting documentation.
 -   **UX Patterns:** Progressive disclosure, consistent feedback, accessibility.
-
-*Migration Source: `ARCHIVED_SYNTHIOS.md` & `ARCHIVED_CHANGELOG.md` (Lessons/Wins)*
 
 ## 6. Golden Nuggets Strategy
 
@@ -293,12 +273,11 @@ This document tracks completed tasks and implementations, recording the history 
 - UI components for nugget presentation
 - Analytics to track nugget usage and value
 
-*Added in Phase 9: Enhanced Summary Generation*
-
 ## 7. Roadmap / Ideas
 -   **Enhanced War Room:** Financial ratio analysis, industry comparison, due diligence checklist automation.
 -   **Learning Pathways:** Personalized recommendations, progress tracking, interactive exercises.
 -   **Community Features:** Discussion forums, expert Q&A, peer networking.
 -   **Nugget Repository:** Searchable library of golden nuggets extracted from all content.
 
-*Migration Source: `ARCHIVED_SYNTHIOS.md` (Future Innovations)*
+## 🔄 Version History
+- v1.0 (2025-04-16): Initial consolidated workflow with protection protocol

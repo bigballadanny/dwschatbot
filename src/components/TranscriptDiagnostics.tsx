@@ -36,7 +36,7 @@ const TranscriptDiagnostics: React.FC<TranscriptDiagnosticsProps> = ({
         const IconComponent = module[iconName.charAt(0).toUpperCase() + iconName.slice(1)];
         if (IconComponent && typeof IconComponent === 'function') {
           // Use proper type casting to ensure IconComponent is treated as LucideIcon
-          setFileIcon(IconComponent as LucideIcon);
+          setFileIcon(IconComponent as unknown as LucideIcon);
         }
       });
     }
