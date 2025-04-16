@@ -19,8 +19,8 @@ export interface SummaryData {
   id: string;
   transcript_id: string;
   summary: string;
-  key_points: string | string[] | { [key: string]: any }; // Flexible type to handle various API responses
-  golden_nuggets?: string[] | { [key: string]: any }; // For storing extracted golden nuggets
+  key_points: any; // Using 'any' to handle all possible JSON types from Supabase
+  golden_nuggets?: any; // Using 'any' to handle all possible JSON types from Supabase
   created_at: string;
   updated_at: string;
 }
