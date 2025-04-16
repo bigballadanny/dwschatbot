@@ -1,6 +1,7 @@
+
 import { useState } from 'react';
 import { supabase } from '@/integrations/supabase/client';
-import { MessageData, MessageSource, dbMessageToUiMessage } from '@/utils/messageUtils';
+import { MessageData, MessageSource, dbMessageToUiMessage, DbMessage } from '@/utils/messageUtils';
 
 interface UseMessagesProps {
   userId: string | undefined;
@@ -29,7 +30,7 @@ export function useMessages({ userId, conversationId }: UseMessagesProps) {
       
       if (data && data.length > 0) {
         // Convert database messages to UI format
-        const loadedMessages = data.map(dbMessageToUiMessage);
+        const loadedMessages = data.map((message) => dbMessageToUiMessage(message as unknown as DbMessage));
         setMessages(loadedMessages);
         setHasInteracted(true);
         return true;
@@ -63,7 +64,6 @@ export function useMessages({ userId, conversationId }: UseMessagesProps) {
     return userMessage;
   };
 
-  // Updated to accept any MessageSource type
   const addSystemMessage = (
     content: string,
     source: MessageSource = 'gemini',
