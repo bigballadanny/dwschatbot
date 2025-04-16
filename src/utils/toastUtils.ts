@@ -90,8 +90,8 @@ export const showLoading = (title: string, description?: string): string => {
  * @param id - The ID of the toast to dismiss
  */
 export const dismissToast = (id: string) => {
-  // Fix: call dismiss directly from the toast object
-  toast().dismiss(id);
+  // Fix: toast() has a dismiss method that we can use directly
+  toast.dismiss(id);
 };
 
 /**

@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect } from 'react';
 import { supabase } from '@/integrations/supabase/client'; // Import the global supabase client
 import { Button } from "@/components/ui/button";
@@ -66,11 +67,15 @@ const TranscriptSummary: React.FC<TranscriptSummaryProps> = ({ transcriptId, use
           id: data.id,
           transcript_id: data.transcript_id,
           summary: data.summary,
-          key_points: data.key_points || [],
-          golden_nuggets: data.golden_nuggets || [],
+          key_points: data.key_points || [], // Cast to our expected type
           created_at: data.created_at,
           updated_at: data.updated_at
         };
+        
+        // Add golden_nuggets if they exist in the database
+        if ('golden_nuggets' in data) {
+          summaryData.golden_nuggets = data.golden_nuggets || [];
+        }
         
         setSummary(summaryData);
         
