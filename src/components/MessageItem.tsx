@@ -19,6 +19,7 @@ const MessageItem: React.FC<MessageProps> = ({
   className,
 }) => {
   const isUser = source === 'user';
+  const isTranscriptSource = citation && citation.length > 0;
 
   return (
     <div
@@ -34,9 +35,15 @@ const MessageItem: React.FC<MessageProps> = ({
           'flex flex-col max-w-3xl',
           isUser 
             ? 'bg-blue-600 text-white px-4 py-3 rounded-2xl rounded-tr-sm' 
-            : 'bg-zinc-800 px-4 py-3 rounded-2xl rounded-tl-sm'
+            : 'bg-zinc-800 px-4 py-3 rounded-2xl rounded-tl-sm',
+          isTranscriptSource && !isUser && 'border-l-2 border-amber-500' // Visual indicator for transcript-sourced responses
         )}
       >
+        {isTranscriptSource && !isUser && !isLoading && (
+          <div className="text-xs text-amber-400 mb-2 font-medium">
+            Transcript-sourced response
+          </div>
+        )}
         <MessageContent content={content} isLoading={isLoading} />
         {!isUser && !isLoading && (
           <>

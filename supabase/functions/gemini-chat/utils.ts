@@ -184,3 +184,167 @@ export function countTokens(text: string): number {
         return Math.ceil(text.length / 4);
     }
 }
+
+/**
+ * Process transcripts for a given query to find relevant content
+ * @param query The user query to search for in transcripts
+ * @returns Relevant transcript data or null if none found
+ */
+export async function searchTranscriptsForQuery(
+    supabaseAdmin: any, 
+    query: string
+): Promise<{
+    content: string;
+    sources: string[];
+    relevance: number;
+} | null> {
+    if (!supabaseAdmin || !query || query.trim().length === 0) {
+        return null;
+    }
+    
+    console.log(`Searching transcripts for query: "${query}"`);
+    
+    try {
+        // First, get the most relevant transcripts
+        const { data: transcripts, error } = await supabaseAdmin
+            .from('transcripts')
+            .select('id, title, content, source')
+            .limit(5);  // Limit to 5 most relevant transcripts
+            
+        if (error) {
+            console.error("Error fetching transcripts:", error);
+            return null;
+        }
+        
+        if (!transcripts || transcripts.length === 0) {
+            console.log("No transcripts found in database");
+            return null;
+        }
+        
+        console.log(`Found ${transcripts.length} transcripts to search through`);
+        
+        // Simple relevance scoring
+        const scoredTranscripts = transcripts.map(transcript => {
+            const normalizedContent = transcript.content.toLowerCase();
+            const normalizedQuery = query.toLowerCase();
+            
+            // Basic relevance score: occurrences of query terms
+            const queryTerms = normalizedQuery.split(/\s+/).filter(term => term.length > 2);
+            
+            let score = 0;
+            let exactMatch = false;
+            
+            // Check for exact phrase match
+            if (normalizedContent.includes(normalizedQuery)) {
+                score += 100;
+                exactMatch = true;
+            }
+            
+            // Check for individual term matches
+            queryTerms.forEach(term => {
+                const matches = normalizedContent.match(new RegExp(`\\b${term}\\b`, 'gi'));
+                if (matches) {
+                    score += matches.length * 10;
+                }
+            });
+            
+            // Boost score based on context matches
+            if (!exactMatch && queryTerms.length > 1) {
+                // Check for paragraphs containing multiple query terms
+                const paragraphs = normalizedContent.split(/\n\n+/);
+                paragraphs.forEach(paragraph => {
+                    let termsFound = 0;
+                    queryTerms.forEach(term => {
+                        if (paragraph.includes(term)) {
+                            termsFound++;
+                        }
+                    });
+                    
+                    if (termsFound > 1) {
+                        score += termsFound * 15;
+                    }
+                });
+            }
+            
+            return {
+                ...transcript,
+                score
+            };
+        });
+        
+        // Filter to relevant transcripts
+        const relevantTranscripts = scoredTranscripts
+            .filter(t => t.score > 30)  // Only include transcripts with meaningful relevance
+            .sort((a, b) => b.score - a.score)
+            .slice(0, 3);  // Take top 3
+            
+        if (relevantTranscripts.length === 0) {
+            console.log("No relevant transcripts found for query");
+            return null;
+        }
+        
+        console.log(`Found ${relevantTranscripts.length} relevant transcripts for query`);
+        
+        // Extract relevant content from the transcripts
+        const extractedContent = relevantTranscripts.map(transcript => {
+            // Extract the most relevant paragraphs
+            const paragraphs = transcript.content.split(/\n\n+/);
+            const normalizedQuery = query.toLowerCase();
+            
+            // Score each paragraph for relevance
+            const scoredParagraphs = paragraphs.map(paragraph => {
+                const normalizedParagraph = paragraph.toLowerCase();
+                let score = 0;
+                
+                // Check for exact phrase match
+                if (normalizedParagraph.includes(normalizedQuery)) {
+                    score += 50;
+                }
+                
+                // Check for term matches
+                const queryTerms = normalizedQuery.split(/\s+/).filter(term => term.length > 2);
+                queryTerms.forEach(term => {
+                    if (normalizedParagraph.includes(term)) {
+                        score += 10;
+                    }
+                });
+                
+                return { paragraph, score };
+            });
+            
+            // Get the most relevant paragraphs
+            const relevantParagraphs = scoredParagraphs
+                .filter(p => p.score > 0)
+                .sort((a, b) => b.score - a.score)
+                .slice(0, 3)
+                .map(p => p.paragraph);
+                
+            return {
+                content: relevantParagraphs.join("\n\n"),
+                title: transcript.title,
+                source: transcript.source,
+                score: transcript.score
+            };
+        });
+        
+        // Combine extracted content
+        const combinedContent = extractedContent.map(t => 
+            `### From: ${t.title}\n\n${t.content}`
+        ).join("\n\n---\n\n");
+        
+        const sources = extractedContent.map(t => t.title);
+        const averageRelevance = extractedContent.reduce((sum, t) => sum + t.score, 0) / extractedContent.length;
+        
+        console.log(`Generated ${combinedContent.length} characters of relevant content from transcripts`);
+        
+        return {
+            content: combinedContent,
+            sources,
+            relevance: Math.round(averageRelevance)
+        };
+        
+    } catch (e) {
+        console.error("Error searching transcripts:", e);
+        return null;
+    }
+}

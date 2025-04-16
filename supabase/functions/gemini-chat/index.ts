@@ -1,10 +1,10 @@
 // --- Imports ---
 // @ts-ignore Deno-style import, valid in Supabase Edge Functions
-import { encode } from "https://esm.sh/gpt-tokenizer@2.1.1"; // CH-01: Import tokenizer
+import { encode } from "https://esm.sh/gpt-tokenizer@2.1.1";
 // @ts-ignore Deno-style import, valid in Supabase Edge Functions
-import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'; // CH-04: Import Supabase client
+import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
 // @ts-ignore Deno standard library
-import { crypto } from "https://deno.land/std@0.168.0/crypto/mod.ts"; // CH-04: Import crypto for hashing
+import { crypto } from "https://deno.land/std@0.168.0/crypto/mod.ts";
 
 // --- Utility Functions ---
 
@@ -14,7 +14,7 @@ import { crypto } from "https://deno.land/std@0.168.0/crypto/mod.ts"; // CH-04: 
  * @param maxTokens The maximum number of tokens allowed in the transcript.
  * @returns The truncated array of chat messages.
  */
-function truncateTranscript(messages: ChatMessage[], maxTokens: number): ChatMessage[] { // CH-02: Refactor
+function truncateTranscript(messages: ChatMessage[], maxTokens: number): ChatMessage[] {
     let currentTokenCount = 0;
     const truncatedMessages: ChatMessage[] = [];
     let originalTokenCount = 0;
@@ -114,12 +114,13 @@ import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import {
     ChatMessage,
     validateChatApiRequest,
-    normalizeMessage
+    normalizeMessage,
+    REQUEST_TIMEOUT_MS
 } from "./utils.ts";
 import { callVertexAI } from "./vertex.ts";
 import { checkServiceAccountHealth } from "./health.ts";
 
-// --- Supabase Client (CH-04) ---
+// --- Supabase Client ---
 // Use service_role key for backend operations, bypassing RLS
 // @ts-ignore Deno specific environment variable access
 const supabaseUrl = Deno.env.get('SUPABASE_URL');
@@ -128,18 +129,15 @@ const supabaseServiceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY');
 
 if (!supabaseUrl || !supabaseServiceKey) {
     console.error("Missing SUPABASE_URL or SUPABASE_SERVICE_ROLE_KEY environment variables.");
-    // Optionally throw an error to prevent the function from starting without config
-    // throw new Error("Supabase environment variables not set.");
 }
 
 // Create a single Supabase client instance
-// Use { auth: { persistSession: false } } to prevent client trying to store session
 const supabaseAdmin = supabaseUrl && supabaseServiceKey
     ? createClient(supabaseUrl, supabaseServiceKey, {
         auth: {
             autoRefreshToken: false,
             persistSession: false,
-            detectSessionInUrl: false // Important for server-side usage
+            detectSessionInUrl: false
         }
       })
     : null;
@@ -147,12 +145,13 @@ const supabaseAdmin = supabaseUrl && supabaseServiceKey
 // --- Constants ---
 
 const corsHeaders = {
-  'Access-Control-Allow-Origin': '*', // Allow requests from any origin
+  'Access-Control-Allow-Origin': '*',
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
 };
 
-const CACHE_TABLE_NAME = 'chat_cache'; // CH-04: Define cache table name
-const CURRENT_MODEL_ID = 'gemini-2.0-flash'; // Updated model identifier for caching and tracking
+const CACHE_TABLE_NAME = 'chat_cache';
+const ANALYTICS_TABLE_NAME = 'chat_analytics';
+const CURRENT_MODEL_ID = 'gemini-2.0-flash';
 
 const FALLBACK_RESPONSE = `
 # Unable to Connect to AI Service
@@ -179,6 +178,8 @@ You are an AI assistant designed to have natural conversations. Here are your in
 3. Always acknowledge questions with a direct answer first.
 4. When providing structured information, use clear sections.
 5. Maintain a conversational, helpful tone.
+6. If your knowledge comes from Carl Allen's materials, cite the source specifically, e.g. "According to Carl Allen's 2025 Business Acquisitions Summit..."
+7. When providing business acquisition advice, refer to specific details from relevant transcripts when available.
 `;
 
 // --- Main Server Handler ---
@@ -195,7 +196,7 @@ serve(async (req: Request) => {
   // --- Parse URL for potential health check ---
   const url = new URL(req.url);
   const pathSegments = url.pathname.split('/').filter(Boolean);
-  const endpoint = pathSegments[pathSegments.length - 1]; // Last part of the path
+  const endpoint = pathSegments[pathSegments.length - 1];
 
   // --- Handle Health Check Endpoint ---
   if (req.method === 'GET' && endpoint === 'health') {
@@ -203,12 +204,12 @@ serve(async (req: Request) => {
     const healthStatus = {
       status: "ok",
       timestamp: new Date().toISOString(),
-      serviceAccount: checkServiceAccountHealth() // Use imported health check
+      serviceAccount: checkServiceAccountHealth()
     };
     console.log("Health status:", healthStatus);
     return new Response(JSON.stringify(healthStatus), {
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-      status: healthStatus.serviceAccount.isValid ? 200 : 503 // Service Unavailable if SA invalid
+      status: healthStatus.serviceAccount.isValid ? 200 : 503
     });
   }
 
@@ -222,19 +223,25 @@ serve(async (req: Request) => {
   }
 
   console.log("Handling POST chat request");
+  const startTime = Date.now();
+  let analyticsData: any = {
+    successful: false,
+    created_at: new Date().toISOString()
+  };
 
   try {
     // 1. Check Service Account Validity Early
     const saHealth = checkServiceAccountHealth();
     if (!saHealth.isValid) {
       console.error("Service account check failed:", saHealth.error);
+      analyticsData.error_message = `AI service configuration error: ${saHealth.error || 'Unknown issue'}`;
       return new Response(JSON.stringify({
         error: `AI service configuration error: ${saHealth.error || 'Unknown issue'}. Please check the Vertex AI service account.`,
         content: FALLBACK_RESPONSE,
         source: "system"
       }), {
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-        status: 503 // Service Unavailable
+        status: 503
       });
     }
     console.log("Service account check passed. Using service account with model:", CURRENT_MODEL_ID);
@@ -252,22 +259,30 @@ serve(async (req: Request) => {
           conversationId: requestData.conversationId || "None",
           enableOnlineSearch: !!requestData.enableOnlineSearch
       });
+      
+      // Store basic analytics data
+      analyticsData.query = requestData.query || '';
+      analyticsData.conversation_id = requestData.conversationId || null;
+      analyticsData.used_online_search = requestData.enableOnlineSearch || false;
+      
     } catch (parseError) {
       console.error("Error parsing request body:", parseError);
+      analyticsData.error_message = `Invalid request format: ${parseError.message}`;
       return new Response(JSON.stringify({
         error: `Invalid request format: ${parseError.message}`,
-        content: FALLBACK_RESPONSE, // Provide fallback content
+        content: FALLBACK_RESPONSE,
         source: "system"
       }), {
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-        status: 400 // Bad Request
+        status: 400
       });
     }
 
     // 3. Validate Request Data Structure
-    const validation = validateChatApiRequest(requestData); // Use imported validator
+    const validation = validateChatApiRequest(requestData);
     if (!validation.isValid) {
       console.error("Request validation failed:", validation.error, validation.errorDetails);
+      analyticsData.error_message = validation.error || "Invalid request structure";
       return new Response(JSON.stringify({
         error: validation.error || "Invalid request structure.",
         errorDetails: validation.errorDetails,
@@ -275,7 +290,7 @@ serve(async (req: Request) => {
         source: "system"
       }), {
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-        status: 400 // Bad Request
+        status: 400
       });
     }
     console.log("Request validation passed.");
@@ -293,22 +308,19 @@ serve(async (req: Request) => {
       });
     }
 
-    // Normalize and add client messages (user/model roles only for the actual API call)
+    // Normalize and filter client messages
     const normalizedClientMessages = clientMessages
-        .map(normalizeMessage) // Use imported normalizer
-        .filter((msg: ChatMessage) => msg.role === 'user' || msg.role === 'model'); // Filter for valid roles for Vertex
+        .map(normalizeMessage)
+        .filter((msg: ChatMessage) => msg.role === 'user' || msg.role === 'model');
 
-    // Ensure conversation alternates user/model roles if needed (basic check)
-    // Vertex API might require strict alternation. Add placeholder if needed.
+    // Ensure conversation alternates user/model roles if needed
     if (normalizedClientMessages.length > 0 && normalizedClientMessages[normalizedClientMessages.length - 1].role !== 'user') {
         console.warn("Last message in history is not 'user'. Vertex might require user/model alternation. Consider adjusting client-side logic.");
-        // Example: If API strictly requires ending with user message:
-        // normalizedClientMessages.push({ role: 'user', parts: [{ text: "(Continue)" }] });
     }
 
     // Combine system prompts and normalized client messages
     let combinedMessages = [
-        ...preparedMessages.filter(m => m.role === 'system'), // Keep system prompts separate initially
+        ...preparedMessages.filter(m => m.role === 'system'),
         ...normalizedClientMessages
     ];
 
@@ -317,7 +329,7 @@ serve(async (req: Request) => {
     const messagesForAI = truncateTranscript(combinedMessages, maxInputTokens);
     console.log(`Prepared ${messagesForAI.length} messages after potential truncation.`);
 
-    // Calculate total actual tokens for the final payload using the tokenizer
+    // Calculate total tokens for final payload
     let totalInputTokens = 0;
     messagesForAI.forEach(msg => {
         try {
@@ -328,27 +340,25 @@ serve(async (req: Request) => {
     });
     console.log(`Total input tokens for Vertex AI (post-truncation): ${totalInputTokens}`);
 
-    // Check if the *entire* payload might be too large (after truncation)
+    // Check if payload is too large
     if (totalInputTokens > maxInputTokens) {
-        console.error(`Input tokens (${totalInputTokens}) exceed the limit (${maxInputTokens}) even after truncation. This indicates an issue with truncation or a very large message.`);
-        // Returning an error as this indicates a potential issue with truncation logic or an extremely large single message.
+        console.error(`Input tokens (${totalInputTokens}) exceed the limit (${maxInputTokens}) even after truncation.`);
+        analyticsData.error_message = `Request too large: ${totalInputTokens} tokens (limit: ${maxInputTokens})`;
         return new Response(JSON.stringify({
             error: `The request is too large (${totalInputTokens} tokens) to process, exceeding the limit of ${maxInputTokens} tokens.`,
             content: FALLBACK_RESPONSE,
             source: "system"
         }), {
             headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-            status: 413 // Payload Too Large
+            status: 413
         });
     }
 
-    // Filter out system messages before sending to Vertex, as they are handled differently by the API
+    // Filter out system messages for Vertex
     const validatedMessages: ChatMessage[] = messagesForAI.filter(msg => msg.role === 'user' || msg.role === 'model');
-
     console.log(`Sending ${validatedMessages.length} user/model messages to Vertex (after cache check).`);
 
-    // 5. Generate Cache Key (CH-04)
-    // Hash includes the validated messages and search setting
+    // 5. Generate Cache Key
     const cachePayload = { messages: validatedMessages, enableOnlineSearch };
     let queryHash: string | null = null;
     try {
@@ -356,40 +366,53 @@ serve(async (req: Request) => {
         console.log(`Generated query hash: ${queryHash}`);
     } catch (hashError) {
         console.error("Failed to generate query hash, skipping cache check:", hashError);
-        // Proceed without caching if hashing fails
     }
 
-    // 6. Check Cache (CH-04)
+    // 6. Check Cache
     if (queryHash && supabaseAdmin) {
         try {
             console.log(`Checking cache for hash: ${queryHash}`);
             const { data: cachedData, error: cacheError } = await supabaseAdmin
                 .from(CACHE_TABLE_NAME)
-                .select('response, created_at') // Select necessary fields
+                .select('response, created_at')
                 .eq('query_hash', queryHash)
-                // Optional: Add TTL check, e.g., .gt('created_at', new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString()) // Example: 24-hour TTL
-                .maybeSingle(); // Expect 0 or 1 row
+                .maybeSingle();
 
             if (cacheError) {
                 console.error("Error checking chat cache:", cacheError);
-                // Proceed without cache if error occurs
             } else if (cachedData) {
                 console.log(`Cache hit for hash: ${queryHash}. Returning cached response.`);
-                // Return cached response
+                
+                // Record analytics for cached response
+                analyticsData.successful = true;
+                analyticsData.api_time_ms = 0; // Cached, so API time is 0
+                analyticsData.source_type = "cache";
+                analyticsData.response_length = cachedData.response.length;
+                
+                if (supabaseAdmin) {
+                    try {
+                        await supabaseAdmin
+                            .from(ANALYTICS_TABLE_NAME)
+                            .insert(analyticsData);
+                        console.log("Analytics recorded for cached response");
+                    } catch (analyticsError) {
+                        console.error("Failed to record analytics for cached response:", analyticsError);
+                    }
+                }
+                
                 return new Response(JSON.stringify({
                     content: cachedData.response,
-                    source: "cache", // Indicate response came from cache
-                    cached_at: cachedData.created_at // Optionally include cache timestamp
+                    source: "cache",
+                    cached_at: cachedData.created_at
                 }), {
                     headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-                    status: 200 // OK
+                    status: 200
                 });
             } else {
                 console.log(`Cache miss for hash: ${queryHash}`);
             }
         } catch (cacheCheckError) {
             console.error("Unexpected error during cache check:", cacheCheckError);
-            // Proceed without cache if error occurs
         }
     } else if (!supabaseAdmin) {
          console.warn("Supabase client not initialized, skipping cache check.");
@@ -397,10 +420,14 @@ serve(async (req: Request) => {
 
     // 7. Call Vertex AI (if no cache hit)
     let aiResponse;
+    const aiCallStartTime = Date.now();
     try {
       // Pass only the user/model messages to the AI function
-      aiResponse = await callVertexAI(validatedMessages); // Pass the potentially truncated user/model messages
+      aiResponse = await callVertexAI(validatedMessages);
       console.log("Vertex AI call successful.");
+      
+      // Track API time
+      analyticsData.api_time_ms = Date.now() - aiCallStartTime;
       
       // Log token usage if available
       if (aiResponse.usageMetadata) {
@@ -414,29 +441,44 @@ serve(async (req: Request) => {
       }
     } catch (aiError) {
       console.error("Error calling Vertex AI service:", aiError);
+      analyticsData.error_message = `AI provider error: ${aiError.message}`;
       return new Response(JSON.stringify({
         error: `AI provider error: ${aiError.message}`,
         content: FALLBACK_RESPONSE,
         source: "system"
       }), {
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-        status: 502 // Bad Gateway (error communicating with upstream server)
+        status: 502
       });
     }
 
-    // 8. Process Response & Write to Cache (CH-04)
+    // 8. Process Response & Write to Cache
     const responseText = aiResponse?.candidates?.[0]?.content?.parts?.[0]?.text?.trim() || "";
+    analyticsData.response_length = responseText.length;
+
+    // Extract citation information from the AI response if available
+    let citation: string[] | undefined = undefined;
+    if (aiResponse?.candidates?.[0]?.citationMetadata?.citations) {
+        citation = aiResponse.candidates[0].citationMetadata.citations.map(
+            (cite: any) => cite.title || cite.uri || "Unnamed source"
+        );
+        analyticsData.source_type = "transcript";
+        analyticsData.transcript_title = citation[0] || null;
+        console.log("Found citations in AI response:", citation);
+    } else {
+        analyticsData.source_type = enableOnlineSearch ? "online_search" : "gemini";
+    }
 
     if (!responseText) {
       console.warn("Received empty or invalid response text from Vertex AI.");
-      // Return a specific message instead of the generic fallback
+      analyticsData.error_message = "Empty response from AI";
       return new Response(JSON.stringify({
         error: "Received an empty response from the AI.",
         content: "I received an empty response from the AI service. Please try rephrasing your request or try again later.",
         source: "system"
       }), {
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-        status: 500 // Internal Server Error (as the AI failed to generate content)
+        status: 500
       });
     }
 
@@ -453,10 +495,8 @@ serve(async (req: Request) => {
                 });
 
             if (insertError) {
-                // Log error but don't fail the request if cache write fails
                 console.error("Error writing to chat cache:", insertError);
-                // Handle potential conflicts (e.g., duplicate hash if request was processed concurrently)
-                if (insertError.code === '23505') { // PostgreSQL unique violation
+                if (insertError.code === '23505') {
                     console.warn(`Cache entry for hash ${queryHash} likely already exists.`);
                 }
             } else {
@@ -467,29 +507,58 @@ serve(async (req: Request) => {
         }
     }
 
-    // 9. Return Response
+    // 9. Record analytics
+    analyticsData.successful = true;
+    
+    if (supabaseAdmin) {
+        try {
+            await supabaseAdmin
+                .from(ANALYTICS_TABLE_NAME)
+                .insert(analyticsData);
+            console.log("Analytics recorded successfully");
+        } catch (analyticsError) {
+            console.error("Failed to record analytics:", analyticsError);
+        }
+    }
+
+    // 10. Return Response
     const responseData = {
       content: responseText,
-      source: "vertex", // Indicate the source of the response
-      model: CURRENT_MODEL_ID // Include model information in response
+      source: "vertex", 
+      model: CURRENT_MODEL_ID,
+      citation: citation
     };
 
     console.log(`Successfully generated and sending response from Vertex AI (${CURRENT_MODEL_ID}).`);
     return new Response(JSON.stringify(responseData), {
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-      status: 200 // OK
+      status: 200
     });
 
   } catch (error) {
     // --- Catch-all for unexpected errors ---
     console.error("Unhandled error in main request handler:", error);
+    analyticsData.error_message = `Internal server error: ${error.message}`;
+    
+    // Try to record the error in analytics
+    if (supabaseAdmin) {
+        try {
+            await supabaseAdmin
+                .from(ANALYTICS_TABLE_NAME)
+                .insert(analyticsData);
+            console.log("Error analytics recorded");
+        } catch (analyticsError) {
+            console.error("Failed to record error analytics:", analyticsError);
+        }
+    }
+    
     return new Response(JSON.stringify({
       error: `Internal server error: ${error.message}`,
       content: FALLBACK_RESPONSE,
       source: "system"
     }), {
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-      status: 500 // Internal Server Error
+      status: 500
     });
   }
 });

@@ -5,7 +5,7 @@
 /**
  * Simple message source type - used throughout the application
  */
-export type MessageSource = 'user' | 'system' | 'gemini' | 'transcript' | 'web' | 'fallback';
+export type MessageSource = 'user' | 'system' | 'gemini' | 'vertex' | 'cache' | 'transcript';
 
 /**
  * API message format expected by the Vertex AI :generateContent endpoint
@@ -23,9 +23,9 @@ export interface ApiMessageWithParts {
 export interface MessageData {
   content: string;
   source: MessageSource;
-  timestamp: Date;
-  citation?: string[];
+  timestamp?: Date;
   isLoading?: boolean;
+  citation?: string[];
 }
 
 /**
@@ -119,7 +119,6 @@ export function dbMessageToUiMessage(dbMessage: DbMessage): MessageData {
   return messageData;
 }
 
-
 /**
  * Check if the database schema supports the metadata column
  * This allows for graceful fallback if the messages table schema doesn't have metadata
@@ -154,7 +153,6 @@ export async function checkMetadataColumnExists(supabaseClient: any): Promise<bo
   }
 }
 
-
 /**
  * Prepare message objects for database insertion with metadata
  * This creates properly formatted message objects for insertion into the database
@@ -188,4 +186,24 @@ export function prepareMessagesForDb(
   };
 
   return [userMessageObj, responseMessageObj];
+}
+
+/**
+ * Processes the AI response to extract any transcript references
+ */
+export function processResponseForTranscriptReferences(responseData: any): MessageData {
+  // Default message data
+  const messageData: MessageData = {
+    content: responseData?.content || 'Error: No response content',
+    source: responseData?.source || 'system',
+    timestamp: new Date()
+  };
+  
+  // Check if the response includes citations
+  if (responseData?.citation && Array.isArray(responseData.citation) && responseData.citation.length > 0) {
+    messageData.citation = responseData.citation;
+    messageData.source = 'transcript'; // Set source to transcript when citations are present
+  }
+  
+  return messageData;
 }

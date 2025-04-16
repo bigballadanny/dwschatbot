@@ -58,7 +58,6 @@ export function useChatMessages({
     toggleOnlineSearch
   } = useSearchConfig();
 
-  // Load conversation messages when conversationId changes
   useEffect(() => {
     const loadConversation = async () => {
       if (conversationId && user) {
@@ -77,7 +76,6 @@ export function useChatMessages({
     loadConversation();
   }, [conversationId, user]);
 
-  // Monitor conversation deletion
   useEffect(() => {
     if (!user || !conversationId) return;
     
@@ -112,23 +110,21 @@ export function useChatMessages({
 
     setCurrentAudioSrc(null);
 
-    // Create new conversation if needed
     if (!currentConvId) {
       currentConvId = await createNewConversation(trimmedMessage);
       if (!currentConvId) return;
       isFirstUserInteraction = true;
     }
 
-    // Add user message to UI
     addUserMessage(trimmedMessage);
     
     setIsLoading(true);
 
     try {
-      // Format messages for the API
       const apiMessages = formatMessagesForApi(trimmedMessage);
 
-      // Send request to Supabase function
+      console.log("Sending request to gemini-chat function with online search:", enableOnlineSearch);
+      
       const { data, error } = await supabase.functions.invoke('gemini-chat', {
         body: {
           query: trimmedMessage,
@@ -143,31 +139,36 @@ export function useChatMessages({
         throw new Error(error?.message || data?.error || 'Function returned empty response');
       }
 
-      // Process the response
+      console.log("Response received:", {
+        content: data.content?.substring(0, 50) + "...",
+        source: data.source,
+        hasCitation: !!data.citation,
+        citationCount: data.citation?.length
+      });
+
+      const sourceType = data.citation && data.citation.length > 0 ? 'transcript' : (data.source || 'gemini');
+      
       const responseMessage = addSystemMessage(
         data.content, 
-        (data.source || 'gemini') as 'gemini' | 'system', 
+        sourceType as MessageSource, 
         data.citation
       );
 
-      // Save messages to database
       await saveMessages(
         currentConvId, 
         user.id, 
         trimmedMessage, 
         {
           content: responseMessage.content,
-          source: responseMessage.source as 'gemini' | 'system',
+          source: responseMessage.source,
           citation: responseMessage.citation
         }
       );
 
-      // Handle audio if enabled
       if (audioEnabled && data.audioContent) {
         playAudio(data.audioContent);
       }
 
-      // Update conversation title if first interaction
       if (isFirstUserInteraction) {
         await updateConversationTitle(currentConvId, trimmedMessage);
         setHasInteracted(true);

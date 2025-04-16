@@ -203,8 +203,20 @@ const MessageControls: React.FC<MessageControlsProps> = ({ content, citation, is
       )}
 
       {citation && citation.length > 0 && (
-        <div className="mt-2 text-xs text-muted-foreground">
-          <p className="italic">{citation.join(', ')}</p>
+        <div className="mt-3 text-xs text-amber-300 border-t border-zinc-700 pt-2">
+          <div className="flex items-center mb-1">
+            <svg className="w-4 h-4 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"></path>
+            </svg>
+            <p className="font-semibold">Sources:</p>
+          </div>
+          <ul className="pl-5 list-disc space-y-1">
+            {citation.map((source, index) => (
+              <li key={index} className="italic hover:text-amber-200 transition-colors">
+                {source}
+              </li>
+            ))}
+          </ul>
         </div>
       )}
     </>
