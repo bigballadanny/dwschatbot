@@ -4,7 +4,7 @@ import { createClient } from '@supabase/supabase-js';
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
-import { success, error } from "@/hooks/use-toast";
+import { toast } from "@/components/ui/use-toast";
 import { Sparkles, AlertCircle, CheckCircle2, RefreshCw } from 'lucide-react';
 
 // Initialize Supabase client
@@ -133,7 +133,11 @@ const TranscriptSummary: React.FC<TranscriptSummaryProps> = ({ transcriptId, use
 
   const generateSummary = async () => {
     if (!transcriptId || !userId) {
-      setError("Missing required information to generate summary.");
+      toast({
+        title: "Missing Information",
+        description: "Missing required information to generate summary.",
+        variant: "destructive"
+      });
       return;
     }
     
@@ -153,25 +157,37 @@ const TranscriptSummary: React.FC<TranscriptSummaryProps> = ({ transcriptId, use
       if (genError) {
         console.error("Error generating summary:", genError);
         setError(`Failed to generate summary: ${genError.message || 'Unknown error'}`);
-        error({ title: "Summary Generation Failed", description: genError.message || 'Unknown error' });
+        toast({
+          title: "Summary Generation Failed", 
+          description: genError.message || 'Unknown error',
+          variant: "destructive"
+        });
         return;
       }
       
       if (data?.success) {
-        success({ title: "Summary Generated", description: "The transcript has been successfully summarized." });
+        toast({
+          title: "Summary Generated", 
+          description: "The transcript has been successfully summarized.",
+        });
         // Reload the summary from the database
         fetchSummary();
       } else {
         setError(data?.message || "Unknown error occurred during summary generation.");
-        error({ 
+        toast({ 
           title: "Summary Generation Issue", 
-          description: data?.message || "Unknown error occurred during summary generation."
+          description: data?.message || "Unknown error occurred during summary generation.",
+          variant: "destructive"
         });
       }
     } catch (e: any) {
       console.error("Exception during summary generation:", e);
       setError(`Exception: ${e.message || 'Unknown error'}`);
-      error({ title: "Error", description: e.message || 'An unexpected error occurred' });
+      toast({ 
+        title: "Error", 
+        description: e.message || 'An unexpected error occurred',
+        variant: "destructive"
+      });
     } finally {
       setGenerating(false);
     }

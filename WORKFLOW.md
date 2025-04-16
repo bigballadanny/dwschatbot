@@ -1,4 +1,3 @@
-
 # WORKFLOW.md
 
 ## 🔒 IMPORTANT: WORKFLOW PROTECTION PROTOCOL 🔒
@@ -157,7 +156,7 @@ Use the following commands to explicitly switch modes:
 
 ### 6.2. Implementation Plan
 1. **Enhanced AI Prompting:**
-   - Update Vertex AI prompts to identify and extract nuggets
+   - Update Vertex AI Gemini 1.5 Pro prompts to identify and extract nuggets
    - Use structured format for consistency and searchability
    - Focus on actionable strategies, not just information
 
