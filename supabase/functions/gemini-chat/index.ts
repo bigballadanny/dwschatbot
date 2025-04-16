@@ -1,46 +1,76 @@
+// --- Imports ---
+// @ts-ignore Deno-style import, valid in Supabase Edge Functions
+import { encode } from "https://esm.sh/gpt-tokenizer@2.1.1"; // CH-01: Import tokenizer
+// @ts-ignore Deno-style import, valid in Supabase Edge Functions
+import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'; // CH-04: Import Supabase client
+// @ts-ignore Deno standard library
+import { crypto } from "https://deno.land/std@0.168.0/crypto/mod.ts"; // CH-04: Import crypto for hashing
+
 // --- Utility Functions ---
 
 /**
- * Estimates the token count of a string using a simple character count proxy.
- * @param text The string to estimate the token count for.
- * @returns The estimated token count.
- */
-function estimateTokenCount(text: string): number {
-    // This is a very rough estimate.  A more accurate method would use a tokenizer.
-    return Math.ceil(text.length / 4); // Assuming 4 characters per token on average
-}
-
-/**
- * Truncates a message transcript to a maximum token count, keeping the most recent messages.
+ * Truncates a message transcript to a maximum token count using a tokenizer, keeping the most recent messages.
  * @param messages The array of chat messages to truncate.
  * @param maxTokens The maximum number of tokens allowed in the transcript.
  * @returns The truncated array of chat messages.
  */
-function truncateTranscript(messages: ChatMessage[], maxTokens: number): ChatMessage[] {
+function truncateTranscript(messages: ChatMessage[], maxTokens: number): ChatMessage[] { // CH-02: Refactor
     let currentTokenCount = 0;
     const truncatedMessages: ChatMessage[] = [];
-    let estimatedOriginalTokens = 0;
+    let originalTokenCount = 0;
 
-    // Calculate estimated original tokens for logging
+    // Calculate actual original tokens using the tokenizer
     messages.forEach(message => {
-        estimatedOriginalTokens += estimateTokenCount(message.parts[0]?.text || "");
+        try {
+            // Ensure parts exist and text is defined before encoding
+            const textToEncode = message.parts?.[0]?.text;
+            if (typeof textToEncode === 'string') {
+                originalTokenCount += encode(textToEncode).length;
+            }
+        } catch (e) {
+            console.error("Tokenizer error during initial count:", e);
+        }
     });
 
     // Iterate backwards through the messages
     for (let i = messages.length - 1; i >= 0; i--) {
         const message = messages[i];
-        const messageText = message.parts[0]?.text || "";
-        const messageTokens = estimateTokenCount(messageText);
+        const messageText = message.parts?.[0]?.text;
+        let messageTokens = 0;
+
+        // Only encode if text exists
+        if (typeof messageText === 'string') {
+            try {
+                messageTokens = encode(messageText).length;
+            } catch (e) {
+                console.error("Tokenizer error during truncation loop:", e);
+                // Skip this message if tokenizer fails
+                continue;
+            }
+        } else {
+            // Skip message if it has no text part
+            continue;
+        }
+
 
         // Stop if adding the next message would exceed the limit
         if (currentTokenCount + messageTokens > maxTokens) {
-            // If even the first message (most recent) is too long, truncate it
-            if (truncatedMessages.length === 0 && messageTokens > maxTokens) {
-                console.warn(`Truncating the most recent message as it exceeds maxTokens (${maxTokens}).`);
-                const allowedChars = maxTokens * 4; // Rough estimate back to chars
-                const truncatedText = messageText.slice(-allowedChars); // Keep the end of the message
+            // If even the first message (most recent) is too long, attempt to truncate it (still approximate)
+            // A truly accurate truncation would involve encoding, slicing tokens, and decoding.
+            if (truncatedMessages.length === 0 && messageTokens > maxTokens && typeof messageText === 'string') {
+                console.warn(`Truncating the most recent message as its token count (${messageTokens}) exceeds maxTokens (${maxTokens}). Inner truncation is approximate.`);
+                // Attempt a character-based approximation for truncation
+                const avgCharsPerToken = messageText.length / messageTokens;
+                const allowedChars = Math.floor(maxTokens * avgCharsPerToken * 0.9); // Be conservative
+                const truncatedText = messageText.slice(-allowedChars);
+                let truncatedTokens = maxTokens; // Assume it fills the budget after truncation
+                try {
+                    // Try to get a more accurate count of the truncated text
+                    truncatedTokens = encode(`... (truncated) ${truncatedText}`).length;
+                } catch(e) { console.error("Tokenizer error on truncated text:", e); }
+
                 truncatedMessages.unshift({ ...message, parts: [{ text: `... (truncated) ${truncatedText}` }] });
-                currentTokenCount = maxTokens; // Set count to max as we truncated
+                currentTokenCount = truncatedTokens; // Use the potentially more accurate count
             }
             break; // Stop adding messages
         }
@@ -50,18 +80,39 @@ function truncateTranscript(messages: ChatMessage[], maxTokens: number): ChatMes
         currentTokenCount += messageTokens;
     }
 
-    if (estimatedOriginalTokens > maxTokens) {
-      console.log(`Transcript truncated: Original estimated tokens: ${estimatedOriginalTokens}, Truncated estimated tokens: ${currentTokenCount} (Max: ${maxTokens})`);
+    if (originalTokenCount > maxTokens) {
+      console.log(`Transcript truncated: Original tokens: ${originalTokenCount}, Truncated tokens: ${currentTokenCount} (Max: ${maxTokens})`);
     }
 
     return truncatedMessages;
+}
+
+/**
+ * Generates a SHA-256 hash for a given object (typically the request payload).
+ * @param obj The object to hash.
+ * @returns A promise that resolves to the hex-encoded SHA-256 hash.
+ */
+async function generateQueryHash(obj: unknown): Promise<string> {
+    try {
+        const jsonString = JSON.stringify(obj);
+        const msgUint8 = new TextEncoder().encode(jsonString); // encode as (utf-8) Uint8Array
+        const hashBuffer = await crypto.subtle.digest('SHA-256', msgUint8); // hash the message
+        const hashArray = Array.from(new Uint8Array(hashBuffer)); // convert buffer to byte array
+        const hashHex = hashArray.map(b => b.toString(16).padStart(2, '0')).join(''); // convert bytes to hex string
+        return hashHex;
+    } catch (error) {
+        console.error("Error generating query hash:", error);
+        // Fallback or re-throw depending on desired behavior
+        throw new Error("Failed to generate query hash");
+    }
 }
 
 
 // supabase/functions/gemini-chat/index.ts
 /// <reference types="https://deno.land/x/deno/cli/types/dts/index.d.ts" />
 
-import { serve } from "https://deno.land/std@0.168.0/http/server.ts"; // Use a specific stable version
+// @ts-ignore Deno-style import, valid in Supabase Edge Functions
+import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import {
     ChatMessage,
     validateChatApiRequest,
@@ -70,12 +121,40 @@ import {
 import { callVertexAI } from "./vertex.ts";
 import { checkServiceAccountHealth } from "./health.ts";
 
+// --- Supabase Client (CH-04) ---
+// Use service_role key for backend operations, bypassing RLS
+// @ts-ignore Deno specific environment variable access
+const supabaseUrl = Deno.env.get('SUPABASE_URL');
+// @ts-ignore Deno specific environment variable access
+const supabaseServiceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY');
+
+if (!supabaseUrl || !supabaseServiceKey) {
+    console.error("Missing SUPABASE_URL or SUPABASE_SERVICE_ROLE_KEY environment variables.");
+    // Optionally throw an error to prevent the function from starting without config
+    // throw new Error("Supabase environment variables not set.");
+}
+
+// Create a single Supabase client instance
+// Use { auth: { persistSession: false } } to prevent client trying to store session
+const supabaseAdmin = supabaseUrl && supabaseServiceKey
+    ? createClient(supabaseUrl, supabaseServiceKey, {
+        auth: {
+            autoRefreshToken: false,
+            persistSession: false,
+            detectSessionInUrl: false // Important for server-side usage
+        }
+      })
+    : null;
+
 // --- Constants ---
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*', // Allow requests from any origin
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
 };
+
+const CACHE_TABLE_NAME = 'chat_cache'; // CH-04: Define cache table name
+const CURRENT_MODEL_ID = 'gemini-1.5-flash'; // CH-04: Model identifier for caching
 
 const FALLBACK_RESPONSE = `
 # Unable to Connect to AI Service
@@ -241,19 +320,23 @@ serve(async (req: Request) => {
     const messagesForAI = truncateTranscript(combinedMessages, maxInputTokens);
     console.log(`Prepared ${messagesForAI.length} messages after potential truncation.`);
 
-    // Calculate total estimated tokens for the final payload
-    let totalEstimatedInputTokens = 0;
+    // Calculate total actual tokens for the final payload using the tokenizer
+    let totalInputTokens = 0;
     messagesForAI.forEach(msg => {
-        totalEstimatedInputTokens += estimateTokenCount(msg.parts[0]?.text || "");
+        try {
+            totalInputTokens += encode(msg.parts[0]?.text || "").length;
+        } catch (e) {
+            console.error("Tokenizer error during final count:", e);
+        }
     });
-    console.log(`Estimated total input tokens for Vertex AI: ${totalEstimatedInputTokens}`);
+    console.log(`Total input tokens for Vertex AI (post-truncation): ${totalInputTokens}`);
 
     // Check if the *entire* payload might be too large (after truncation)
-    if (totalEstimatedInputTokens > maxInputTokens) {
-        console.error(`Estimated input tokens (${totalEstimatedInputTokens}) exceed the limit (${maxInputTokens}) even after truncation. This shouldn't normally happen.`);
+    if (totalInputTokens > maxInputTokens) {
+        console.error(`Input tokens (${totalInputTokens}) exceed the limit (${maxInputTokens}) even after truncation. This indicates an issue with truncation or a very large message.`);
         // Returning an error as this indicates a potential issue with truncation logic or an extremely large single message.
         return new Response(JSON.stringify({
-            error: "The request is too large to process, even after attempting to shorten the history.",
+            error: `The request is too large (${totalInputTokens} tokens) to process, exceeding the limit of ${maxInputTokens} tokens.`,
             content: FALLBACK_RESPONSE,
             source: "system"
         }), {
@@ -265,10 +348,58 @@ serve(async (req: Request) => {
     // Filter out system messages before sending to Vertex, as they are handled differently by the API
     const validatedMessages: ChatMessage[] = messagesForAI.filter(msg => msg.role === 'user' || msg.role === 'model');
 
-    console.log(`Sending ${validatedMessages.length} user/model messages to Vertex.`);
+    console.log(`Sending ${validatedMessages.length} user/model messages to Vertex (after cache check).`);
+
+    // 5. Generate Cache Key (CH-04)
+    // Hash includes the validated messages and search setting
+    const cachePayload = { messages: validatedMessages, enableOnlineSearch };
+    let queryHash: string | null = null;
+    try {
+        queryHash = await generateQueryHash(cachePayload);
+        console.log(`Generated query hash: ${queryHash}`);
+    } catch (hashError) {
+        console.error("Failed to generate query hash, skipping cache check:", hashError);
+        // Proceed without caching if hashing fails
+    }
+
+    // 6. Check Cache (CH-04)
+    if (queryHash && supabaseAdmin) {
+        try {
+            console.log(`Checking cache for hash: ${queryHash}`);
+            const { data: cachedData, error: cacheError } = await supabaseAdmin
+                .from(CACHE_TABLE_NAME)
+                .select('response, created_at') // Select necessary fields
+                .eq('query_hash', queryHash)
+                // Optional: Add TTL check, e.g., .gt('created_at', new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString()) // Example: 24-hour TTL
+                .maybeSingle(); // Expect 0 or 1 row
+
+            if (cacheError) {
+                console.error("Error checking chat cache:", cacheError);
+                // Proceed without cache if error occurs
+            } else if (cachedData) {
+                console.log(`Cache hit for hash: ${queryHash}. Returning cached response.`);
+                // Return cached response
+                return new Response(JSON.stringify({
+                    content: cachedData.response,
+                    source: "cache", // Indicate response came from cache
+                    cached_at: cachedData.created_at // Optionally include cache timestamp
+                }), {
+                    headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+                    status: 200 // OK
+                });
+            } else {
+                console.log(`Cache miss for hash: ${queryHash}`);
+            }
+        } catch (cacheCheckError) {
+            console.error("Unexpected error during cache check:", cacheCheckError);
+            // Proceed without cache if error occurs
+        }
+    } else if (!supabaseAdmin) {
+         console.warn("Supabase client not initialized, skipping cache check.");
+    }
 
 
-    // 5. Call Vertex AI
+    // 7. Call Vertex AI (if no cache hit)
     let aiResponse;
     try {
       // Pass only the user/model messages to the AI function
@@ -286,7 +417,7 @@ serve(async (req: Request) => {
       });
     }
 
-    // 6. Process and Return Response
+    // 8. Process Response & Write to Cache (CH-04)
     const responseText = aiResponse?.candidates?.[0]?.content?.parts?.[0]?.text?.trim() || "";
 
     if (!responseText) {
@@ -302,12 +433,40 @@ serve(async (req: Request) => {
       });
     }
 
+    // Write successful response to cache
+    if (queryHash && supabaseAdmin) {
+        try {
+            console.log(`Writing response to cache for hash: ${queryHash}`);
+            const { error: insertError } = await supabaseAdmin
+                .from(CACHE_TABLE_NAME)
+                .insert({
+                    query_hash: queryHash,
+                    response: responseText,
+                    model_used: CURRENT_MODEL_ID
+                });
+
+            if (insertError) {
+                // Log error but don't fail the request if cache write fails
+                console.error("Error writing to chat cache:", insertError);
+                // Handle potential conflicts (e.g., duplicate hash if request was processed concurrently)
+                if (insertError.code === '23505') { // PostgreSQL unique violation
+                    console.warn(`Cache entry for hash ${queryHash} likely already exists.`);
+                }
+            } else {
+                console.log(`Successfully cached response for hash: ${queryHash}`);
+            }
+        } catch (cacheWriteError) {
+            console.error("Unexpected error during cache write:", cacheWriteError);
+        }
+    }
+
+    // 9. Return Response
     const responseData = {
       content: responseText,
       source: "vertex" // Indicate the source of the response
     };
 
-    console.log("Successfully generated and sending response.");
+    console.log("Successfully generated and sending response from Vertex AI.");
     return new Response(JSON.stringify(responseData), {
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },
       status: 200 // OK

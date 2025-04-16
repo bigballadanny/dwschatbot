@@ -292,8 +292,9 @@ serve(async (req) => {
         successful: attemptSuccessful,
         used_online_search: false, // Assuming no online search for voice? Adjust if needed.
         error_message: attemptSuccessful ? null : "Failed after retries",
-        model_used: attemptSuccessful ? modelUsed : "error"
-    });
+        model_used: attemptSuccessful ? modelUsed : "error",
+       user_id: user.id
+   });
 
     // 8. Return Response
      if (!attemptSuccessful) {
