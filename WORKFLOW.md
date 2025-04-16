@@ -82,6 +82,21 @@ This project utilizes different operational modes to handle various aspects of d
     -   [ ] Add keyboard shortcuts for power users (Priority: Low) - Status: To Do
     -   [ ] Create diagnostics page for Vertex AI testing (Priority: Medium) - Status: To Do (Related to Vertex AI Integration task)
 
+
+*   **Backend & AI Integration 🔧**
+    -   [ ] Investigate analytics data capture issues (Vertex AI vs Gemini?) (Priority: High) - Status: To Do
+    -   [ ] Review and improve analytics graphs/data pulling (Priority: Medium) - Status: To Do
+    -   [ ] Fix "Generate AI Insights" feature (Check Vertex AI usage) (Priority: High) - Status: To Do
+    -   [ ] Setup MCP Server for Supabase interaction (Priority: High) - Status: To Do
+    -   [ ] Improve chat prompt for M&A focus (Analyze transcripts?) (Priority: Medium) - Status: To Do
+    -   [ ] Investigate chat transcript usage for context (Priority: High) - Status: To Do
+    -   [ ] Display references below chat responses (Priority: Medium) - Status: To Do
+    -   [ ] Repurpose/Remove Vertex AI Setup code (Button removed, check related code) (Priority: Low) - Status: To Do
+    - [ ] Refine analytics insight prompts (Focus on admin needs, user strategies, confusion, content gaps) (Priority: Medium) - Status: To Do
+
+*   **UI & Responsiveness ✨**
+    -   [ ] Address mobile friendliness progressively (Priority: Medium) - Status: Ongoing
+
 **Backlog**
 
 *   **War Room Enhancements 🚀**
