@@ -5,7 +5,7 @@
 /**
  * Simple message source type - used throughout the application
  */
-export type MessageSource = 'user' | 'system' | 'gemini' | 'vertex' | 'cache' | 'transcript';
+export type MessageSource = 'user' | 'system' | 'gemini' | 'vertex' | 'cache' | 'transcript' | 'web' | 'fallback';
 
 /**
  * API message format expected by the Vertex AI :generateContent endpoint
@@ -100,7 +100,7 @@ export function dbMessageToUiMessage(dbMessage: DbMessage): MessageData {
   // Override source if metadata exists and has a source
   if (dbMessage.metadata && dbMessage.metadata.source) {
     // Ensure the source from metadata is one of the allowed MessageSource types
-    const validSources: MessageSource[] = ['user', 'system', 'gemini', 'transcript', 'web', 'fallback'];
+    const validSources: MessageSource[] = ['user', 'system', 'gemini', 'vertex', 'cache', 'transcript', 'web', 'fallback'];
     if (validSources.includes(dbMessage.metadata.source as MessageSource)) {
        source = dbMessage.metadata.source as MessageSource;
     } else {
