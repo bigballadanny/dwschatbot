@@ -1,8 +1,9 @@
+
 /// <reference types="https://deno.land/x/deno/cli/types/dts/index.d.ts" />
 
 // supabase/functions/gemini-chat/auth.ts
 
-import { fetchWithTimeout, REQUEST_TIMEOUT_MS } from "./utils.ts"; // Assuming utils.ts exists
+import { fetchWithTimeout, REQUEST_TIMEOUT_MS } from "./utils.ts";
 
 // Retrieve service account from environment variables
 const VERTEX_AI_SERVICE_ACCOUNT = Deno.env.get('VERTEX_AI_SERVICE_ACCOUNT');
@@ -115,7 +116,6 @@ export function fixPrivateKeyFormat(privateKey: string | undefined): string {
         return privateKey; // Return original if fixing fails
     }
 }
-
 
 /**
  * Helper function to create a JWT token for Vertex AI authentication

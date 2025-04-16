@@ -17,6 +17,31 @@ export interface ChatApiRequest {
     enableOnlineSearch?: boolean;
 }
 
+// Constants for timeouts and retries
+export const REQUEST_TIMEOUT_MS = 30000; // 30 seconds timeout for API requests
+export const MAX_RETRIES = 3; // Maximum number of retries for failed requests
+
+// Helper function to fetch with timeout
+export async function fetchWithTimeout(url: string, options: RequestInit, timeoutMs: number): Promise<Response> {
+    const controller = new AbortController();
+    const id = setTimeout(() => controller.abort(), timeoutMs);
+    
+    try {
+        const response = await fetch(url, {
+            ...options,
+            signal: controller.signal
+        });
+        return response;
+    } catch (error) {
+        if (error.name === 'AbortError') {
+            throw new Error(`Request timed out after ${timeoutMs}ms`);
+        }
+        throw error;
+    } finally {
+        clearTimeout(id);
+    }
+}
+
 /**
  * Validates the structure of a chat API request.
  * @param requestData The request data to validate.
