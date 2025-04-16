@@ -66,7 +66,7 @@ export async function callVertexAI(
 
         // 3. Construct API Endpoint URL
         const VERTEX_LOCATION = "us-central1"; 
-        // Updated to gemini-2.0-flash
+        // Using gemini-2.0-flash consistently
         const VERTEX_MODEL_ID = "gemini-2.0-flash";
         const VERTEX_API_VERSION = "v1"; 
         const endpoint = `https://${VERTEX_LOCATION}-aiplatform.googleapis.com/${VERTEX_API_VERSION}/projects/${projectId}/locations/${VERTEX_LOCATION}/publishers/google/models/${VERTEX_MODEL_ID}:generateContent`;

@@ -152,7 +152,7 @@ const corsHeaders = {
 };
 
 const CACHE_TABLE_NAME = 'chat_cache'; // CH-04: Define cache table name
-const CURRENT_MODEL_ID = 'gemini-2.0-flash'; // Updated model identifier for caching
+const CURRENT_MODEL_ID = 'gemini-2.0-flash'; // Updated model identifier for caching and tracking
 
 const FALLBACK_RESPONSE = `
 # Unable to Connect to AI Service

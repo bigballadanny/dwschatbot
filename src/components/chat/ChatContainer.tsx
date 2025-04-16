@@ -54,6 +54,11 @@ const ChatContainer: React.FC<ChatContainerProps> = ({
 
   // Show error alert if there were multiple retries
   const showErrorAlert = retryCount >= 2 && lastError;
+  
+  // Check if the error is model-related
+  const isModelConfigError = lastError?.includes('Model configuration') || 
+                            lastError?.includes('not allowed to use Publisher Model') || 
+                            lastError?.includes('FAILED_PRECONDITION');
 
   return (
     <div className="flex flex-col relative h-full w-full bg-black">
@@ -61,14 +66,29 @@ const ChatContainer: React.FC<ChatContainerProps> = ({
         {showErrorAlert && (
           <Alert variant="destructive" className="mx-4 mt-4 mb-2">
             <AlertCircle className="h-4 w-4" />
-            <AlertTitle>Connection Issues</AlertTitle>
+            <AlertTitle>
+              {isModelConfigError ? "Model Configuration Error" : "Connection Issues"}
+            </AlertTitle>
             <AlertDescription className="flex flex-col gap-2">
-              <p>We're having trouble connecting to the AI service. This may be due to:</p>
-              <ul className="list-disc pl-5">
-                <li>Service account configuration issues</li>
-                <li>Authentication problems</li>
-                <li>Temporary API service outage</li>
-              </ul>
+              {isModelConfigError ? (
+                <>
+                  <p>There's a problem with the AI model configuration. This may be due to:</p>
+                  <ul className="list-disc pl-5">
+                    <li>Incorrect model name or version (gemini-2.0-flash)</li>
+                    <li>Service account lacking permissions for the specified model</li>
+                    <li>The model being unavailable in your region</li>
+                  </ul>
+                </>
+              ) : (
+                <>
+                  <p>We're having trouble connecting to the AI service. This may be due to:</p>
+                  <ul className="list-disc pl-5">
+                    <li>Service account configuration issues</li>
+                    <li>Authentication problems</li>
+                    <li>Temporary API service outage</li>
+                  </ul>
+                </>
+              )}
               <Button 
                 variant="outline" 
                 className="mt-2 w-fit"

@@ -1,4 +1,3 @@
-
 import { useState, useEffect, useRef, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useToast } from '@/components/ui/use-toast';
@@ -9,11 +8,10 @@ import { useAudio } from './useAudio';
 import { useSearchConfig } from './useSearchConfig';
 import { MessageSource } from '@/utils/messageUtils';
 
-// Simple client-side request queue to prevent multiple rapid requests
 const requestQueue = {
   isProcessing: false,
   lastRequestTime: 0,
-  minTimeBetweenRequests: 1000, // 1 second minimum between requests
+  minTimeBetweenRequests: 1000,
   queue: [] as Array<() => Promise<void>>,
   maxRetries: 3,
   
@@ -47,7 +45,6 @@ const requestQueue = {
         console.error('Request error:', error);
       }
       
-      // Small delay before processing next request
       setTimeout(() => this.processQueue(), 100);
     } else {
       this.isProcessing = false;
@@ -55,7 +52,6 @@ const requestQueue = {
   }
 };
 
-// Simple message cache
 const messageCache = new Map<string, any>();
 
 interface UseChatProps {
@@ -78,7 +74,6 @@ export function useChat({
   const [retryCount, setRetryCount] = useState<number>(0);
   const [lastError, setLastError] = useState<string | null>(null);
   
-  // Initialize child hooks
   const {
     messages,
     isLoading,
@@ -116,9 +111,7 @@ export function useChat({
     toggleOnlineSearch
   } = useSearchConfig();
 
-  // Load conversation messages when conversationId changes
   useEffect(() => {
-    // Update the local conversationId state when the prop changes
     setActualConversationId(conversationId);
     
     const loadConversation = async () => {
@@ -147,7 +140,6 @@ export function useChat({
     loadConversation();
   }, [conversationId, user]);
 
-  // Monitor conversation deletion
   useEffect(() => {
     if (!user || !conversationId) return;
     
@@ -193,7 +185,7 @@ export function useChat({
       return;
     }
     
-    if (file.size > 10 * 1024 * 1024) { // 10MB limit
+    if (file.size > 10 * 1024 * 1024) {
       toast({
         title: "File Too Large",
         description: "Please upload a file smaller than 10MB.",
@@ -203,7 +195,6 @@ export function useChat({
     }
     
     try {
-      // For now, just create a prompt about the file
       const filePrompt = `I've uploaded a document titled "${file.name}". Please analyze this document and provide insights.`;
       await sendMessage(filePrompt, false);
       
@@ -235,7 +226,6 @@ export function useChat({
 
     clearAudio();
 
-    // Create new conversation if needed
     if (!currentConvId) {
       currentConvId = await createNewConversation(trimmedMessage);
       if (!currentConvId) return;
@@ -243,18 +233,14 @@ export function useChat({
       isFirstUserInteraction = true;
     }
 
-    // Add user message to UI
     addUserMessage(trimmedMessage);
     
     setIsLoading(true);
 
-    // Function to handle the actual message sending
     const sendMessageToAI = async (retryAttempt = 0): Promise<void> => {
       try {
-        // Format messages for the API
         const apiMessages = formatMessagesForApi(trimmedMessage);
 
-        // Send request to Supabase function
         const { data, error } = await supabase.functions.invoke('gemini-chat', {
           body: {
             query: trimmedMessage,
@@ -262,28 +248,32 @@ export function useChat({
             isVoiceInput: isVoiceInput,
             enableOnlineSearch: enableOnlineSearch,
             conversationId: currentConvId,
-            requestId: Date.now().toString() // Help identify duplicate requests
+            requestId: Date.now().toString()
           }
         });
 
         if (error || !data?.content) {
-          throw new Error(error?.message || data?.error || 'Function returned empty response');
+          const errorMsg = error?.message || data?.error || 'Function returned empty response';
+          if (errorMsg.includes('not allowed to use Publisher Model') || 
+              errorMsg.includes('model not found') ||
+              errorMsg.includes('FAILED_PRECONDITION')) {
+            throw new Error(`Model configuration error: ${errorMsg}. Please check the Vertex AI model settings.`);
+          } else {
+            throw new Error(errorMsg);
+          }
         }
 
-        // Reset retry counter on success
         if (retryCount > 0) {
           setRetryCount(0);
           setLastError(null);
         }
 
-        // Process the response
         const responseMessage = addSystemMessage(
           data.content, 
           (data.source || 'gemini') as 'gemini' | 'system', 
           data.citation
         );
 
-        // Save messages to database
         await saveMessages(
           currentConvId as string, 
           user.id, 
@@ -295,14 +285,11 @@ export function useChat({
           }
         );
 
-        // Handle audio if enabled
         if (isAudioEnabled && data.audioContent) {
           playAudio(data.audioContent);
         } else if (isAudioEnabled && responseMessage.content) {
-          // We could generate TTS here if needed
         }
 
-        // Update conversation title if first interaction
         if (isFirstUserInteraction) {
           await updateConversationTitle(currentConvId as string, trimmedMessage);
           setHasInteracted(true);
@@ -311,20 +298,16 @@ export function useChat({
       } catch (error) {
         console.error('Error in sendMessage:', error);
         
-        // Update error state
         setLastError(error instanceof Error ? error.message : 'Request failed');
         
-        // Implement retry logic for recoverable errors
         if (retryAttempt < requestQueue.maxRetries) {
           const nextRetry = retryAttempt + 1;
           console.log(`Retrying message (${nextRetry}/${requestQueue.maxRetries})...`);
           
-          // Exponential backoff
           const retryDelay = Math.min(1000 * Math.pow(2, retryAttempt), 10000);
           
           setRetryCount(prevCount => prevCount + 1);
           
-          // Show toast for retry
           if (retryAttempt === 0) {
             toast({ 
               title: "Connection Issue", 
@@ -333,12 +316,10 @@ export function useChat({
             });
           }
           
-          // Wait before retry
           await new Promise(resolve => setTimeout(resolve, retryDelay));
           return sendMessageToAI(nextRetry);
         }
         
-        // If we've exhausted retries, show the error message
         addErrorMessage(error instanceof Error ? error.message : 'Request failed.');
         toast({ 
           title: "Error Processing Message", 
@@ -350,7 +331,6 @@ export function useChat({
       }
     };
 
-    // Add the message send to our queue, which handles throttling
     requestQueue.add(() => sendMessageToAI());
   };
 

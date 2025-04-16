@@ -8,7 +8,7 @@ const SUPABASE_ANON_KEY = Deno.env.get('SUPABASE_ANON_KEY');
 
 // Vertex AI Configuration
 const VERTEX_LOCATION = "us-central1";
-const VERTEX_MODEL_ID = "gemini-2.0-flash"; 
+const VERTEX_MODEL_ID = "gemini-2.0-flash"; // Standardized to gemini-2.0-flash
 const VERTEX_API_VERSION = "v1"; // Standard v1 API
 const REQUEST_TIMEOUT_MS = 30000; // Timeout for AI calls
 const MAX_RETRIES = 3; // Increased retries for transient errors
