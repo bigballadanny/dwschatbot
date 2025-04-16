@@ -1,3 +1,4 @@
+
 import { useEffect } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/components/ui/use-toast';
@@ -146,11 +147,13 @@ export function useChatMessages({
         citationCount: data.citation?.length
       });
 
+      // Determine the source type based on citation presence
       const sourceType = data.citation && data.citation.length > 0 ? 'transcript' : (data.source || 'gemini');
       
+      // Pass the source type without type casting to avoid type errors
       const responseMessage = addSystemMessage(
         data.content, 
-        sourceType as MessageSource, 
+        sourceType, 
         data.citation
       );
 

@@ -1,8 +1,6 @@
-
 import { useState } from 'react';
 import { supabase } from '@/integrations/supabase/client';
-import { useToast } from '@/components/ui/use-toast';
-import { MessageData, MessageSource, DbMessage, convertMessagesToApi, dbMessageToUiMessage } from '@/utils/messageUtils';
+import { MessageData, MessageSource, dbMessageToUiMessage } from '@/utils/messageUtils';
 
 interface UseMessagesProps {
   userId: string | undefined;
@@ -10,133 +8,123 @@ interface UseMessagesProps {
 }
 
 export function useMessages({ userId, conversationId }: UseMessagesProps) {
-  // Initialize messages state as an empty array
   const [messages, setMessages] = useState<MessageData[]>([]);
-  
   const [isLoading, setIsLoading] = useState(false);
   const [hasInteracted, setHasInteracted] = useState(false);
-  
-  const { toast } = useToast();
 
-  // Reset messages to initial state
   const resetMessages = () => {
-    setMessages([]); // Reset to empty array
+    setMessages([]);
     setHasInteracted(false);
   };
 
-  // Load messages for a conversation from the database
-  const loadMessages = async (convId: string, uid: string) => {
-    setIsLoading(true);
-    
+  const loadMessages = async (convId: string, userId: string) => {
     try {
-      console.log(`Fetching messages for conversation: ${convId}`);
-      
-      // Fetch messages from the database - IMPORTANT: removed user_id filter since this column doesn't exist
       const { data, error } = await supabase
         .from('messages')
         .select('*')
         .eq('conversation_id', convId)
         .order('created_at', { ascending: true });
         
-      if (error) {
-        console.error('Error fetching messages:', error);
-        throw error;
-      }
+      if (error) throw error;
       
       if (data && data.length > 0) {
-        console.log(`Found ${data.length} messages for conversation ${convId}`);
-        
-        // Transform database messages to UI message format using the improved utility function
-        // Cast data to DbMessage[] to avoid type instantiation issues
-        const dbMessages = data as DbMessage[];
-        const formattedMessages = dbMessages.map(msg => dbMessageToUiMessage(msg));
-        
-        console.log('Messages formatted for UI:', formattedMessages.length);
-        
-        setMessages(formattedMessages);
+        // Convert database messages to UI format
+        const loadedMessages = data.map(dbMessageToUiMessage);
+        setMessages(loadedMessages);
         setHasInteracted(true);
         return true;
       } else {
-        console.log(`No messages found for conversation ${convId}, checking if conversation exists`);
-        
         // Check if the conversation exists but has no messages
-        const { data: convoData, error: convoError } = await supabase
+        const { data: convData, error: convError } = await supabase
           .from('conversations')
-          .select('id')
+          .select('user_id')
           .eq('id', convId)
-          .eq('user_id', uid)
-          .maybeSingle();
-          
-        if (convoError) {
-          console.error('Error checking conversation:', convoError);
-        }
-          
-        if (convoData) {
-          console.log(`Conversation ${convId} exists but has no messages`);
-          // Conversation exists but is empty, set messages to empty array
-          setMessages([]);
-          setHasInteracted(false); // User hasn't interacted in *this* session yet
-          return true; // Indicate conversation was found (even if empty)
-        } else {
-          console.log(`Conversation ${convId} not found or not owned by user ${uid}`);
-          return false;
-        }
+          .single();
+        
+        if (convError || !convData) return false;
+        
+        // Verify user has access to this conversation
+        return convData.user_id === userId;
       }
     } catch (error) {
-      console.error('Error loading conversation messages:', error);
-      toast({ title: "Error Loading Messages", variant: "destructive" });
+      console.error('Error loading messages:', error);
       return false;
-    } finally {
-      setIsLoading(false);
     }
   };
 
-  // Add a user message to the UI
   const addUserMessage = (content: string): MessageData => {
-    const userMessage: MessageData = { 
-      content, 
-      source: 'user', 
-      timestamp: new Date() 
+    const userMessage: MessageData = {
+      content,
+      source: 'user',
+      timestamp: new Date()
     };
     
-    setMessages(prevMessages => [
-      ...prevMessages,
-      userMessage,
-      { content: '', source: 'system', isLoading: true, timestamp: new Date() }
-    ]);
-    
+    setMessages((prevMessages) => [...prevMessages, userMessage]);
     return userMessage;
   };
 
-  // Add a system/AI message to the UI
-  const addSystemMessage = (content: string, source: MessageSource = 'gemini', citation?: string[]): MessageData => {
-    const message: MessageData = {
+  // Updated to accept any MessageSource type
+  const addSystemMessage = (
+    content: string,
+    source: MessageSource = 'gemini',
+    citation?: string[]
+  ): MessageData => {
+    const systemMessage: MessageData = {
       content,
       source,
       timestamp: new Date(),
       citation
     };
     
-    // Remove any loading messages and add the new message
-    setMessages(prev => [...prev.filter(msg => !msg.isLoading), message]);
-    return message;
-  };
-
-  // Add an error message
-  const addErrorMessage = (errorText: string): void => {
-    setMessages(prev => [
-      ...prev.filter(msg => !msg.isLoading),
-      { 
-        content: `Error: ${errorText}`, 
-        source: 'system', 
-        timestamp: new Date() 
-      }
+    setMessages((prevMessages) => [
+      ...prevMessages,
+      systemMessage
     ]);
+    
+    return systemMessage;
   };
 
-  // Format messages for API calls using the utility function
+  const addErrorMessage = (error: string): MessageData => {
+    const errorMessage = addSystemMessage(
+      `Error: ${error}. Please try again or rephrase your question.`,
+      'system'
+    );
+    return errorMessage;
+  };
+  
+  const addLoadingMessage = (): MessageData => {
+    const loadingMessage: MessageData = {
+      content: 'Thinking...',
+      source: 'system',
+      isLoading: true
+    };
+    
+    setMessages((prevMessages) => [...prevMessages, loadingMessage]);
+    return loadingMessage;
+  };
+  
+  const removeLoadingMessage = () => {
+    setMessages((prevMessages) => 
+      prevMessages.filter(msg => !msg.isLoading)
+    );
+  };
+
   const formatMessagesForApi = (newUserContent: string) => {
-    return convertMessagesToApi(messages, newUserContent);
+    // Filter out loading messages and keep only message content for API
+    const apiMessages = messages
+      .filter(msg => !msg.isLoading)
+      .map(msg => ({
+        role: msg.source === 'user' ? 'user' : 'assistant',
+        content: msg.content
+      }));
+    
+    // Add the new user message to the API messages
+    apiMessages.push({
+      role: 'user',
+      content: newUserContent
+    });
+    
+    return apiMessages;
   };
 
   return {
@@ -150,6 +138,8 @@ export function useMessages({ userId, conversationId }: UseMessagesProps) {
     addUserMessage,
     addSystemMessage,
     addErrorMessage,
+    addLoadingMessage,
+    removeLoadingMessage,
     formatMessagesForApi
   };
 }
