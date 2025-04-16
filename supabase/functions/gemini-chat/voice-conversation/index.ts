@@ -1,4 +1,3 @@
-
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient, SupabaseClient } from 'https://esm.sh/@supabase/supabase-js@2';
 
@@ -9,9 +8,9 @@ const SUPABASE_ANON_KEY = Deno.env.get('SUPABASE_ANON_KEY');
 
 // Vertex AI Configuration
 const VERTEX_LOCATION = "us-central1";
-// Update to use standard gemini-pro model
-const VERTEX_MODEL_ID = "gemini-pro"; 
-const VERTEX_API_VERSION = "v1"; // Update to standard v1 API
+// Update to use gemini-1.5-flash-002 model
+const VERTEX_MODEL_ID = "gemini-1.5-flash-002"; 
+const VERTEX_API_VERSION = "v1"; // Standard v1 API
 const REQUEST_TIMEOUT_MS = 30000; // Timeout for AI calls
 const MAX_RETRIES = 2; // Retries for transient errors
 
@@ -164,7 +163,7 @@ serve(async (req) => {
       throw new Error("Missing required environment variables (Vertex SA, Supabase URL/Key)");
     }
     serviceAccount = validateServiceAccountJson(VERTEX_AI_SERVICE_ACCOUNT);
-    console.log(`Using Vertex SA for project: ${serviceAccount.project_id}`);
+    console.log(`Using Vertex SA for project: ${serviceAccount.project_id} with model: ${VERTEX_MODEL_ID}`);
 
     // 2. Initialize Supabase Client & Auth
      const authHeader = req.headers.get('Authorization');
@@ -208,7 +207,7 @@ serve(async (req) => {
     apiStartTime = Date.now(); // Start timer just before API call loop
 
     while (retryCount <= MAX_RETRIES && !attemptSuccessful) {
-        console.log(`Calling Vertex AI for voice (Attempt ${retryCount + 1}/${MAX_RETRIES + 1})`);
+        console.log(`Calling Vertex AI ${VERTEX_MODEL_ID} for voice (Attempt ${retryCount + 1}/${MAX_RETRIES + 1})`);
         try {
             const vertexEndpoint = `https://${VERTEX_LOCATION}-aiplatform.googleapis.com/${VERTEX_API_VERSION}/projects/${serviceAccount.project_id}/locations/${VERTEX_LOCATION}/publishers/google/models/${VERTEX_MODEL_ID}:generateContent`;
             const vertexRequestBody = {
@@ -216,7 +215,7 @@ serve(async (req) => {
                  contents: conversationContents,
                 generationConfig: {
                   temperature: 0.7, // Standard temperature
-                  maxOutputTokens: 1024, // Lower token limit for voice is often suitable
+                  maxOutputTokens: 2048, // Appropriate token limit for voice responses
                   topP: 0.95,
                   topK: 40,
                 },

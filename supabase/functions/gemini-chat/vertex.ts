@@ -21,7 +21,7 @@ interface VertexAIResponse {
 
 
 /**
- * Function to call Vertex AI Prediction API (Gemini generateContent endpoint)
+ * Function to call Vertex AI Prediction API (Gemini model endpoint)
  * with improved error handling and retry logic.
  *
  * @param messages An array of ChatMessage objects, filtered to include only 'user' and 'model' roles.
@@ -61,9 +61,9 @@ export async function callVertexAI(
 
         // 3. Construct API Endpoint URL
         const VERTEX_LOCATION = "us-central1"; // Consider making configurable
-        // Changed to use the standard gemini-pro model which is more widely available
-        const VERTEX_MODEL_ID = "gemini-pro";
-        const VERTEX_API_VERSION = "v1"; // Changed to standard v1 API
+        // Using gemini-1.5-flash-002 as requested
+        const VERTEX_MODEL_ID = "gemini-1.5-flash-002";
+        const VERTEX_API_VERSION = "v1"; // Standard v1 API endpoint
         const endpoint = `https://${VERTEX_LOCATION}-aiplatform.googleapis.com/${VERTEX_API_VERSION}/projects/${projectId}/locations/${VERTEX_LOCATION}/publishers/google/models/${VERTEX_MODEL_ID}:generateContent`;
 
         console.log("Prepared Vertex AI request to endpoint:", endpoint);
@@ -74,7 +74,7 @@ export async function callVertexAI(
             contents: messages, // Directly use the pre-filtered/formatted messages
             generationConfig: {
                 temperature: temperature,
-                maxOutputTokens: 2048, // Reduced token limit to match gemini-pro capabilities
+                maxOutputTokens: 4096, // Higher token limit for gemini-1.5 models
                 topP: 0.95,
                 topK: 40
             }

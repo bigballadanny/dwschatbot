@@ -101,7 +101,7 @@ Use the following commands to explicitly switch modes:
 
 #### Implementation Plan
 1. **Enhanced AI Prompting:**
-   - Update Vertex AI Gemini 1.5 Pro prompts to identify and extract nuggets
+   - Update Vertex AI Gemini 1.5 Flash 002 prompts to identify and extract nuggets
    - Use structured format for consistency and searchability
    - Focus on actionable strategies, not just information
 
@@ -126,7 +126,7 @@ Use the following commands to explicitly switch modes:
    - Identify content areas needing more nugget extraction
 
 #### Technical Requirements
-- Enhanced prompt engineering with Vertex AI Gemini 1.5 Pro models
+- Enhanced prompt engineering with Vertex AI Gemini 1.5 Flash 002 models
 - Database schema updates for nugget storage
 - Semantic search capabilities for relevant retrieval
 - UI components for nugget presentation
@@ -153,7 +153,7 @@ Use the following commands to explicitly switch modes:
     -   [ ] Optimize token usage in conversations (Priority: Medium) - Status: To Do
     -   [ ] Implement Vertex AI diagnostics and testing tools (Priority: Medium) - Status: To Do
     -   [ ] Fix JWT token generation in Vertex AI authentication (Priority: High) - Status: To Do
-    -   [ ] Upgrade to Vertex AI Gemini 1.5 Pro model for enhanced summarization (Priority: High) - Status: In Progress
+    -   [x] Upgrade to Vertex AI Gemini 1.5 Flash 002 model for enhanced features (Priority: High) - Status: Done
 *   **Optimization Tasks ⚡**
     -   [ ] Improve message caching strategy (Priority: Medium) - Status: To Do
     -   [ ] Implement proper token bucket rate limiting (Priority: Low) - Status: To Do
@@ -203,7 +203,7 @@ Use the following commands to explicitly switch modes:
 ### 5.2. Dev Guidelines
 -   **Code Implementation:** Modular components, consistent naming, TypeScript, comments for complex logic, optimize for readability/maintainability.
 -   **AI Strategy:** Use Vertex AI Gemini models for analytical tasks, balance with performance/cost, implement fallbacks.
--   **Model Versioning:** Always specify EXACT Vertex AI model versions (e.g., "Vertex AI Gemini 1.5 Pro" not just "Gemini 2.0")
+-   **Model Versioning:** Currently using "Vertex AI Gemini 1.5 Flash 002" as our primary model for all interactions.
 -   **File Structure:** Small, focused components (<200 lines), separate logic (hooks/utils), group related components, dedicated type files.
 
 ### 5.3. Supabase/Frontend Alignment
@@ -223,3 +223,4 @@ Use the following commands to explicitly switch modes:
 - v1.1 (2025-04-16): Added prompt tracking and enhanced Vibe Session framework
 - v1.2 (2025-04-16): Integrated Elon Musk's 5-step algorithm and reorganized structure
 - v1.3 (2025-04-16): Refactored TranscriptSummary and implemented Golden Nuggets UI
+- v1.4 (2025-04-16): Updated AI model to Vertex AI Gemini 1.5 Flash 002

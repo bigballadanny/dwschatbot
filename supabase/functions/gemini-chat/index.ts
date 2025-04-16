@@ -52,7 +52,6 @@ function truncateTranscript(messages: ChatMessage[], maxTokens: number): ChatMes
             continue;
         }
 
-
         // Stop if adding the next message would exceed the limit
         if (currentTokenCount + messageTokens > maxTokens) {
             // If even the first message (most recent) is too long, attempt to truncate it (still approximate)
@@ -153,7 +152,7 @@ const corsHeaders = {
 };
 
 const CACHE_TABLE_NAME = 'chat_cache'; // CH-04: Define cache table name
-const CURRENT_MODEL_ID = 'gemini-pro'; // CH-04: Model identifier for caching
+const CURRENT_MODEL_ID = 'gemini-1.5-flash-002'; // Updated model identifier for caching
 
 const FALLBACK_RESPONSE = `
 # Unable to Connect to AI Service
@@ -238,7 +237,7 @@ serve(async (req: Request) => {
         status: 503 // Service Unavailable
       });
     }
-    console.log("Service account check passed.");
+    console.log("Service account check passed. Using service account with model:", CURRENT_MODEL_ID);
 
     // 2. Parse Request Body
     let requestData: any;
@@ -307,7 +306,6 @@ serve(async (req: Request) => {
         // normalizedClientMessages.push({ role: 'user', parts: [{ text: "(Continue)" }] });
     }
 
-
     // Combine system prompts and normalized client messages
     let combinedMessages = [
         ...preparedMessages.filter(m => m.role === 'system'), // Keep system prompts separate initially
@@ -315,7 +313,7 @@ serve(async (req: Request) => {
     ];
 
     // 5. Handle Transcript and Token Limits
-    const maxInputTokens = 7000; // Set a maximum *input* token limit for Vertex AI (Gemini 1.5 Flash has a large context window, but let's be conservative)
+    const maxInputTokens = 12000; // Increased for gemini-1.5-flash-002's larger context window
     const messagesForAI = truncateTranscript(combinedMessages, maxInputTokens);
     console.log(`Prepared ${messagesForAI.length} messages after potential truncation.`);
 
@@ -397,7 +395,6 @@ serve(async (req: Request) => {
          console.warn("Supabase client not initialized, skipping cache check.");
     }
 
-
     // 7. Call Vertex AI (if no cache hit)
     let aiResponse;
     try {
@@ -462,10 +459,11 @@ serve(async (req: Request) => {
     // 9. Return Response
     const responseData = {
       content: responseText,
-      source: "vertex" // Indicate the source of the response
+      source: "vertex", // Indicate the source of the response
+      model: CURRENT_MODEL_ID // Include model information in response
     };
 
-    console.log("Successfully generated and sending response from Vertex AI.");
+    console.log(`Successfully generated and sending response from Vertex AI (${CURRENT_MODEL_ID}).`);
     return new Response(JSON.stringify(responseData), {
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },
       status: 200 // OK
@@ -485,4 +483,4 @@ serve(async (req: Request) => {
   }
 });
 
-console.log("gemini-chat function initialized and listening...");
+console.log(`gemini-chat function initialized and listening (using model: ${CURRENT_MODEL_ID})...`);
