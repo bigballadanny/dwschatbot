@@ -1,5 +1,5 @@
 
-import { useEffect } from 'react';
+import { useState, useEffect } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/components/ui/use-toast';
 import { useNavigate } from 'react-router-dom';
@@ -150,6 +150,10 @@ export function useChatMessages({
       // Determine the source type based on citation presence
       const sourceType = data.citation && data.citation.length > 0 ? 'transcript' : (data.source || 'gemini');
       
+      // Convert source to allowed types for saveMessages
+      const allowedSource: 'gemini' | 'system' = 
+        sourceType === 'gemini' || sourceType === 'vertex' ? 'gemini' : 'system';
+      
       // Pass the source type without type casting to avoid type errors
       const responseMessage = addSystemMessage(
         data.content, 
@@ -163,7 +167,7 @@ export function useChatMessages({
         trimmedMessage, 
         {
           content: responseMessage.content,
-          source: responseMessage.source,
+          source: allowedSource,
           citation: responseMessage.citation
         }
       );
