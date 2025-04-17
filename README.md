@@ -1,40 +1,52 @@
 
-# Project Overview
+# DWS AI Project
 
-## Getting Started
+## Development Setup
 
-### Prerequisites
-- Node.js (v18+)
-- npm or bun
+This project requires several dependencies to be installed. To set up the development environment:
 
-### Installation
+### 1. Install required packages:
+
 ```bash
 npm install
+npm install -g vite
+npm install lucide-react date-fns @tanstack/react-query
+```
+
+### 2. Start the development server:
+
+```bash
 npm run dev
 ```
 
-### Configuration
-- Create Firestore vector index (collection: vectors, field: values, dim: 768).
+## About the Mock System
 
-## Features
-- AI-powered chat interface
-- Responsive design
-- Analytics dashboard
-- Secure authentication
+Until you install the required dependencies, the application uses mock implementations for:
+- lucide-react
+- date-fns 
+- @tanstack/react-query
 
-## Tech Stack
-- React
-- TypeScript
-- Tailwind CSS
-- Supabase
-- Gemini AI
+These mocks are located in `src/mocks/` and provide basic functionality to allow the application to load even without the actual dependencies.
 
-## Development
-- Run tests: `npm test`
-- Build project: `npm run build`
+## Firebase Deployment
 
-## Contributing
-Please read our contribution guidelines before submitting pull requests.
+This project uses GitHub Actions for deployment to Firebase. The workflow is configured in `.github/workflows/firebase.yml`.
 
-## License
-This project is licensed under the MIT License.
+## Project Structure
+
+- `/src` - Application source code
+- `/functions` - Firebase Cloud Functions 
+- `/public` - Static assets
+
+## Available Scripts
+
+- `npm run dev` - Start the development server
+- `npm run build` - Build the production version
+- `npm run preview` - Preview the built app locally
+
+## Known Issues
+
+If you're experiencing the "vite: not found" error, ensure you have installed vite globally:
+```bash
+npm install -g vite
+```

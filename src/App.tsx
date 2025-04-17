@@ -1,7 +1,8 @@
 import { BrowserRouter, Routes, Route, Link, useLocation } from 'react-router-dom';
 import { ThemeProvider } from '@/components/ThemeProvider';
 import { Toaster } from '@/components/ui/sonner';
-import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
+import { QueryClientProvider } from '@tanstack/react-query';
+import { queryClient } from '@/lib/query-client';
 import { SidebarProvider } from "@/components/ui/sidebar";
 import ChatSidebar from '@/components/ChatSidebar';
 import Index from '@/pages/Index';
@@ -20,10 +21,7 @@ import { AdminProvider } from '@/context/AdminContext';
 import SidebarOpenButton from '@/components/sidebar/SidebarOpenButton';
 import './App.css';
 
-// Initialize the query client
-const queryClient = new QueryClient();
-
-// Wrap the main content in a component to use hooks like useLocation
+// AppContent component remains the same
 const AppContent = () => {
   const location = useLocation();
   const showSidebar = location.pathname !== '/auth';
