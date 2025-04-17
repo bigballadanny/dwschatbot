@@ -1,4 +1,4 @@
 
 {
-  "projects": { "default": "YOUR_PROJECT_ID" }
+  "projects": { "default": "dms-geni-kit" }
 }

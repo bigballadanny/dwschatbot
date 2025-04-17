@@ -180,6 +180,31 @@ Use the following commands to explicitly switch modes:
 *   **UI & Responsiveness ✨**
     -   [ ] Address mobile friendliness progressively (Priority: Medium) - Status: Ongoing
 
+**Current Focus (Phase 12: Build Stability & Integration)**
+
+*   **Development Environment 🛠️**
+    -   [ ] Fix missing dependencies (Priority: Critical) - Status: In Progress
+      - lucide-react
+      - date-fns
+      - @tanstack/react-query
+    -   [ ] Resolve Vite installation issues (Priority: Critical) - Status: In Progress
+    -   [ ] Update build pipeline configuration (Priority: High) - Status: To Do
+    -   [ ] Implement dependency version locking (Priority: High) - Status: To Do
+*   **CI/CD Pipeline 🔄**
+    -   [ ] Fix GitHub Actions workflow (Priority: Critical) - Status: In Progress
+    -   [ ] Restore Firebase deployment configuration (Priority: High) - Status: In Progress
+    -   [ ] Implement build verification tests (Priority: High) - Status: To Do
+    -   [ ] Add dependency audit checks (Priority: Medium) - Status: To Do
+*   **Integration Testing 🧪**
+    -   [ ] Set up end-to-end testing framework (Priority: High) - Status: To Do
+    -   [ ] Create basic component smoke tests (Priority: Medium) - Status: To Do
+    -   [ ] Implement build verification suite (Priority: Medium) - Status: To Do
+*   **Documentation Updates 📝**
+    -   [ ] Update installation instructions (Priority: High) - Status: To Do
+    -   [ ] Document build process requirements (Priority: High) - Status: To Do
+    -   [ ] Add troubleshooting guide (Priority: Medium) - Status: To Do
+    -   [ ] Create dependency management guide (Priority: Medium) - Status: To Do
+
 **Backlog**
 
 *   **War Room Enhancements 🚀**
@@ -225,3 +250,4 @@ Use the following commands to explicitly switch modes:
 - v1.3 (2025-04-16): Refactored TranscriptSummary and implemented Golden Nuggets UI
 - v1.4 (2025-04-16): Updated AI model to Vertex AI Gemini 1.5 Flash 002
 - v1.5 (2025-04-17): Updated AI model to Vertex AI Gemini 2.0 Flash
+- v1.6 (2025-04-17): Added Build Stability phase and dependency management
