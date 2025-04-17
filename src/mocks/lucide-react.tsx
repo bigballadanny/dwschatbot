@@ -1,9 +1,6 @@
 
 import React from 'react';
 
-// This is a mock implementation for lucide-react icons
-// It's a temporary solution until the actual package can be installed
-
 interface IconProps extends React.SVGAttributes<SVGElement> {
   size?: number | string;
   strokeWidth?: number;
@@ -11,6 +8,7 @@ interface IconProps extends React.SVGAttributes<SVGElement> {
   color?: string;
 }
 
+// Helper function to create mock icons
 const createIcon = (displayName: string) => {
   const Icon = React.forwardRef<SVGSVGElement, IconProps>(
     ({ size = 24, strokeWidth = 2, color = 'currentColor', ...rest }, ref) => {
@@ -84,14 +82,11 @@ export const Tag = createIcon('Tag');
 export const Trash = createIcon('Trash');
 export const User = createIcon('User');
 export const X = createIcon('X');
-
-// Add other icons as needed
 export const Calendar = createIcon('Calendar');
 export const Home = createIcon('Home');
 export const Inbox = createIcon('Inbox');
 export const Upload = createIcon('Upload');
 export const BookOpen = createIcon('BookOpen');
-
 // Add all remaining icons
 export const LucideIcon = createIcon('LucideIcon');
 export const icons: Record<string, any> = {};
