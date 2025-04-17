@@ -1,6 +1,4 @@
 {
-  "firebase_hosting": {
-    "deploymentHostingUrl": "https://dws-ai-1000.web.app"
-  },
+  "firebase_hosting": {},
   "gemini_api": {}
 }
