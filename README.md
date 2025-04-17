@@ -13,6 +13,9 @@ npm install
 npm run dev
 ```
 
+### Configuration
+- Create Firestore vector index (collection: vectors, field: values, dim: 768).
+
 ## Features
 - AI-powered chat interface
 - Responsive design

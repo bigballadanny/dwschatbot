@@ -1,4 +1,3 @@
-
 import { useState, useEffect } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/components/ui/use-toast';
@@ -7,7 +6,7 @@ import { useMessages } from './useMessages';
 import { useConversation } from './useConversation';
 import { useAudioPlayer } from './useAudioPlayer';
 import { useSearchConfig } from './useSearchConfig';
-import { MessageSource } from '@/utils/messageUtils';
+import { MessageSource, isValidMessageSource } from '@/utils/messageUtils';
 
 interface UseChatMessagesProps {
   user: any;
@@ -152,7 +151,8 @@ export function useChatMessages({
       
       // Convert source to allowed types for saveMessages
       const allowedSource: 'gemini' | 'system' = 
-        sourceType === 'gemini' || sourceType === 'vertex' ? 'gemini' : 'system';
+        isValidMessageSource(sourceType) && 
+        (sourceType === 'gemini' || sourceType === 'system') ? sourceType : 'system';
       
       // Pass the source type without type casting to avoid type errors
       const responseMessage = addSystemMessage(

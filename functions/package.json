@@ -2,6 +2,7 @@
 {
   "name": "dws-genkit-functions",
   "type": "module",
+  "main": "src/index.ts",
   "engines": { "node": "22" },
   "dependencies": {
     "@genkit-ai/core": "latest",
