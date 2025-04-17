@@ -1,3 +1,4 @@
+
 import { Json } from '@/integrations/supabase/types';
 
 // Define valid message sources for type safety throughout the app

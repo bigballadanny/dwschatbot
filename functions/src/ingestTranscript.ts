@@ -2,8 +2,8 @@
 import { onObjectFinalized } from 'firebase-functions/v2/storage';
 import { defineFlow, runFlow } from '@genkit-ai/firebase/functions';
 import { getModel, getEmbedder } from '@genkit-ai/firebase/functions';
-import { deleteObject, downloadObject, getObjectMetadata } from '@genkit-ai/firebase/storage';
-import { index, upsert } from '@genkit-ai/ai/vector';
+import { downloadObject, getObjectMetadata } from '@genkit-ai/firebase/storage';
+import { upsert } from '@genkit-ai/ai/vector';
 import { chunk } from '@genkit-ai/ai/retriever';
 import { Document } from '@genkit-ai/ai/document';
 import { genkitMetric } from '@genkit-ai/core/metrics';
