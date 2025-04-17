@@ -1,9 +1,8 @@
-
 import { onCall } from 'firebase-functions/v2/https';
 import { HttpsError } from 'firebase-functions/v2/https';
 import { defineSecret } from 'firebase-functions/params';
 import { onCall as onCallGenkit } from '@genkit-ai/firebase/functions';
-import { answerFlow } from '../../flows/answer';
+import { answerFlow } from '../../flows/answer.js'; // Added .js extension
 
 // You can access the project ID from the Firebase plugin, too
 const projectId = defineSecret('GOOGLE_CLOUD_PROJECT');
@@ -38,9 +37,9 @@ export const ask = onCallGenkit(
               context
             );
             return result;
-        } catch (error) {
+        } catch (error: any) {
             console.error("Error executing answerFlow:", error);
-            throw new HttpsError('internal', 'Failed to generate answer', { details: error.message });
+            throw new HttpsError('internal', 'Failed to generate answer', { details: error.message }); // Added type assertion for error
         }
     }
 );
