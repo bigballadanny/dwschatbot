@@ -19,7 +19,7 @@ const app = initializeApp(firebaseConfig);
 const functions = getFunctions(app);
 
 // Get the callable function reference
-const askFunction = httpsCallable(functions, 'ask');
+const answerFunction = httpsCallable(functions, 'answer');
 
 export interface ChatApiResponse {
   answerText: string;
@@ -38,7 +38,7 @@ export function useChatApi() {
     try {
       console.log(`Sending question to Firebase function: ${question.substring(0, 50)}...`);
       
-      const response = await askFunction({ 
+      const response = await answerFunction({ 
         question, 
         uid: userId 
       });
@@ -46,18 +46,18 @@ export function useChatApi() {
       console.log('Response received from Firebase function:', response.data);
       
       const data = response.data as { 
-        answerText: string; 
-        citations?: string[] 
+        answer: string; 
+        sources?: string[] 
       };
       
-      // Determine source based on citations
-      const source: MessageSource = data.citations && data.citations.length > 0 
+      // Determine source based on returned sources
+      const source: MessageSource = data.sources && data.sources.length > 0 
         ? 'transcript' 
         : 'vertex';
         
       return {
-        answerText: data.answerText,
-        citations: data.citations,
+        answerText: data.answer,
+        citations: data.sources,
         source
       };
     } catch (err) {

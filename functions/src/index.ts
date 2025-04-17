@@ -1,24 +1,18 @@
 
 /**
- * Import function triggers from their respective submodules:
- *
- * import {onCall} from "firebase-functions/v2/https";
- * import {onDocumentWritten} from "firebase-functions/v2/firestore";
- *
- * See a full list of supported triggers at https://firebase.google.com/docs/functions
+ * Index file that exports all Cloud Functions
  */
 
-import {onRequest} from "firebase-functions/v2/https";
+// Import function triggers
+import { onCall } from "firebase-functions/v2/https";
 import * as logger from "firebase-functions/logger";
 
-// Import our API functions
-import { ask } from './api';
-
-// Export the API functions so Firebase can find them
-export { ask };
+// Import our functions
+export * from "./ingestTranscript.js";
+export * from "./answer.js";
 
 // Example hello world function for testing
-export const helloWorld = onRequest((request, response) => {
-  logger.info("Hello logs!", {structuredData: true});
-  response.send("Hello from Firebase!");
+export const helloWorld = onCall((request) => {
+  logger.info("Hello from Firebase!", {structuredData: true});
+  return { message: "Hello from Firebase!" };
 });

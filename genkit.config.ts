@@ -1,13 +1,13 @@
 
-import { configureGenkit } from '@genkit-ai/core';
-import { firebase } from '@genkit-ai/firebase';
-import { googleAI } from '@genkit-ai/googleai';
-import { defineFirestoreVectorStore } from '@genkit-ai/firebase/firestore';
-import * as z from 'zod';
+import { configureGenkit } from "@genkit-ai/core";
+import { firebase } from "@genkit-ai/firebase";
+import { googleAI } from "@genkit-ai/googleai";
+import { defineFirestoreVectorStore } from "@genkit-ai/firebase/firestore";
+import * as z from "zod";
 
 // Define the structure for vector metadata (optional but good practice)
 const VectorMetadataSchema = z.object({
-  uid: z.string(),
+  uid: z.string().optional(),
   source: z.string(),
   idx: z.number(),
 });
@@ -18,33 +18,33 @@ export default configureGenkit({
     firebase(),
     // Google AI plugin for Vertex AI models
     googleAI({
-      location: 'us-central1',
+      location: "us-central1",
     }),
     // Define the Firestore vector store plugin
     defineFirestoreVectorStore({
-      collection: 'vectors',
+      collection: "vectors",
       metadataSchema: VectorMetadataSchema,
     }),
   ],
   // Default model provider configuration
   model: {
-    provider: 'googleai',
-    id: 'vertex/gemini-pro',
+    provider: "googleai",
+    id: "vertex/gemini-pro",
     config: {
-      location: 'us-central1',
+      location: "us-central1",
     },
   },
   // Default embedder configuration
   embedder: {
-    provider: 'googleai',
-    id: 'vertex/textembedding-gecko@003',
+    provider: "googleai",
+    id: "vertex/textembedding-gecko@003",
     config: {
-      location: 'us-central1',
+      location: "us-central1",
     }
   },
-  flowStateStore: { provider: 'firebase' },
-  traceStore: { provider: 'firebase' },
+  flowStateStore: { provider: "firebase" },
+  traceStore: { provider: "firebase" },
   telemetry: {
-    disabled: process.env.GENKIT_TELEMETRY_DISABLED === 'true',
+    disabled: process.env.GENKIT_TELEMETRY_DISABLED === "true",
   },
 });
