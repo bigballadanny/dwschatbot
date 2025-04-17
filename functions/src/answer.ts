@@ -4,7 +4,7 @@ import { vectorStore } from "@genkit-ai/firebase/store";
 import { geminiPro } from "@genkit-ai/googleai";
 import * as logger from "firebase-functions/logger";
 
-export const answer = onCall({ timeoutSeconds: 30 }, async ({ data, auth }) => {
+export const answer = onCall({ memory: "512MiB", concurrency: 10, timeoutSeconds: 30 }, async ({ data, auth }) => {
   if (!auth) {
     logger.error("Unauthenticated access attempt to answer function");
     throw new Error("Authentication required");
