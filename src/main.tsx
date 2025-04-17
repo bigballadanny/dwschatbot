@@ -1,11 +1,15 @@
 
 import { createRoot } from 'react-dom/client'
-// Import our mock configuration
+// Import our mock configuration first to ensure it's available
 import './mocks/config'
 import App from './App.tsx'
 import './index.css'
 
-createRoot(document.getElementById("root")!).render(<App />);
+// Output a helpful message about using mock modules
+console.log('Application started - using mock modules for development');
+console.log('Please install required dependencies:');
+console.log('- npm install -g vite');
+console.log('- npm install lucide-react date-fns @tanstack/react-query');
 
-// Add a helpful console message for developers
-console.log('Application started - using mock modules for development until dependencies are installed');
+// Create the root element and render the app
+createRoot(document.getElementById("root")!).render(<App />);
