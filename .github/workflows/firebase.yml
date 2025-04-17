@@ -7,7 +7,7 @@ on:
       - main
 
 jobs:
-  deploy:
+  build_and_deploy:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -17,14 +17,20 @@ jobs:
         with:
           node-version: '20'
           
-      - name: Install Dependencies
+      - name: Install Root Dependencies
+        run: npm install
+        
+      - name: Install Functions Dependencies
         run: npm install
         working-directory: ./functions
+        
+      - name: Build Application
+        run: npm run build
         
       - name: Install Firebase Tools
         run: npm install -g firebase-tools
         
       - name: Deploy to Firebase
-        run: firebase deploy --only functions,firestore:indexes --token ${{ secrets.FIREBASE_TOKEN }}
+        run: firebase deploy --only functions,firestore:indexes,hosting --token ${{ secrets.FIREBASE_TOKEN }}
         env:
           FIREBASE_TOKEN: ${{ secrets.FIREBASE_TOKEN }}
