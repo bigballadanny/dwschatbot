@@ -1,4 +1,8 @@
 
+# WORKFLOW.md (ARCHIVED)
+
+> **This file has been archived and replaced by PLANNING.md and TASKS.md. Please refer to those files for the latest workflow and planning structure. You may delete this file if you wish.**
+
 # WORKFLOW.md
 
 ## 🔒 IMPORTANT: WORKFLOW PROTECTION PROTOCOL 🔒
