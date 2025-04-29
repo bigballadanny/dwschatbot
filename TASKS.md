@@ -9,9 +9,23 @@
 - [ ] Create transcript search feature
 - [ ] Set up admin analytics skeleton
 - [ ] War Room: initial document upload capability
+- [ ] LightRAG: Inventory and verify all required files and dependencies
+- [ ] LightRAG: Connect ingestion scripts to mem0 MCP for document embedding
+- [ ] LightRAG: Implement retrieval logic querying mem0 for relevant context
+- [ ] LightRAG: Integrate retrieval with chatbot response pipeline
+- [ ] LightRAG: Enhance with brave-search for web context and supabase for logging
+- [ ] LightRAG: Create unit tests for ingestion and retrieval
+- [ ] LightRAG: Document workflow and update planning/tasks as features complete
 
 ### In Progress
 - [ ] Document current MCP config and test results
+- [ ] LightRAG: Inventory and verify all required files and dependencies
+- [ ] LightRAG: Connect ingestion scripts to mem0 MCP for document embedding
+- [ ] LightRAG: Implement retrieval logic querying mem0 for relevant context
+- [ ] LightRAG: Integrate retrieval with chatbot response pipeline
+- [ ] LightRAG: Enhance with brave-search for web context and supabase for logging
+- [ ] LightRAG: Create unit tests for ingestion and retrieval
+- [ ] LightRAG: Document workflow and update planning/tasks as features complete
 
 ### Backlog
 - [ ] Automate Vibe Session prompt tracking
