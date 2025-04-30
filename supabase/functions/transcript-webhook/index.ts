@@ -22,6 +22,8 @@ Deno.serve(async (req) => {
   try {
     const { record, type } = await req.json()
     
+    console.log(`Webhook received: ${type} for transcript ID ${record?.id || 'unknown'}`);
+    
     // Only process INSERT events
     if (type !== 'INSERT') {
       console.log(`Ignoring non-INSERT event: ${type}`);

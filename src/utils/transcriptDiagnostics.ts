@@ -22,7 +22,8 @@ export async function checkForTranscriptIssues() {
       missingFilePath: 0,
       recentlyUploaded: 0,
       businessSummitTranscripts: 0,
-      potentialSummitTranscripts: 0
+      potentialSummitTranscripts: 0,
+      unprocessedTranscripts: 0
     };
     
     const lastHour = new Date();
@@ -30,6 +31,7 @@ export async function checkForTranscriptIssues() {
     
     const recentTranscripts = [];
     const potentialSummitTranscripts = [];
+    const unprocessedTranscripts = [];
     
     transcripts.forEach(transcript => {
       // Check for empty content
@@ -64,9 +66,15 @@ export async function checkForTranscriptIssues() {
         potentialSummitTranscripts.push(transcript);
         stats.potentialSummitTranscripts++;
       }
+      
+      // Check for unprocessed transcripts
+      if (transcript.is_processed === false) {
+        unprocessedTranscripts.push(transcript);
+        stats.unprocessedTranscripts++;
+      }
     });
     
-    return { stats, recentTranscripts, potentialSummitTranscripts };
+    return { stats, recentTranscripts, potentialSummitTranscripts, unprocessedTranscripts };
   } catch (error) {
     console.error('Error checking for transcript issues:', error);
     throw error;
@@ -151,6 +159,36 @@ export async function fixTranscriptIssues(transcriptIds: string[]) {
 }
 
 /**
+ * Manually triggers processing for transcripts
+ */
+export async function manuallyProcessTranscripts(transcriptIds: string[]) {
+  const results = {
+    success: 0,
+    errors: [] as string[]
+  };
+  
+  for (const id of transcriptIds) {
+    try {
+      // Call the process-transcript function directly
+      const { data, error } = await supabase.functions.invoke('process-transcript', {
+        body: { transcript_id: id }
+      });
+      
+      if (error) {
+        results.errors.push(`Error processing transcript ${id}: ${error.message}`);
+        continue;
+      }
+      
+      results.success++;
+    } catch (error: any) {
+      results.errors.push(`Unexpected error processing transcript ${id}: ${error.message}`);
+    }
+  }
+  
+  return results;
+}
+
+/**
  * Update a single transcript's source type
  */
 export async function updateTranscriptSourceType(transcriptId: string, newSource: string) {
@@ -167,6 +205,33 @@ export async function updateTranscriptSourceType(transcriptId: string, newSource
     return { success: true };
   } catch (error: any) {
     console.error('Error updating transcript source type:', error);
+    return { success: false, error: error.message };
+  }
+}
+
+/**
+ * Marks a transcript as processed without actually processing it
+ */
+export async function markTranscriptAsProcessed(transcriptId: string) {
+  try {
+    const { error } = await supabase
+      .from('transcripts')
+      .update({ 
+        is_processed: true,
+        metadata: {
+          processing_completed_at: new Date().toISOString(),
+          manually_marked_as_processed: true
+        }
+      })
+      .eq('id', transcriptId);
+      
+    if (error) {
+      throw error;
+    }
+    
+    return { success: true };
+  } catch (error: any) {
+    console.error('Error marking transcript as processed:', error);
     return { success: false, error: error.message };
   }
 }
