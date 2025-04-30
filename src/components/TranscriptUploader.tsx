@@ -137,15 +137,13 @@ const TranscriptUploader = ({
       const filePath = generateStoragePath(userId, selectedFile.name);
       const sanitizedFilePath = sanitizeFilename(filePath);
       
+      // In Supabase v2.49.2, we need to use the upload method without a progress handler
+      // and handle progress separately
       const { error } = await supabase.storage
         .from('transcripts')
         .upload(sanitizedFilePath, selectedFile, {
           cacheControl: '3600',
-          upsert: false,
-          progressHandler: (progress) => {
-            const percent = Math.round((progress.loaded / progress.total) * 100);
-            setUploadProgress(percent);
-          }
+          upsert: false
         });
         
       if (error) {
@@ -165,6 +163,10 @@ const TranscriptUploader = ({
       
       await createTranscript(selectedFile.name, '', sanitizedFilePath, publicURL);
       setSelectedFile(null);
+      
+      // Simulate progress completion since we can't track it directly
+      setUploadProgress(100);
+      
     } catch (error: any) {
       console.error('Error uploading file:', error);
       toast({
