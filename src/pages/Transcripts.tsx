@@ -22,6 +22,7 @@ import TagFilter from "@/components/TagFilter";
 import { showSuccess, showError, showWarning } from "@/utils/toastUtils";
 import BulkTagProcessor from "@/components/BulkTagProcessor";
 import FileUploader from "@/components/FileUploader";
+import { sanitizeFilename, generateStoragePath } from "@/utils/fileUtils";
 
 interface Transcript {
   id: string;
@@ -130,7 +131,7 @@ const TranscriptsPage: React.FC = () => {
       
       for (let i = 0; i < files.length; i++) {
         const file = files[i];
-        const filePath = `transcripts/${user.id}/${Date.now()}_${file.name}`;
+        const filePath = generateStoragePath(user.id, file.name);
         
         setUploadProgress(Math.round((i / files.length) * 100));
         
@@ -146,7 +147,7 @@ const TranscriptsPage: React.FC = () => {
           continue;
         }
 
-        const publicURL = `${process.env.NEXT_PUBLIC_SUPABASE_URL}/storage/v1/object/public/transcripts/${filePath}`;
+        const publicURL = `${supabase.storage.url}/object/public/transcripts/${filePath}`;
         
         await createTranscript(file.name, '', filePath, publicURL);
         successCount++;
@@ -207,7 +208,7 @@ const TranscriptsPage: React.FC = () => {
     setUploadProgress(0);
 
     try {
-      const filePath = `transcripts/${user.id}/${Date.now()}_${selectedFile.name}`;
+      const filePath = generateStoragePath(user.id, selectedFile.name);
       const { data, error } = await supabase.storage
         .from('transcripts')
         .upload(filePath, selectedFile, {
@@ -223,7 +224,7 @@ const TranscriptsPage: React.FC = () => {
         return;
       }
 
-      const publicURL = `${process.env.NEXT_PUBLIC_SUPABASE_URL}/storage/v1/object/public/transcripts/${filePath}`;
+      const publicURL = `${supabase.storage.url}/object/public/transcripts/${filePath}`;
       
       createTranscript(selectedFile.name, '', filePath, publicURL);
     } catch (error: any) {

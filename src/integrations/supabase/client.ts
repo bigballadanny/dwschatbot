@@ -25,15 +25,27 @@ export const supabase = createClient<Database>(
 (async () => {
   if (typeof window !== 'undefined') {
     try {
-      const { data: buckets } = await supabase.storage.listBuckets();
+      const { data: buckets, error } = await supabase.storage.listBuckets();
+      
+      if (error) {
+        console.error('Error fetching storage buckets:', error);
+        return;
+      }
+      
       const transcriptsBucketExists = buckets?.find(bucket => bucket.name === 'transcripts');
       
       if (!transcriptsBucketExists) {
         console.log('Creating transcripts storage bucket');
-        await supabase.storage.createBucket('transcripts', {
+        const { error: createError } = await supabase.storage.createBucket('transcripts', {
           public: true,
           fileSizeLimit: 10485760, // 10MB
         });
+        
+        if (createError) {
+          console.error('Error creating transcripts bucket:', createError);
+        } else {
+          console.log('Transcripts bucket created successfully');
+        }
       }
     } catch (error) {
       console.error('Error initializing storage bucket:', error);

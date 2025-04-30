@@ -1,4 +1,3 @@
-
 """
 Supabase client for file upload and metadata storage.
 """
@@ -6,12 +5,30 @@ Supabase client for file upload and metadata storage.
 from supabase import create_client, Client
 import os
 import logging
+import re
 from typing import Dict, Any, Optional
 from LightRAG.utils import load_env
 
 # Configure logging
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
+
+def sanitize_filename(filename: str) -> str:
+    """
+    Sanitize a filename to be safe for storage.
+    
+    Args:
+        filename: Original filename
+        
+    Returns:
+        Sanitized filename
+    """
+    # Replace special characters and spaces with underscores
+    sanitized = re.sub(r'[^\w\s.-]', '_', filename)
+    sanitized = re.sub(r'\s+', '_', sanitized)
+    sanitized = re.sub(r'__+', '_', sanitized)
+    sanitized = sanitized.strip('-_')
+    return sanitized
 
 def get_supabase_client() -> Client:
     """
@@ -51,10 +68,19 @@ def upload_file(bucket: str, file_path: str, dest_path: str) -> Dict[str, Any]:
     client = get_supabase_client()
     
     try:
-        logger.info(f"Uploading {file_path} to {bucket}/{dest_path}")
+        # Sanitize destination path to avoid issues with special characters
+        dest_path_parts = dest_path.rsplit('/', 1)
+        if len(dest_path_parts) > 1:
+            dest_folder, dest_filename = dest_path_parts
+            sanitized_filename = sanitize_filename(dest_filename)
+            sanitized_dest_path = f"{dest_folder}/{sanitized_filename}"
+        else:
+            sanitized_dest_path = sanitize_filename(dest_path)
+            
+        logger.info(f"Uploading {file_path} to {bucket}/{sanitized_dest_path}")
         with open(file_path, "rb") as f:
-            res = client.storage.from_(bucket).upload(dest_path, f)
-        logger.info(f"Upload successful: {dest_path}")
+            res = client.storage.from_(bucket).upload(sanitized_dest_path, f)
+        logger.info(f"Upload successful: {sanitized_dest_path}")
         return res
     except Exception as e:
         logger.error(f"Error uploading file to Supabase Storage: {str(e)}")
