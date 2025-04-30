@@ -40,3 +40,5 @@ enabled = true
 verify_jwt = true
 [edge_functions.transcript-webhook]
 verify_jwt = false
+[edge_functions.check-environment]
+verify_jwt = false

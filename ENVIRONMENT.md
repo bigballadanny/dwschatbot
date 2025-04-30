@@ -35,6 +35,15 @@ This document contains all the environment variables needed for the project to f
 
 ## Setting Environment Variables
 
+### Supabase Edge Functions
+
+For Supabase Edge Functions, set the environment variables in the Supabase dashboard under:
+Project Settings -> API -> Edge Functions -> Environment Variables
+
+**IMPORTANT:** The transcript processing system **requires** the following variables to be set:
+- `PYTHON_BACKEND_URL` - The URL to your Python backend service that processes transcripts
+- `PYTHON_BACKEND_KEY` - The authentication key for your Python backend (if required)
+
 ### Local Development
 
 For local development, you can create a `.env` file in the root directory with the required variables:
@@ -50,15 +59,6 @@ PYTHON_BACKEND_KEY=your-backend-key
 ```
 
 Then load them using the python-dotenv package.
-
-### Supabase Edge Functions
-
-For Supabase Edge Functions, set the environment variables in the Supabase dashboard under:
-Project Settings -> API -> Edge Functions -> Environment Variables
-
-### Production Deployment
-
-For production deployment, set the environment variables according to your hosting provider's instructions.
 
 ## Security Notes
 

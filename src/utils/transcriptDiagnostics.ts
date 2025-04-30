@@ -2,6 +2,43 @@
 import { supabase } from '@/integrations/supabase/client';
 
 /**
+ * Checks environment variables required for transcript processing
+ */
+export async function checkEnvironmentVariables() {
+  try {
+    // Call the edge function to check environment variables
+    const { data, error } = await supabase.functions.invoke('check-environment', {
+      method: 'GET'
+    });
+    
+    if (error) {
+      console.error('Error checking environment variables:', error);
+      return {
+        PYTHON_BACKEND_URL: false,
+        PYTHON_BACKEND_KEY: false,
+        SUPABASE_SERVICE_ROLE_KEY: false,
+        SUPABASE_URL: false
+      };
+    }
+    
+    return data.variables || {
+      PYTHON_BACKEND_URL: false,
+      PYTHON_BACKEND_KEY: false,
+      SUPABASE_SERVICE_ROLE_KEY: false,
+      SUPABASE_URL: false
+    };
+  } catch (error) {
+    console.error('Error checking environment variables:', error);
+    return {
+      PYTHON_BACKEND_URL: false,
+      PYTHON_BACKEND_KEY: false,
+      SUPABASE_SERVICE_ROLE_KEY: false,
+      SUPABASE_URL: false
+    };
+  }
+}
+
+/**
  * Checks for transcripts that might have upload issues
  */
 export async function checkForTranscriptIssues() {

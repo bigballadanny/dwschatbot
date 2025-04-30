@@ -10,12 +10,14 @@ import { Label } from "@/components/ui/label";
 import { Progress } from "@/components/ui/progress";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { AlertTriangle, CheckCircle2, Clock, RefreshCw, Settings, Wrench } from "lucide-react";
+import { toast } from "@/hooks/use-toast";
 import { showSuccess, showError, showWarning } from "@/utils/toastUtils";
 import { 
   checkForTranscriptIssues, 
   fixTranscriptIssues, 
   manuallyProcessTranscripts,
-  markTranscriptAsProcessed
+  markTranscriptAsProcessed,
+  checkEnvironmentVariables
 } from '@/utils/transcriptDiagnostics';
 
 const TranscriptDiagnostics = () => {
@@ -25,11 +27,17 @@ const TranscriptDiagnostics = () => {
   const [processing, setProcessing] = useState(false);
   const [operationProgress, setOperationProgress] = useState(0);
   const [activeTab, setActiveTab] = useState('unprocessed');
+  const [envVars, setEnvVars] = useState<{[key: string]: boolean}>({});
 
   const runDiagnostics = async () => {
     setIsLoading(true);
     setSelectedTranscripts([]);
     try {
+      // Check environment variables
+      const envResults = await checkEnvironmentVariables();
+      setEnvVars(envResults);
+      
+      // Check for transcript issues
       const results = await checkForTranscriptIssues();
       setDiagnosticResults(results);
     } catch (error: any) {
@@ -199,25 +207,25 @@ const TranscriptDiagnostics = () => {
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <EnvVariableCheck
               name="PYTHON_BACKEND_URL"
-              value={!!Deno?.env?.get('PYTHON_BACKEND_URL')}
+              value={!!envVars.PYTHON_BACKEND_URL}
               description="URL for the transcript processing backend"
               required
             />
             <EnvVariableCheck
               name="PYTHON_BACKEND_KEY"
-              value={!!Deno?.env?.get('PYTHON_BACKEND_KEY')}
+              value={!!envVars.PYTHON_BACKEND_KEY}
               description="Authentication key for the backend"
               required={false}
             />
             <EnvVariableCheck
               name="SUPABASE_SERVICE_ROLE_KEY"
-              value={!!Deno?.env?.get('SUPABASE_SERVICE_ROLE_KEY')}
+              value={!!envVars.SUPABASE_SERVICE_ROLE_KEY}
               description="Required for edge function authentication"
               required
             />
             <EnvVariableCheck
               name="SUPABASE_URL"
-              value={!!Deno?.env?.get('SUPABASE_URL')}
+              value={!!envVars.SUPABASE_URL}
               description="Required for edge function database access"
               required
             />
@@ -389,7 +397,9 @@ const TranscriptDiagnostics = () => {
                         <div className="flex-1">
                           <div className="flex justify-between">
                             <h4 className="font-medium">{transcript.title}</h4>
-                            <Badge variant={transcript.is_processed ? "success" : "outline"}>
+                            <Badge variant={transcript.is_processed ? "outline" : "outline"} 
+                              className={transcript.is_processed ? "bg-green-100 text-green-800" : ""}
+                            >
                               {transcript.is_processed ? "Processed" : "Unprocessed"}
                             </Badge>
                           </div>
@@ -461,7 +471,10 @@ const EnvVariableCheck = ({ name, value, description, required }: {
         <div className="font-medium">{name}</div>
         <div className="text-sm text-muted-foreground">{description}</div>
       </div>
-      <Badge variant={value ? "success" : required ? "destructive" : "outline"}>
+      <Badge 
+        variant={value ? "outline" : required ? "destructive" : "outline"} 
+        className={value ? "bg-green-100 text-green-800" : ""}
+      >
         {value ? "Set" : required ? "Missing" : "Optional"}
       </Badge>
     </div>
