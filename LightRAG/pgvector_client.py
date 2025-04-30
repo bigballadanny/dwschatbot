@@ -1,318 +1,559 @@
 
 """
-PGVector client for embedding storage and retrieval with Supabase.
+PGVector Client: Interface for storing and retrieving embeddings from Postgres with pgvector.
 """
 
+from typing import List, Dict, Any, Optional, Union, Tuple
 import os
 import json
-import logging
+import time
+import uuid
+from datetime import datetime
 import numpy as np
-from typing import List, Dict, Any, Optional, Union
-from LightRAG.utils import load_env
-from LightRAG.supabase_client import get_supabase_client
-
-# Configure logging
-logging.basicConfig(level=logging.INFO)
-logger = logging.getLogger(__name__)
+import psycopg2
+from psycopg2.extras import execute_values, Json
+from LightRAG.mem0_client import Mem0Client
 
 class PGVectorClient:
-    """Client for storing and retrieving vector embeddings using Supabase PGVector."""
+    """
+    Client for storing and retrieving embeddings using Postgres with pgvector extension.
+    Provides vector similarity search with additional features like hybrid search and feedback.
+    """
     
-    def __init__(self, embedding_dimension: int = 1536):
+    def __init__(self, config=None):
         """
-        Initialize the PGVector client.
+        Initialize PGVector client with optional configuration.
         
         Args:
-            embedding_dimension: Dimension of embeddings (default: 1536 for OpenAI)
+            config: Optional configuration dictionary with connection parameters
         """
-        # Load environment variables if they haven't been loaded yet
-        load_env()
+        # Default configuration
+        self.config = {
+            "host": os.environ.get("SUPABASE_HOST", "localhost"),
+            "port": os.environ.get("SUPABASE_PORT", "5432"),
+            "database": os.environ.get("SUPABASE_DATABASE", "postgres"),
+            "user": os.environ.get("SUPABASE_USER", "postgres"),
+            "password": os.environ.get("SUPABASE_PASSWORD", "postgres"),
+            "embeddings_table": "embeddings",
+            "feedback_table": "embedding_feedback",
+            "embedding_dim": 1536,  # Default for OpenAI ada-002
+            "connection_pool_size": 5,
+        }
         
-        self.dimension = embedding_dimension
-        logger.info(f"Initialized PGVectorClient with dimension: {self.dimension}")
-    
-    def _get_supabase(self):
-        """Get a Supabase client instance."""
-        return get_supabase_client()
-    
-    def store_embedding(self, embedding: Dict[str, Any]) -> Dict[str, Any]:
-        """
-        Store an embedding in PGVector.
+        # Override defaults with provided config
+        if config:
+            self.config.update(config)
+            
+        # Initialize mem0 client for embedding generation
+        self.mem0_client = Mem0Client()
         
-        Args:
-            embedding: Dictionary with text content, embedding vector, and metadata
-                Example: {
-                    "text": "Sample text content",
-                    "embedding": [0.1, 0.2, ...],  # Optional, will be generated if not provided
-                    "metadata": {"source": "document.pdf", "topic": "ai"}
-                }
+        # Create connection
+        self._init_db()
         
-        Returns:
-            API response with embedding ID
-        """
+    def _init_db(self):
+        """Initialize database tables if they don't exist."""
+        conn = self._get_connection()
         try:
-            client = self._get_supabase()
-            
-            # Extract fields
-            content = embedding.get("text", "")
-            metadata = embedding.get("metadata", {})
-            vector = embedding.get("embedding")
-            user_id = metadata.get("user_id")
-            
-            # For now, we'll just store the text content - in a production system,
-            # you would generate embeddings here or externally
-            if vector is None:
-                logger.warning("No embedding vector provided. In production, generate embeddings here.")
-                # Placeholder for embedding generation or raise an error
-                vector = [0.0] * self.dimension
+            with conn.cursor() as cur:
+                # Enable pgvector extension
+                cur.execute("CREATE EXTENSION IF NOT EXISTS vector;")
                 
-            # Insert into embeddings table
-            result = client.table("embeddings").insert({
-                "content": content,
-                "metadata": metadata,
-                "embedding": vector,
-                "user_id": user_id
-            }).execute()
-            
-            if hasattr(result, 'error') and result.error:
-                logger.error(f"Error storing embedding: {result.error}")
-                raise Exception(f"Supabase error: {result.error}")
+                # Create embeddings table
+                cur.execute(f"""
+                CREATE TABLE IF NOT EXISTS {self.config['embeddings_table']} (
+                    id TEXT PRIMARY KEY,
+                    content TEXT NOT NULL,
+                    embedding vector({self.config['embedding_dim']}),
+                    metadata JSONB,
+                    created_at TIMESTAMP WITH TIME ZONE DEFAULT now(),
+                    relevance_score FLOAT DEFAULT 1.0,
+                    feedback_count INT DEFAULT 0
+                );
+                """)
                 
-            logger.debug(f"Successfully stored embedding")
-            return {"id": result.data[0]["id"], "status": "success"}
-            
+                # Create GIN index on content for text search
+                cur.execute(f"""
+                CREATE INDEX IF NOT EXISTS idx_{self.config['embeddings_table']}_content 
+                ON {self.config['embeddings_table']} USING gin(to_tsvector('english', content));
+                """)
+                
+                # Create index on embedding for vector search
+                cur.execute(f"""
+                CREATE INDEX IF NOT EXISTS idx_{self.config['embeddings_table']}_embedding 
+                ON {self.config['embeddings_table']} USING ivfflat (embedding vector_cosine_ops) WITH (lists = 100);
+                """)
+                
+                # Create feedback table
+                cur.execute(f"""
+                CREATE TABLE IF NOT EXISTS {self.config['feedback_table']} (
+                    id TEXT PRIMARY KEY DEFAULT uuid_generate_v4()::TEXT,
+                    embedding_id TEXT REFERENCES {self.config['embeddings_table']}(id),
+                    query TEXT NOT NULL,
+                    is_relevant BOOLEAN NOT NULL,
+                    user_id TEXT,
+                    comment TEXT,
+                    created_at TIMESTAMP WITH TIME ZONE DEFAULT now()
+                );
+                """)
+                
+                conn.commit()
         except Exception as e:
-            logger.error(f"Error storing embedding: {e}")
+            conn.rollback()
+            print(f"Error initializing database: {e}")
             raise
+        finally:
+            conn.close()
+            
+    def _get_connection(self):
+        """Get a database connection."""
+        return psycopg2.connect(
+            host=self.config["host"],
+            port=self.config["port"],
+            dbname=self.config["database"],
+            user=self.config["user"],
+            password=self.config["password"]
+        )
     
-    def delete_embeddings_by_metadata(self, metadata_filter: Dict[str, Any]) -> bool:
+    async def store_embedding(self, data: Dict[str, Any]) -> Dict[str, Any]:
         """
-        Delete embeddings based on metadata filters.
+        Store content and its embedding in the database.
         
         Args:
-            metadata_filter: Dictionary of metadata key-value pairs to match
+            data: Dictionary with text content, metadata and optional embedding
             
         Returns:
-            Boolean success status
+            Dictionary with status and embedding ID
         """
+        text = data.get("text")
+        if not text:
+            raise ValueError("Text content is required")
+            
+        metadata = data.get("metadata", {})
+        embedding = data.get("embedding")
+        
+        # Generate embedding if not provided
+        if embedding is None:
+            try:
+                embedding = await self.mem0_client.generate_embeddings([text])
+                embedding = embedding[0] if embedding else None
+            except Exception as e:
+                print(f"Error generating embedding: {e}")
+                raise
+                
+        if not embedding:
+            raise ValueError("Failed to generate embedding")
+            
+        # Store in database
+        id_value = data.get("id") or str(uuid.uuid4())
+        
+        conn = self._get_connection()
         try:
-            client = self._get_supabase()
-            
-            # Construct the filter dynamically based on metadata fields
-            query = client.table("embeddings")
-            
-            # Add all metadata filters
-            for key, value in metadata_filter.items():
-                query = query.filter(f"metadata->{key}", "eq", value)
-            
-            # Execute the delete
-            result = query.delete().execute()
-            
-            if hasattr(result, 'error') and result.error:
-                logger.error(f"Error deleting embeddings: {result.error}")
-                return False
-            
-            deleted_count = len(result.data) if result.data else 0
-            logger.info(f"Successfully deleted {deleted_count} embeddings")
-            return True
-            
+            with conn.cursor() as cur:
+                cur.execute(f"""
+                INSERT INTO {self.config['embeddings_table']} 
+                (id, content, embedding, metadata, created_at)
+                VALUES (%s, %s, %s, %s, %s)
+                ON CONFLICT (id) DO UPDATE SET
+                content = EXCLUDED.content,
+                embedding = EXCLUDED.embedding,
+                metadata = EXCLUDED.metadata,
+                created_at = EXCLUDED.created_at
+                """, (
+                    id_value,
+                    text,
+                    embedding,
+                    Json(metadata),
+                    datetime.now()
+                ))
+                conn.commit()
+                
+                return {
+                    "id": id_value,
+                    "status": "success"
+                }
         except Exception as e:
-            logger.error(f"Error deleting embeddings: {e}")
-            return False
+            conn.rollback()
+            print(f"Error storing embedding: {e}")
+            raise
+        finally:
+            conn.close()
     
-    def query_embeddings(self, query: str, keywords: Optional[List[str]] = None,
-                         filters: Optional[Dict[str, Any]] = None, 
-                         top_k: int = 10,
-                         similarity_threshold: float = 0.7,
-                         use_feedback: bool = True) -> List[Dict[str, Any]]:
+    async def query_embeddings(
+        self, 
+        query_text: str, 
+        keywords: Optional[List[str]] = None,
+        filters: Optional[Dict[str, str]] = None, 
+        top_k: int = 5,
+        mode: str = "hybrid"
+    ) -> List[Dict[str, Any]]:
         """
-        Query embeddings using vector similarity search.
+        Query embeddings using vector similarity search with optional filters.
         
         Args:
-            query: The query text or vector
-            keywords: Optional list of keywords to enhance search
-            filters: Optional metadata filters
+            query_text: The query text
+            keywords: Optional list of keywords for hybrid search
+            filters: Optional dictionary of metadata filters
             top_k: Maximum number of results to return
-            similarity_threshold: Minimum similarity score (0-1)
-            use_feedback: Whether to consider feedback-based relevance scores
+            mode: Retrieval mode (semantic, keyword, hybrid, naive)
             
         Returns:
-            List of matching results with scores
+            List of relevant results with metadata
         """
+        if not query_text:
+            return []
+            
+        # Generate embedding for the query
         try:
-            client = self._get_supabase()
+            query_embedding = await self.mem0_client.generate_embeddings([query_text])
+            query_embedding = query_embedding[0] if query_embedding else None
+        except Exception as e:
+            print(f"Error generating query embedding: {e}")
+            query_embedding = None
             
-            # In a production system, generate query embedding here
-            # For now we're using a demo approach
-            logger.info(f"Querying embeddings with query: {query[:50]}...")
+        conn = self._get_connection()
+        try:
+            # Build query based on selected mode
+            with conn.cursor() as cur:
+                if mode == "naive" or not query_embedding:
+                    # Naive mode: Just use text search
+                    results = self._keyword_search(conn, query_text, filters, top_k)
+                    
+                elif mode == "semantic":
+                    # Semantic mode: Use vector search only
+                    results = self._semantic_search(conn, query_embedding, filters, top_k)
+                    
+                elif mode == "keyword":
+                    # Keyword mode: Use text search only
+                    keyword_query = " | ".join(keywords) if keywords else query_text
+                    results = self._keyword_search(conn, keyword_query, filters, top_k)
+                    
+                else:  # hybrid (default) mode
+                    # Hybrid mode: Combine vector and text search
+                    semantic_results = self._semantic_search(conn, query_embedding, filters, top_k * 2)
+                    keyword_query = " | ".join(keywords) if keywords else query_text
+                    keyword_results = self._keyword_search(conn, keyword_query, filters, top_k * 2)
+                    
+                    # Merge and re-rank results
+                    results = self._merge_and_rerank_results(semantic_results, keyword_results, top_k)
+                    
+            return results
+                    
+        except Exception as e:
+            print(f"Error querying embeddings: {e}")
+            return []
+        finally:
+            conn.close()
+    
+    def _semantic_search(
+        self, 
+        conn, 
+        query_embedding: List[float], 
+        filters: Optional[Dict[str, str]] = None,
+        top_k: int = 5
+    ) -> List[Dict[str, Any]]:
+        """
+        Perform semantic (vector) search.
+        """
+        with conn.cursor() as cur:
+            query = f"""
+            SELECT id, content, embedding, metadata, relevance_score, feedback_count,
+                   1 - (embedding <=> %s) AS semantic_score
+            FROM {self.config['embeddings_table']}
+            """
             
-            # Build the SQL query - in a real implementation, you would:
-            # 1. Generate embedding from query text
-            # 2. Use vector similarity search
-            # For now, let's do a basic text search on the content field
-            
-            # This is a simplified example - in production, you would:
-            rpc_payload = {
-                "query_text": query,
-                "match_threshold": similarity_threshold,
-                "match_count": top_k
-            }
+            # Add metadata filters if provided
+            params = [query_embedding]
+            where_clauses = []
             
             if filters:
-                # If we have metadata filters, add them to the payload
-                rpc_payload["filter_metadata"] = json.dumps(filters)
-            
-            # Call a database function that would perform the similarity search
-            # Note: This is a placeholder - you would need to create this function in Supabase
-            result = client.rpc(
-                "search_embeddings", 
-                rpc_payload
-            ).execute()
-            
-            if hasattr(result, 'error') and result.error:
-                logger.error(f"Error querying embeddings: {result.error}")
-                # Fallback to basic text search if RPC fails
-                query_obj = client.table("embeddings").select(
-                    "id", "content", "metadata", "relevance_score", "feedback_count"
-                ).textsearch("content", query).limit(top_k)
+                for key, value in filters.items():
+                    where_clauses.append(f"metadata->>'%s' = %s")
+                    params.extend([key, value])
+                    
+            if where_clauses:
+                query += " WHERE " + " AND ".join(where_clauses)
                 
-                # Apply metadata filters if provided
-                if filters:
-                    for key, value in filters.items():
-                        query_obj = query_obj.filter(f"metadata->{key}", "eq", value)
-                
-                # Execute the query
-                result = query_obj.execute()
-                
-                if hasattr(result, 'error') and result.error:
-                    logger.error(f"Fallback query failed: {result.error}")
-                    return []
+            query += """
+            ORDER BY semantic_score DESC
+            LIMIT %s
+            """
+            params.append(top_k)
             
-            # Format results with scores
+            # Execute query
+            cur.execute(query, params)
+            rows = cur.fetchall()
+            
+            # Process results
             results = []
-            for idx, item in enumerate(result.data):
-                # In a real implementation, scores would come from vector similarity
-                # Here we're just simulating with relevance_score or position-based scoring
-                base_score = item.get('relevance_score', 1.0 - (idx * 0.1))
-                if base_score < 0: base_score = 0
-                if base_score > 1: base_score = 1
+            for row in rows:
+                id_val, content, embedding, metadata, relevance_score, feedback_count, semantic_score = row
                 
-                # Apply feedback boost if available and requested
-                feedback_score = 0
-                if use_feedback and item.get('feedback_count', 0) > 0:
-                    feedback_boost = min(item.get('feedback_count', 0) / 10, 0.5)  # Cap at +50%
-                    feedback_score = base_score * feedback_boost
-                
-                # Combine scores (base + feedback)
-                final_score = min(base_score + feedback_score, 1.0)
+                # Apply relevance boost based on feedback
+                final_score = semantic_score
+                if feedback_count > 0:
+                    feedback_boost = min(feedback_count / 10, 0.2)  # Max 20% boost
+                    final_score = min(semantic_score * (1 + feedback_boost), 1.0)
                 
                 results.append({
-                    "id": item.get("id"),
-                    "text": item.get("content"),
-                    "metadata": item.get("metadata", {}),
-                    "score": final_score,
-                    "feedback_count": item.get("feedback_count", 0)
+                    "id": id_val,
+                    "text": content,
+                    "metadata": metadata,
+                    "score": float(final_score),
+                    "feedback_count": feedback_count
                 })
                 
-            # Sort results by score (highest first) - this is especially important
-            # when we've modified scores based on feedback
-            if use_feedback:
-                results.sort(key=lambda x: x["score"], reverse=True)
-                
-            logger.info(f"Found {len(results)} matching embeddings")
             return results
-            
-        except Exception as e:
-            logger.error(f"Error querying embeddings: {e}")
-            return []
     
-    def record_feedback(self, embedding_id: str, query: str, 
-                        is_relevant: bool, user_id: Optional[str] = None,
-                        comment: Optional[str] = None) -> bool:
+    def _keyword_search(
+        self, 
+        conn, 
+        query_text: str, 
+        filters: Optional[Dict[str, str]] = None,
+        top_k: int = 5
+    ) -> List[Dict[str, Any]]:
         """
-        Record user feedback on a retrieval result to improve future results.
+        Perform keyword (text) search.
+        """
+        with conn.cursor() as cur:
+            # Use ts_rank_cd for text search ranking
+            query = f"""
+            SELECT id, content, metadata, relevance_score, feedback_count,
+                   ts_rank_cd(to_tsvector('english', content), to_tsquery('english', %s)) AS text_score
+            FROM {self.config['embeddings_table']}
+            WHERE to_tsvector('english', content) @@ to_tsquery('english', %s)
+            """
+            
+            # Replace spaces with | for OR search
+            search_query = query_text.replace(' ', ' | ')
+            
+            # Add metadata filters if provided
+            params = [search_query, search_query]
+            where_clauses = []
+            
+            if filters:
+                for key, value in filters.items():
+                    where_clauses.append(f"metadata->>'%s' = %s")
+                    params.extend([key, value])
+                    
+            if where_clauses:
+                query += " AND " + " AND ".join(where_clauses)
+                
+            query += """
+            ORDER BY text_score DESC
+            LIMIT %s
+            """
+            params.append(top_k)
+            
+            try:
+                # Execute query
+                cur.execute(query, params)
+                rows = cur.fetchall()
+            except Exception as e:
+                print(f"Error in keyword search: {e}")
+                # Fallback to simple LIKE query if tsquery fails
+                return self._fallback_keyword_search(conn, query_text, filters, top_k)
+            
+            # Process results
+            results = []
+            for row in rows:
+                id_val, content, metadata, relevance_score, feedback_count, text_score = row
+                
+                # Apply relevance boost based on feedback
+                final_score = float(text_score)
+                if feedback_count > 0:
+                    feedback_boost = min(feedback_count / 10, 0.2)  # Max 20% boost
+                    final_score = min(final_score * (1 + feedback_boost), 1.0)
+                
+                results.append({
+                    "id": id_val,
+                    "text": content,
+                    "metadata": metadata,
+                    "score": final_score,
+                    "feedback_count": feedback_count
+                })
+                
+            return results
+    
+    def _fallback_keyword_search(
+        self, 
+        conn, 
+        query_text: str, 
+        filters: Optional[Dict[str, str]] = None,
+        top_k: int = 5
+    ) -> List[Dict[str, Any]]:
+        """
+        Fallback keyword search using LIKE operator.
+        """
+        with conn.cursor() as cur:
+            query = f"""
+            SELECT id, content, metadata, relevance_score, feedback_count
+            FROM {self.config['embeddings_table']}
+            WHERE content ILIKE %s
+            """
+            
+            # Add metadata filters if provided
+            params = [f"%{query_text}%"]
+            where_clauses = []
+            
+            if filters:
+                for key, value in filters.items():
+                    where_clauses.append(f"metadata->>'%s' = %s")
+                    params.extend([key, value])
+                    
+            if where_clauses:
+                query += " AND " + " AND ".join(where_clauses)
+                
+            query += """
+            LIMIT %s
+            """
+            params.append(top_k)
+            
+            # Execute query
+            cur.execute(query, params)
+            rows = cur.fetchall()
+            
+            # Process results
+            results = []
+            for row in rows:
+                id_val, content, metadata, relevance_score, feedback_count = row
+                
+                # Simple relevance score based on substring position
+                text_score = 0.5  # Default score for LIKE matches
+                if query_text.lower() in content.lower():
+                    position = content.lower().find(query_text.lower())
+                    text_score = 0.5 + (0.5 * (1 - position / len(content)))
+                
+                # Apply relevance boost based on feedback
+                final_score = text_score
+                if feedback_count > 0:
+                    feedback_boost = min(feedback_count / 10, 0.2)  # Max 20% boost
+                    final_score = min(text_score * (1 + feedback_boost), 1.0)
+                
+                results.append({
+                    "id": id_val,
+                    "text": content,
+                    "metadata": metadata,
+                    "score": final_score,
+                    "feedback_count": feedback_count
+                })
+                
+            return results
+    
+    def _merge_and_rerank_results(
+        self, 
+        semantic_results: List[Dict[str, Any]], 
+        keyword_results: List[Dict[str, Any]],
+        top_k: int = 5
+    ) -> List[Dict[str, Any]]:
+        """
+        Merge and re-rank results from semantic and keyword searches.
+        """
+        # Create ID-based lookup for fast access
+        results_by_id = {}
+        
+        # Process semantic results
+        for result in semantic_results:
+            result_id = result["id"]
+            results_by_id[result_id] = {
+                "id": result_id,
+                "text": result["text"],
+                "metadata": result["metadata"],
+                "semantic_score": result["score"],
+                "keyword_score": 0.0,
+                "feedback_count": result.get("feedback_count", 0)
+            }
+            
+        # Process keyword results and merge with semantic
+        for result in keyword_results:
+            result_id = result["id"]
+            if result_id in results_by_id:
+                results_by_id[result_id]["keyword_score"] = result["score"]
+            else:
+                results_by_id[result_id] = {
+                    "id": result_id,
+                    "text": result["text"],
+                    "metadata": result["metadata"],
+                    "semantic_score": 0.0,
+                    "keyword_score": result["score"],
+                    "feedback_count": result.get("feedback_count", 0)
+                }
+                
+        # Calculate final score as weighted average
+        merged_results = []
+        for _, result in results_by_id.items():
+            # Hybrid scoring: 70% semantic, 30% keyword
+            combined_score = 0.7 * result["semantic_score"] + 0.3 * result["keyword_score"]
+            
+            # Apply feedback boost
+            feedback_boost = min(result.get("feedback_count", 0) / 10, 0.2)
+            final_score = min(combined_score * (1 + feedback_boost), 1.0)
+            
+            merged_results.append({
+                "id": result["id"],
+                "text": result["text"],
+                "metadata": result["metadata"],
+                "score": final_score,
+                "source": result["metadata"].get("source", "knowledge_base") if result["metadata"] else "knowledge_base"
+            })
+            
+        # Sort by score and limit results
+        merged_results.sort(key=lambda x: x["score"], reverse=True)
+        return merged_results[:top_k]
+    
+    def record_feedback(
+        self, 
+        embedding_id: str, 
+        query: str,
+        is_relevant: bool,
+        user_id: Optional[str] = None,
+        comment: Optional[str] = None
+    ) -> bool:
+        """
+        Record user feedback on retrieval results to improve future queries.
         
         Args:
-            embedding_id: ID of the embedding
-            query: The query that retrieved this embedding
-            is_relevant: Whether the embedding was relevant to the query
-            user_id: Optional user ID for tracking
+            embedding_id: ID of the embedding result
+            query: The query that produced this result
+            is_relevant: Whether the result was relevant
+            user_id: Optional user ID
             comment: Optional user comment
             
         Returns:
             Success status
         """
+        conn = self._get_connection()
         try:
-            client = self._get_supabase()
-            
-            feedback_data = {
-                "embedding_id": embedding_id,
-                "query": query,
-                "is_relevant": is_relevant,
-                "user_id": user_id
-            }
-            
-            if comment:
-                feedback_data["comment"] = comment
+            with conn.cursor() as cur:
+                # Insert feedback record
+                cur.execute(f"""
+                INSERT INTO {self.config['feedback_table']} 
+                (embedding_id, query, is_relevant, user_id, comment)
+                VALUES (%s, %s, %s, %s, %s)
+                RETURNING id
+                """, (
+                    embedding_id,
+                    query,
+                    is_relevant,
+                    user_id,
+                    comment
+                ))
                 
-            result = client.table("embedding_feedback").insert(feedback_data).execute()
-            
-            if hasattr(result, 'error') and result.error:
-                logger.error(f"Error recording feedback: {result.error}")
-                return False
+                # Update embedding relevance score and feedback count
+                score_adjustment = 0.1 if is_relevant else -0.1
+                cur.execute(f"""
+                UPDATE {self.config['embeddings_table']}
+                SET 
+                    relevance_score = GREATEST(0.1, LEAST(2.0, relevance_score + %s)),
+                    feedback_count = feedback_count + 1
+                WHERE id = %s
+                """, (score_adjustment, embedding_id))
                 
-            logger.info(f"Successfully recorded feedback for embedding {embedding_id}")
-            return True
-            
+                conn.commit()
+                return True
+                
         except Exception as e:
-            logger.error(f"Error recording feedback: {e}")
+            conn.rollback()
+            print(f"Error recording feedback: {e}")
             return False
-    
-    def get_document_types(self) -> List[str]:
-        """
-        Get list of available document types in the knowledge base.
-        
-        Returns:
-            List of document types
-        """
-        try:
-            client = self._get_supabase()
-            
-            # Query distinct metadata.source values
-            result = client.table("embeddings").select(
-                "metadata->source"
-            ).execute()
-            
-            if hasattr(result, 'error') and result.error:
-                logger.error(f"Error fetching document types: {result.error}")
-                return []
-                
-            # Extract unique source types
-            sources = set()
-            for item in result.data:
-                if isinstance(item, dict) and 'metadata' in item:
-                    source = item['metadata'].get('source')
-                    if source:
-                        sources.add(source)
-            
-            logger.info(f"Found {len(sources)} document types")
-            return list(sources)
-            
-        except Exception as e:
-            logger.warning(f"Error fetching document types: {e}")
-            return []
-            
-    def healthcheck(self) -> bool:
-        """
-        Check if the PGVector service is available.
-        
-        Returns:
-            True if the service is available, False otherwise
-        """
-        try:
-            client = self._get_supabase()
-            # Just fetch a single row to test connection
-            client.table("embeddings").select("id").limit(1).execute()
-            return True
-        except Exception:
-            return False
+        finally:
+            conn.close()

@@ -7,6 +7,34 @@ from typing import List, Optional, Union, Dict, Any
 from LightRAG.pgvector_client import PGVectorClient
 import re
 
+class QueryParam:
+    """
+    Parameters for controlling the RAG query behavior.
+    """
+    def __init__(
+        self,
+        mode: str = "hybrid",
+        topic: Optional[str] = None,
+        max_results: int = 5,
+        threshold: float = 0.7,
+        use_feedback: bool = True,
+    ):
+        """
+        Initialize query parameters.
+        
+        Args:
+            mode: Retrieval mode ("hybrid", "semantic", "keyword", "naive")
+            topic: Optional topic filter
+            max_results: Maximum number of results to return
+            threshold: Minimum score threshold for results
+            use_feedback: Whether to use feedback to improve results
+        """
+        self.mode = mode
+        self.topic = topic
+        self.max_results = max_results
+        self.threshold = threshold
+        self.use_feedback = use_feedback
+
 class LightRAGAgent:
     """
     Agent for querying knowledge base and retrieving relevant information.
@@ -19,16 +47,19 @@ class LightRAGAgent:
         """
         self.knowledge_base = knowledge_base or PGVectorClient()
     
-    def query(self, query_text: str, topic: Optional[str] = None, 
-              max_results: int = 5, use_hybrid_search: bool = True) -> List[Dict[str, Any]]:
+    async def query(
+        self, 
+        query_text: str, 
+        param: Optional[QueryParam] = None,
+        **kwargs
+    ) -> List[Dict[str, Any]]:
         """
         Query the knowledge base using the provided text.
         
         Args:
             query_text: The query text to search for
-            topic: Optional topic filter to narrow down results
-            max_results: Maximum number of results to return
-            use_hybrid_search: Whether to use hybrid search (keyword + semantic)
+            param: Query parameters to control behavior
+            **kwargs: Additional keyword arguments
             
         Returns:
             List of relevant text passages with metadata
@@ -37,26 +68,36 @@ class LightRAGAgent:
             if not query_text.strip():
                 return [{"text": "Please provide a valid query.", "score": 0.0, "source": "system"}]
             
+            # Use default parameters if not provided
+            if param is None:
+                param = QueryParam()
+            else:
+                # Combine kwargs with param for backward compatibility
+                for key, value in kwargs.items():
+                    if hasattr(param, key):
+                        setattr(param, key, value)
+            
             # Extract keywords for hybrid search
-            keywords = self._extract_keywords(query_text) if use_hybrid_search else []
+            keywords = self._extract_keywords(query_text) if param.mode == "hybrid" else []
             
             # Prepare filters
             filters = {}
-            if topic:
-                filters["topic"] = topic
+            if param.topic:
+                filters["topic"] = param.topic
             
             # Query the knowledge base (PGVector)
-            results = self.knowledge_base.query_embeddings(
+            results = await self.knowledge_base.query_embeddings(
                 query_text,
-                keywords=keywords if use_hybrid_search else None,
+                keywords=keywords if param.mode == "hybrid" else None,
                 filters=filters,
-                top_k=max_results
+                top_k=param.max_results,
+                mode=param.mode
             )
             
             # Extract text from results and format response
             formatted_results = []
             if results and isinstance(results, list):
-                for result in results[:max_results]:
+                for result in results:
                     if isinstance(result, dict):
                         # Ensure we have at least the text field
                         if 'text' in result:
@@ -65,7 +106,7 @@ class LightRAGAgent:
                                 'score': result.get('score', 0.0),
                                 'id': result.get('id'),
                                 'topic': result.get('metadata', {}).get('topic', ''),
-                                'source': result.get('metadata', {}).get('source', 'knowledge_base')
+                                'source': result.get('source', 'knowledge_base')
                             })
                     elif isinstance(result, str):
                         formatted_results.append({
@@ -75,11 +116,15 @@ class LightRAGAgent:
                             'source': 'knowledge_base'
                         })
             
+            # Filter by threshold if specified
+            if param.threshold > 0:
+                formatted_results = [r for r in formatted_results if r.get('score', 0) >= param.threshold]
+            
             # Return appropriate response
             if not formatted_results:
-                if topic:
+                if param.topic:
                     return [{
-                        'text': f"No information found on '{query_text}' related to topic '{topic}'.",
+                        'text': f"No information found on '{query_text}' related to topic '{param.topic}'.",
                         'score': 0.0,
                         'source': 'system'
                     }]
@@ -103,9 +148,14 @@ class LightRAGAgent:
                 'source': 'error'
             }]
     
-    def record_feedback(self, result_id: str, query: str, 
-                      is_relevant: bool, user_id: Optional[str] = None,
-                      comment: Optional[str] = None) -> bool:
+    def record_feedback(
+        self, 
+        result_id: str, 
+        query: str, 
+        is_relevant: bool, 
+        user_id: Optional[str] = None,
+        comment: Optional[str] = None
+    ) -> bool:
         """
         Record user feedback on a retrieval result to improve future results.
         
