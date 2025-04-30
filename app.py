@@ -13,14 +13,31 @@ tab1, tab2 = st.tabs(["Chatbot", "Ingestion"])
 with tab1:
     if 'agent' not in st.session_state:
         st.session_state.agent = LightRAGAgent()
+    
+    use_hybrid_search = st.checkbox("Use hybrid retrieval (semantic + keyword)", value=True)
     user_query = st.text_input("Ask a question about M&A or related topics:")
     topic = st.text_input("Optional topic filter (e.g., 'M&A'):")
+    
     if st.button("Get Answer"):
         if user_query:
-            response = st.session_state.agent.query(user_query, topic=topic or None)
+            st.write("**Processing query with hybrid search...**" if use_hybrid_search else "**Processing query...**")
+            response = st.session_state.agent.query(
+                user_query, 
+                topic=topic or None,
+                use_hybrid_search=use_hybrid_search
+            )
+            
             st.write("**Answer(s):**")
-            for ans in response:
-                st.write(f"- {ans}")
+            for idx, ans in enumerate(response):
+                text = ans.get('text', '')
+                score = ans.get('score', 0.0)
+                source = ans.get('source', '')
+                
+                # Format the answer with metadata
+                st.write(f"- {text}")
+                with st.expander(f"Source details"):
+                    st.write(f"Relevance score: {score:.2f}")
+                    st.write(f"Source: {source}")
         else:
             st.warning("Please enter a question.")
 

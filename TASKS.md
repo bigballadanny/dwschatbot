@@ -4,9 +4,10 @@
 ## Currently In Progress
 
 ### RAG Enhancement [PRIORITY: HIGH] [UPDATED: 2025-04-30]
-- [ ] Implement hybrid retrieval strategy combining keyword and semantic search
+- [x] Implement hybrid retrieval strategy combining keyword and semantic search
   - Component: LightRAG/rag_agent.py
   - Zoom-in details: Extend query() method to support both vector similarity and keyword matching
+  - Status: COMPLETED 2025-04-30
 - [ ] Add support for hierarchical document chunking
   - Component: LightRAG/rag_pipeline.py
   - Zoom-in details: Modify chunk_transcript() to create multi-level chunks (document, section, paragraph)
@@ -16,6 +17,7 @@
 - [ ] Implement context re-ranking based on relevance scores
   - Component: LightRAG/rag_agent.py
   - Zoom-in details: Add post-retrieval scoring and sorting of results
+  - Status: PARTIALLY COMPLETED 2025-04-30 - Basic re-ranking implemented
 
 ### UI Improvements [PRIORITY: MEDIUM] [UPDATED: 2025-04-30]
 - [ ] Add conversation history sidebar
@@ -86,6 +88,7 @@
 - [ ] Review and clean up unused submodules or directories (`mcp-mem0`, `supabase-mcp`, `flows/`, etc.)
   - Component: Project root
   - Zoom-in details: Identify and archive/remove unused TypeScript files not part of the LightRAG implementation
+  - Status: PARTIALLY COMPLETED 2025-04-30 - Removed redundant chat hooks
 - [ ] Document environment variable requirements in README.md
   - Component: README.md
   - Zoom-in details: Create comprehensive list with descriptions and example values
