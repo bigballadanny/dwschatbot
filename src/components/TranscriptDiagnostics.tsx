@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect } from 'react';
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
@@ -9,6 +10,7 @@ import { AlertCircle, CheckCircle, RefreshCw, AlertTriangle, CheckCircle2 } from
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Progress } from "@/components/ui/progress";
 import { Alert, AlertDescription } from "@/components/ui/alert";
+import { Label } from "@/components/ui/label"; // Added missing import
 import { 
   checkEnvironmentVariables,
   checkForTranscriptIssues,
@@ -21,7 +23,7 @@ import {
 import { showSuccess, showError, showWarning } from "@/utils/toastUtils";
 
 const TranscriptDiagnostics = () => {
-  const [activeTab, setActiveTab] = useState("environment");
+  const [activeTab, setActiveTab] = useState("issues");
   const [environmentStatus, setEnvironmentStatus] = useState<any>(null);
   const [isEnvironmentLoading, setIsEnvironmentLoading] = useState(false);
   const [transcriptIssues, setTranscriptIssues] = useState<any>(null);
@@ -31,9 +33,9 @@ const TranscriptDiagnostics = () => {
   const [isProcessing, setIsProcessing] = useState(false);
   const [processingProgress, setProcessingProgress] = useState(0);
   
-  // Check environment variables on mount
+  // Check transcript issues on mount instead of environment
   useEffect(() => {
-    checkEnvironment();
+    checkIssues();
   }, []);
   
   const checkEnvironment = async () => {
@@ -212,127 +214,9 @@ const TranscriptDiagnostics = () => {
         <CardContent>
           <Tabs value={activeTab} onValueChange={setActiveTab}>
             <TabsList className="mb-4">
-              <TabsTrigger value="environment">Environment Configuration</TabsTrigger>
               <TabsTrigger value="issues">Transcript Issues</TabsTrigger>
               <TabsTrigger value="maintenance">Maintenance</TabsTrigger>
             </TabsList>
-            
-            <TabsContent value="environment">
-              <div className="space-y-4">
-                <div className="flex items-center justify-between">
-                  <h3 className="text-lg font-medium">Environment Configuration</h3>
-                  <Button variant="outline" size="sm" onClick={checkEnvironment} disabled={isEnvironmentLoading}>
-                    <RefreshCw className={`h-4 w-4 mr-2 ${isEnvironmentLoading ? 'animate-spin' : ''}`} />
-                    Refresh
-                  </Button>
-                </div>
-                
-                {isEnvironmentLoading ? (
-                  <div className="flex items-center justify-center py-8">
-                    <RefreshCw className="h-8 w-8 animate-spin text-primary" />
-                    <span className="ml-2">Checking environment...</span>
-                  </div>
-                ) : environmentStatus ? (
-                  <div className="space-y-4">
-                    <Card className="border rounded-lg overflow-hidden">
-                      <Table>
-                        <TableHeader>
-                          <TableRow>
-                            <TableHead>Configuration</TableHead>
-                            <TableHead>Status</TableHead>
-                          </TableRow>
-                        </TableHeader>
-                        <TableBody>
-                          <TableRow>
-                            <TableCell>Python Backend URL</TableCell>
-                            <TableCell>
-                              {environmentStatus.backendUrlSet ? (
-                                <Badge variant="outline" className="bg-green-50 text-green-700 border-green-200">
-                                  <CheckCircle className="h-3 w-3 mr-1" /> Configured
-                                </Badge>
-                              ) : (
-                                <Badge variant="outline" className="bg-amber-50 text-amber-700 border-amber-200">
-                                  <AlertCircle className="h-3 w-3 mr-1" /> Not Configured
-                                </Badge>
-                              )}
-                            </TableCell>
-                          </TableRow>
-                          <TableRow>
-                            <TableCell>Python Backend Key</TableCell>
-                            <TableCell>
-                              {environmentStatus.backendKeySet ? (
-                                <Badge variant="outline" className="bg-green-50 text-green-700 border-green-200">
-                                  <CheckCircle className="h-3 w-3 mr-1" /> Configured
-                                </Badge>
-                              ) : (
-                                <Badge variant="outline" className="bg-amber-50 text-amber-700 border-amber-200">
-                                  <AlertCircle className="h-3 w-3 mr-1" /> Not Configured
-                                </Badge>
-                              )}
-                            </TableCell>
-                          </TableRow>
-                          <TableRow>
-                            <TableCell>Backend Connectivity</TableCell>
-                            <TableCell>
-                              {environmentStatus.backendConnectivity ? (
-                                <Badge variant="outline" className="bg-green-50 text-green-700 border-green-200">
-                                  <CheckCircle className="h-3 w-3 mr-1" /> Connected
-                                </Badge>
-                              ) : environmentStatus.backendUrlSet ? (
-                                <Badge variant="outline" className="bg-red-50 text-red-700 border-red-200">
-                                  <AlertTriangle className="h-3 w-3 mr-1" /> Connection Failed
-                                </Badge>
-                              ) : (
-                                <Badge variant="outline" className="bg-gray-50 text-gray-500 border-gray-200">
-                                  Not Applicable
-                                </Badge>
-                              )}
-                            </TableCell>
-                          </TableRow>
-                        </TableBody>
-                      </Table>
-                    </Card>
-                    
-                    {!environmentStatus.backendConfigured && (
-                      <Alert className="bg-amber-50 text-amber-800 border-amber-200">
-                        <AlertTriangle className="h-4 w-4" />
-                        <AlertDescription>
-                          Python backend URL is not configured. Transcript processing will not work until this is set up.
-                        </AlertDescription>
-                      </Alert>
-                    )}
-                    
-                    {environmentStatus.backendUrlSet && !environmentStatus.backendConnectivity && (
-                      <Alert className="bg-red-50 text-red-800 border-red-200">
-                        <AlertTriangle className="h-4 w-4" />
-                        <AlertDescription>
-                          Connection to Python backend failed: {environmentStatus.backendError || "Unknown error"}
-                        </AlertDescription>
-                      </Alert>
-                    )}
-                    
-                    <div className="bg-gray-50 p-4 rounded-lg">
-                      <h4 className="font-medium mb-2">Configuration Instructions</h4>
-                      <p className="text-sm text-gray-700 mb-2">
-                        To configure the environment variables, go to your Supabase project settings and set 
-                        the following environment variables:
-                      </p>
-                      <ul className="list-disc pl-5 text-sm text-gray-700 space-y-1">
-                        <li><code>PYTHON_BACKEND_URL</code> - The URL to your Python backend service</li>
-                        <li><code>PYTHON_BACKEND_KEY</code> - Optional authentication key for the Python backend</li>
-                      </ul>
-                    </div>
-                  </div>
-                ) : (
-                  <Alert className="bg-red-50 text-red-800 border-red-200">
-                    <AlertTriangle className="h-4 w-4" />
-                    <AlertDescription>
-                      Failed to check environment configuration. Please try again.
-                    </AlertDescription>
-                  </Alert>
-                )}
-              </div>
-            </TabsContent>
             
             <TabsContent value="issues">
               <div className="space-y-4">
@@ -493,7 +377,7 @@ const TranscriptDiagnostics = () => {
                           </Table>
                         </CardContent>
                         <CardFooter>
-                          <Button variant="primary" onClick={handleProcessSelectedTranscripts} disabled={isProcessing}>
+                          <Button variant="default" onClick={handleProcessSelectedTranscripts} disabled={isProcessing}>
                             {isProcessing ? (
                               <>
                                 Processing...
@@ -546,7 +430,7 @@ const TranscriptDiagnostics = () => {
                       </Card>
                     )}
                     
-                    {transcriptIssues.emptyContent > 0 && (
+                    {transcriptIssues.stats.emptyContent > 0 && (
                       <Card className="border rounded-lg overflow-hidden">
                         <CardHeader>
                           <CardTitle>Fix Empty Content</CardTitle>
@@ -595,7 +479,7 @@ const TranscriptDiagnostics = () => {
                           </Table>
                         </CardContent>
                         <CardFooter>
-                          <Button variant="primary" onClick={handleFixSelectedTranscripts} disabled={isProcessing}>
+                          <Button variant="default" onClick={handleFixSelectedTranscripts} disabled={isProcessing}>
                             {isProcessing ? (
                               <>
                                 Processing...

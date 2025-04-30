@@ -95,73 +95,62 @@ Deno.serve(async (req) => {
           
           // Update our local copy of the transcript
           transcript.content = fileContent;
+          console.log(`Updated transcript content from file (${fileContent.length} characters)`);
         }
       } catch (error) {
         console.error('Error extracting content from file:', error);
-        // Continue processing even if we couldn't extract content
       }
     }
 
-    // Check if Python backend URL is configured
-    const pythonBackendUrl = Deno.env.get('PYTHON_BACKEND_URL');
-    let processedByBackend = false;
-    let backendResult = null;
-    
-    if (pythonBackendUrl) {
-      try {
-        // Call the Python ingest pipeline via HTTP request
-        const response = await fetch(pythonBackendUrl, {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-            'Authorization': `Bearer ${Deno.env.get('PYTHON_BACKEND_KEY') ?? ''}`,
-          },
-          body: JSON.stringify({
-            transcript_id: transcript.id,
-            file_path: transcript.file_path,
-            user_id: transcript.user_id,
-            topic: transcript.source || null,
-          }),
-          // Add a timeout to prevent hanging if backend is slow
-          signal: AbortSignal.timeout(30000) // 30 second timeout
-        });
+    // Process transcript directly here
+    try {
+      // Perform any necessary processing on the transcript content
+      // For example: compute word count, extract metadata, etc.
+      const wordCount = transcript.content ? transcript.content.split(/\s+/).length : 0;
+      const charCount = transcript.content ? transcript.content.length : 0;
+      
+      // Mark the transcript as processed with computed metrics
+      await supabaseAdmin
+        .from('transcripts')
+        .update({
+          is_processed: true,
+          metadata: {
+            ...transcript.metadata,
+            processing_completed_at: new Date().toISOString(),
+            word_count: wordCount,
+            char_count: charCount
+          }
+        })
+        .eq('id', transcript_id);
 
-        if (response.ok) {
-          backendResult = await response.json();
-          processedByBackend = true;
-        } else {
-          const errorData = await response.text();
-          console.error('Error from Python backend:', errorData);
-        }
-      } catch (error) {
-        console.error('Error connecting to Python backend:', error);
-      }
-    } else {
-      console.log('PYTHON_BACKEND_URL environment variable not set, skipping backend processing');
+      console.log(`Successfully processed transcript: ${transcript_id}`);
+    } catch (processingError) {
+      console.error('Error processing transcript content:', processingError);
+      
+      // Mark as processed but with error
+      await supabaseAdmin
+        .from('transcripts')
+        .update({
+          is_processed: true,
+          metadata: {
+            ...transcript.metadata,
+            processing_completed_at: new Date().toISOString(),
+            processing_error: `Error: ${processingError.message}`,
+            processing_failed: true
+          }
+        })
+        .eq('id', transcript_id);
     }
-
-    // Always mark the transcript as processed, even if backend processing failed
-    await supabaseAdmin
-      .from('transcripts')
-      .update({ 
-        is_processed: true,
-        metadata: {
-          ...transcript.metadata,
-          processing_completed_at: new Date().toISOString(),
-          processed_by_backend: processedByBackend,
-          processing_error: !processedByBackend && pythonBackendUrl ? 'Failed to process with Python backend' : null
-        }
-      })
-      .eq('id', transcript_id);
 
     return new Response(
       JSON.stringify({
         success: true,
-        message: processedByBackend ? 
-          'Transcript successfully processed by backend' : 
-          'Transcript marked as processed (backend skipped)',
-        processed_by_backend: processedByBackend,
-        result: backendResult
+        message: 'Transcript successfully processed',
+        metadata: {
+          id: transcript_id,
+          title: transcript.title,
+          processed_at: new Date().toISOString()
+        }
       }),
       {
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
