@@ -4,3 +4,4 @@ requests
 pydantic
 pytest
 supabase
+python-dotenv

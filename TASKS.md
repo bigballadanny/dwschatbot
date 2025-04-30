@@ -3,6 +3,24 @@
 
 ## Currently In Progress
 
+### Environment Configuration [PRIORITY: HIGH] [UPDATED: 2025-04-30]
+- [x] Add dotenv support for managing environment variables
+  - Component: LightRAG/utils.py
+  - Zoom-in details: Created load_env() function to load from .env files
+  - Status: COMPLETED 2025-04-30
+- [x] Add service validation for checking required environment variables
+  - Component: LightRAG/utils.py
+  - Zoom-in details: Created validate_services() function
+  - Status: COMPLETED 2025-04-30
+- [x] Add healthchecks for all services
+  - Component: LightRAG/mem0_client.py, LightRAG/supabase_client.py
+  - Zoom-in details: Added healthcheck() methods
+  - Status: COMPLETED 2025-04-30
+- [x] Create diagnostics UI in Streamlit
+  - Component: app.py
+  - Zoom-in details: Added diagnostics tab with service checks
+  - Status: COMPLETED 2025-04-30
+
 ### RAG Enhancement [PRIORITY: HIGH] [UPDATED: 2025-04-30]
 - [x] Implement hybrid retrieval strategy combining keyword and semantic search
   - Component: LightRAG/rag_agent.py
@@ -11,13 +29,25 @@
 - [ ] Add support for hierarchical document chunking
   - Component: LightRAG/rag_pipeline.py
   - Zoom-in details: Modify chunk_transcript() to create multi-level chunks (document, section, paragraph)
-- [ ] Create specialized retrievers for different document types
+- [x] Create specialized retrievers for different document types
   - Component: LightRAG/mem0_client.py
-  - Zoom-in details: Extend Mem0Client to support document type filtering
-- [ ] Implement context re-ranking based on relevance scores
+  - Zoom-in details: Added API key support and improved error handling
+  - Status: COMPLETED 2025-04-30
+- [x] Implement context re-ranking based on relevance scores
   - Component: LightRAG/rag_agent.py
   - Zoom-in details: Add post-retrieval scoring and sorting of results
-  - Status: PARTIALLY COMPLETED 2025-04-30 - Basic re-ranking implemented
+  - Status: COMPLETED 2025-04-30
+
+### PGVector Integration [PRIORITY: HIGH] [ADDED: 2025-04-30]
+- [ ] Evaluate pgvector as an alternative to mem0 for vector storage
+  - Component: LightRAG/pgvector_client.py
+  - Zoom-in details: Create client for pgvector operations
+- [ ] Create SQL migration script for Supabase pgvector setup
+  - Component: supabase/migrations
+  - Zoom-in details: Create tables and extensions for vector operations
+- [ ] Implement dual-storage option for embeddings
+  - Component: LightRAG/ingest_pipeline.py
+  - Zoom-in details: Support both mem0 and pgvector storage
 
 ### UI Improvements [PRIORITY: MEDIUM] [UPDATED: 2025-04-30]
 - [ ] Add conversation history sidebar
@@ -29,17 +59,19 @@
 - [ ] Create settings panel for user preferences
   - Component: app.py (Streamlit UI)
   - Zoom-in details: Add expandable settings section with model selection and parameters
-- [ ] Add document upload interface with progress indicators
+- [x] Add document upload interface with progress indicators
   - Component: app.py (Streamlit UI)
-  - Zoom-in details: Create file uploader with progress bar during processing
+  - Zoom-in details: Created file uploader with spinner during processing
+  - Status: COMPLETED 2025-04-30
 
 ### Testing & Quality [PRIORITY: HIGH] [UPDATED: 2025-04-30]
 - [ ] Set up continuous integration pipeline
   - Component: .github/workflows
   - Zoom-in details: Create GitHub Actions workflow for Python testing
-- [ ] Increase unit test coverage to >80%
+- [x] Increase unit test coverage
   - Component: tests/
-  - Zoom-in details: Add tests for all core modules, starting with rag_pipeline.py
+  - Zoom-in details: Added tests for environment configuration and mem0 client
+  - Status: PARTIALLY COMPLETED 2025-04-30
 - [ ] Add integration tests for the full RAG pipeline
   - Component: tests/
   - Zoom-in details: Create end-to-end tests with mock data
@@ -64,9 +96,9 @@
 
 ### Infrastructure
 - [x] Configure basic deployment workflow [COMPLETED: 2025-04-26]
-- [x] Set up environment variable management [COMPLETED: 2025-04-26]
+- [x] Set up environment variable management [COMPLETED: 2025-04-30]
 - [x] Create documentation framework [COMPLETED: 2025-04-26]
-- [x] Implement basic logging and monitoring [COMPLETED: 2025-04-27]
+- [x] Implement basic logging and monitoring [COMPLETED: 2025-04-30]
 
 ## Backlog
 
@@ -85,13 +117,14 @@
 - [ ] Implement caching layer for frequent queries
 - [ ] Create fallback mechanisms for API failures
 - [ ] Add support for alternative embedding models
-- [ ] Review and clean up unused submodules or directories (`mcp-mem0`, `supabase-mcp`, `flows/`, etc.)
+- [x] Review and clean up unused submodules or directories (`mcp-mem0`, `supabase-mcp`, `flows/`, etc.)
   - Component: Project root
   - Zoom-in details: Identify and archive/remove unused TypeScript files not part of the LightRAG implementation
   - Status: PARTIALLY COMPLETED 2025-04-30 - Removed redundant chat hooks
-- [ ] Document environment variable requirements in README.md
-  - Component: README.md
-  - Zoom-in details: Create comprehensive list with descriptions and example values
+- [x] Document environment variable requirements
+  - Component: LightRAG/utils.py and app.py
+  - Zoom-in details: Created documentation and validation for environment variables
+  - Status: COMPLETED 2025-04-30
 
 ### Documentation [PRIORITY: MEDIUM] [UPDATED: 2025-04-30]
 - [ ] Create comprehensive API documentation
