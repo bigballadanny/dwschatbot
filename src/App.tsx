@@ -47,19 +47,7 @@ const AppContent = () => {
         </>
       )}
       
-      {/* Add a floating link to easily access the Vertex AI setup page */}
-      <div className="fixed bottom-4 right-4 z-50">
-        <div className="flex flex-col gap-2">
-          <Link to="/vertex-setup" className="bg-blue-600 hover:bg-blue-700 text-white py-2 px-4 rounded shadow flex items-center gap-2">
-            <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-              <path d="m21.73 18-8-14a2 2 0 0 0-3.48 0l-8 14A2 2 0 0 0 4 21h16a2 2 0 0 0 1.73-3Z"></path>
-              <path d="M12 9v4"></path>
-              <path d="M12 17h.01"></path>
-            </svg>
-            Vertex AI Setup
-          </Link>
-        </div>
-      </div>
+      {/* Removed the Vertex AI setup floating button */}
       
       <div className="flex-1">
         <Routes>
@@ -68,25 +56,35 @@ const AppContent = () => {
           <Route path="/vertex-setup" element={<VertexAISetup />} />
           <Route path="/vertex-test" element={<VertexTest />} />
           
-          <Route path="/transcripts" element={<ProtectedRoute>
-                <Transcripts />
-              </ProtectedRoute>} />
+          <Route path="/transcripts" element={
+            <ProtectedRoute>
+              <Transcripts />
+            </ProtectedRoute>
+          } />
           
-          <Route path="/warroom" element={<ProtectedRoute>
-                <WarRoom />
-              </ProtectedRoute>} />
+          <Route path="/warroom" element={
+            <ProtectedRoute>
+              <WarRoom />
+            </ProtectedRoute>
+          } />
           
-          <Route path="/war-room" element={<ProtectedRoute>
-                <WarRoom />
-              </ProtectedRoute>} />
+          <Route path="/war-room" element={
+            <ProtectedRoute>
+              <WarRoom />
+            </ProtectedRoute>
+          } />
           
-          <Route path="/analytics" element={<ProtectedRoute>
-                <Analytics />
-              </ProtectedRoute>} />
+          <Route path="/analytics" element={
+            <ProtectedRoute>
+              <Analytics />
+            </ProtectedRoute>
+          } />
           
-          <Route path="/admin" element={<ManagementRoute>
-                <AdminManagement />
-              </ProtectedRoute>} />
+          <Route path="/admin" element={
+            <ManagementRoute>
+              <AdminManagement />
+            </ManagementRoute>
+          } />
           
           <Route path="*" element={<NotFound />} />
         </Routes>
