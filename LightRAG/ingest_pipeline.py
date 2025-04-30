@@ -8,7 +8,7 @@ import logging
 import uuid
 from datetime import datetime
 from typing import List, Dict, Any, Optional
-from LightRAG.rag_pipeline import chunk_transcript
+from LightRAG.chunking import chunk_transcript, analyze_chunking_quality
 from LightRAG.supabase_client import upload_file, insert_metadata, get_supabase_client
 from LightRAG.pgvector_client import PGVectorClient
 from LightRAG.utils import load_env
@@ -19,7 +19,8 @@ logger = logging.getLogger(__name__)
 
 def ingest_transcript(file_path: str, bucket: str = "transcripts", table: str = "transcripts", 
                      topic: str = None, user_id: str = None, 
-                     chunk_size: int = 5, chunk_overlap: int = 1) -> str:
+                     chunk_size: int = 5, chunk_overlap: int = 1,
+                     chunking_strategy: str = 'sentence') -> str:
     """
     Ingest a transcript file: upload to storage, store metadata, chunk and create embeddings.
     
@@ -31,6 +32,7 @@ def ingest_transcript(file_path: str, bucket: str = "transcripts", table: str = 
         user_id: Optional user ID to associate with the transcript
         chunk_size: Number of sentences per chunk
         chunk_overlap: Number of sentences to overlap between chunks
+        chunking_strategy: Strategy to use for chunking ('sentence', 'paragraph', 'section')
         
     Returns:
         String transcript ID
@@ -74,8 +76,19 @@ def ingest_transcript(file_path: str, bucket: str = "transcripts", table: str = 
         insert_metadata(table, metadata)
         
         # Chunk transcript with configurable parameters
-        logger.info(f"Chunking transcript with size={chunk_size}, overlap={chunk_overlap}")
-        chunks = chunk_transcript(transcript_content, chunk_size=chunk_size, overlap=chunk_overlap)
+        logger.info(f"Chunking transcript with strategy={chunking_strategy}, size={chunk_size}, overlap={chunk_overlap}")
+        chunks = chunk_transcript(
+            transcript_content, 
+            chunk_size=chunk_size, 
+            overlap=chunk_overlap,
+            strategy=chunking_strategy
+        )
+        
+        # Log chunking quality metrics
+        quality_metrics = analyze_chunking_quality(chunks)
+        logger.info(f"Chunking quality: {quality_metrics}")
+        if quality_metrics['possible_issues'] and quality_metrics['possible_issues'][0] != "No issues detected":
+            logger.warning(f"Chunking issues: {quality_metrics['possible_issues']}")
         
         # Store chunks in PGVector
         pgvector = PGVectorClient()
@@ -89,6 +102,7 @@ def ingest_transcript(file_path: str, bucket: str = "transcripts", table: str = 
                     "source": dest_path,
                     "chunk_index": i,
                     "chunk_count": len(chunks),
+                    "chunking_strategy": chunking_strategy,
                     "user_id": user_id
                 }
             }
@@ -107,7 +121,8 @@ def ingest_transcript(file_path: str, bucket: str = "transcripts", table: str = 
         logger.error(f"Error during ingestion: {str(e)}")
         raise
 
-def rechunk_transcript(transcript_id: str, chunk_size: int = 5, chunk_overlap: int = 1) -> bool:
+def rechunk_transcript(transcript_id: str, chunk_size: int = 5, chunk_overlap: int = 1,
+                     chunking_strategy: str = 'sentence') -> bool:
     """
     Re-chunk an existing transcript with new chunking parameters.
     
@@ -118,6 +133,7 @@ def rechunk_transcript(transcript_id: str, chunk_size: int = 5, chunk_overlap: i
         transcript_id: ID of the transcript to re-chunk
         chunk_size: New number of sentences per chunk
         chunk_overlap: New number of sentences to overlap between chunks
+        chunking_strategy: Strategy to use for chunking ('sentence', 'paragraph', 'section')
         
     Returns:
         Boolean success status
@@ -150,8 +166,17 @@ def rechunk_transcript(transcript_id: str, chunk_size: int = 5, chunk_overlap: i
         pgvector.delete_embeddings_by_metadata({"transcript_id": transcript_id})
         
         # Create new chunks with the updated parameters
-        logger.info(f"Re-chunking transcript with size={chunk_size}, overlap={chunk_overlap}")
-        chunks = chunk_transcript(content, chunk_size=chunk_size, overlap=chunk_overlap)
+        logger.info(f"Re-chunking transcript with strategy={chunking_strategy}, size={chunk_size}, overlap={chunk_overlap}")
+        chunks = chunk_transcript(
+            content, 
+            chunk_size=chunk_size, 
+            overlap=chunk_overlap,
+            strategy=chunking_strategy
+        )
+        
+        # Log chunking quality metrics
+        quality_metrics = analyze_chunking_quality(chunks)
+        logger.info(f"New chunking quality: {quality_metrics}")
         
         # Store new chunks in PGVector
         chunk_count = 0
@@ -164,6 +189,7 @@ def rechunk_transcript(transcript_id: str, chunk_size: int = 5, chunk_overlap: i
                     "source": dest_path,
                     "chunk_index": i,
                     "chunk_count": len(chunks),
+                    "chunking_strategy": chunking_strategy,
                     "user_id": user_id,
                     "rechunked": True
                 }
@@ -173,7 +199,10 @@ def rechunk_transcript(transcript_id: str, chunk_size: int = 5, chunk_overlap: i
         
         # Update the transcript record
         logger.info(f"Created {chunk_count} new embeddings")
-        supabase.table("transcripts").update({"updated_at": datetime.now().isoformat()}).eq("id", transcript_id).execute()
+        supabase.table("transcripts").update({
+            "updated_at": datetime.now().isoformat(),
+            "is_processed": True
+        }).eq("id", transcript_id).execute()
         
         return True
         
@@ -181,13 +210,15 @@ def rechunk_transcript(transcript_id: str, chunk_size: int = 5, chunk_overlap: i
         logger.error(f"Error during re-chunking: {str(e)}")
         return False
 
-def batch_rechunk_transcripts(chunk_size: int = 5, chunk_overlap: int = 1) -> Dict[str, Any]:
+def batch_rechunk_transcripts(chunk_size: int = 5, chunk_overlap: int = 1,
+                           chunking_strategy: str = 'sentence') -> Dict[str, Any]:
     """
     Re-chunk all existing transcripts with new chunking parameters.
     
     Args:
         chunk_size: New number of sentences per chunk
         chunk_overlap: New number of sentences to overlap between chunks
+        chunking_strategy: Strategy to use for chunking ('sentence', 'paragraph', 'section')
         
     Returns:
         Dictionary with success and failure counts
@@ -203,7 +234,12 @@ def batch_rechunk_transcripts(chunk_size: int = 5, chunk_overlap: int = 1) -> Di
     failure_count = 0
     
     for transcript_id in transcript_ids:
-        success = rechunk_transcript(transcript_id, chunk_size, chunk_overlap)
+        success = rechunk_transcript(
+            transcript_id, 
+            chunk_size, 
+            chunk_overlap,
+            chunking_strategy
+        )
         if success:
             success_count += 1
         else:
