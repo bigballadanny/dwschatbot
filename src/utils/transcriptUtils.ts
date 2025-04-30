@@ -11,6 +11,7 @@ export type Transcript = {
   relevanceScore?: number;
   tags?: string[];
   is_processed?: boolean;
+  is_summarized?: boolean;  // Add this property
   updated_at?: string;
   user_id?: string;
 };

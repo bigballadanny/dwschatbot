@@ -143,7 +143,7 @@ const TranscriptUploader = ({
         .upload(sanitizedFilePath, selectedFile, {
           cacheControl: '3600',
           upsert: false,
-          onUploadProgress: (progress) => {
+          progressHandler: (progress) => {
             const percent = Math.round((progress.loaded / progress.total) * 100);
             setUploadProgress(percent);
           }
