@@ -12,7 +12,7 @@ It is designed for deployment on Lovable, with a focus on modularity, testabilit
 
 ## Setup
 1. Install dependencies: `pip install -r requirements.txt`
-2. Set required environment variables (`OPENAI_API_KEY`, `SUPABASE_URL`, etc.)
+2. Set required environment variables (see Environment Variables section)
 3. Run locally: `streamlit run app.py`
 
 ## Deployment
@@ -20,10 +20,19 @@ It is designed for deployment on Lovable, with a focus on modularity, testabilit
 - Ensure environment variables are set in the Lovable dashboard.
 
 ## Project Structure
-- app.py: Streamlit entrypoint
-- `LightRAG/`: Core logic and agents
-- `supabase-mcp/`, `mcp-mem0/`: MCP integrations
+- `app.py`: Streamlit entrypoint (chatbot & ingestion UI)
+- `LightRAG/`: Core Python modules (agent, pipeline, integrations)
 - `tests/`: Unit tests
+- `PLANNING.md`, `TASKS.md`, `WORKFLOW.md`, `CHANGELOG.md`: Project management docs
+
+## Environment Variables
+The following environment variables must be set in the Lovable dashboard:
+
+- `SUPABASE_URL`: Supabase project URL
+- `SUPABASE_KEY`: Supabase service key
+- `MEM0_URL`: mem0 vector store endpoint (default: "http://localhost:8000")
+- `OPENAI_API_KEY`: If using OpenAI for embeddings
 
 ## Contributing
 See PLANNING.md and TASKS.md for roadmap and open issues.
+See WORKFLOW.md for development process guidelines.
