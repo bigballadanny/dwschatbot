@@ -28,8 +28,11 @@ export function sanitizeFilename(filename: string): string {
  * @returns A safe storage path incorporating userId and sanitized filename
  */
 export function generateStoragePath(userId: string, fileName: string): string {
-  const sanitized = sanitizeFilename(fileName);
   const timestamp = Date.now();
+  const fileNameParts = fileName.split('.');
+  const extension = fileNameParts.pop()?.toLowerCase() || '';
+  const baseName = fileNameParts.join('.'); 
+  const sanitized = sanitizeFilename(baseName) + '.' + extension;
   
   return `transcripts/${userId}/${timestamp}_${sanitized}`;
 }
@@ -66,6 +69,10 @@ export function detectSourceCategory(filename: string): string {
   
   if (lowercaseFilename.includes('summit') || 
       lowercaseFilename.includes('acquisition')) {
+    // Check specifically for 2025 summit
+    if (lowercaseFilename.includes('2025')) {
+      return 'business_acquisitions_summit_2025';
+    }
     return 'business_acquisitions_summit';
   } else if (lowercaseFilename.includes('protege')) {
     return 'protege_call';
@@ -77,6 +84,14 @@ export function detectSourceCategory(filename: string): string {
     return 'rlgl_call';
   } else if (lowercaseFilename.includes('finance')) {
     return 'finance_call';
+  } else if (lowercaseFilename.includes('reference') ||
+             lowercaseFilename.includes('sba') ||
+             lowercaseFilename.includes('law')) {
+    return 'reference_material';
+  } else if (lowercaseFilename.includes('education') ||
+             lowercaseFilename.includes('guide') ||
+             lowercaseFilename.includes('book')) {
+    return 'educational_material';
   } else {
     return 'other';
   }
@@ -102,4 +117,21 @@ export function isTextDocument(filename: string): boolean {
 export function isMediaFile(filename: string): boolean {
   const ext = getFileExtension(filename);
   return ['mp3', 'mp4', 'wav', 'm4a', 'ogg', 'mpeg', 'avi', 'mov'].includes(ext);
+}
+
+/**
+ * Gets a human-readable file size
+ * 
+ * @param bytes The file size in bytes
+ * @param decimals Number of decimal places to display
+ * @returns A formatted string representing the file size
+ */
+export function formatFileSize(bytes: number, decimals: number = 2): string {
+  if (bytes === 0) return '0 Bytes';
+  
+  const k = 1024;
+  const sizes = ['Bytes', 'KB', 'MB', 'GB', 'TB'];
+  const i = Math.floor(Math.log(bytes) / Math.log(k));
+  
+  return parseFloat((bytes / Math.pow(k, i)).toFixed(decimals)) + ' ' + sizes[i];
 }
