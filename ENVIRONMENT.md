@@ -11,6 +11,8 @@ This document contains all the environment variables needed for the project to f
 | `SUPABASE_KEY` | Service role API key for Supabase | `eyJhbGciOiJIUzI1N...` | Yes | None |
 | `MEM0_URL` | URL of the mem0 vector store service | `http://localhost:8000` | Yes | `http://localhost:8000` |
 | `OPENAI_API_KEY` | API key for OpenAI (if using OpenAI embeddings) | `sk-...` | No | None |
+| `PYTHON_BACKEND_URL` | URL of the Python backend for processing transcripts | `https://api.example.com/process` | Yes | None |
+| `PYTHON_BACKEND_KEY` | Authentication key for the Python backend | `your-secret-key` | No | None |
 
 ## Configuration Environment Variables
 
@@ -41,6 +43,8 @@ SUPABASE_URL=https://yourproject.supabase.co
 SUPABASE_KEY=your-supabase-key
 MEM0_URL=http://localhost:8000
 OPENAI_API_KEY=your-openai-key
+PYTHON_BACKEND_URL=https://api.example.com/process
+PYTHON_BACKEND_KEY=your-backend-key
 ```
 
 Then load them using the python-dotenv package.

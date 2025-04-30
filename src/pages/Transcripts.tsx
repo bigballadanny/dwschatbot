@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect } from 'react';
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -515,8 +516,8 @@ const TranscriptsPage = () => {
         </div>
       </div>
 
-      {/* Show user info for debugging */}
-      {user}
+      {/* Fix: Changed from rendering the User object directly to showing user info safely */}
+      {user && <div className="text-sm text-muted-foreground mb-4">Logged in as: {user.email}</div>}
 
       <div className="flex flex-col md:flex-row gap-4 mb-6">
         <div className="flex-1">
