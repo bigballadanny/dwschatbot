@@ -1,22 +1,34 @@
 # Entrypoint for Lovable/Streamlit (mimics original working structure)
 import streamlit as st
-import sys
-import logging
-import traceback
+from LightRAG.rag_agent import LightRAGAgent
 
-# Configure logging to a file and to Streamlit UI
-logging.basicConfig(filename='startup.log', level=logging.DEBUG, format='%(asctime)s %(levelname)s %(message)s')
+st.set_page_config(page_title="LightRAG M&A Chatbot", layout="centered")
+st.title("LightRAG M&A Chatbot Demo")
+st.markdown("""
+Ask a question about M&A topics. The chatbot will retrieve relevant transcript context and answer using only that information as its source.
 
-st.title('App Startup Diagnostics')
-try:
-    sys.path.insert(0, './LightRAG')  # Ensure LightRAG is importable
-    from LightRAG.streamlit_app import *
-    st.success('App imported successfully!')
-    logging.info('App imported successfully!')
-except Exception as e:
-    error_msg = f"Startup error: {e}"
-    st.error(error_msg)
-    tb = traceback.format_exc()
-    st.code(tb, language='python')
-    logging.error(error_msg)
-    logging.error(tb)
+- Optionally, specify a topic to filter results (e.g., "due diligence").
+- Answers are always grounded in your data. Sources are shown for transparency.
+""")
+
+with st.form("qa_form"):
+    user_query = st.text_input("Enter your question:", key="user_query")
+    topic = st.text_input("Optional topic filter:", key="topic")
+    submit = st.form_submit_button("Ask")
+
+if submit and user_query:
+    with st.spinner("Retrieving answer..."):
+        agent = LightRAGAgent()
+        try:
+            result = agent.query(user_query, topic=topic if topic else None)
+            answer = result.get("answer", "[No answer]")
+            sources = result.get("sources", [])
+            st.markdown(f"### Answer\n{answer}")
+            if sources:
+                st.markdown("---\n#### Sources:")
+                for idx, chunk in enumerate(sources):
+                    st.markdown(f"**Source {idx+1}:**\n{chunk.get('text','')}")
+            else:
+                st.info("No relevant sources found.")
+        except Exception as e:
+            st.error(f"Error: {e}")
