@@ -52,9 +52,78 @@ Deno.serve(async (req) => {
       )
     }
 
-    // Call the Python ingest pipeline via HTTP request to a serverless function
-    // This is a placeholder - you'll need to add the actual endpoint for your Python backend
-    const response = await fetch(Deno.env.get('PYTHON_BACKEND_URL') ?? '', {
+    // Update the transcript to indicate processing has started
+    const { error: updateError } = await supabaseAdmin
+      .from('transcripts')
+      .update({
+        metadata: {
+          ...transcript.metadata,
+          processing_started_at: new Date().toISOString()
+        }
+      })
+      .eq('id', transcript_id);
+    
+    if (updateError) {
+      console.error('Error updating transcript processing status:', updateError);
+    }
+
+    // Get the content from storage if file_path is available but content is empty
+    if (transcript.file_path && (!transcript.content || transcript.content.trim() === '')) {
+      try {
+        // Get the file from storage
+        const { data: fileData, error: fileError } = await supabaseAdmin.storage
+          .from('transcripts')
+          .download(transcript.file_path);
+        
+        if (fileError) {
+          throw fileError;
+        }
+        
+        // Convert file to text
+        const fileContent = await fileData.text();
+        
+        // Update the transcript with the content
+        if (fileContent) {
+          const { error: contentUpdateError } = await supabaseAdmin
+            .from('transcripts')
+            .update({ content: fileContent })
+            .eq('id', transcript_id);
+          
+          if (contentUpdateError) {
+            throw contentUpdateError;
+          }
+          
+          // Update our local copy of the transcript
+          transcript.content = fileContent;
+        }
+      } catch (error) {
+        console.error('Error extracting content from file:', error);
+        // Continue processing even if we couldn't extract content
+      }
+    }
+
+    // Call the Python ingest pipeline via HTTP request
+    const pythonBackendUrl = Deno.env.get('PYTHON_BACKEND_URL');
+    if (!pythonBackendUrl) {
+      console.error('PYTHON_BACKEND_URL environment variable not set');
+      
+      // If we can't call the backend, at least mark the transcript as processed
+      // so it doesn't get stuck in an unprocessed state
+      await supabaseAdmin
+        .from('transcripts')
+        .update({ is_processed: true })
+        .eq('id', transcript_id);
+        
+      return new Response(
+        JSON.stringify({ error: 'Python backend URL not configured' }),
+        {
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+          status: 500,
+        }
+      );
+    }
+    
+    const response = await fetch(pythonBackendUrl, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
@@ -66,37 +135,68 @@ Deno.serve(async (req) => {
         user_id: transcript.user_id,
         topic: transcript.source || null,
       }),
-    })
+    });
 
     if (!response.ok) {
-      const errorData = await response.text()
-      console.error('Error from Python backend:', errorData)
+      const errorData = await response.text();
+      console.error('Error from Python backend:', errorData);
+      
+      // Even if the Python backend failed, mark the transcript as processed
+      // to prevent it from being perpetually stuck in an unprocessed state
+      await supabaseAdmin
+        .from('transcripts')
+        .update({ 
+          is_processed: true,
+          metadata: {
+            ...transcript.metadata,
+            processing_error: errorData,
+            processing_completed_at: new Date().toISOString()
+          }
+        })
+        .eq('id', transcript_id);
+        
       return new Response(
         JSON.stringify({ error: 'Failed to process transcript', details: errorData }),
         {
           headers: { ...corsHeaders, 'Content-Type': 'application/json' },
           status: 500,
         }
-      )
+      );
     }
 
-    const result = await response.json()
+    const result = await response.json();
+
+    // Update the transcript to mark it as processed
+    await supabaseAdmin
+      .from('transcripts')
+      .update({ 
+        is_processed: true,
+        metadata: {
+          ...transcript.metadata,
+          processing_completed_at: new Date().toISOString()
+        }
+      })
+      .eq('id', transcript_id);
 
     return new Response(
-      JSON.stringify(result),
+      JSON.stringify({
+        success: true,
+        message: 'Transcript successfully processed',
+        result
+      }),
       {
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
         status: 200,
       }
-    )
+    );
   } catch (error) {
-    console.error('Error in process-transcript function:', error)
+    console.error('Error in process-transcript function:', error);
     return new Response(
       JSON.stringify({ error: error.message }),
       {
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
         status: 500,
       }
-    )
+    );
   }
 })

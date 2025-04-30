@@ -361,6 +361,7 @@ export type Database = {
           id: string
           is_processed: boolean | null
           is_summarized: boolean | null
+          metadata: Json | null
           source: string | null
           tags: string[] | null
           title: string
@@ -374,6 +375,7 @@ export type Database = {
           id?: string
           is_processed?: boolean | null
           is_summarized?: boolean | null
+          metadata?: Json | null
           source?: string | null
           tags?: string[] | null
           title: string
@@ -387,6 +389,7 @@ export type Database = {
           id?: string
           is_processed?: boolean | null
           is_summarized?: boolean | null
+          metadata?: Json | null
           source?: string | null
           tags?: string[] | null
           title?: string

@@ -109,18 +109,6 @@ const TranscriptUploader = ({
         title: "Upload complete",
         description: "Your transcript has been uploaded and is being processed.",
       });
-      
-      // Trigger the process-transcript function to start processing
-      const { error: webhookError } = await supabase.functions.invoke('transcript-webhook', {
-        body: { 
-          type: 'INSERT',
-          record: data ? data[0] : { id: null }
-        }
-      });
-      
-      if (webhookError) {
-        console.error('Error triggering transcript processing:', webhookError);
-      }
     } catch (error: any) {
       console.error('Error creating transcript record:', error);
       toast({
@@ -155,7 +143,7 @@ const TranscriptUploader = ({
         .upload(sanitizedFilePath, selectedFile, {
           cacheControl: '3600',
           upsert: false,
-          onUploadProgress: (progress) => {
+          onUpload: (progress) => {
             const percent = Math.round((progress.loaded / progress.total) * 100);
             setUploadProgress(percent);
           }
@@ -211,7 +199,7 @@ const TranscriptUploader = ({
       />
       
       {selectedFile && (
-        <Alert variant="outline" className="bg-amber-50/30 dark:bg-amber-950/20">
+        <Alert>
           <Info className="h-4 w-4" />
           <AlertTitle>Selected File</AlertTitle>
           <AlertDescription>

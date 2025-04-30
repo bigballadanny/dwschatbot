@@ -56,6 +56,33 @@ export function getFileExtension(filename: string): string {
 }
 
 /**
+ * Detects the source category based on filename patterns
+ *
+ * @param filename The filename to analyze
+ * @returns The detected source category
+ */
+export function detectSourceCategory(filename: string): string {
+  const lowercaseFilename = filename.toLowerCase();
+  
+  if (lowercaseFilename.includes('summit') || 
+      lowercaseFilename.includes('acquisition')) {
+    return 'business_acquisitions_summit';
+  } else if (lowercaseFilename.includes('protege')) {
+    return 'protege_call';
+  } else if (lowercaseFilename.includes('foundation')) {
+    return 'foundations_call';
+  } else if (lowercaseFilename.includes('mastermind')) {
+    return 'mastermind_call';
+  } else if (lowercaseFilename.includes('rlgl')) {
+    return 'rlgl_call';
+  } else if (lowercaseFilename.includes('finance')) {
+    return 'finance_call';
+  } else {
+    return 'other';
+  }
+}
+
+/**
  * Checks if a file is a supported text-based document
  * 
  * @param filename The filename to check

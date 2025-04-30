@@ -11,7 +11,7 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Progress } from "@/components/ui/progress";
 import { Textarea } from "@/components/ui/textarea";
-import { AlertCircle, FileText, Tag, Upload, X, RefreshCw, Search, Filter, CheckCircle2, Clock, AlertTriangle } from "lucide-react";
+import { Clock, CheckCircle2, FileText, Tag, Upload, X, RefreshCw, Search, Filter } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { UserContext } from "@/contexts/UserContext";
 import { showSuccess, showError, showWarning } from "@/utils/toastUtils";
@@ -349,11 +349,11 @@ const TranscriptsPage = () => {
 
   const getStatusIcon = (transcript: Transcript) => {
     if (!transcript.is_processed) {
-      return <Clock className="h-4 w-4 text-amber-500" title="Processing" />;
+      return <Clock className="h-4 w-4 text-amber-500" aria-label="Processing" />;
     } else if (!transcript.is_summarized) {
-      return <CheckCircle2 className="h-4 w-4 text-green-500" title="Processed" />;
+      return <CheckCircle2 className="h-4 w-4 text-green-500" aria-label="Processed" />;
     } else {
-      return <CheckCircle2 className="h-4 w-4 text-blue-500" title="Summarized" />;
+      return <CheckCircle2 className="h-4 w-4 text-blue-500" aria-label="Summarized" />;
     }
   };
 
@@ -424,13 +424,14 @@ const TranscriptsPage = () => {
         <div className="grid md:grid-cols-[1fr_2fr] gap-6 mt-6">
           <div className="space-y-6">
             <div className="border rounded-lg p-4">
-              <TranscriptUploader 
-                userId={user?.id} 
-                onUploadComplete={(id) => {
-                  refreshTranscripts();
-                  // Additional callback actions if needed
-                }} 
-              />
+              {user && (
+                <TranscriptUploader 
+                  userId={user.id} 
+                  onUploadComplete={(id) => {
+                    refreshTranscripts();
+                  }} 
+                />
+              )}
             </div>
             
             {selectedTranscript && (
