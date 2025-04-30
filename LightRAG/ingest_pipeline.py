@@ -7,6 +7,7 @@ import os
 import logging
 import uuid
 from datetime import datetime
+from typing import List, Dict, Any, Optional
 from LightRAG.rag_pipeline import chunk_transcript
 from LightRAG.supabase_client import upload_file, insert_metadata, get_supabase_client
 from LightRAG.pgvector_client import PGVectorClient
@@ -16,9 +17,11 @@ from LightRAG.utils import load_env
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
-def ingest_transcript(file_path: str, bucket: str = "transcripts", table: str = "transcripts", topic: str = None, user_id: str = None):
+def ingest_transcript(file_path: str, bucket: str = "transcripts", table: str = "transcripts", 
+                     topic: str = None, user_id: str = None, 
+                     chunk_size: int = 5, chunk_overlap: int = 1) -> str:
     """
-    Ingest a transcript file: upload to storage, store metadata, and create embeddings.
+    Ingest a transcript file: upload to storage, store metadata, chunk and create embeddings.
     
     Args:
         file_path: Path to the transcript file
@@ -26,6 +29,11 @@ def ingest_transcript(file_path: str, bucket: str = "transcripts", table: str = 
         table: Supabase table name (default: "transcripts")
         topic: Optional topic classifier for the transcript
         user_id: Optional user ID to associate with the transcript
+        chunk_size: Number of sentences per chunk
+        chunk_overlap: Number of sentences to overlap between chunks
+        
+    Returns:
+        String transcript ID
     """
     # Ensure environment variables are loaded
     load_env()
@@ -59,24 +67,28 @@ def ingest_transcript(file_path: str, bucket: str = "transcripts", table: str = 
             "is_processed": False,
             "is_summarized": False,
             "created_at": datetime.now().isoformat(),
-            "user_id": user_id
+            "user_id": user_id,
+            "source": topic or "other"
         }
         
         insert_metadata(table, metadata)
         
-        # Chunk and embed
-        logger.info("Chunking transcript and creating embeddings")
-        chunks = chunk_transcript(transcript_content)
+        # Chunk transcript with configurable parameters
+        logger.info(f"Chunking transcript with size={chunk_size}, overlap={chunk_overlap}")
+        chunks = chunk_transcript(transcript_content, chunk_size=chunk_size, overlap=chunk_overlap)
         
+        # Store chunks in PGVector
         pgvector = PGVectorClient()
         chunk_count = 0
-        for chunk in chunks:
+        for i, chunk in enumerate(chunks):
             embedding = {
                 "text": chunk, 
                 "metadata": {
                     "transcript_id": transcript_id,
                     "topic": topic,
                     "source": dest_path,
+                    "chunk_index": i,
+                    "chunk_count": len(chunks),
                     "user_id": user_id
                 }
             }
@@ -94,3 +106,111 @@ def ingest_transcript(file_path: str, bucket: str = "transcripts", table: str = 
     except Exception as e:
         logger.error(f"Error during ingestion: {str(e)}")
         raise
+
+def rechunk_transcript(transcript_id: str, chunk_size: int = 5, chunk_overlap: int = 1) -> bool:
+    """
+    Re-chunk an existing transcript with new chunking parameters.
+    
+    This function retrieves the transcript content, deletes old embeddings,
+    and creates new chunks with the specified parameters.
+    
+    Args:
+        transcript_id: ID of the transcript to re-chunk
+        chunk_size: New number of sentences per chunk
+        chunk_overlap: New number of sentences to overlap between chunks
+        
+    Returns:
+        Boolean success status
+    """
+    try:
+        # Get Supabase client
+        supabase = get_supabase_client()
+        
+        # First, retrieve the transcript content
+        logger.info(f"Retrieving transcript {transcript_id} for re-chunking")
+        result = supabase.table("transcripts").select("content", "title", "user_id", "tags", "file_path").eq("id", transcript_id).execute()
+        
+        if not result.data or len(result.data) == 0:
+            logger.error(f"Transcript not found: {transcript_id}")
+            return False
+        
+        transcript = result.data[0]
+        content = transcript.get("content")
+        user_id = transcript.get("user_id")
+        topic = transcript.get("tags")[0] if transcript.get("tags") else None
+        dest_path = transcript.get("file_path")
+        
+        if not content:
+            logger.error(f"Empty content for transcript: {transcript_id}")
+            return False
+        
+        # Delete existing embeddings for this transcript
+        pgvector = PGVectorClient()
+        logger.info(f"Removing old embeddings for transcript: {transcript_id}")
+        pgvector.delete_embeddings_by_metadata({"transcript_id": transcript_id})
+        
+        # Create new chunks with the updated parameters
+        logger.info(f"Re-chunking transcript with size={chunk_size}, overlap={chunk_overlap}")
+        chunks = chunk_transcript(content, chunk_size=chunk_size, overlap=chunk_overlap)
+        
+        # Store new chunks in PGVector
+        chunk_count = 0
+        for i, chunk in enumerate(chunks):
+            embedding = {
+                "text": chunk, 
+                "metadata": {
+                    "transcript_id": transcript_id,
+                    "topic": topic,
+                    "source": dest_path,
+                    "chunk_index": i,
+                    "chunk_count": len(chunks),
+                    "user_id": user_id,
+                    "rechunked": True
+                }
+            }
+            pgvector.store_embedding(embedding)
+            chunk_count += 1
+        
+        # Update the transcript record
+        logger.info(f"Created {chunk_count} new embeddings")
+        supabase.table("transcripts").update({"updated_at": datetime.now().isoformat()}).eq("id", transcript_id).execute()
+        
+        return True
+        
+    except Exception as e:
+        logger.error(f"Error during re-chunking: {str(e)}")
+        return False
+
+def batch_rechunk_transcripts(chunk_size: int = 5, chunk_overlap: int = 1) -> Dict[str, Any]:
+    """
+    Re-chunk all existing transcripts with new chunking parameters.
+    
+    Args:
+        chunk_size: New number of sentences per chunk
+        chunk_overlap: New number of sentences to overlap between chunks
+        
+    Returns:
+        Dictionary with success and failure counts
+    """
+    supabase = get_supabase_client()
+    result = supabase.table("transcripts").select("id").execute()
+    
+    if not result.data:
+        return {"success": 0, "failure": 0, "total": 0}
+    
+    transcript_ids = [t["id"] for t in result.data]
+    success_count = 0
+    failure_count = 0
+    
+    for transcript_id in transcript_ids:
+        success = rechunk_transcript(transcript_id, chunk_size, chunk_overlap)
+        if success:
+            success_count += 1
+        else:
+            failure_count += 1
+            
+    return {
+        "success": success_count,
+        "failure": failure_count,
+        "total": len(transcript_ids)
+    }

@@ -59,7 +59,7 @@ class PGVectorClient:
             vector = embedding.get("embedding")
             user_id = metadata.get("user_id")
             
-            # For now, we just store the text content - in a production system,
+            # For now, we'll just store the text content - in a production system,
             # you would generate embeddings here or externally
             if vector is None:
                 logger.warning("No embedding vector provided. In production, generate embeddings here.")
@@ -85,10 +85,46 @@ class PGVectorClient:
             logger.error(f"Error storing embedding: {e}")
             raise
     
+    def delete_embeddings_by_metadata(self, metadata_filter: Dict[str, Any]) -> bool:
+        """
+        Delete embeddings based on metadata filters.
+        
+        Args:
+            metadata_filter: Dictionary of metadata key-value pairs to match
+            
+        Returns:
+            Boolean success status
+        """
+        try:
+            client = self._get_supabase()
+            
+            # Construct the filter dynamically based on metadata fields
+            query = client.table("embeddings")
+            
+            # Add all metadata filters
+            for key, value in metadata_filter.items():
+                query = query.filter(f"metadata->{key}", "eq", value)
+            
+            # Execute the delete
+            result = query.delete().execute()
+            
+            if hasattr(result, 'error') and result.error:
+                logger.error(f"Error deleting embeddings: {result.error}")
+                return False
+            
+            deleted_count = len(result.data) if result.data else 0
+            logger.info(f"Successfully deleted {deleted_count} embeddings")
+            return True
+            
+        except Exception as e:
+            logger.error(f"Error deleting embeddings: {e}")
+            return False
+    
     def query_embeddings(self, query: str, keywords: Optional[List[str]] = None,
                          filters: Optional[Dict[str, Any]] = None, 
                          top_k: int = 10,
-                         similarity_threshold: float = 0.7) -> List[Dict[str, Any]]:
+                         similarity_threshold: float = 0.7,
+                         use_feedback: bool = True) -> List[Dict[str, Any]]:
         """
         Query embeddings using vector similarity search.
         
@@ -98,6 +134,7 @@ class PGVectorClient:
             filters: Optional metadata filters
             top_k: Maximum number of results to return
             similarity_threshold: Minimum similarity score (0-1)
+            use_feedback: Whether to consider feedback-based relevance scores
             
         Returns:
             List of matching results with scores
@@ -135,9 +172,17 @@ class PGVectorClient:
             if hasattr(result, 'error') and result.error:
                 logger.error(f"Error querying embeddings: {result.error}")
                 # Fallback to basic text search if RPC fails
-                result = client.table("embeddings").select(
-                    "id", "content", "metadata", "relevance_score"
-                ).textsearch("content", query).limit(top_k).execute()
+                query_obj = client.table("embeddings").select(
+                    "id", "content", "metadata", "relevance_score", "feedback_count"
+                ).textsearch("content", query).limit(top_k)
+                
+                # Apply metadata filters if provided
+                if filters:
+                    for key, value in filters.items():
+                        query_obj = query_obj.filter(f"metadata->{key}", "eq", value)
+                
+                # Execute the query
+                result = query_obj.execute()
                 
                 if hasattr(result, 'error') and result.error:
                     logger.error(f"Fallback query failed: {result.error}")
@@ -148,16 +193,31 @@ class PGVectorClient:
             for idx, item in enumerate(result.data):
                 # In a real implementation, scores would come from vector similarity
                 # Here we're just simulating with relevance_score or position-based scoring
-                score = item.get('relevance_score', 1.0 - (idx * 0.1))
-                if score < 0: score = 0
-                if score > 1: score = 1
+                base_score = item.get('relevance_score', 1.0 - (idx * 0.1))
+                if base_score < 0: base_score = 0
+                if base_score > 1: base_score = 1
+                
+                # Apply feedback boost if available and requested
+                feedback_score = 0
+                if use_feedback and item.get('feedback_count', 0) > 0:
+                    feedback_boost = min(item.get('feedback_count', 0) / 10, 0.5)  # Cap at +50%
+                    feedback_score = base_score * feedback_boost
+                
+                # Combine scores (base + feedback)
+                final_score = min(base_score + feedback_score, 1.0)
                 
                 results.append({
                     "id": item.get("id"),
                     "text": item.get("content"),
                     "metadata": item.get("metadata", {}),
-                    "score": score
+                    "score": final_score,
+                    "feedback_count": item.get("feedback_count", 0)
                 })
+                
+            # Sort results by score (highest first) - this is especially important
+            # when we've modified scores based on feedback
+            if use_feedback:
+                results.sort(key=lambda x: x["score"], reverse=True)
                 
             logger.info(f"Found {len(results)} matching embeddings")
             return results

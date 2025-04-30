@@ -44,6 +44,8 @@ Create a robust, modular, and production-ready Retrieval-Augmented Generation (R
 - Purpose: Process and chunk transcripts for storage
 - Key functions: 
   - `chunk_transcript()`: Split documents into meaningful chunks
+  - `analyze_chunking_quality()`: Evaluate chunking effectiveness
+  - `estimate_embedding_tokens()`: Estimate token usage for embeddings
   - Future enhancements: Hierarchical chunking, better semantic chunking
 
 #### pgvector_client.py
@@ -52,7 +54,8 @@ Create a robust, modular, and production-ready Retrieval-Augmented Generation (R
   - `store_embedding()`: Store text chunks as embeddings
   - `query_embeddings()`: Search for relevant embeddings
   - `record_feedback()`: Collect and store user feedback
-  - Future enhancements: Filter by metadata, advanced vector search options
+  - `delete_embeddings_by_metadata()`: Remove embeddings for re-chunking
+  - Future enhancements: Advanced vector search options
 
 #### supabase_client.py
 - Purpose: Interface with Supabase for storage and metadata
@@ -61,9 +64,13 @@ Create a robust, modular, and production-ready Retrieval-Augmented Generation (R
   - `insert_metadata()`: Track document information
   - Future enhancements: Improved error handling, transaction support
 
-#### streamlit_app.py
-- Purpose: UI for local development (not used in Lovable)
-- Future enhancements: More interactive elements, tabbed interface
+#### ingest_pipeline.py
+- Purpose: Orchestrate the process of ingesting transcripts
+- Key functions:
+  - `ingest_transcript()`: Process, chunk, and store a transcript
+  - `rechunk_transcript()`: Re-process existing transcripts with new parameters
+  - `batch_rechunk_transcripts()`: Update all existing transcripts 
+  - Future enhancements: Parallel processing, progress tracking
 
 ### Streamlit UI Components (app.py)
 
@@ -84,38 +91,51 @@ A key enhancement to our system is the implementation of a feedback loop for con
 6. **Scoring Update**: Database trigger updates relevance scores in `embeddings` table
 7. **Enhanced Retrieval**: Future queries prioritize embeddings with higher relevance scores
 
+## Re-Chunking Process
+
+Our system supports dynamic re-chunking of existing content as chunking strategies improve:
+
+1. **Initiate Re-Chunking**: Admin initiates re-chunking process with new parameters
+2. **Retrieve Content**: System retrieves original transcript content
+3. **Delete Old Embeddings**: Remove existing embeddings for the transcript
+4. **Apply New Chunking**: Process content with updated chunking parameters
+5. **Store New Embeddings**: Create and store new embeddings with updated chunks
+6. **Update Metadata**: Mark transcript as re-processed with timestamp
+
 ## Development Phases
 
 ### Phase 1: Foundation (COMPLETE)
 - Basic chat interface
 - Initial RAG implementation
 - Supabase integration
-- See CHANGELOG.md for completed tasks
 
-### Phase 2: Enhanced Retrieval (IN PROGRESS)
+### Phase 2: Enhanced Retrieval (COMPLETE)
 - PGVector integration for vector storage
 - Improved context selection
 - Multi-document support
 - Query transformation and expansion
-- See TASKS.md for current progress
 
-### Phase 3: Feedback Loop (IN PROGRESS)
+### Phase 3: Feedback Loop (COMPLETE)
 - User feedback collection mechanism
 - Relevance tracking system
-- Automatic score updating
+- Automatic score updating via database triggers
 - Performance monitoring
 
-### Phase 4: Advanced Features (PLANNED)
+### Phase 4: Dynamic Re-Chunking (CURRENT)
+- Content re-processing capabilities
+- Chunking quality analysis
+- Batch operations for system-wide updates
+- Token usage estimation
+
+### Phase 5: Advanced Features (PLANNED)
 - User preference tracking
 - Conversation history integration
 - Response customization options
-- See TASKS.md under "Feature Enhancements"
 
-### Phase 5: Optimization (PLANNED)
+### Phase 6: Optimization (PLANNED)
 - Performance tuning
 - Cost optimization
 - Metrics and monitoring
-- See TASKS.md under "Technical Improvements"
 
 ## Style & Conventions
 
@@ -129,7 +149,6 @@ A key enhancement to our system is the implementation of a feedback loop for con
 
 All sensitive information and configuration should be stored as environment variables:
 - `SUPABASE_URL` and `SUPABASE_KEY`: For Supabase storage, database, and PGVector access
-- Any API keys needed for embedding models
 
 ## Component-Specific Planning
 
@@ -139,29 +158,20 @@ All sensitive information and configuration should be stored as environment vari
   - Enhance hybrid retrieval combining vector search and keyword matching
   - Add advanced result re-ranking based on relevance scores and feedback
   - Support filtering by document metadata
-- Future considerations:
-  - Multi-round conversation context
-  - Streaming response support
 
 ### LightRAG/rag_pipeline.py
-- Current status: Basic chunking implemented
+- Current status: Enhanced chunking implemented
 - Next steps:
   - Implement hierarchical document chunking
   - Add better sentence boundary detection
   - Support custom chunking strategies
-- Future considerations: 
-  - Chunk overlap strategies
-  - Language-specific processing
 
 ### PGVector Integration
-- Current status: Basic client implemented
+- Current status: Client implemented with feedback loop
 - Next steps:
-  - Add robust error handling
+  - Enhance error handling
   - Implement batched operations
-  - Add support for metadata filtering
-- Future considerations:
-  - Performance optimizations
-  - Caching strategies
+  - Optimize metadata filtering
 
 ### Supabase Integration
 - Current status: Basic client implemented
@@ -169,25 +179,17 @@ All sensitive information and configuration should be stored as environment vari
   - Improve error handling and retry logic
   - Add transaction support
   - Support more metadata types
-- Future considerations:
-  - Multi-user support
-  - Access control
 
 ### Feedback System
-- Current status: Basic feedback collection implemented
+- Current status: Feedback collection implemented with automatic relevance scoring
 - Next steps:
   - Add feedback UI components
   - Implement feedback analysis
-  - Automatic relevance scoring
-- Future considerations:
-  - Advanced learning algorithms
   - Personalized relevance scores
 
-### Application TODOs
-- Implement integration tests for the PGVector client and feedback system
-- Add structured testing for all new functionality
-- Regularly update documentation as architecture evolves
+## Application TODOs
 
-## TODOs
-
-See TASKS.md for granular task tracking.
+- Add frontend UI for feedback collection
+- Create an admin interface for re-chunking operations
+- Implement batch transcript processing with progress tracking
+- Add visualization for chunking quality metrics
