@@ -1,40 +1,29 @@
 
-# Project Overview
+# dwschatbot
 
-## Getting Started
+This project is a Streamlit-based chatbot with Retrieval-Augmented Generation (RAG) capabilities, using Supabase for structured data and mem0 for vector storage.  
+It is designed for deployment on Lovable, with a focus on modularity, testability, and clear documentation.
 
-### Prerequisites
-- Node.js (v18+)
-- npm or bun
+## Key Features
+- Streamlit UI for chat and retrieval
+- Supabase integration for metadata and storage
+- mem0 for fast, scalable embedding search
+- Modular codebase with clear separation of concerns
 
-### Installation
-```bash
-npm install
-npm run dev
-```
+## Setup
+1. Install dependencies: `pip install -r requirements.txt`
+2. Set required environment variables (`OPENAI_API_KEY`, `SUPABASE_URL`, etc.)
+3. Run locally: `streamlit run app.py`
 
-### Configuration
-- Create Firestore vector index (collection: vectors, field: values, dim: 768).
+## Deployment
+- Push to GitHub; Lovable will auto-detect and deploy.
+- Ensure environment variables are set in the Lovable dashboard.
 
-## Features
-- AI-powered chat interface
-- Responsive design
-- Analytics dashboard
-- Secure authentication
-
-## Tech Stack
-- React
-- TypeScript
-- Tailwind CSS
-- Supabase
-- Gemini AI
-
-## Development
-- Run tests: `npm test`
-- Build project: `npm run build`
+## Project Structure
+- app.py: Streamlit entrypoint
+- `LightRAG/`: Core logic and agents
+- `supabase-mcp/`, `mcp-mem0/`: MCP integrations
+- `tests/`: Unit tests
 
 ## Contributing
-Please read our contribution guidelines before submitting pull requests.
-
-## License
-This project is licensed under the MIT License.
+See PLANNING.md and TASKS.md for roadmap and open issues.
