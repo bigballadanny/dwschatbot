@@ -1,61 +1,40 @@
 
 # Environment Variables
 
-This document contains all the environment variables needed for the project to function properly, along with descriptions and example values.
+This document provides a simplified guide to setting up the required environment variables for the transcript processing system.
 
-## Core Environment Variables
+## Essential Environment Variables
 
-| Variable | Description | Example | Required | Default |
-|----------|-------------|---------|----------|---------|
-| `SUPABASE_URL` | URL of your Supabase project | `https://xyzproject.supabase.co` | Yes | None |
-| `SUPABASE_KEY` | API key for Supabase | `eyJhbGciOiJIUzI1N...` | Yes | None |
-| `SUPABASE_SERVICE_ROLE_KEY` | Service role API key for Supabase (for edge functions) | `eyJhbGciOiJIUzI1N...` | Yes | None |
-| `PYTHON_BACKEND_URL` | URL of the Python backend for processing transcripts | `https://api.example.com/process` | Yes | None |
-| `PYTHON_BACKEND_KEY` | Authentication key for the Python backend | `your-secret-key` | No | None |
+| Variable | Description | Required |
+|----------|-------------|----------|
+| `PYTHON_BACKEND_URL` | URL of your Python backend for processing transcripts | Yes |
+| `PYTHON_BACKEND_KEY` | Authentication key for the Python backend | No |
 
-## Configuration Environment Variables
+## Setting Up Environment Variables
 
-| Variable | Description | Example | Required | Default |
-|----------|-------------|---------|----------|---------|
-| `LOG_LEVEL` | Logging verbosity | `INFO` | No | `INFO` |
-| `CHUNK_SIZE` | Default chunk size for document splitting | `5` | No | `5` |
-| `CHUNK_OVERLAP` | Default chunk overlap count | `1` | No | `1` |
-| `MAX_RESULTS` | Maximum results to return from queries | `5` | No | `5` |
-| `EMBED_DIM` | Dimension of embedding vectors | `1536` | No | `1536` |
+### For Supabase Edge Functions
 
-## Deployment Environment Variables
+1. Navigate to your Supabase project dashboard
+2. Go to Project Settings → Edge Functions → Environment Variables
+3. Add the required environment variables:
+   - `PYTHON_BACKEND_URL` - The URL to your Python backend service
+   - `PYTHON_BACKEND_KEY` - The authentication key (if required)
 
-| Variable | Description | Example | Required | Default |
-|----------|-------------|---------|----------|---------|
-| `PORT` | Port for the application to listen on | `8501` | No | `8501` |
-| `ENABLE_METRICS` | Enable performance metrics collection | `true` | No | `false` |
-| `ENABLE_CACHING` | Enable response caching | `true` | No | `true` |
+### Testing Your Configuration
 
-## Setting Environment Variables
+Once you've set up the environment variables, you can use the Transcript Diagnostics page to verify that everything is configured correctly:
 
-### Supabase Edge Functions
+1. Navigate to the Transcript Diagnostics page
+2. Check the "Environment Configuration Check" section to see if your variables are properly set
+3. The "Backend Connectivity" indicator will show if your system can successfully connect to the Python backend
 
-For Supabase Edge Functions, set the environment variables in the Supabase dashboard under:
-Project Settings -> API -> Edge Functions -> Environment Variables
+## Troubleshooting
 
-**IMPORTANT:** The transcript processing system **requires** the following variables to be set:
-- `PYTHON_BACKEND_URL` - The URL to your Python backend service that processes transcripts
-- `PYTHON_BACKEND_KEY` - The authentication key for your Python backend (if required)
+If you're experiencing issues with transcript processing:
 
-### Local Development
+1. Check that all required environment variables are set correctly
+2. Verify that your Python backend is running and accessible
+3. Review the Transcript Diagnostics page for any stuck or failed transcripts
+4. Use the "Retry Processing" option for any stuck transcripts
 
-For local development, you can create a `.env` file in the root directory with the required variables:
-
-```
-SUPABASE_URL=https://yourproject.supabase.co
-SUPABASE_KEY=your-supabase-key
-SUPABASE_SERVICE_ROLE_KEY=your-service-role-key
-PYTHON_BACKEND_URL=https://api.example.com/process
-PYTHON_BACKEND_KEY=your-backend-key
-```
-
-## Security Notes
-
-- Never commit `.env` files or API keys to version control
-- For production, use secret management solutions provided by your hosting platform
-- Rotate API keys regularly according to security best practices
+For more detailed information about the system architecture, please refer to the documentation in the project repository.

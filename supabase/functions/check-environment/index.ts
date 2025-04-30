@@ -26,22 +26,27 @@ Deno.serve(async (req) => {
     if (variables.PYTHON_BACKEND_URL) {
       try {
         const pythonBackendUrl = Deno.env.get('PYTHON_BACKEND_URL');
+        // Just test for a connection - use a simple health endpoint
         const response = await fetch(`${pythonBackendUrl}/health`, {
           method: 'GET',
           headers: {
             'Content-Type': 'application/json',
             'Authorization': `Bearer ${Deno.env.get('PYTHON_BACKEND_KEY') || ''}`,
           },
+          // Add a timeout to prevent hanging
+          signal: AbortSignal.timeout(5000) // 5 second timeout
         });
         
         backendConnectivity = response.ok;
+        console.log('Backend connectivity test result:', backendConnectivity);
       } catch (error) {
         console.error('Failed to connect to Python backend:', error);
       }
+    } else {
+      console.log('PYTHON_BACKEND_URL not set, skipping connectivity test');
     }
     
     console.log('Environment variables check:', variables);
-    console.log('Python backend connectivity:', backendConnectivity);
 
     return new Response(
       JSON.stringify({ 

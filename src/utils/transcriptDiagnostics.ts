@@ -120,22 +120,28 @@ export async function checkForTranscriptIssues() {
         stats.unprocessedTranscripts++;
         
         // Check for transcripts stuck in processing
-        if (transcript.metadata?.processing_started_at) {
-          const processingStartedAt = new Date(transcript.metadata.processing_started_at);
-          const fiveMinutesAgo = new Date();
-          fiveMinutesAgo.setMinutes(fiveMinutesAgo.getMinutes() - 5);
-          
-          if (processingStartedAt < fiveMinutesAgo) {
-            stuckInProcessing.push(transcript);
-            stats.stuckInProcessing++;
+        if (transcript.metadata && typeof transcript.metadata === 'object') {
+          const metadata = transcript.metadata as Record<string, any>;
+          if (metadata.processing_started_at) {
+            const processingStartedAt = new Date(metadata.processing_started_at);
+            const fiveMinutesAgo = new Date();
+            fiveMinutesAgo.setMinutes(fiveMinutesAgo.getMinutes() - 5);
+            
+            if (processingStartedAt < fiveMinutesAgo) {
+              stuckInProcessing.push(transcript);
+              stats.stuckInProcessing++;
+            }
           }
         }
       }
       
       // Check for processing failures
-      if (transcript.metadata?.processing_failed || transcript.metadata?.processing_error) {
-        processingFailures.push(transcript);
-        stats.processingFailures++;
+      if (transcript.metadata && typeof transcript.metadata === 'object') {
+        const metadata = transcript.metadata as Record<string, any>;
+        if (metadata.processing_failed || metadata.processing_error) {
+          processingFailures.push(transcript);
+          stats.processingFailures++;
+        }
       }
     });
     
