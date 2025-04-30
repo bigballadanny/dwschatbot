@@ -8,6 +8,21 @@ This file is critical project documentation. Changes require:
 2. Version backup before major changes
 3. Verification code for structural changes: "PROTECT-WORKFLOW"
 
+## Development Philosophy
+
+### First Principles Thinking
+Following Elon Musk's 5 principles of fundamental thinking:
+1. **Question every requirement** - Ask "why?" until you reach first principles
+2. **Reason from first principles, not by analogy** - Build understanding from foundational truths
+3. **Apply both convergent and divergent thinking** - Explore widely, then focus narrowly
+4. **Actively seek and consider critical feedback** - Embrace criticism to strengthen your ideas
+5. **Iterate rapidly with continuous improvement** - Move fast, learn, adjust, repeat
+
+### Zoom In, Zoom Out Framework
+- **Zoom Out**: Maintain high-level perspective on project goals and architecture
+- **Zoom In**: Focus intensely on implementation details when coding
+- **Regular Perspective Shifting**: Alternate between detailed and broad views to maintain alignment
+
 ## Development Workflow
 
 1. **Create a feature branch** for any new feature or fix.
@@ -36,7 +51,7 @@ This file is critical project documentation. Changes require:
 - **PLANNING.md**: Vision, architecture, development phases
 - **TASKS.md**: Current and upcoming tasks, organized by category
 - **CHANGELOG.md**: Completed tasks and changes, organized by version/date
-- **WORKFLOW.md**: Process documentation, best practices
+- **WORKFLOW.md**: Process documentation, best practices, philosophical approaches
 
 ### Version Control
 - All documentation changes should be committed with clear, descriptive messages.
@@ -54,3 +69,4 @@ This file is critical project documentation. Changes require:
 ---
 
 **Refer to this document for onboarding and process consistency.**
+
