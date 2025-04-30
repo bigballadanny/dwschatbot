@@ -1,17 +1,19 @@
 
-import React, { useState } from 'react';
+import React, { useState, useRef } from 'react';
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
-import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
-import { FileText, Upload, X, File, CheckCircle2, AlertCircle } from "lucide-react";
+import { Alert, AlertDescription } from "@/components/ui/alert";
+import { FileText, Upload, X, CheckCircle2, AlertCircle } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from '@/hooks/use-toast';
 import { 
   sanitizeFilename, 
   generateStoragePath, 
   generatePublicUrl,
-  detectSourceCategory
+  detectSourceCategory,
+  formatFileSize
 } from "@/utils/fileUtils";
+import { Progress } from "@/components/ui/progress";
 
 interface TranscriptUploaderProps {
   userId: string;
@@ -30,9 +32,11 @@ const TranscriptUploader = ({
   const [uploadProgress, setUploadProgress] = useState<number | null>(null);
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
   const [dragActive, setDragActive] = useState(false);
+  const [uploadStatus, setUploadStatus] = useState<'idle' | 'uploading' | 'success' | 'error'>('idle');
   const { toast } = useToast();
   
-  const fileInputRef = React.useRef<HTMLInputElement>(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
+  const progressIntervalRef = useRef<number | null>(null);
 
   const handleDrag = (e: React.DragEvent) => {
     e.preventDefault();
@@ -86,16 +90,13 @@ const TranscriptUploader = ({
       }
       
       setSelectedFile(file);
-      // Reset progress when selecting a new file
+      setUploadStatus('idle');
       setUploadProgress(null);
     }
   };
 
   const checkForDuplicates = async (file: File): Promise<boolean> => {
     try {
-      // Calculate simple file fingerprint (name + size)
-      const fingerprint = `${file.name}-${file.size}`;
-      
       // Check if there are any transcripts with similar properties
       const { data: existingFiles, error } = await supabase
         .from('transcripts')
@@ -158,18 +159,43 @@ const TranscriptUploader = ({
         onUploadComplete(data[0].id);
       }
       
+      setUploadStatus('success');
       toast({
         title: "Upload complete",
         description: "Your transcript has been uploaded and is being processed.",
-        variant: "success",
       });
     } catch (error: any) {
       console.error('Error creating transcript record:', error);
+      setUploadStatus('error');
       toast({
         variant: "destructive",
         title: "Error",
         description: `Failed to create transcript: ${error.message || error}`,
       });
+    }
+  };
+
+  const startProgressSimulation = () => {
+    // Clear any existing interval
+    if (progressIntervalRef.current) {
+      window.clearInterval(progressIntervalRef.current);
+    }
+    
+    setUploadProgress(0);
+    
+    // Simulate progress
+    progressIntervalRef.current = window.setInterval(() => {
+      setUploadProgress((prev) => {
+        if (prev === null) return 5;
+        return prev < 85 ? prev + 5 : prev;
+      });
+    }, 300);
+  };
+
+  const stopProgressSimulation = () => {
+    if (progressIntervalRef.current) {
+      window.clearInterval(progressIntervalRef.current);
+      progressIntervalRef.current = null;
     }
   };
 
@@ -181,38 +207,34 @@ const TranscriptUploader = ({
     if (!shouldContinue) {
       toast({
         description: "Upload canceled.",
-        variant: "info",
+        variant: "default",
       });
       return;
     }
     
     setIsUploading(true);
-    setUploadProgress(0);
+    setUploadStatus('uploading');
+    
+    // Start progress simulation
+    startProgressSimulation();
     
     try {
       const filePath = generateStoragePath(userId, selectedFile.name);
-      const sanitizedFilePath = sanitizeFilename(filePath);
       
-      // Simulate progress for better UX
-      const progressSimulation = setInterval(() => {
-        setUploadProgress((prev) => {
-          if (prev === null) return 10;
-          return prev < 90 ? prev + 10 : prev;
-        });
-      }, 500);
-      
-      // Upload the file without progress tracking (not supported in this Supabase version)
+      // Upload the file without progress tracking
       const { error } = await supabase.storage
         .from('transcripts')
-        .upload(sanitizedFilePath, selectedFile, {
+        .upload(filePath, selectedFile, {
           cacheControl: '3600',
           upsert: false
         });
-        
-      clearInterval(progressSimulation);
+      
+      // Stop progress simulation
+      stopProgressSimulation();
       
       if (error) {
         if (error.message && error.message.includes('The resource already exists')) {
+          setUploadStatus('error');
           toast({
             variant: "destructive",
             title: "Duplicate file",
@@ -224,20 +246,24 @@ const TranscriptUploader = ({
         return;
       }
       
-      const publicURL = generatePublicUrl('transcripts', sanitizedFilePath);
-      
-      await createTranscript(selectedFile.name, '', sanitizedFilePath, publicURL);
-      setSelectedFile(null);
-      
       // Set progress to 100% when done
       setUploadProgress(100);
+      
+      const publicURL = generatePublicUrl('transcripts', filePath);
+      
+      await createTranscript(selectedFile.name, '', filePath, publicURL);
+      setSelectedFile(null);
       
       // Reset progress after showing 100% complete
       setTimeout(() => {
         setUploadProgress(null);
-      }, 1500);
+        setUploadStatus('idle');
+      }, 2000);
       
     } catch (error: any) {
+      stopProgressSimulation();
+      setUploadStatus('error');
+      setUploadProgress(null);
       console.error('Error uploading file:', error);
       toast({
         variant: "destructive",
@@ -250,11 +276,36 @@ const TranscriptUploader = ({
   };
   
   const cancelUpload = () => {
+    stopProgressSimulation();
     setSelectedFile(null);
     setUploadProgress(null);
+    setUploadStatus('idle');
     if (fileInputRef.current) {
       fileInputRef.current.value = '';
     }
+  };
+
+  const renderUploadStatus = () => {
+    if (uploadStatus === 'success') {
+      return (
+        <Alert className="bg-green-50 border-green-200 mt-2">
+          <CheckCircle2 className="h-4 w-4 text-green-600" />
+          <AlertDescription className="text-green-700">
+            Upload successful! Your transcript is being processed.
+          </AlertDescription>
+        </Alert>
+      );
+    } else if (uploadStatus === 'error') {
+      return (
+        <Alert className="bg-red-50 border-red-200 mt-2">
+          <AlertCircle className="h-4 w-4 text-red-600" />
+          <AlertDescription className="text-red-700">
+            Upload failed. Please try again.
+          </AlertDescription>
+        </Alert>
+      );
+    }
+    return null;
   };
 
   return (
@@ -271,7 +322,7 @@ const TranscriptUploader = ({
       <div 
         className={`border-2 border-dashed rounded-lg p-6 transition-all ${
           dragActive ? 'border-primary bg-primary/5' : 'border-muted-foreground/20'
-        } ${selectedFile ? 'bg-secondary/20' : ''}`}
+        } ${selectedFile ? 'bg-secondary/10' : ''}`}
         onDragEnter={handleDrag}
         onDragOver={handleDrag}
         onDragLeave={handleDrag}
@@ -280,19 +331,20 @@ const TranscriptUploader = ({
         <div className="flex flex-col items-center justify-center space-y-3">
           {!selectedFile ? (
             <>
-              <div className="p-3 rounded-full bg-secondary">
-                <Upload className="h-6 w-6 text-muted-foreground" />
+              <div className="p-3 rounded-full bg-secondary/50">
+                <Upload className="h-6 w-6 text-primary" />
               </div>
               <div className="text-center">
                 <p className="text-sm font-medium">
                   Drag and drop your transcript file or
                 </p>
                 <Button 
-                  variant="ghost" 
-                  className="mt-1"
+                  variant="outline" 
+                  className="mt-2 border-dashed"
                   onClick={() => fileInputRef.current?.click()}
                 >
-                  Browse
+                  <FileText className="mr-2 h-4 w-4" />
+                  Select File
                 </Button>
               </div>
               <p className="text-xs text-muted-foreground">
@@ -303,13 +355,13 @@ const TranscriptUploader = ({
             <div className="w-full">
               <div className="flex items-center justify-between mb-3">
                 <div className="flex items-center">
-                  <div className="p-2 mr-3 rounded-full bg-secondary/60">
-                    <FileText className="h-5 w-5 text-foreground" />
+                  <div className="p-2 mr-3 rounded-full bg-primary/10">
+                    <FileText className="h-5 w-5 text-primary" />
                   </div>
                   <div>
                     <p className="text-sm font-medium truncate max-w-[200px]">{selectedFile.name}</p>
                     <p className="text-xs text-muted-foreground">
-                      {Math.round(selectedFile.size / 1024)} KB
+                      {formatFileSize(selectedFile.size)}
                     </p>
                   </div>
                 </div>
@@ -318,17 +370,19 @@ const TranscriptUploader = ({
                   size="sm" 
                   className="h-8 w-8 p-0"
                   onClick={cancelUpload}
+                  disabled={isUploading}
                 >
                   <X className="h-4 w-4" />
                 </Button>
               </div>
               
               {uploadProgress !== null && (
-                <div className="w-full bg-secondary h-1.5 rounded-full overflow-hidden">
-                  <div 
-                    className="bg-primary h-full transition-all duration-300 ease-out"
-                    style={{ width: `${uploadProgress}%` }}
-                  />
+                <div className="w-full mt-4 space-y-1">
+                  <div className="flex justify-between text-xs text-muted-foreground">
+                    <span>{uploadStatus === 'success' ? 'Complete' : 'Uploading...'}</span>
+                    <span>{uploadProgress}%</span>
+                  </div>
+                  <Progress value={uploadProgress} className="h-2" />
                 </div>
               )}
             </div>
@@ -344,11 +398,13 @@ const TranscriptUploader = ({
         />
       </div>
       
+      {renderUploadStatus()}
+      
       <div className="flex justify-end">
         <Button
           onClick={uploadFile}
           disabled={!selectedFile || isUploading}
-          className="relative"
+          className={`relative ${isUploading ? 'bg-primary/80' : ''}`}
         >
           {isUploading ? (
             <>
@@ -356,7 +412,7 @@ const TranscriptUploader = ({
                 <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
                 <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
               </svg>
-              Uploading{uploadProgress !== null ? ` (${uploadProgress}%)` : '...'}
+              Processing...
             </>
           ) : (
             <>

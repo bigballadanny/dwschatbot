@@ -32,9 +32,9 @@ export function generateStoragePath(userId: string, fileName: string): string {
   const fileNameParts = fileName.split('.');
   const extension = fileNameParts.pop()?.toLowerCase() || '';
   const baseName = fileNameParts.join('.'); 
-  const sanitized = sanitizeFilename(baseName) + '.' + extension;
+  const sanitized = sanitizeFilename(baseName);
   
-  return `transcripts/${userId}/${timestamp}_${sanitized}`;
+  return `${userId}/${timestamp}_${sanitized}.${extension}`;
 }
 
 /**
