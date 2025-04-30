@@ -10,14 +10,14 @@ import { Label } from "@/components/ui/label";
 import { Progress } from "@/components/ui/progress";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { AlertTriangle, CheckCircle2, Clock, RefreshCw, Settings, Wrench } from "lucide-react";
-import { toast } from "@/hooks/use-toast";
 import { showSuccess, showError, showWarning } from "@/utils/toastUtils";
 import { 
   checkForTranscriptIssues, 
   fixTranscriptIssues, 
   manuallyProcessTranscripts,
   markTranscriptAsProcessed,
-  checkEnvironmentVariables
+  checkEnvironmentVariables,
+  retryStuckTranscripts
 } from '@/utils/transcriptDiagnostics';
 
 const TranscriptDiagnostics = () => {
@@ -28,6 +28,7 @@ const TranscriptDiagnostics = () => {
   const [operationProgress, setOperationProgress] = useState(0);
   const [activeTab, setActiveTab] = useState('unprocessed');
   const [envVars, setEnvVars] = useState<{[key: string]: boolean}>({});
+  const [backendConnectivity, setBackendConnectivity] = useState(false);
 
   const runDiagnostics = async () => {
     setIsLoading(true);
@@ -36,6 +37,7 @@ const TranscriptDiagnostics = () => {
       // Check environment variables
       const envResults = await checkEnvironmentVariables();
       setEnvVars(envResults);
+      setBackendConnectivity(envResults.backendConnectivity || false);
       
       // Check for transcript issues
       const results = await checkForTranscriptIssues();
@@ -124,6 +126,34 @@ const TranscriptDiagnostics = () => {
     }
   };
 
+  const handleRetryStuckTranscripts = async () => {
+    if (selectedTranscripts.length === 0) {
+      showWarning('No Selection', 'Please select at least one transcript to retry');
+      return;
+    }
+
+    setProcessing(true);
+    setOperationProgress(0);
+
+    try {
+      const results = await retryStuckTranscripts(selectedTranscripts);
+      
+      if (results.errors.length > 0) {
+        showWarning('Retry Completed With Issues', `Retried ${results.success} transcripts with ${results.errors.length} errors`);
+      } else {
+        showSuccess('Retry Completed', `Successfully retried ${results.success} transcripts`);
+      }
+      
+      // Refresh diagnostics
+      await runDiagnostics();
+    } catch (error: any) {
+      showError('Retry Failed', error.message);
+    } finally {
+      setProcessing(false);
+      setOperationProgress(100);
+    }
+  };
+
   const handleMarkAsProcessed = async () => {
     if (selectedTranscripts.length === 0) {
       showWarning('No Selection', 'Please select at least one transcript to mark as processed');
@@ -171,6 +201,10 @@ const TranscriptDiagnostics = () => {
     switch (activeTab) {
       case 'unprocessed':
         return diagnosticResults.unprocessedTranscripts || [];
+      case 'stuck':
+        return diagnosticResults.stuckInProcessing || [];
+      case 'failed':
+        return diagnosticResults.processingFailures || [];
       case 'recent':
         return diagnosticResults.recentTranscripts || [];
       case 'potential-summit':
@@ -229,6 +263,18 @@ const TranscriptDiagnostics = () => {
               description="Required for edge function database access"
               required
             />
+            <div className="flex items-center justify-between p-3 border rounded-md col-span-2">
+              <div>
+                <div className="font-medium">Backend Connectivity</div>
+                <div className="text-sm text-muted-foreground">Can connect to the Python processing backend</div>
+              </div>
+              <Badge 
+                variant={backendConnectivity ? "outline" : "destructive"} 
+                className={backendConnectivity ? "bg-green-100 text-green-800" : ""}
+              >
+                {backendConnectivity ? "Connected" : "Disconnected"}
+              </Badge>
+            </div>
           </div>
           <Alert variant="info" className="mt-4">
             <AlertTitle>Setup Instructions</AlertTitle>
@@ -263,14 +309,14 @@ const TranscriptDiagnostics = () => {
                 icon="warning"
               />
               <StatCard
-                title="Empty Content"
-                value={diagnosticResults.stats.emptyContent}
+                title="Stuck Processing"
+                value={diagnosticResults.stats.stuckInProcessing || 0}
                 icon="error"
               />
               <StatCard
-                title="Recent Uploads"
-                value={diagnosticResults.stats.recentlyUploaded}
-                icon="recent"
+                title="Processing Failures"
+                value={diagnosticResults.stats.processingFailures || 0}
+                icon="error"
               />
             </div>
           </CardContent>
@@ -283,11 +329,14 @@ const TranscriptDiagnostics = () => {
           <TabsTrigger value="unprocessed">
             Unprocessed ({diagnosticResults?.stats.unprocessedTranscripts || 0})
           </TabsTrigger>
-          <TabsTrigger value="recent">
-            Recent Uploads ({diagnosticResults?.stats.recentlyUploaded || 0})
+          <TabsTrigger value="stuck">
+            Stuck Processing ({diagnosticResults?.stats.stuckInProcessing || 0})
           </TabsTrigger>
-          <TabsTrigger value="potential-summit">
-            Potential Summit ({diagnosticResults?.stats.potentialSummitTranscripts || 0})
+          <TabsTrigger value="failed">
+            Failures ({diagnosticResults?.stats.processingFailures || 0})
+          </TabsTrigger>
+          <TabsTrigger value="recent">
+            Recent ({diagnosticResults?.stats.recentlyUploaded || 0})
           </TabsTrigger>
         </TabsList>
         
@@ -295,11 +344,15 @@ const TranscriptDiagnostics = () => {
           <CardHeader>
             <CardTitle>
               {activeTab === 'unprocessed' && 'Unprocessed Transcripts'}
+              {activeTab === 'stuck' && 'Transcripts Stuck in Processing'}
+              {activeTab === 'failed' && 'Transcript Processing Failures'}
               {activeTab === 'recent' && 'Recently Uploaded Transcripts'}
               {activeTab === 'potential-summit' && 'Potential Summit Transcripts'}
             </CardTitle>
             <CardDescription>
               {activeTab === 'unprocessed' && 'Transcripts that have not been processed yet'}
+              {activeTab === 'stuck' && 'Transcripts that started processing but never completed'}
+              {activeTab === 'failed' && 'Transcripts that encountered errors during processing'}
               {activeTab === 'recent' && 'Transcripts uploaded in the last hour'}
               {activeTab === 'potential-summit' && 'Transcripts that might be from the Business Acquisitions Summit'}
             </CardDescription>
@@ -361,7 +414,18 @@ const TranscriptDiagnostics = () => {
                         </Button>
                       </>
                     )}
-                    {activeTab !== 'unprocessed' && (
+                    {activeTab === 'stuck' && (
+                      <Button 
+                        size="sm" 
+                        variant="outline"
+                        onClick={handleRetryStuckTranscripts}
+                        disabled={processing}
+                      >
+                        <RefreshCw className="h-4 w-4 mr-2" />
+                        Retry Processing
+                      </Button>
+                    )}
+                    {(activeTab === 'failed' || activeTab === 'recent') && (
                       <Button 
                         size="sm" 
                         variant="outline"
@@ -397,21 +461,36 @@ const TranscriptDiagnostics = () => {
                         <div className="flex-1">
                           <div className="flex justify-between">
                             <h4 className="font-medium">{transcript.title}</h4>
-                            <Badge variant={transcript.is_processed ? "outline" : "outline"} 
-                              className={transcript.is_processed ? "bg-green-100 text-green-800" : ""}
-                            >
-                              {transcript.is_processed ? "Processed" : "Unprocessed"}
-                            </Badge>
+                            <div className="flex gap-2">
+                              {transcript.metadata?.processing_started_at && (
+                                <Badge variant="secondary">
+                                  Started: {new Date(transcript.metadata.processing_started_at).toLocaleTimeString()}
+                                </Badge>
+                              )}
+                              <Badge variant={transcript.is_processed ? "outline" : "outline"} 
+                                className={transcript.is_processed ? "bg-green-100 text-green-800" : ""}
+                              >
+                                {transcript.is_processed ? "Processed" : "Unprocessed"}
+                              </Badge>
+                            </div>
                           </div>
                           <div className="text-sm text-muted-foreground mt-1">
                             Source: {transcript.source || 'Unknown'} • 
                             Created: {new Date(transcript.created_at).toLocaleString()}
                           </div>
-                          {transcript.metadata && (
-                            <div className="text-xs text-muted-foreground mt-1">
-                              Metadata: {JSON.stringify(transcript.metadata)}
+                          {transcript.metadata?.processing_error && (
+                            <div className="mt-2 text-sm text-red-600 bg-red-50 p-2 rounded">
+                              Error: {transcript.metadata.processing_error}
                             </div>
                           )}
+                          <div className="mt-2">
+                            <details>
+                              <summary className="text-sm text-muted-foreground cursor-pointer">Metadata</summary>
+                              <pre className="text-xs bg-gray-50 p-2 rounded mt-2 overflow-auto max-h-32">
+                                {JSON.stringify(transcript.metadata, null, 2)}
+                              </pre>
+                            </details>
+                          </div>
                         </div>
                       </div>
                     </Card>

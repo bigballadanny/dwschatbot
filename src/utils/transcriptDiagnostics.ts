@@ -17,15 +17,20 @@ export async function checkEnvironmentVariables() {
         PYTHON_BACKEND_URL: false,
         PYTHON_BACKEND_KEY: false,
         SUPABASE_SERVICE_ROLE_KEY: false,
-        SUPABASE_URL: false
+        SUPABASE_URL: false,
+        backendConnectivity: false
       };
     }
     
-    return data.variables || {
-      PYTHON_BACKEND_URL: false,
-      PYTHON_BACKEND_KEY: false,
-      SUPABASE_SERVICE_ROLE_KEY: false,
-      SUPABASE_URL: false
+    // Return environment variables status and backend connectivity
+    return {
+      ...(data.variables || {
+        PYTHON_BACKEND_URL: false,
+        PYTHON_BACKEND_KEY: false,
+        SUPABASE_SERVICE_ROLE_KEY: false,
+        SUPABASE_URL: false
+      }),
+      backendConnectivity: data.backendConnectivity || false
     };
   } catch (error) {
     console.error('Error checking environment variables:', error);
@@ -33,7 +38,8 @@ export async function checkEnvironmentVariables() {
       PYTHON_BACKEND_URL: false,
       PYTHON_BACKEND_KEY: false,
       SUPABASE_SERVICE_ROLE_KEY: false,
-      SUPABASE_URL: false
+      SUPABASE_URL: false,
+      backendConnectivity: false
     };
   }
 }
@@ -60,7 +66,9 @@ export async function checkForTranscriptIssues() {
       recentlyUploaded: 0,
       businessSummitTranscripts: 0,
       potentialSummitTranscripts: 0,
-      unprocessedTranscripts: 0
+      unprocessedTranscripts: 0,
+      processingFailures: 0,
+      stuckInProcessing: 0
     };
     
     const lastHour = new Date();
@@ -69,6 +77,8 @@ export async function checkForTranscriptIssues() {
     const recentTranscripts = [];
     const potentialSummitTranscripts = [];
     const unprocessedTranscripts = [];
+    const processingFailures = [];
+    const stuckInProcessing = [];
     
     transcripts.forEach(transcript => {
       // Check for empty content
@@ -108,10 +118,35 @@ export async function checkForTranscriptIssues() {
       if (transcript.is_processed === false) {
         unprocessedTranscripts.push(transcript);
         stats.unprocessedTranscripts++;
+        
+        // Check for transcripts stuck in processing
+        if (transcript.metadata?.processing_started_at) {
+          const processingStartedAt = new Date(transcript.metadata.processing_started_at);
+          const fiveMinutesAgo = new Date();
+          fiveMinutesAgo.setMinutes(fiveMinutesAgo.getMinutes() - 5);
+          
+          if (processingStartedAt < fiveMinutesAgo) {
+            stuckInProcessing.push(transcript);
+            stats.stuckInProcessing++;
+          }
+        }
+      }
+      
+      // Check for processing failures
+      if (transcript.metadata?.processing_failed || transcript.metadata?.processing_error) {
+        processingFailures.push(transcript);
+        stats.processingFailures++;
       }
     });
     
-    return { stats, recentTranscripts, potentialSummitTranscripts, unprocessedTranscripts };
+    return { 
+      stats, 
+      recentTranscripts, 
+      potentialSummitTranscripts, 
+      unprocessedTranscripts, 
+      processingFailures,
+      stuckInProcessing
+    };
   } catch (error) {
     console.error('Error checking for transcript issues:', error);
     throw error;
@@ -206,6 +241,16 @@ export async function manuallyProcessTranscripts(transcriptIds: string[]) {
   
   for (const id of transcriptIds) {
     try {
+      // Reset any previous processing metadata
+      await supabase
+        .from('transcripts')
+        .update({ 
+          metadata: {
+            manual_processing_triggered_at: new Date().toISOString()
+          } 
+        })
+        .eq('id', id);
+        
       // Call the process-transcript function directly
       const { data, error } = await supabase.functions.invoke('process-transcript', {
         body: { transcript_id: id }
@@ -274,85 +319,51 @@ export async function markTranscriptAsProcessed(transcriptId: string) {
 }
 
 /**
- * Ensures all transcripts have the correct source type
+ * Retries processing for transcripts that are stuck
  */
-export async function fixTranscriptSourceTypes(specificIds?: string[]) {
-  try {
-    // Get all transcripts or specified ones
-    const query = supabase.from('transcripts').select('*');
-    
-    if (specificIds && specificIds.length > 0) {
-      query.in('id', specificIds);
-    }
-    
-    const { data: transcripts, error } = await query;
-      
-    if (error) {
-      throw error;
-    }
-    
-    let fixedCount = 0;
-    const errors = [];
-    
-    // Get transcripts with upload date on the 27th (current or previous month)
-    const targetDate = new Date();
-    const monthsToCheck = [targetDate.getMonth(), targetDate.getMonth() - 1];
-    const year = targetDate.getFullYear();
-    
-    for (const transcript of transcripts) {
-      let shouldFix = false;
-      let newSource = transcript.source;
-      
-      // Detect if this should be a business acquisitions summit transcript
-      const isSummitTranscript = 
-        transcript.title?.toLowerCase().includes('summit') || 
-        transcript.title?.toLowerCase().includes('acquisitions summit') ||
-        transcript.title?.toLowerCase().includes('acquisition summit') ||
-        (transcript.content && (
-          transcript.content.toLowerCase().includes('business acquisitions summit') ||
-          transcript.content.toLowerCase().includes('business acquisition summit')
-        ));
-      
-      // Check if it was uploaded on the 27th of current or previous month
-      const createdAt = new Date(transcript.created_at);
-      const isUploadedOn27th = createdAt.getDate() === 27 && 
-                              monthsToCheck.includes(createdAt.getMonth()) && 
-                              createdAt.getFullYear() === year;
-      
-      // If it's a summit transcript but not labeled as such, update it
-      if (isSummitTranscript && transcript.source !== 'business_acquisitions_summit') {
-        shouldFix = true;
-        newSource = 'business_acquisitions_summit';
+export async function retryStuckTranscripts(transcriptIds: string[]) {
+  const results = {
+    success: 0,
+    errors: [] as string[]
+  };
+
+  for (const id of transcriptIds) {
+    try {
+      // Reset processing metadata
+      const { error: resetError } = await supabase
+        .from('transcripts')
+        .update({ 
+          is_processed: false,
+          metadata: {
+            retry_triggered_at: new Date().toISOString(),
+            retry_count: 1
+          } 
+        })
+        .eq('id', id);
+        
+      if (resetError) {
+        results.errors.push(`Error resetting transcript ${id}: ${resetError.message}`);
+        continue;
       }
-      
-      // If it was uploaded on the 27th and not properly categorized as summit
-      if (isUploadedOn27th && transcript.source !== 'business_acquisitions_summit') {
-        shouldFix = true;
-        newSource = 'business_acquisitions_summit';
-      }
-      
-      // If specific IDs were provided, force update regardless of other conditions
-      if (specificIds && specificIds.includes(transcript.id)) {
-        shouldFix = true;
-      }
-      
-      if (shouldFix) {
-        const { error: updateError } = await supabase
-          .from('transcripts')
-          .update({ source: newSource })
-          .eq('id', transcript.id);
-          
-        if (updateError) {
-          errors.push(`Error updating transcript ${transcript.id}: ${updateError.message}`);
-        } else {
-          fixedCount++;
+
+      // Call the webhook function to restart processing
+      const { error } = await supabase.functions.invoke('transcript-webhook', {
+        body: { 
+          type: 'INSERT',
+          record: { id } 
         }
+      });
+      
+      if (error) {
+        results.errors.push(`Error triggering webhook for transcript ${id}: ${error.message}`);
+        continue;
       }
+      
+      results.success++;
+    } catch (error: any) {
+      results.errors.push(`Unexpected error processing transcript ${id}: ${error.message}`);
     }
-    
-    return { fixedCount, errors };
-  } catch (error: any) {
-    console.error('Error fixing transcript source types:', error);
-    return { fixedCount: 0, errors: [error.message] };
   }
+  
+  return results;
 }

@@ -42,13 +42,31 @@ Deno.serve(async (req) => {
       });
     }
     
-    // Don't process if transcript is already being processed
+    // Don't process if transcript is already being processed or processed
     if (record.is_processed === true) {
       console.log(`Transcript ${record.id} already processed, skipping`);
       return new Response('Transcript already processed', { 
         status: 200,
         headers: corsHeaders 
       });
+    }
+
+    // Check if there is already a processing_started_at timestamp in metadata
+    if (record.metadata?.processing_started_at) {
+      const processingStartedAt = new Date(record.metadata.processing_started_at);
+      const fiveMinutesAgo = new Date();
+      fiveMinutesAgo.setMinutes(fiveMinutesAgo.getMinutes() - 5);
+      
+      // If processing started less than 5 minutes ago, don't start another process
+      if (processingStartedAt > fiveMinutesAgo) {
+        console.log(`Transcript ${record.id} is already being processed (started at ${processingStartedAt}), skipping`);
+        return new Response('Transcript is already being processed', { 
+          status: 200,
+          headers: corsHeaders 
+        });
+      } else {
+        console.log(`Transcript ${record.id} processing started more than 5 minutes ago, restarting processing`);
+      }
     }
     
     console.log(`Received new transcript, triggering processing: ${record.id}`);
@@ -59,7 +77,8 @@ Deno.serve(async (req) => {
       .update({ 
         metadata: { 
           ...record.metadata,
-          processing_started_at: new Date().toISOString() 
+          processing_started_at: new Date().toISOString(),
+          webhook_triggered_at: new Date().toISOString()
         } 
       })
       .eq('id', record.id);
@@ -75,6 +94,25 @@ Deno.serve(async (req) => {
     
     if (error) {
       console.error('Error invoking process-transcript function:', error);
+      
+      // Try to mark the transcript as processed with error
+      try {
+        await supabaseAdmin
+          .from('transcripts')
+          .update({ 
+            is_processed: true,
+            metadata: { 
+              ...record.metadata,
+              processing_completed_at: new Date().toISOString(),
+              processing_error: `Failed to invoke processing: ${error.message}`,
+              processing_failed: true
+            } 
+          })
+          .eq('id', record.id);
+      } catch (markError) {
+        console.error('Failed to mark transcript as failed:', markError);
+      }
+      
       return new Response(JSON.stringify({ error: error.message }), { 
         status: 500,
         headers: { ...corsHeaders, 'Content-Type': 'application/json' }

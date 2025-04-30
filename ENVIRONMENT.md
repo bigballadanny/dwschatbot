@@ -8,10 +8,8 @@ This document contains all the environment variables needed for the project to f
 | Variable | Description | Example | Required | Default |
 |----------|-------------|---------|----------|---------|
 | `SUPABASE_URL` | URL of your Supabase project | `https://xyzproject.supabase.co` | Yes | None |
-| `SUPABASE_KEY` | Service role API key for Supabase | `eyJhbGciOiJIUzI1N...` | Yes | None |
+| `SUPABASE_KEY` | API key for Supabase | `eyJhbGciOiJIUzI1N...` | Yes | None |
 | `SUPABASE_SERVICE_ROLE_KEY` | Service role API key for Supabase (for edge functions) | `eyJhbGciOiJIUzI1N...` | Yes | None |
-| `MEM0_URL` | URL of the mem0 vector store service | `http://localhost:8000` | Yes | `http://localhost:8000` |
-| `OPENAI_API_KEY` | API key for OpenAI (if using OpenAI embeddings) | `sk-...` | No | None |
 | `PYTHON_BACKEND_URL` | URL of the Python backend for processing transcripts | `https://api.example.com/process` | Yes | None |
 | `PYTHON_BACKEND_KEY` | Authentication key for the Python backend | `your-secret-key` | No | None |
 
@@ -29,7 +27,7 @@ This document contains all the environment variables needed for the project to f
 
 | Variable | Description | Example | Required | Default |
 |----------|-------------|---------|----------|---------|
-| `PORT` | Port for Streamlit to listen on | `8501` | No | `8501` |
+| `PORT` | Port for the application to listen on | `8501` | No | `8501` |
 | `ENABLE_METRICS` | Enable performance metrics collection | `true` | No | `false` |
 | `ENABLE_CACHING` | Enable response caching | `true` | No | `true` |
 
@@ -52,13 +50,9 @@ For local development, you can create a `.env` file in the root directory with t
 SUPABASE_URL=https://yourproject.supabase.co
 SUPABASE_KEY=your-supabase-key
 SUPABASE_SERVICE_ROLE_KEY=your-service-role-key
-MEM0_URL=http://localhost:8000
-OPENAI_API_KEY=your-openai-key
 PYTHON_BACKEND_URL=https://api.example.com/process
 PYTHON_BACKEND_KEY=your-backend-key
 ```
-
-Then load them using the python-dotenv package.
 
 ## Security Notes
 

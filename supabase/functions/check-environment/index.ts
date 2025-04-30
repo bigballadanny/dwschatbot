@@ -21,12 +21,33 @@ Deno.serve(async (req) => {
       SUPABASE_URL: !!Deno.env.get('SUPABASE_URL')
     };
     
+    // Check if we can connect to the Python backend
+    let backendConnectivity = false;
+    if (variables.PYTHON_BACKEND_URL) {
+      try {
+        const pythonBackendUrl = Deno.env.get('PYTHON_BACKEND_URL');
+        const response = await fetch(`${pythonBackendUrl}/health`, {
+          method: 'GET',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${Deno.env.get('PYTHON_BACKEND_KEY') || ''}`,
+          },
+        });
+        
+        backendConnectivity = response.ok;
+      } catch (error) {
+        console.error('Failed to connect to Python backend:', error);
+      }
+    }
+    
     console.log('Environment variables check:', variables);
+    console.log('Python backend connectivity:', backendConnectivity);
 
     return new Response(
       JSON.stringify({ 
         success: true,
-        variables
+        variables,
+        backendConnectivity
       }),
       {
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },

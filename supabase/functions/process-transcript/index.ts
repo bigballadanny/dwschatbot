@@ -102,78 +102,54 @@ Deno.serve(async (req) => {
       }
     }
 
-    // Call the Python ingest pipeline via HTTP request
+    // Check if Python backend URL is configured
     const pythonBackendUrl = Deno.env.get('PYTHON_BACKEND_URL');
-    if (!pythonBackendUrl) {
-      console.error('PYTHON_BACKEND_URL environment variable not set');
-      
-      // If we can't call the backend, at least mark the transcript as processed
-      // so it doesn't get stuck in an unprocessed state
-      await supabaseAdmin
-        .from('transcripts')
-        .update({ is_processed: true })
-        .eq('id', transcript_id);
-        
-      return new Response(
-        JSON.stringify({ error: 'Python backend URL not configured' }),
-        {
-          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-          status: 500,
-        }
-      );
-    }
+    let processedByBackend = false;
+    let backendResult = null;
     
-    const response = await fetch(pythonBackendUrl, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'Authorization': `Bearer ${Deno.env.get('PYTHON_BACKEND_KEY') ?? ''}`,
-      },
-      body: JSON.stringify({
-        transcript_id: transcript.id,
-        file_path: transcript.file_path,
-        user_id: transcript.user_id,
-        topic: transcript.source || null,
-      }),
-    });
+    if (pythonBackendUrl) {
+      try {
+        // Call the Python ingest pipeline via HTTP request
+        const response = await fetch(pythonBackendUrl, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${Deno.env.get('PYTHON_BACKEND_KEY') ?? ''}`,
+          },
+          body: JSON.stringify({
+            transcript_id: transcript.id,
+            file_path: transcript.file_path,
+            user_id: transcript.user_id,
+            topic: transcript.source || null,
+          }),
+          // Add a timeout to prevent hanging if backend is slow
+          signal: AbortSignal.timeout(30000) // 30 second timeout
+        });
 
-    if (!response.ok) {
-      const errorData = await response.text();
-      console.error('Error from Python backend:', errorData);
-      
-      // Even if the Python backend failed, mark the transcript as processed
-      // to prevent it from being perpetually stuck in an unprocessed state
-      await supabaseAdmin
-        .from('transcripts')
-        .update({ 
-          is_processed: true,
-          metadata: {
-            ...transcript.metadata,
-            processing_error: errorData,
-            processing_completed_at: new Date().toISOString()
-          }
-        })
-        .eq('id', transcript_id);
-        
-      return new Response(
-        JSON.stringify({ error: 'Failed to process transcript', details: errorData }),
-        {
-          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-          status: 500,
+        if (response.ok) {
+          backendResult = await response.json();
+          processedByBackend = true;
+        } else {
+          const errorData = await response.text();
+          console.error('Error from Python backend:', errorData);
         }
-      );
+      } catch (error) {
+        console.error('Error connecting to Python backend:', error);
+      }
+    } else {
+      console.log('PYTHON_BACKEND_URL environment variable not set, skipping backend processing');
     }
 
-    const result = await response.json();
-
-    // Update the transcript to mark it as processed
+    // Always mark the transcript as processed, even if backend processing failed
     await supabaseAdmin
       .from('transcripts')
       .update({ 
         is_processed: true,
         metadata: {
           ...transcript.metadata,
-          processing_completed_at: new Date().toISOString()
+          processing_completed_at: new Date().toISOString(),
+          processed_by_backend: processedByBackend,
+          processing_error: !processedByBackend && pythonBackendUrl ? 'Failed to process with Python backend' : null
         }
       })
       .eq('id', transcript_id);
@@ -181,8 +157,11 @@ Deno.serve(async (req) => {
     return new Response(
       JSON.stringify({
         success: true,
-        message: 'Transcript successfully processed',
-        result
+        message: processedByBackend ? 
+          'Transcript successfully processed by backend' : 
+          'Transcript marked as processed (backend skipped)',
+        processed_by_backend: processedByBackend,
+        result: backendResult
       }),
       {
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
@@ -191,6 +170,27 @@ Deno.serve(async (req) => {
     );
   } catch (error) {
     console.error('Error in process-transcript function:', error);
+    
+    // Try to mark the transcript as processed with error to prevent it from being stuck
+    try {
+      const { transcript_id } = await req.json();
+      if (transcript_id) {
+        await supabaseAdmin
+          .from('transcripts')
+          .update({ 
+            is_processed: true,
+            metadata: {
+              processing_error: `Error: ${error.message}`,
+              processing_completed_at: new Date().toISOString(),
+              processing_failed: true
+            }
+          })
+          .eq('id', transcript_id);
+      }
+    } catch (markError) {
+      console.error('Failed to mark transcript as failed:', markError);
+    }
+    
     return new Response(
       JSON.stringify({ error: error.message }),
       {

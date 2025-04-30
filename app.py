@@ -90,7 +90,6 @@ with tab3:
     if st.button("Check Services"):
         # Import here to avoid circular imports
         from LightRAG.supabase_client import healthcheck as supabase_healthcheck
-        from LightRAG.mem0_client import Mem0Client
         
         st.subheader("Service Status")
         
@@ -98,12 +97,20 @@ with tab3:
         supabase_status = supabase_healthcheck()
         st.write(f"- Supabase: {'✅ Connected' if supabase_status else '❌ Not available'}")
         
-        # Check mem0 connection
-        mem0 = Mem0Client()
-        mem0_status = mem0.healthcheck()
-        st.write(f"- mem0: {'✅ Connected' if mem0_status else '❌ Not available'}")
+        # Check Python backend health
+        backend_status = False
+        try:
+            import requests
+            backend_url = os.getenv("PYTHON_BACKEND_URL")
+            if backend_url:
+                response = requests.get(f"{backend_url}/health", timeout=5)
+                backend_status = response.ok
+        except Exception:
+            pass
+            
+        st.write(f"- Python Backend: {'✅ Connected' if backend_status else '❌ Not available'}")
         
-        if not supabase_status or not mem0_status:
+        if not supabase_status or not backend_status:
             st.warning("Some services are not available. Please check your configuration.")
         else:
             st.success("All services are available!")
@@ -113,8 +120,8 @@ with tab3:
     env_vars = {
         "SUPABASE_URL": "Supabase project URL",
         "SUPABASE_KEY": "Supabase API key",
-        "MEM0_URL": "mem0 service URL",
-        "MEM0_API_KEY": "mem0 API key (if required)"
+        "PYTHON_BACKEND_URL": "Python processing backend URL",
+        "PYTHON_BACKEND_KEY": "Python backend API key (if required)"
     }
     
     for var, description in env_vars.items():
