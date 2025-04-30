@@ -1,7 +1,0 @@
-streamlit
-openai
-supabase
-pydantic
-requests
-fastapi
-uvicorn
