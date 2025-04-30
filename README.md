@@ -23,7 +23,12 @@ It is designed for deployment on Lovable, with a focus on modularity, testabilit
 - `app.py`: Streamlit entrypoint (chatbot & ingestion UI)
 - `LightRAG/`: Core Python modules (agent, pipeline, integrations)
 - `tests/`: Unit tests
-- `PLANNING.md`, `TASKS.md`, `WORKFLOW.md`, `CHANGELOG.md`: Project management docs
+- `PLANNING.md`: Project vision, architecture, and component details
+- `TASKS.md`: Prioritized tasks with timestamps and component references
+- `WORKFLOW.md`: Development process and philosophical approach
+- `CHANGELOG.md`: Record of completed work and changes
+- `ENVIRONMENT.md`: Comprehensive documentation of environment variables
+- `COMPONENT_GUIDES.md`: Detailed component-specific documentation and examples
 
 ## Environment Variables
 The following environment variables must be set in the Lovable dashboard:
@@ -32,6 +37,18 @@ The following environment variables must be set in the Lovable dashboard:
 - `SUPABASE_KEY`: Supabase service key
 - `MEM0_URL`: mem0 vector store endpoint (default: "http://localhost:8000")
 - `OPENAI_API_KEY`: If using OpenAI for embeddings
+
+See `ENVIRONMENT.md` for a comprehensive list of all environment variables.
+
+## Development Philosophy
+
+We follow the "Zoom In, Zoom Out" development approach:
+- Regularly zoom out to understand the big picture and project goals
+- Zoom in to focus on implementation details of specific components
+- Keep TASKS.md updated with priorities and component references
+- Consult COMPONENT_GUIDES.md when working on specific parts of the system
+
+For more details on our development philosophy and workflow, see `WORKFLOW.md`.
 
 ## Contributing
 See PLANNING.md and TASKS.md for roadmap and open issues.
