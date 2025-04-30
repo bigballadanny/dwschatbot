@@ -16,19 +16,12 @@ import { supabase } from "@/integrations/supabase/client";
 import { UserContext } from "@/contexts/UserContext";
 import { showSuccess, showError, showWarning } from "@/utils/toastUtils";
 import { useTranscriptSummaries } from "@/hooks/useTranscriptSummaries";
-import { getTranscriptCounts, getSourceCategories, formatTagForDisplay, suggestTagsFromContent } from "@/utils/transcriptUtils";
+import { getTranscriptCounts, getSourceCategories, formatTagForDisplay, suggestTagsFromContent, Transcript as TranscriptType } from "@/utils/transcriptUtils";
 import TranscriptUploader from "@/components/TranscriptUploader";
 
-interface Transcript {
-  id: string;
-  title: string;
-  content: string;
-  created_at: string;
-  source?: string;
-  tags?: string[];
-  is_processed?: boolean;
-  is_summarized?: boolean;
-  file_path?: string;
+// Update the Transcript interface to match the one from transcriptUtils
+interface Transcript extends TranscriptType {
+  // Any additional properties specific to this file can be added here
 }
 
 interface TranscriptSummary {

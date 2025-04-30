@@ -3,7 +3,7 @@ import React, { useState } from 'react';
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
-import { AlertCircle, Info } from "lucide-react";
+import { Info } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from '@/components/ui/use-toast';
 import FileUploader from "@/components/FileUploader";
@@ -143,7 +143,7 @@ const TranscriptUploader = ({
         .upload(sanitizedFilePath, selectedFile, {
           cacheControl: '3600',
           upsert: false,
-          onUpload: (progress) => {
+          onUploadProgress: (progress) => {
             const percent = Math.round((progress.loaded / progress.total) * 100);
             setUploadProgress(percent);
           }
