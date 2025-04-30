@@ -1,561 +1,664 @@
-
 import React, { useState, useEffect } from 'react';
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Badge } from "@/components/ui/badge";
-import { Checkbox } from "@/components/ui/checkbox";
-import { Label } from "@/components/ui/label";
-import { Progress } from "@/components/ui/progress";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { AlertTriangle, CheckCircle2, Clock, RefreshCw, Settings, Wrench } from "lucide-react";
-import { showSuccess, showError, showWarning } from "@/utils/toastUtils";
+import { Checkbox } from "@/components/ui/checkbox";
+import { AlertCircle, CheckCircle, RefreshCw, AlertTriangle, CheckCircle2 } from "lucide-react";
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
+import { Progress } from "@/components/ui/progress";
+import { Alert, AlertDescription } from "@/components/ui/alert";
 import { 
-  checkForTranscriptIssues, 
-  fixTranscriptIssues, 
-  manuallyProcessTranscripts,
-  markTranscriptAsProcessed,
   checkEnvironmentVariables,
+  checkForTranscriptIssues,
+  fixTranscriptIssues,
+  manuallyProcessTranscripts,
+  updateTranscriptSourceType,
+  markTranscriptAsProcessed,
   retryStuckTranscripts
-} from '@/utils/transcriptDiagnostics';
+} from "@/utils/transcriptDiagnostics";
+import { showSuccess, showError, showWarning } from "@/utils/toastUtils";
 
 const TranscriptDiagnostics = () => {
-  const [isLoading, setIsLoading] = useState(false);
-  const [diagnosticResults, setDiagnosticResults] = useState<any>(null);
+  const [activeTab, setActiveTab] = useState("environment");
+  const [environmentStatus, setEnvironmentStatus] = useState<any>(null);
+  const [isEnvironmentLoading, setIsEnvironmentLoading] = useState(false);
+  const [transcriptIssues, setTranscriptIssues] = useState<any>(null);
+  const [isTranscriptIssuesLoading, setIsTranscriptIssuesLoading] = useState(false);
   const [selectedTranscripts, setSelectedTranscripts] = useState<string[]>([]);
-  const [processing, setProcessing] = useState(false);
-  const [operationProgress, setOperationProgress] = useState(0);
-  const [activeTab, setActiveTab] = useState('unprocessed');
-  const [envVars, setEnvVars] = useState<{[key: string]: boolean}>({});
-  const [backendConnectivity, setBackendConnectivity] = useState(false);
-
-  const runDiagnostics = async () => {
-    setIsLoading(true);
-    setSelectedTranscripts([]);
+  const [isFetching, setIsFetching] = useState(false);
+  const [isProcessing, setIsProcessing] = useState(false);
+  const [processingProgress, setProcessingProgress] = useState(0);
+  
+  // Check environment variables on mount
+  useEffect(() => {
+    checkEnvironment();
+  }, []);
+  
+  const checkEnvironment = async () => {
+    setIsEnvironmentLoading(true);
     try {
-      // Check environment variables
-      const envResults = await checkEnvironmentVariables();
-      setEnvVars(envResults);
-      setBackendConnectivity(envResults.backendConnectivity || false);
-      
-      // Check for transcript issues
-      const results = await checkForTranscriptIssues();
-      setDiagnosticResults(results);
-    } catch (error: any) {
-      console.error('Error running diagnostics:', error);
-      showError('Diagnostics Failed', error.message);
+      const status = await checkEnvironmentVariables();
+      setEnvironmentStatus(status);
+    } catch (error) {
+      console.error("Failed to check environment:", error);
     } finally {
-      setIsLoading(false);
+      setIsEnvironmentLoading(false);
     }
   };
-
-  useEffect(() => {
-    runDiagnostics();
-  }, []);
-
-  const handleTranscriptSelection = (transcriptId: string, isSelected: boolean) => {
+  
+  const checkIssues = async () => {
+    setIsTranscriptIssuesLoading(true);
+    try {
+      const issues = await checkForTranscriptIssues();
+      setTranscriptIssues(issues);
+      setSelectedTranscripts([]);
+    } catch (error) {
+      console.error("Failed to check transcript issues:", error);
+      showError("Error", "Failed to check transcript issues");
+    } finally {
+      setIsTranscriptIssuesLoading(false);
+    }
+  };
+  
+  const handleFixSelectedTranscripts = async () => {
+    if (!selectedTranscripts.length) return;
+    
+    setIsProcessing(true);
+    setProcessingProgress(0);
+    
+    try {
+      const result = await fixTranscriptIssues(selectedTranscripts);
+      
+      if (result.errors.length) {
+        showWarning(
+          "Process Completed with Errors", 
+          `Fixed ${result.success} transcripts, but encountered ${result.errors.length} errors.`
+        );
+      } else {
+        showSuccess(
+          "Process Completed", 
+          `Successfully fixed ${result.success} transcripts.`
+        );
+      }
+      
+      // Refresh the issues list
+      checkIssues();
+    } catch (error) {
+      console.error("Failed to fix transcripts:", error);
+      showError("Error", "Failed to fix selected transcripts");
+    } finally {
+      setIsProcessing(false);
+    }
+  };
+  
+  const handleProcessSelectedTranscripts = async () => {
+    if (!selectedTranscripts.length) return;
+    
+    setIsProcessing(true);
+    setProcessingProgress(0);
+    
+    try {
+      const result = await manuallyProcessTranscripts(selectedTranscripts);
+      
+      if (result.errors.length) {
+        showWarning(
+          "Process Completed with Errors", 
+          `Processed ${result.success} transcripts, but encountered ${result.errors.length} errors.`
+        );
+      } else {
+        showSuccess(
+          "Process Completed", 
+          `Successfully processed ${result.success} transcripts.`
+        );
+      }
+      
+      // Refresh the issues list
+      checkIssues();
+    } catch (error) {
+      console.error("Failed to process transcripts:", error);
+      showError("Error", "Failed to process selected transcripts");
+    } finally {
+      setIsProcessing(false);
+    }
+  };
+  
+  const handleRetryStuckTranscripts = async () => {
+    if (!transcriptIssues?.stuckInProcessing.length) return;
+    
+    const stuckIds = transcriptIssues.stuckInProcessing.map((t: any) => t.id);
+    
+    setIsProcessing(true);
+    setProcessingProgress(0);
+    
+    try {
+      const result = await retryStuckTranscripts(stuckIds);
+      
+      if (result.errors.length) {
+        showWarning(
+          "Retry Completed with Errors", 
+          `Retried ${result.success} transcripts, but encountered ${result.errors.length} errors.`
+        );
+      } else {
+        showSuccess(
+          "Retry Completed", 
+          `Successfully reset and retried ${result.success} stuck transcripts.`
+        );
+      }
+      
+      // Refresh the issues list
+      checkIssues();
+    } catch (error) {
+      console.error("Failed to retry stuck transcripts:", error);
+      showError("Error", "Failed to retry stuck transcripts");
+    } finally {
+      setIsProcessing(false);
+    }
+  };
+  
+  const handleUpdateSourceType = async (transcriptId: string, sourceType: string) => {
+    try {
+      await updateTranscriptSourceType(transcriptId, sourceType);
+      showSuccess("Source Updated", "Successfully updated transcript source");
+      
+      // Refresh the issues list
+      checkIssues();
+    } catch (error) {
+      console.error("Failed to update source type:", error);
+      showError("Error", "Failed to update transcript source type");
+    }
+  };
+  
+  const handleMarkAsProcessed = async (transcriptId: string) => {
+    try {
+      await markTranscriptAsProcessed(transcriptId);
+      showSuccess("Transcript Updated", "Successfully marked transcript as processed");
+      
+      // Refresh the issues list
+      checkIssues();
+    } catch (error) {
+      console.error("Failed to mark as processed:", error);
+      showError("Error", "Failed to mark transcript as processed");
+    }
+  };
+  
+  const handleSelectTranscript = (transcriptId: string, isSelected: boolean) => {
     if (isSelected) {
       setSelectedTranscripts(prev => [...prev, transcriptId]);
     } else {
       setSelectedTranscripts(prev => prev.filter(id => id !== transcriptId));
     }
   };
-
-  const handleSelectAllTranscripts = (transcripts: any[], isSelected: boolean) => {
+  
+  const handleSelectAll = (transcripts: any[], isSelected: boolean) => {
     if (isSelected) {
       setSelectedTranscripts(transcripts.map(t => t.id));
     } else {
       setSelectedTranscripts([]);
     }
   };
-
-  const handleFixSelectedTranscripts = async () => {
-    if (selectedTranscripts.length === 0) {
-      showWarning('No Selection', 'Please select at least one transcript to fix');
-      return;
-    }
-
-    setProcessing(true);
-    setOperationProgress(0);
-
-    try {
-      const results = await fixTranscriptIssues(selectedTranscripts);
-      
-      if (results.errors.length > 0) {
-        showWarning('Fix Completed With Issues', `Fixed ${results.success} transcripts with ${results.errors.length} errors`);
-      } else {
-        showSuccess('Fix Completed', `Successfully fixed ${results.success} transcripts`);
-      }
-      
-      // Refresh diagnostics
-      await runDiagnostics();
-    } catch (error: any) {
-      showError('Fix Failed', error.message);
-    } finally {
-      setProcessing(false);
-      setOperationProgress(100);
-    }
-  };
-
-  const handleManuallyProcessSelectedTranscripts = async () => {
-    if (selectedTranscripts.length === 0) {
-      showWarning('No Selection', 'Please select at least one transcript to process');
-      return;
-    }
-
-    setProcessing(true);
-    setOperationProgress(0);
-
-    try {
-      const results = await manuallyProcessTranscripts(selectedTranscripts);
-      
-      if (results.errors.length > 0) {
-        showWarning('Processing Completed With Issues', `Processed ${results.success} transcripts with ${results.errors.length} errors`);
-      } else {
-        showSuccess('Processing Completed', `Successfully processed ${results.success} transcripts`);
-      }
-      
-      // Refresh diagnostics
-      await runDiagnostics();
-    } catch (error: any) {
-      showError('Processing Failed', error.message);
-    } finally {
-      setProcessing(false);
-      setOperationProgress(100);
-    }
-  };
-
-  const handleRetryStuckTranscripts = async () => {
-    if (selectedTranscripts.length === 0) {
-      showWarning('No Selection', 'Please select at least one transcript to retry');
-      return;
-    }
-
-    setProcessing(true);
-    setOperationProgress(0);
-
-    try {
-      const results = await retryStuckTranscripts(selectedTranscripts);
-      
-      if (results.errors.length > 0) {
-        showWarning('Retry Completed With Issues', `Retried ${results.success} transcripts with ${results.errors.length} errors`);
-      } else {
-        showSuccess('Retry Completed', `Successfully retried ${results.success} transcripts`);
-      }
-      
-      // Refresh diagnostics
-      await runDiagnostics();
-    } catch (error: any) {
-      showError('Retry Failed', error.message);
-    } finally {
-      setProcessing(false);
-      setOperationProgress(100);
-    }
-  };
-
-  const handleMarkAsProcessed = async () => {
-    if (selectedTranscripts.length === 0) {
-      showWarning('No Selection', 'Please select at least one transcript to mark as processed');
-      return;
-    }
-
-    setProcessing(true);
-    setOperationProgress(0);
-    const totalCount = selectedTranscripts.length;
-    let successCount = 0;
-    let errorCount = 0;
-
-    try {
-      for (let i = 0; i < selectedTranscripts.length; i++) {
-        const transcriptId = selectedTranscripts[i];
-        const { success } = await markTranscriptAsProcessed(transcriptId);
-        
-        if (success) {
-          successCount++;
-        } else {
-          errorCount++;
-        }
-        
-        setOperationProgress(Math.floor((i + 1) / totalCount * 100));
-      }
-      
-      if (errorCount > 0) {
-        showWarning('Marking Completed With Issues', `Marked ${successCount} transcripts as processed with ${errorCount} errors`);
-      } else {
-        showSuccess('Marking Completed', `Successfully marked ${successCount} transcripts as processed`);
-      }
-      
-      // Refresh diagnostics
-      await runDiagnostics();
-    } catch (error: any) {
-      showError('Operation Failed', error.message);
-    } finally {
-      setProcessing(false);
-    }
-  };
-
-  const getTranscriptsForActiveTab = () => {
-    if (!diagnosticResults) return [];
-    
-    switch (activeTab) {
-      case 'unprocessed':
-        return diagnosticResults.unprocessedTranscripts || [];
-      case 'stuck':
-        return diagnosticResults.stuckInProcessing || [];
-      case 'failed':
-        return diagnosticResults.processingFailures || [];
-      case 'recent':
-        return diagnosticResults.recentTranscripts || [];
-      case 'potential-summit':
-        return diagnosticResults.potentialSummitTranscripts || [];
-      default:
-        return [];
-    }
-  };
-
+  
   return (
-    <div className="container py-6 max-w-6xl">
-      <div className="flex items-center justify-between">
-        <h1 className="text-3xl font-bold mb-6">Transcript Diagnostics</h1>
-        <div className="flex space-x-2">
-          <Button variant="outline" onClick={runDiagnostics} disabled={isLoading}>
-            <RefreshCw className={`h-4 w-4 mr-2 ${isLoading ? 'animate-spin' : ''}`} />
-            Refresh
-          </Button>
-        </div>
-      </div>
-      
-      {/* Environment Check */}
-      <Card className="mb-6">
+    <div className="space-y-6">
+      <Card>
         <CardHeader>
-          <CardTitle className="flex items-center">
-            <Settings className="h-5 w-5 mr-2" />
-            Environment Configuration Check
-          </CardTitle>
+          <CardTitle>Transcript Processing Diagnostics</CardTitle>
           <CardDescription>
-            Check if required environment variables are set for transcript processing
+            Troubleshoot and manage transcript processing issues
           </CardDescription>
         </CardHeader>
-        <CardContent className="space-y-4">
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            <EnvVariableCheck
-              name="PYTHON_BACKEND_URL"
-              value={!!envVars.PYTHON_BACKEND_URL}
-              description="URL for the transcript processing backend"
-              required
-            />
-            <EnvVariableCheck
-              name="PYTHON_BACKEND_KEY"
-              value={!!envVars.PYTHON_BACKEND_KEY}
-              description="Authentication key for the backend"
-              required={false}
-            />
-            <EnvVariableCheck
-              name="SUPABASE_SERVICE_ROLE_KEY"
-              value={!!envVars.SUPABASE_SERVICE_ROLE_KEY}
-              description="Required for edge function authentication"
-              required
-            />
-            <EnvVariableCheck
-              name="SUPABASE_URL"
-              value={!!envVars.SUPABASE_URL}
-              description="Required for edge function database access"
-              required
-            />
-            <div className="flex items-center justify-between p-3 border rounded-md col-span-2">
-              <div>
-                <div className="font-medium">Backend Connectivity</div>
-                <div className="text-sm text-muted-foreground">Can connect to the Python processing backend</div>
-              </div>
-              <Badge 
-                variant={backendConnectivity ? "outline" : "destructive"} 
-                className={backendConnectivity ? "bg-green-100 text-green-800" : ""}
-              >
-                {backendConnectivity ? "Connected" : "Disconnected"}
-              </Badge>
-            </div>
-          </div>
-          <Alert variant="info" className="mt-4">
-            <AlertTitle>Setup Instructions</AlertTitle>
-            <AlertDescription className="text-sm">
-              Please ensure that all required environment variables are set in your Supabase project settings. 
-              For development, these should be set in your Functions environment variables. 
-              Missing environment variables will cause transcript processing to fail.
-            </AlertDescription>
-          </Alert>
-        </CardContent>
-      </Card>
-
-      {/* Statistics */}
-      {diagnosticResults && (
-        <Card className="mb-6">
-          <CardHeader>
-            <CardTitle>Transcript Statistics</CardTitle>
-            <CardDescription>
-              Overview of transcript status across your database
-            </CardDescription>
-          </CardHeader>
-          <CardContent>
-            <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-              <StatCard
-                title="Total Transcripts"
-                value={diagnosticResults.stats.total}
-                icon="document"
-              />
-              <StatCard
-                title="Unprocessed"
-                value={diagnosticResults.stats.unprocessedTranscripts || 0}
-                icon="warning"
-              />
-              <StatCard
-                title="Stuck Processing"
-                value={diagnosticResults.stats.stuckInProcessing || 0}
-                icon="error"
-              />
-              <StatCard
-                title="Processing Failures"
-                value={diagnosticResults.stats.processingFailures || 0}
-                icon="error"
-              />
-            </div>
-          </CardContent>
-        </Card>
-      )}
-
-      {/* Transcript Lists */}
-      <Tabs defaultValue="unprocessed" value={activeTab} onValueChange={setActiveTab}>
-        <TabsList className="mb-4">
-          <TabsTrigger value="unprocessed">
-            Unprocessed ({diagnosticResults?.stats.unprocessedTranscripts || 0})
-          </TabsTrigger>
-          <TabsTrigger value="stuck">
-            Stuck Processing ({diagnosticResults?.stats.stuckInProcessing || 0})
-          </TabsTrigger>
-          <TabsTrigger value="failed">
-            Failures ({diagnosticResults?.stats.processingFailures || 0})
-          </TabsTrigger>
-          <TabsTrigger value="recent">
-            Recent ({diagnosticResults?.stats.recentlyUploaded || 0})
-          </TabsTrigger>
-        </TabsList>
         
-        <Card>
-          <CardHeader>
-            <CardTitle>
-              {activeTab === 'unprocessed' && 'Unprocessed Transcripts'}
-              {activeTab === 'stuck' && 'Transcripts Stuck in Processing'}
-              {activeTab === 'failed' && 'Transcript Processing Failures'}
-              {activeTab === 'recent' && 'Recently Uploaded Transcripts'}
-              {activeTab === 'potential-summit' && 'Potential Summit Transcripts'}
-            </CardTitle>
-            <CardDescription>
-              {activeTab === 'unprocessed' && 'Transcripts that have not been processed yet'}
-              {activeTab === 'stuck' && 'Transcripts that started processing but never completed'}
-              {activeTab === 'failed' && 'Transcripts that encountered errors during processing'}
-              {activeTab === 'recent' && 'Transcripts uploaded in the last hour'}
-              {activeTab === 'potential-summit' && 'Transcripts that might be from the Business Acquisitions Summit'}
-            </CardDescription>
-          </CardHeader>
-          <CardContent>
-            {processing && (
-              <div className="mb-4">
-                <div className="flex justify-between text-sm mb-1">
-                  <span>Processing...</span>
-                  <span>{operationProgress}%</span>
-                </div>
-                <Progress value={operationProgress} className="h-2" />
-              </div>
-            )}
+        <CardContent>
+          <Tabs value={activeTab} onValueChange={setActiveTab}>
+            <TabsList className="mb-4">
+              <TabsTrigger value="environment">Environment Configuration</TabsTrigger>
+              <TabsTrigger value="issues">Transcript Issues</TabsTrigger>
+              <TabsTrigger value="maintenance">Maintenance</TabsTrigger>
+            </TabsList>
             
-            <div className="space-y-4">
-              <div className="flex justify-between items-center">
-                <div className="flex items-center">
-                  <Checkbox 
-                    id="select-all" 
-                    checked={
-                      getTranscriptsForActiveTab().length > 0 && 
-                      selectedTranscripts.length === getTranscriptsForActiveTab().length
-                    } 
-                    onCheckedChange={(checked) => 
-                      handleSelectAllTranscripts(getTranscriptsForActiveTab(), !!checked)
-                    }
-                    disabled={processing || getTranscriptsForActiveTab().length === 0}
-                  />
-                  <Label htmlFor="select-all" className="ml-2">
-                    Select All ({getTranscriptsForActiveTab().length})
-                  </Label>
+            <TabsContent value="environment">
+              <div className="space-y-4">
+                <div className="flex items-center justify-between">
+                  <h3 className="text-lg font-medium">Environment Configuration</h3>
+                  <Button variant="outline" size="sm" onClick={checkEnvironment} disabled={isEnvironmentLoading}>
+                    <RefreshCw className={`h-4 w-4 mr-2 ${isEnvironmentLoading ? 'animate-spin' : ''}`} />
+                    Refresh
+                  </Button>
                 </div>
                 
-                {selectedTranscripts.length > 0 && (
-                  <div className="flex gap-2">
-                    <span className="text-sm text-muted-foreground">
-                      {selectedTranscripts.length} selected
-                    </span>
-                    {activeTab === 'unprocessed' && (
-                      <>
-                        <Button 
-                          size="sm" 
-                          variant="outline"
-                          onClick={handleManuallyProcessSelectedTranscripts}
-                          disabled={processing}
-                        >
-                          <Wrench className="h-4 w-4 mr-2" />
-                          Process Selected
-                        </Button>
-                        <Button 
-                          size="sm" 
-                          variant="outline"
-                          onClick={handleMarkAsProcessed}
-                          disabled={processing}
-                        >
-                          <CheckCircle2 className="h-4 w-4 mr-2" />
-                          Mark as Processed
-                        </Button>
-                      </>
-                    )}
-                    {activeTab === 'stuck' && (
-                      <Button 
-                        size="sm" 
-                        variant="outline"
-                        onClick={handleRetryStuckTranscripts}
-                        disabled={processing}
-                      >
-                        <RefreshCw className="h-4 w-4 mr-2" />
-                        Retry Processing
-                      </Button>
-                    )}
-                    {(activeTab === 'failed' || activeTab === 'recent') && (
-                      <Button 
-                        size="sm" 
-                        variant="outline"
-                        onClick={handleFixSelectedTranscripts}
-                        disabled={processing}
-                      >
-                        <Wrench className="h-4 w-4 mr-2" />
-                        Fix Selected
-                      </Button>
-                    )}
+                {isEnvironmentLoading ? (
+                  <div className="flex items-center justify-center py-8">
+                    <RefreshCw className="h-8 w-8 animate-spin text-primary" />
+                    <span className="ml-2">Checking environment...</span>
                   </div>
-                )}
-              </div>
-              
-              {getTranscriptsForActiveTab().length === 0 ? (
-                <Alert>
-                  <AlertDescription>
-                    No transcripts found in this category.
-                  </AlertDescription>
-                </Alert>
-              ) : (
-                <div className="space-y-2 max-h-[500px] overflow-y-auto p-2">
-                  {getTranscriptsForActiveTab().map((transcript: any) => (
-                    <Card key={transcript.id} className="p-4">
-                      <div className="flex items-start gap-3">
-                        <Checkbox
-                          checked={selectedTranscripts.includes(transcript.id)}
-                          onCheckedChange={(checked) => 
-                            handleTranscriptSelection(transcript.id, !!checked)
-                          }
-                          disabled={processing}
-                        />
-                        <div className="flex-1">
-                          <div className="flex justify-between">
-                            <h4 className="font-medium">{transcript.title}</h4>
-                            <div className="flex gap-2">
-                              {transcript.metadata?.processing_started_at && (
-                                <Badge variant="secondary">
-                                  Started: {new Date(transcript.metadata.processing_started_at).toLocaleTimeString()}
+                ) : environmentStatus ? (
+                  <div className="space-y-4">
+                    <Card className="border rounded-lg overflow-hidden">
+                      <Table>
+                        <TableHeader>
+                          <TableRow>
+                            <TableHead>Configuration</TableHead>
+                            <TableHead>Status</TableHead>
+                          </TableRow>
+                        </TableHeader>
+                        <TableBody>
+                          <TableRow>
+                            <TableCell>Python Backend URL</TableCell>
+                            <TableCell>
+                              {environmentStatus.backendUrlSet ? (
+                                <Badge variant="outline" className="bg-green-50 text-green-700 border-green-200">
+                                  <CheckCircle className="h-3 w-3 mr-1" /> Configured
+                                </Badge>
+                              ) : (
+                                <Badge variant="outline" className="bg-amber-50 text-amber-700 border-amber-200">
+                                  <AlertCircle className="h-3 w-3 mr-1" /> Not Configured
                                 </Badge>
                               )}
-                              <Badge variant={transcript.is_processed ? "outline" : "outline"} 
-                                className={transcript.is_processed ? "bg-green-100 text-green-800" : ""}
-                              >
-                                {transcript.is_processed ? "Processed" : "Unprocessed"}
-                              </Badge>
-                            </div>
-                          </div>
-                          <div className="text-sm text-muted-foreground mt-1">
-                            Source: {transcript.source || 'Unknown'} • 
-                            Created: {new Date(transcript.created_at).toLocaleString()}
-                          </div>
-                          {transcript.metadata?.processing_error && (
-                            <div className="mt-2 text-sm text-red-600 bg-red-50 p-2 rounded">
-                              Error: {transcript.metadata.processing_error}
-                            </div>
-                          )}
-                          <div className="mt-2">
-                            <details>
-                              <summary className="text-sm text-muted-foreground cursor-pointer">Metadata</summary>
-                              <pre className="text-xs bg-gray-50 p-2 rounded mt-2 overflow-auto max-h-32">
-                                {JSON.stringify(transcript.metadata, null, 2)}
-                              </pre>
-                            </details>
-                          </div>
-                        </div>
-                      </div>
+                            </TableCell>
+                          </TableRow>
+                          <TableRow>
+                            <TableCell>Python Backend Key</TableCell>
+                            <TableCell>
+                              {environmentStatus.backendKeySet ? (
+                                <Badge variant="outline" className="bg-green-50 text-green-700 border-green-200">
+                                  <CheckCircle className="h-3 w-3 mr-1" /> Configured
+                                </Badge>
+                              ) : (
+                                <Badge variant="outline" className="bg-amber-50 text-amber-700 border-amber-200">
+                                  <AlertCircle className="h-3 w-3 mr-1" /> Not Configured
+                                </Badge>
+                              )}
+                            </TableCell>
+                          </TableRow>
+                          <TableRow>
+                            <TableCell>Backend Connectivity</TableCell>
+                            <TableCell>
+                              {environmentStatus.backendConnectivity ? (
+                                <Badge variant="outline" className="bg-green-50 text-green-700 border-green-200">
+                                  <CheckCircle className="h-3 w-3 mr-1" /> Connected
+                                </Badge>
+                              ) : environmentStatus.backendUrlSet ? (
+                                <Badge variant="outline" className="bg-red-50 text-red-700 border-red-200">
+                                  <AlertTriangle className="h-3 w-3 mr-1" /> Connection Failed
+                                </Badge>
+                              ) : (
+                                <Badge variant="outline" className="bg-gray-50 text-gray-500 border-gray-200">
+                                  Not Applicable
+                                </Badge>
+                              )}
+                            </TableCell>
+                          </TableRow>
+                        </TableBody>
+                      </Table>
                     </Card>
-                  ))}
+                    
+                    {!environmentStatus.backendConfigured && (
+                      <Alert className="bg-amber-50 text-amber-800 border-amber-200">
+                        <AlertTriangle className="h-4 w-4" />
+                        <AlertDescription>
+                          Python backend URL is not configured. Transcript processing will not work until this is set up.
+                        </AlertDescription>
+                      </Alert>
+                    )}
+                    
+                    {environmentStatus.backendUrlSet && !environmentStatus.backendConnectivity && (
+                      <Alert className="bg-red-50 text-red-800 border-red-200">
+                        <AlertTriangle className="h-4 w-4" />
+                        <AlertDescription>
+                          Connection to Python backend failed: {environmentStatus.backendError || "Unknown error"}
+                        </AlertDescription>
+                      </Alert>
+                    )}
+                    
+                    <div className="bg-gray-50 p-4 rounded-lg">
+                      <h4 className="font-medium mb-2">Configuration Instructions</h4>
+                      <p className="text-sm text-gray-700 mb-2">
+                        To configure the environment variables, go to your Supabase project settings and set 
+                        the following environment variables:
+                      </p>
+                      <ul className="list-disc pl-5 text-sm text-gray-700 space-y-1">
+                        <li><code>PYTHON_BACKEND_URL</code> - The URL to your Python backend service</li>
+                        <li><code>PYTHON_BACKEND_KEY</code> - Optional authentication key for the Python backend</li>
+                      </ul>
+                    </div>
+                  </div>
+                ) : (
+                  <Alert className="bg-red-50 text-red-800 border-red-200">
+                    <AlertTriangle className="h-4 w-4" />
+                    <AlertDescription>
+                      Failed to check environment configuration. Please try again.
+                    </AlertDescription>
+                  </Alert>
+                )}
+              </div>
+            </TabsContent>
+            
+            <TabsContent value="issues">
+              <div className="space-y-4">
+                <div className="flex items-center justify-between">
+                  <h3 className="text-lg font-medium">Transcript Issues</h3>
+                  <Button variant="outline" size="sm" onClick={checkIssues} disabled={isTranscriptIssuesLoading}>
+                    <RefreshCw className={`h-4 w-4 mr-2 ${isTranscriptIssuesLoading ? 'animate-spin' : ''}`} />
+                    Refresh
+                  </Button>
                 </div>
-              )}
-            </div>
-          </CardContent>
-        </Card>
-      </Tabs>
-    </div>
-  );
-};
-
-// Helper components
-const StatCard = ({ title, value, icon }: { title: string, value: number, icon: string }) => {
-  return (
-    <div className="bg-muted rounded-lg p-4 flex flex-col items-center justify-center">
-      {icon === 'document' && <FileIcon className="h-10 w-10 mb-2 text-primary" />}
-      {icon === 'warning' && <Clock className="h-10 w-10 mb-2 text-yellow-500" />}
-      {icon === 'error' && <AlertTriangle className="h-10 w-10 mb-2 text-destructive" />}
-      {icon === 'recent' && <RefreshCw className="h-10 w-10 mb-2 text-blue-500" />}
-      <div className="text-2xl font-bold">{value}</div>
-      <div className="text-sm text-muted-foreground">{title}</div>
-    </div>
-  );
-};
-
-const FileIcon = ({ className }: { className?: string }) => (
-  <svg 
-    xmlns="http://www.w3.org/2000/svg" 
-    viewBox="0 0 24 24" 
-    fill="none" 
-    stroke="currentColor" 
-    strokeWidth="2" 
-    strokeLinecap="round" 
-    strokeLinejoin="round" 
-    className={className}
-  >
-    <path d="M14.5 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7.5L14.5 2z" />
-    <polyline points="14 2 14 8 20 8" />
-    <line x1="16" y1="13" x2="8" y2="13" />
-    <line x1="16" y1="17" x2="8" y2="17" />
-    <line x1="10" y1="9" x2="8" y2="9" />
-  </svg>
-);
-
-const EnvVariableCheck = ({ name, value, description, required }: { 
-  name: string, 
-  value: boolean, 
-  description: string, 
-  required: boolean 
-}) => {
-  return (
-    <div className="flex items-center justify-between p-3 border rounded-md">
-      <div>
-        <div className="font-medium">{name}</div>
-        <div className="text-sm text-muted-foreground">{description}</div>
-      </div>
-      <Badge 
-        variant={value ? "outline" : required ? "destructive" : "outline"} 
-        className={value ? "bg-green-100 text-green-800" : ""}
-      >
-        {value ? "Set" : required ? "Missing" : "Optional"}
-      </Badge>
+                
+                {isTranscriptIssuesLoading ? (
+                  <div className="flex items-center justify-center py-8">
+                    <RefreshCw className="h-8 w-8 animate-spin text-primary" />
+                    <span className="ml-2">Checking for transcript issues...</span>
+                  </div>
+                ) : transcriptIssues ? (
+                  <div className="space-y-4">
+                    <Card className="border rounded-lg overflow-hidden">
+                      <CardHeader>
+                        <CardTitle>Summary</CardTitle>
+                      </CardHeader>
+                      <CardContent>
+                        <Table>
+                          <TableHeader>
+                            <TableRow>
+                              <TableHead>Issue</TableHead>
+                              <TableHead className="text-right">Count</TableHead>
+                            </TableRow>
+                          </TableHeader>
+                          <TableBody>
+                            <TableRow>
+                              <TableCell>Total Transcripts</TableCell>
+                              <TableCell className="text-right">{transcriptIssues.stats.total}</TableCell>
+                            </TableRow>
+                            <TableRow>
+                              <TableCell>Empty Content</TableCell>
+                              <TableCell className="text-right">{transcriptIssues.stats.emptyContent}</TableCell>
+                            </TableRow>
+                            <TableRow>
+                              <TableCell>Missing File Path</TableCell>
+                              <TableCell className="text-right">{transcriptIssues.stats.missingFilePath}</TableCell>
+                            </TableRow>
+                            <TableRow>
+                              <TableCell>Recently Uploaded (last hour)</TableCell>
+                              <TableCell className="text-right">{transcriptIssues.stats.recentlyUploaded}</TableCell>
+                            </TableRow>
+                            <TableRow>
+                              <TableCell>Business Summit Transcripts</TableCell>
+                              <TableCell className="text-right">{transcriptIssues.stats.businessSummitTranscripts}</TableCell>
+                            </TableRow>
+                            <TableRow>
+                              <TableCell>Potential Summit Transcripts</TableCell>
+                              <TableCell className="text-right">{transcriptIssues.stats.potentialSummitTranscripts}</TableCell>
+                            </TableRow>
+                            <TableRow>
+                              <TableCell>Unprocessed Transcripts</TableCell>
+                              <TableCell className="text-right">{transcriptIssues.stats.unprocessedTranscripts}</TableCell>
+                            </TableRow>
+                            <TableRow>
+                              <TableCell>Processing Failures</TableCell>
+                              <TableCell className="text-right">{transcriptIssues.stats.processingFailures}</TableCell>
+                            </TableRow>
+                            <TableRow>
+                              <TableCell>Stuck In Processing</TableCell>
+                              <TableCell className="text-right">{transcriptIssues.stats.stuckInProcessing}</TableCell>
+                            </TableRow>
+                          </TableBody>
+                        </Table>
+                      </CardContent>
+                    </Card>
+                    
+                    {transcriptIssues.potentialSummitTranscripts.length > 0 && (
+                      <Card className="border rounded-lg overflow-hidden">
+                        <CardHeader>
+                          <CardTitle>Potential Summit Transcripts</CardTitle>
+                          <CardDescription>Transcripts uploaded on the 27th but not marked as summit</CardDescription>
+                        </CardHeader>
+                        <CardContent>
+                          <Table>
+                            <TableHeader>
+                              <TableRow>
+                                <TableHead>Title</TableHead>
+                                <TableHead>Created At</TableHead>
+                                <TableHead>Actions</TableHead>
+                              </TableRow>
+                            </TableHeader>
+                            <TableBody>
+                              {transcriptIssues.potentialSummitTranscripts.map((transcript: any) => (
+                                <TableRow key={transcript.id}>
+                                  <TableCell>{transcript.title}</TableCell>
+                                  <TableCell>{new Date(transcript.created_at).toLocaleDateString()}</TableCell>
+                                  <TableCell>
+                                    <Select onValueChange={(value) => handleUpdateSourceType(transcript.id, value)}>
+                                      <SelectTrigger>
+                                        <SelectValue placeholder="Update Source" />
+                                      </SelectTrigger>
+                                      <SelectContent>
+                                        <SelectItem value="business_acquisitions_summit">Business Summit</SelectItem>
+                                        <SelectItem value="general">General</SelectItem>
+                                      </SelectContent>
+                                    </Select>
+                                  </TableCell>
+                                </TableRow>
+                              ))}
+                            </TableBody>
+                          </Table>
+                        </CardContent>
+                      </Card>
+                    )}
+                    
+                    {transcriptIssues.unprocessedTranscripts.length > 0 && (
+                      <Card className="border rounded-lg overflow-hidden">
+                        <CardHeader>
+                          <CardTitle>Unprocessed Transcripts</CardTitle>
+                          <CardDescription>Transcripts that have not been processed yet</CardDescription>
+                        </CardHeader>
+                        <CardContent>
+                          <div className="flex items-center mb-2">
+                            <Checkbox
+                              id="select-all-unprocessed"
+                              checked={selectedTranscripts.length === transcriptIssues.unprocessedTranscripts.length && transcriptIssues.unprocessedTranscripts.length > 0}
+                              onCheckedChange={(checked) => handleSelectAll(transcriptIssues.unprocessedTranscripts, !!checked)}
+                            />
+                            <Label htmlFor="select-all-unprocessed" className="ml-2">
+                              Select All
+                            </Label>
+                          </div>
+                          <Table>
+                            <TableHeader>
+                              <TableRow>
+                                <TableHead>
+                                  <Checkbox
+                                    id="select-all-header"
+                                    checked={selectedTranscripts.length === transcriptIssues.unprocessedTranscripts.length && transcriptIssues.unprocessedTranscripts.length > 0}
+                                    onCheckedChange={(checked) => handleSelectAll(transcriptIssues.unprocessedTranscripts, !!checked)}
+                                  />
+                                </TableHead>
+                                <TableHead>Title</TableHead>
+                                <TableHead>Created At</TableHead>
+                              </TableRow>
+                            </TableHeader>
+                            <TableBody>
+                              {transcriptIssues.unprocessedTranscripts.map((transcript: any) => (
+                                <TableRow key={transcript.id}>
+                                  <TableCell>
+                                    <Checkbox
+                                      id={`transcript-${transcript.id}`}
+                                      checked={selectedTranscripts.includes(transcript.id)}
+                                      onCheckedChange={(checked) => handleSelectTranscript(transcript.id, !!checked)}
+                                    />
+                                  </TableCell>
+                                  <TableCell>{transcript.title}</TableCell>
+                                  <TableCell>{new Date(transcript.created_at).toLocaleDateString()}</TableCell>
+                                </TableRow>
+                              ))}
+                            </TableBody>
+                          </Table>
+                        </CardContent>
+                        <CardFooter>
+                          <Button variant="primary" onClick={handleProcessSelectedTranscripts} disabled={isProcessing}>
+                            {isProcessing ? (
+                              <>
+                                Processing...
+                                <Progress value={processingProgress} className="ml-2 w-24" />
+                              </>
+                            ) : (
+                              "Process Selected"
+                            )}
+                          </Button>
+                        </CardFooter>
+                      </Card>
+                    )}
+                    
+                    {transcriptIssues.stuckInProcessing.length > 0 && (
+                      <Card className="border rounded-lg overflow-hidden">
+                        <CardHeader>
+                          <CardTitle>Stuck In Processing</CardTitle>
+                          <CardDescription>Transcripts that have been processing for more than 5 minutes</CardDescription>
+                        </CardHeader>
+                        <CardContent>
+                          <Table>
+                            <TableHeader>
+                              <TableRow>
+                                <TableHead>Title</TableHead>
+                                <TableHead>Started At</TableHead>
+                              </TableRow>
+                            </TableHeader>
+                            <TableBody>
+                              {transcriptIssues.stuckInProcessing.map((transcript: any) => (
+                                <TableRow key={transcript.id}>
+                                  <TableCell>{transcript.title}</TableCell>
+                                  <TableCell>{new Date(transcript.metadata.processing_started_at).toLocaleTimeString()}</TableCell>
+                                </TableRow>
+                              ))}
+                            </TableBody>
+                          </Table>
+                        </CardContent>
+                        <CardFooter>
+                          <Button variant="destructive" onClick={handleRetryStuckTranscripts} disabled={isProcessing}>
+                            {isProcessing ? (
+                              <>
+                                Retrying...
+                                <Progress value={processingProgress} className="ml-2 w-24" />
+                              </>
+                            ) : (
+                              "Retry Stuck Transcripts"
+                            )}
+                          </Button>
+                        </CardFooter>
+                      </Card>
+                    )}
+                    
+                    {transcriptIssues.emptyContent > 0 && (
+                      <Card className="border rounded-lg overflow-hidden">
+                        <CardHeader>
+                          <CardTitle>Fix Empty Content</CardTitle>
+                          <CardDescription>Transcripts with missing content</CardDescription>
+                        </CardHeader>
+                        <CardContent>
+                          <div className="flex items-center mb-2">
+                            <Checkbox
+                              id="select-all-empty"
+                              checked={selectedTranscripts.length === transcriptIssues.unprocessedTranscripts.length && transcriptIssues.unprocessedTranscripts.length > 0}
+                              onCheckedChange={(checked) => handleSelectAll(transcriptIssues.unprocessedTranscripts, !!checked)}
+                            />
+                            <Label htmlFor="select-all-empty" className="ml-2">
+                              Select All
+                            </Label>
+                          </div>
+                          <Table>
+                            <TableHeader>
+                              <TableRow>
+                                <TableHead>
+                                  <Checkbox
+                                    id="select-all-header"
+                                    checked={selectedTranscripts.length === transcriptIssues.unprocessedTranscripts.length && transcriptIssues.unprocessedTranscripts.length > 0}
+                                    onCheckedChange={(checked) => handleSelectAll(transcriptIssues.unprocessedTranscripts, !!checked)}
+                                  />
+                                </TableHead>
+                                <TableHead>Title</TableHead>
+                                <TableHead>Created At</TableHead>
+                              </TableRow>
+                            </TableHeader>
+                            <TableBody>
+                              {transcriptIssues.unprocessedTranscripts.map((transcript: any) => (
+                                <TableRow key={transcript.id}>
+                                  <TableCell>
+                                    <Checkbox
+                                      id={`transcript-${transcript.id}`}
+                                      checked={selectedTranscripts.includes(transcript.id)}
+                                      onCheckedChange={(checked) => handleSelectTranscript(transcript.id, !!checked)}
+                                    />
+                                  </TableCell>
+                                  <TableCell>{transcript.title}</TableCell>
+                                  <TableCell>{new Date(transcript.created_at).toLocaleDateString()}</TableCell>
+                                </TableRow>
+                              ))}
+                            </TableBody>
+                          </Table>
+                        </CardContent>
+                        <CardFooter>
+                          <Button variant="primary" onClick={handleFixSelectedTranscripts} disabled={isProcessing}>
+                            {isProcessing ? (
+                              <>
+                                Processing...
+                                <Progress value={processingProgress} className="ml-2 w-24" />
+                              </>
+                            ) : (
+                              "Fix Selected"
+                            )}
+                          </Button>
+                        </CardFooter>
+                      </Card>
+                    )}
+                  </div>
+                ) : (
+                  <Alert className="bg-red-50 text-red-800 border-red-200">
+                    <AlertTriangle className="h-4 w-4" />
+                    <AlertDescription>
+                      Failed to check transcript issues. Please try again.
+                    </AlertDescription>
+                  </Alert>
+                )}
+              </div>
+            </TabsContent>
+            
+            <TabsContent value="maintenance">
+              <div className="space-y-4">
+                <h3 className="text-lg font-medium">Maintenance</h3>
+                
+                <Card className="border rounded-lg overflow-hidden">
+                  <CardHeader>
+                    <CardTitle>Mark as Processed</CardTitle>
+                    <CardDescription>Manually mark a transcript as processed</CardDescription>
+                  </CardHeader>
+                  <CardContent>
+                    <Table>
+                      <TableHeader>
+                        <TableRow>
+                          <TableHead>Title</TableHead>
+                          <TableHead>Created At</TableHead>
+                          <TableHead>Actions</TableHead>
+                        </TableRow>
+                      </TableHeader>
+                      <TableBody>
+                        {transcriptIssues?.unprocessedTranscripts.map((transcript: any) => (
+                          <TableRow key={transcript.id}>
+                            <TableCell>{transcript.title}</TableCell>
+                            <TableCell>{new Date(transcript.created_at).toLocaleDateString()}</TableCell>
+                            <TableCell>
+                              <Button variant="outline" size="sm" onClick={() => handleMarkAsProcessed(transcript.id)}>
+                                Mark as Processed
+                              </Button>
+                            </TableCell>
+                          </TableRow>
+                        ))}
+                      </TableBody>
+                    </Table>
+                  </CardContent>
+                </Card>
+              </div>
+            </TabsContent>
+          </Tabs>
+        </CardContent>
+      </Card>
     </div>
   );
 };

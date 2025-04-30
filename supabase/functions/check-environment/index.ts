@@ -13,46 +13,57 @@ Deno.serve(async (req) => {
   }
 
   try {
-    // Check if required environment variables exist
-    const variables = {
-      PYTHON_BACKEND_URL: !!Deno.env.get('PYTHON_BACKEND_URL'),
-      PYTHON_BACKEND_KEY: !!Deno.env.get('PYTHON_BACKEND_KEY'),
-      SUPABASE_SERVICE_ROLE_KEY: !!Deno.env.get('SUPABASE_SERVICE_ROLE_KEY'),
-      SUPABASE_URL: !!Deno.env.get('SUPABASE_URL')
-    };
+    // Get essential environment variables
+    const pythonBackendUrl = Deno.env.get('PYTHON_BACKEND_URL');
+    const pythonBackendKey = Deno.env.get('PYTHON_BACKEND_KEY');
     
     // Check if we can connect to the Python backend
     let backendConnectivity = false;
-    if (variables.PYTHON_BACKEND_URL) {
+    let backendError = null;
+    
+    if (pythonBackendUrl) {
       try {
-        const pythonBackendUrl = Deno.env.get('PYTHON_BACKEND_URL');
-        // Just test for a connection - use a simple health endpoint
+        // Try a basic health check endpoint
         const response = await fetch(`${pythonBackendUrl}/health`, {
           method: 'GET',
           headers: {
             'Content-Type': 'application/json',
-            'Authorization': `Bearer ${Deno.env.get('PYTHON_BACKEND_KEY') || ''}`,
+            'Authorization': pythonBackendKey ? `Bearer ${pythonBackendKey}` : '',
           },
-          // Add a timeout to prevent hanging
           signal: AbortSignal.timeout(5000) // 5 second timeout
         });
         
         backendConnectivity = response.ok;
-        console.log('Backend connectivity test result:', backendConnectivity);
+        console.log(`Backend connectivity test: ${backendConnectivity ? 'SUCCESS' : 'FAILED'} (Status: ${response.status})`);
+        
+        if (!response.ok) {
+          backendError = `HTTP status ${response.status}`;
+        }
       } catch (error) {
+        backendError = error.message;
         console.error('Failed to connect to Python backend:', error);
       }
     } else {
+      backendError = 'PYTHON_BACKEND_URL not configured';
       console.log('PYTHON_BACKEND_URL not set, skipping connectivity test');
     }
     
-    console.log('Environment variables check:', variables);
+    // Create simple status object
+    const status = {
+      backendConfigured: !!pythonBackendUrl,
+      backendUrlSet: !!pythonBackendUrl,
+      backendKeySet: !!pythonBackendKey,
+      backendConnectivity,
+      backendError: backendError,
+      supabaseConfigured: true // We're running in Supabase, so this is always true
+    };
+    
+    console.log('Environment status:', status);
 
     return new Response(
       JSON.stringify({ 
         success: true,
-        variables,
-        backendConnectivity
+        status
       }),
       {
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },

@@ -1,4 +1,3 @@
-
 import { supabase } from '@/integrations/supabase/client';
 
 /**
@@ -14,32 +13,27 @@ export async function checkEnvironmentVariables() {
     if (error) {
       console.error('Error checking environment variables:', error);
       return {
-        PYTHON_BACKEND_URL: false,
-        PYTHON_BACKEND_KEY: false,
-        SUPABASE_SERVICE_ROLE_KEY: false,
-        SUPABASE_URL: false,
-        backendConnectivity: false
+        backendConfigured: false,
+        backendConnectivity: false,
+        backendError: error.message,
+        supabaseConfigured: false
       };
     }
     
-    // Return environment variables status and backend connectivity
-    return {
-      ...(data.variables || {
-        PYTHON_BACKEND_URL: false,
-        PYTHON_BACKEND_KEY: false,
-        SUPABASE_SERVICE_ROLE_KEY: false,
-        SUPABASE_URL: false
-      }),
-      backendConnectivity: data.backendConnectivity || false
+    // Return simplified status
+    return data.status || {
+      backendConfigured: false,
+      backendConnectivity: false,
+      backendError: 'Invalid response format',
+      supabaseConfigured: false
     };
   } catch (error) {
     console.error('Error checking environment variables:', error);
     return {
-      PYTHON_BACKEND_URL: false,
-      PYTHON_BACKEND_KEY: false,
-      SUPABASE_SERVICE_ROLE_KEY: false,
-      SUPABASE_URL: false,
-      backendConnectivity: false
+      backendConfigured: false,
+      backendConnectivity: false,
+      backendError: error.message,
+      supabaseConfigured: false
     };
   }
 }
