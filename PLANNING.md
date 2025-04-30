@@ -9,8 +9,7 @@ Create a robust, modular, and production-ready Retrieval-Augmented Generation (R
 
 - **Streamlit UI**: User-facing chatbot and ingestion interface.
 - **LightRAG Core**: Agent logic, pipeline, and helpers.
-- **Supabase**: Structured storage for files and metadata.
-- **mem0**: Vector store for embeddings and retrieval.
+- **Supabase**: Structured storage for files, metadata, and vector embeddings via PGVector.
 - **/tests**: Unit tests for all core features.
 
 ## System Architecture
@@ -23,9 +22,9 @@ Create a robust, modular, and production-ready Retrieval-Augmented Generation (R
 [Chatbot]   [Ingestion]
    |             |
 [LightRAG Agent] |---> [Supabase Storage: transcript files, metadata]
-   |             |---> [mem0: vector embeddings for retrieval]
+   |             |---> [Supabase PGVector: vector embeddings for retrieval]
    |             |
-[mem0: Query for relevant chunks]
+[PGVector: Query for relevant chunks]
    |
 [Return answers to user]
 ```
@@ -38,6 +37,7 @@ Create a robust, modular, and production-ready Retrieval-Augmented Generation (R
 - Purpose: Core querying logic for RAG system
 - Key functions: 
   - `query()`: Process user queries and retrieve relevant information
+  - `record_feedback()`: Store user feedback on retrieval results
   - Future enhancements: Re-ranking, hybrid search, context windowing
 
 #### rag_pipeline.py
@@ -46,12 +46,13 @@ Create a robust, modular, and production-ready Retrieval-Augmented Generation (R
   - `chunk_transcript()`: Split documents into meaningful chunks
   - Future enhancements: Hierarchical chunking, better semantic chunking
 
-#### mem0_client.py
-- Purpose: Interface with mem0 vector store
+#### pgvector_client.py
+- Purpose: Interface with Supabase PGVector for vector storage
 - Key functions: 
   - `store_embedding()`: Store text chunks as embeddings
   - `query_embeddings()`: Search for relevant embeddings
-  - Future enhancements: Filter by metadata, hybrid search options
+  - `record_feedback()`: Collect and store user feedback
+  - Future enhancements: Filter by metadata, advanced vector search options
 
 #### supabase_client.py
 - Purpose: Interface with Supabase for storage and metadata
@@ -71,6 +72,18 @@ Create a robust, modular, and production-ready Retrieval-Augmented Generation (R
 - Settings panel: Configure RAG behavior
 - Feedback mechanism: Collect user feedback on responses
 
+## Feedback Loop Architecture
+
+A key enhancement to our system is the implementation of a feedback loop for continuous improvement:
+
+1. **User Query**: User submits a question through the chat interface
+2. **Retrieval**: System retrieves relevant content using vector similarity
+3. **Response Generation**: AI generates response based on retrieved context
+4. **User Feedback**: User indicates whether the response was helpful
+5. **Feedback Storage**: System stores feedback in `embedding_feedback` table
+6. **Scoring Update**: Database trigger updates relevance scores in `embeddings` table
+7. **Enhanced Retrieval**: Future queries prioritize embeddings with higher relevance scores
+
 ## Development Phases
 
 ### Phase 1: Foundation (COMPLETE)
@@ -80,18 +93,25 @@ Create a robust, modular, and production-ready Retrieval-Augmented Generation (R
 - See CHANGELOG.md for completed tasks
 
 ### Phase 2: Enhanced Retrieval (IN PROGRESS)
+- PGVector integration for vector storage
 - Improved context selection
 - Multi-document support
 - Query transformation and expansion
 - See TASKS.md for current progress
 
-### Phase 3: Advanced Features (PLANNED)
+### Phase 3: Feedback Loop (IN PROGRESS)
+- User feedback collection mechanism
+- Relevance tracking system
+- Automatic score updating
+- Performance monitoring
+
+### Phase 4: Advanced Features (PLANNED)
 - User preference tracking
 - Conversation history integration
 - Response customization options
 - See TASKS.md under "Feature Enhancements"
 
-### Phase 4: Optimization (PLANNED)
+### Phase 5: Optimization (PLANNED)
 - Performance tuning
 - Cost optimization
 - Metrics and monitoring
@@ -108,17 +128,16 @@ Create a robust, modular, and production-ready Retrieval-Augmented Generation (R
 ## Environment Configuration
 
 All sensitive information and configuration should be stored as environment variables:
-- `SUPABASE_URL` and `SUPABASE_KEY`: For Supabase storage and database access
-- `MEM0_URL`: For mem0 vector store endpoint
+- `SUPABASE_URL` and `SUPABASE_KEY`: For Supabase storage, database, and PGVector access
 - Any API keys needed for embedding models
 
 ## Component-Specific Planning
 
 ### LightRAG/rag_agent.py
-- Current status: Basic implementation complete
+- Current status: PGVector integration complete
 - Next steps: 
-  - Implement hybrid retrieval combining vector search and keyword matching
-  - Add result re-ranking based on relevance scores
+  - Enhance hybrid retrieval combining vector search and keyword matching
+  - Add advanced result re-ranking based on relevance scores and feedback
   - Support filtering by document metadata
 - Future considerations:
   - Multi-round conversation context
@@ -134,7 +153,7 @@ All sensitive information and configuration should be stored as environment vari
   - Chunk overlap strategies
   - Language-specific processing
 
-### mem0 Integration
+### PGVector Integration
 - Current status: Basic client implemented
 - Next steps:
   - Add robust error handling
@@ -154,9 +173,18 @@ All sensitive information and configuration should be stored as environment vari
   - Multi-user support
   - Access control
 
+### Feedback System
+- Current status: Basic feedback collection implemented
+- Next steps:
+  - Add feedback UI components
+  - Implement feedback analysis
+  - Automatic relevance scoring
+- Future considerations:
+  - Advanced learning algorithms
+  - Personalized relevance scores
+
 ### Application TODOs
-- Implement the first tasks in "RAG Enhancement" section from TASKS.md
-- Focus on improving retrieval quality as top priority
+- Implement integration tests for the PGVector client and feedback system
 - Add structured testing for all new functionality
 - Regularly update documentation as architecture evolves
 

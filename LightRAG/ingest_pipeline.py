@@ -9,14 +9,14 @@ import uuid
 from datetime import datetime
 from LightRAG.rag_pipeline import chunk_transcript
 from LightRAG.supabase_client import upload_file, insert_metadata, get_supabase_client
-from LightRAG.mem0_client import Mem0Client
+from LightRAG.pgvector_client import PGVectorClient
 from LightRAG.utils import load_env
 
 # Configure logging
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
-def ingest_transcript(file_path: str, bucket: str = "transcripts", table: str = "transcripts", topic: str = None):
+def ingest_transcript(file_path: str, bucket: str = "transcripts", table: str = "transcripts", topic: str = None, user_id: str = None):
     """
     Ingest a transcript file: upload to storage, store metadata, and create embeddings.
     
@@ -25,6 +25,7 @@ def ingest_transcript(file_path: str, bucket: str = "transcripts", table: str = 
         bucket: Supabase storage bucket name
         table: Supabase table name (default: "transcripts")
         topic: Optional topic classifier for the transcript
+        user_id: Optional user ID to associate with the transcript
     """
     # Ensure environment variables are loaded
     load_env()
@@ -57,7 +58,8 @@ def ingest_transcript(file_path: str, bucket: str = "transcripts", table: str = 
             "tags": [topic] if topic else None,
             "is_processed": False,
             "is_summarized": False,
-            "created_at": datetime.now().isoformat()
+            "created_at": datetime.now().isoformat(),
+            "user_id": user_id
         }
         
         insert_metadata(table, metadata)
@@ -66,7 +68,7 @@ def ingest_transcript(file_path: str, bucket: str = "transcripts", table: str = 
         logger.info("Chunking transcript and creating embeddings")
         chunks = chunk_transcript(transcript_content)
         
-        mem0 = Mem0Client()
+        pgvector = PGVectorClient()
         chunk_count = 0
         for chunk in chunks:
             embedding = {
@@ -74,10 +76,11 @@ def ingest_transcript(file_path: str, bucket: str = "transcripts", table: str = 
                 "metadata": {
                     "transcript_id": transcript_id,
                     "topic": topic,
-                    "source": dest_path
+                    "source": dest_path,
+                    "user_id": user_id
                 }
             }
-            mem0.store_embedding(embedding)
+            pgvector.store_embedding(embedding)
             chunk_count += 1
         
         # Update transcript record to mark as processed

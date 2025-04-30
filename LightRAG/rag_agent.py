@@ -4,7 +4,7 @@ LightRAG Agent: Core querying logic for the RAG system.
 """
 
 from typing import List, Optional, Union, Dict, Any
-from LightRAG.mem0_client import Mem0Client
+from LightRAG.pgvector_client import PGVectorClient
 import re
 
 class LightRAGAgent:
@@ -15,9 +15,9 @@ class LightRAGAgent:
     def __init__(self, knowledge_base=None):
         """
         Initialize the RAG agent with an optional custom knowledge base.
-        If none provided, uses the default mem0 client.
+        If none provided, uses the default PGVector client.
         """
-        self.knowledge_base = knowledge_base or Mem0Client()
+        self.knowledge_base = knowledge_base or PGVectorClient()
     
     def query(self, query_text: str, topic: Optional[str] = None, 
               max_results: int = 5, use_hybrid_search: bool = True) -> List[Dict[str, Any]]:
@@ -40,17 +40,18 @@ class LightRAGAgent:
             # Extract keywords for hybrid search
             keywords = self._extract_keywords(query_text) if use_hybrid_search else []
             
-            # Query the knowledge base (mem0 or custom implementation)
+            # Prepare filters
+            filters = {}
+            if topic:
+                filters["topic"] = topic
+            
+            # Query the knowledge base (PGVector)
             results = self.knowledge_base.query_embeddings(
                 query_text,
-                keywords=keywords if use_hybrid_search else None
+                keywords=keywords if use_hybrid_search else None,
+                filters=filters,
+                top_k=max_results
             )
-            
-            # Filter by topic if specified
-            if topic and results:
-                results = [r for r in results if 
-                          isinstance(r, dict) and 
-                          r.get('topic') == topic]
             
             # Extract text from results and format response
             formatted_results = []
@@ -62,8 +63,9 @@ class LightRAGAgent:
                             formatted_results.append({
                                 'text': result['text'],
                                 'score': result.get('score', 0.0),
-                                'topic': result.get('topic', ''),
-                                'source': result.get('source', 'knowledge_base')
+                                'id': result.get('id'),
+                                'topic': result.get('metadata', {}).get('topic', ''),
+                                'source': result.get('metadata', {}).get('source', 'knowledge_base')
                             })
                     elif isinstance(result, str):
                         formatted_results.append({
@@ -100,6 +102,34 @@ class LightRAGAgent:
                 'score': 0.0,
                 'source': 'error'
             }]
+    
+    def record_feedback(self, result_id: str, query: str, 
+                      is_relevant: bool, user_id: Optional[str] = None,
+                      comment: Optional[str] = None) -> bool:
+        """
+        Record user feedback on a retrieval result to improve future results.
+        
+        Args:
+            result_id: ID of the retrieval result
+            query: The query that produced this result
+            is_relevant: Whether the result was relevant
+            user_id: Optional user ID
+            comment: Optional user comment
+            
+        Returns:
+            Success status
+        """
+        try:
+            return self.knowledge_base.record_feedback(
+                embedding_id=result_id,
+                query=query,
+                is_relevant=is_relevant,
+                user_id=user_id,
+                comment=comment
+            )
+        except Exception as e:
+            print(f"Error recording feedback: {e}")
+            return False
     
     def _extract_keywords(self, text: str, max_keywords: int = 5) -> List[str]:
         """
