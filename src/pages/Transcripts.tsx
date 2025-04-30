@@ -1,845 +1,762 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useContext } from 'react';
 import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardHeader, CardFooter, CardTitle, CardDescription } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
-import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
-import { Checkbox } from "@/components/ui/checkbox";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
 import { Badge } from "@/components/ui/badge";
-import { ScrollArea } from "@/components/ui/scroll-area";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue, SelectGroup, SelectLabel } from "@/components/ui/select";
-import { useAuth } from '@/context/AuthContext';
-import { supabase } from '@/integrations/supabase/client';
-import { FileText, Upload, Tag as TagIcon, Loader2, X, Info, AlertTriangle, Edit, Tags, Plus, Sparkles, Settings, Filter, RefreshCw } from 'lucide-react';
-import { detectSourceCategory, formatTagForDisplay, suggestTagsFromContent, getSourceCategories } from '@/utils/transcriptUtils';
-import TranscriptDiagnostics from "@/components/TranscriptDiagnostics";
-import { TagsInput } from "@/components/TagsInput";
-import TranscriptTagEditor from "@/components/TranscriptTagEditor";
-import TagFilter from "@/components/TagFilter";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
+import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Checkbox } from "@/components/ui/checkbox";
+import { Skeleton } from "@/components/ui/skeleton";
+import { Progress } from "@/components/ui/progress";
+import { Textarea } from "@/components/ui/textarea";
+import { AlertCircle, FileText, Tag, Upload, X, RefreshCw, Search, Filter, CheckCircle2, Clock, AlertTriangle } from "lucide-react";
+import { supabase } from "@/integrations/supabase/client";
+import { UserContext } from "@/contexts/UserContext";
 import { showSuccess, showError, showWarning } from "@/utils/toastUtils";
-import BulkTagProcessor from "@/components/BulkTagProcessor";
-import FileUploader from "@/components/FileUploader";
-import { sanitizeFilename, generateStoragePath, generatePublicUrl } from "@/utils/fileUtils";
+import { useTranscriptSummaries } from "@/hooks/useTranscriptSummaries";
+import { getTranscriptCounts, getSourceCategories, formatTagForDisplay, suggestTagsFromContent } from "@/utils/transcriptUtils";
+import TranscriptUploader from "@/components/TranscriptUploader";
 
 interface Transcript {
   id: string;
   title: string;
   content: string;
   created_at: string;
-  file_path?: string;
   source?: string;
   tags?: string[];
   is_processed?: boolean;
-  updated_at?: string;
-  user_id?: string;
+  is_summarized?: boolean;
+  file_path?: string;
 }
 
-const TranscriptsPage: React.FC = () => {
+interface TranscriptSummary {
+  id: string;
+  summary: string;
+  key_points?: any;
+  created_at: string;
+}
+
+const TranscriptsPage = () => {
+  const { user } = useContext(UserContext);
   const [transcripts, setTranscripts] = useState<Transcript[]>([]);
-  const [title, setTitle] = useState('');
-  const [content, setContent] = useState('');
-  const [suggestedTags, setSuggestedTags] = useState<string[]>([]);
-  const [selectedTags, setSelectedTags] = useState<string[]>([]);
-  const [selectedFile, setSelectedFile] = useState<File | null>(null);
-  const [uploadProgress, setUploadProgress] = useState<number | null>(null);
-  const [source, setSource] = useState<string>('');
-  const [isUploading, setIsUploading] = useState(false);
-  const [isProcessing, setIsProcessing] = useState(false);
-  const [selectedTranscript, setSelectedTranscript] = useState<Transcript | null>(null);
-  const [isTranscriptEditorOpen, setIsTranscriptEditorOpen] = useState(false);
-  const [tagFilters, setTagFilters] = useState<string[]>([]);
   const [filteredTranscripts, setFilteredTranscripts] = useState<Transcript[]>([]);
-  const [isDiagnosticsOpen, setIsDiagnosticsOpen] = useState(false);
-  const [isBulkProcessorOpen, setIsBulkProcessorOpen] = useState(false);
-  const [isBatchTaggingMode, setIsBatchTaggingMode] = useState(false);
-  const [selectedTranscriptIds, setSelectedTranscriptIds] = useState<string[]>([]);
-  const [isBatchTagEditorOpen, setIsBatchTagEditorOpen] = useState(false);
-  const [autoDetectTags, setAutoDetectTags] = useState(false);
-  const [showAddTranscript, setShowAddTranscript] = useState(true);
-  const [showFilters, setShowFilters] = useState(false);
-  const fileInputRef = useRef<HTMLInputElement>(null);
-  const { user } = useAuth();
+  const [isLoading, setIsLoading] = useState(true);
+  const [searchQuery, setSearchQuery] = useState("");
+  const [selectedSource, setSelectedSource] = useState<string>("all");
+  const [selectedTranscript, setSelectedTranscript] = useState<Transcript | null>(null);
+  const [transcriptSummary, setTranscriptSummary] = useState<TranscriptSummary | null>(null);
+  const [showUploadDialog, setShowUploadDialog] = useState(false);
+  const [showBulkTagDialog, setShowBulkTagDialog] = useState(false);
+  const [selectedTranscripts, setSelectedTranscripts] = useState<string[]>([]);
+  const [bulkTags, setBulkTags] = useState<string[]>([]);
+  const [newTag, setNewTag] = useState("");
+  const [isSummaryLoading, setIsSummaryLoading] = useState(false);
+  const [activeTab, setActiveTab] = useState("all");
+  const [processingStatus, setProcessingStatus] = useState<Record<string, string>>({});
+
+  const { progress, batchSummarizeTranscripts, cancelBatchProcessing } = useTranscriptSummaries({
+    userId: user?.id || '',
+    maxConcurrent: 2
+  });
 
   useEffect(() => {
-    fetchTranscripts();
+    if (user) {
+      fetchTranscripts();
+    }
   }, [user]);
 
   useEffect(() => {
-    applyTagFilters();
-  }, [transcripts, tagFilters]);
-
-  useEffect(() => {
-    if (content && autoDetectTags) {
-      const tags = suggestTagsFromContent(content);
-      setSuggestedTags(tags);
-    } else {
-      setSuggestedTags([]);
-    }
-  }, [content, autoDetectTags]);
+    filterTranscripts();
+  }, [searchQuery, selectedSource, transcripts, activeTab]);
 
   const fetchTranscripts = async () => {
     if (!user) return;
-
+    setIsLoading(true);
+    
     try {
       const { data, error } = await supabase
-        .from('transcripts')
-        .select('*')
-        .eq('user_id', user.id)
-        .order('created_at', { ascending: false });
-
-      if (error) {
-        console.error('Error fetching transcripts:', error);
-        showError("Failed to load transcripts", "There was an error fetching the transcripts. Please try again.");
-      }
-
-      if (data) {
-        setTranscripts(data);
-      }
+        .from("transcripts")
+        .select("*")
+        .eq("user_id", user.id)
+        .order("created_at", { ascending: false });
+        
+      if (error) throw error;
+      setTranscripts(data || []);
     } catch (error: any) {
-      console.error('Error fetching transcripts:', error.message);
-      showError("Failed to load transcripts", "There was an error fetching the transcripts. Please try again.");
+      console.error("Error fetching transcripts:", error);
+      showError("Failed to load transcripts", error.message);
+    } finally {
+      setIsLoading(false);
     }
   };
 
-  const handleFileSelect = (files: FileList) => {
-    if (files.length === 1) {
-      setSelectedFile(files[0]);
-    } else if (files.length > 1) {
-      handleBatchFileUpload(files);
+  const refreshTranscripts = async () => {
+    if (!user) return;
+    setIsLoading(true);
+    
+    try {
+      const { data, error } = await supabase
+        .from("transcripts")
+        .select("*")
+        .eq("user_id", user.id)
+        .order("created_at", { ascending: false });
+        
+      if (error) throw error;
+      setTranscripts(data || []);
+    } catch (error: any) {
+      console.error("Error fetching transcripts:", error);
+      showError("Failed to load transcripts", error.message);
+    } finally {
+      setIsLoading(false);
     }
   };
 
-  const handleBatchFileUpload = async (files: FileList) => {
-    if (!user) {
-      showWarning("Not authenticated", "You must be logged in to upload files.");
+  const filterTranscripts = () => {
+    let filtered = [...transcripts];
+    
+    // Filter by search query
+    if (searchQuery) {
+      const query = searchQuery.toLowerCase();
+      filtered = filtered.filter(t => 
+        t.title.toLowerCase().includes(query) || 
+        (t.tags && t.tags.some(tag => tag.toLowerCase().includes(query)))
+      );
+    }
+    
+    // Filter by source
+    if (selectedSource !== "all") {
+      filtered = filtered.filter(t => t.source === selectedSource);
+    }
+    
+    // Filter by tab
+    if (activeTab === "unprocessed") {
+      filtered = filtered.filter(t => t.is_processed === false);
+    } else if (activeTab === "processed") {
+      filtered = filtered.filter(t => t.is_processed === true);
+    } else if (activeTab === "summarized") {
+      filtered = filtered.filter(t => t.is_summarized === true);
+    }
+    
+    setFilteredTranscripts(filtered);
+  };
+
+  const fetchTranscriptSummary = async (transcriptId: string) => {
+    if (!transcriptId) return;
+    
+    setIsSummaryLoading(true);
+    
+    try {
+      const { data, error } = await supabase
+        .from("transcript_summaries")
+        .select("*")
+        .eq("transcript_id", transcriptId)
+        .single();
+        
+      if (error && error.code !== 'PGRST116') {
+        throw error;
+      }
+      
+      setTranscriptSummary(data || null);
+    } catch (error: any) {
+      console.error("Error fetching summary:", error);
+    } finally {
+      setIsSummaryLoading(false);
+    }
+  };
+
+  const handleTranscriptSelect = async (transcript: Transcript) => {
+    setSelectedTranscript(transcript);
+    await fetchTranscriptSummary(transcript.id);
+  };
+
+  const handleTagAdd = async (transcriptId: string, tag: string) => {
+    if (!tag.trim()) return;
+    
+    const transcript = transcripts.find(t => t.id === transcriptId);
+    if (!transcript) return;
+    
+    const currentTags = transcript.tags || [];
+    if (currentTags.includes(tag)) return;
+    
+    const updatedTags = [...currentTags, tag];
+    
+    try {
+      const { error } = await supabase
+        .from("transcripts")
+        .update({ tags: updatedTags })
+        .eq("id", transcriptId);
+        
+      if (error) throw error;
+      
+      // Update local state
+      setTranscripts(prev => 
+        prev.map(t => t.id === transcriptId ? { ...t, tags: updatedTags } : t)
+      );
+      
+      if (selectedTranscript?.id === transcriptId) {
+        setSelectedTranscript({ ...selectedTranscript, tags: updatedTags });
+      }
+      
+      showSuccess("Tag added", `Added tag "${tag}" to transcript`);
+    } catch (error: any) {
+      console.error("Error adding tag:", error);
+      showError("Failed to add tag", error.message);
+    }
+  };
+
+  const handleTagRemove = async (transcriptId: string, tagToRemove: string) => {
+    const transcript = transcripts.find(t => t.id === transcriptId);
+    if (!transcript || !transcript.tags) return;
+    
+    const updatedTags = transcript.tags.filter(tag => tag !== tagToRemove);
+    
+    try {
+      const { error } = await supabase
+        .from("transcripts")
+        .update({ tags: updatedTags })
+        .eq("id", transcriptId);
+        
+      if (error) throw error;
+      
+      // Update local state
+      setTranscripts(prev => 
+        prev.map(t => t.id === transcriptId ? { ...t, tags: updatedTags } : t)
+      );
+      
+      if (selectedTranscript?.id === transcriptId) {
+        setSelectedTranscript({ ...selectedTranscript, tags: updatedTags });
+      }
+      
+      showSuccess("Tag removed", `Removed tag "${tagToRemove}" from transcript`);
+    } catch (error: any) {
+      console.error("Error removing tag:", error);
+      showError("Failed to remove tag", error.message);
+    }
+  };
+
+  const handleBulkTagsSubmit = async () => {
+    if (!bulkTags.length || !selectedTranscripts.length) {
+      showWarning("No action taken", "Please select both transcripts and tags");
       return;
     }
-
-    if (files.length === 0) {
-      showWarning("No files selected", "Please select files to upload.");
-      return;
-    }
-
-    setIsUploading(true);
-    setUploadProgress(0);
     
     try {
       let successCount = 0;
       
-      for (let i = 0; i < files.length; i++) {
-        const file = files[i];
-        const filePath = generateStoragePath(user.id, file.name);
+      for (const transcriptId of selectedTranscripts) {
+        const transcript = transcripts.find(t => t.id === transcriptId);
+        if (!transcript) continue;
         
-        setUploadProgress(Math.round((i / files.length) * 100));
+        const currentTags = transcript.tags || [];
+        const newTags = [...new Set([...currentTags, ...bulkTags])];
         
-        const { data, error } = await supabase.storage
-          .from('transcripts')
-          .upload(filePath, file, {
-            cacheControl: '3600',
-            upsert: false
-          });
-
-        if (error) {
-          console.error(`Error uploading file ${file.name}:`, error);
-          continue;
-        }
-
-        const publicURL = generatePublicUrl('transcripts', filePath);
-        
-        await createTranscript(file.name, '', filePath, publicURL);
+        const { error } = await supabase
+          .from("transcripts")
+          .update({ tags: newTags })
+          .eq("id", transcriptId);
+          
+        if (error) throw error;
         successCount++;
       }
       
-      if (successCount > 0) {
-        showSuccess("Files uploaded", `Successfully uploaded ${successCount} out of ${files.length} files.`);
-      } else {
-        showError("Upload failed", "Failed to upload any files. Please try again.");
-      }
-    } catch (error: any) {
-      console.error('Error during upload:', error);
-      showError("File upload failed", "There was an error uploading the files. Please try again.");
-    } finally {
-      setIsUploading(false);
-      setUploadProgress(null);
-    }
-  };
-
-  const handleTagAdded = (tag: string) => {
-    setTagFilters(prevFilters => [...prevFilters, tag]);
-  };
-
-  const handleTagRemoved = (tag: string) => {
-    setTagFilters(prevFilters => prevFilters.filter(filter => filter !== tag));
-  };
-
-  const clearAllTags = () => {
-    setTagFilters([]);
-  };
-
-  const applyTagFilters = () => {
-    if (tagFilters.length === 0) {
-      setFilteredTranscripts(transcripts);
-      return;
-    }
-
-    const filtered = transcripts.filter(transcript => {
-      if (!transcript.tags) return false;
-      return tagFilters.every(tag => transcript.tags?.includes(tag));
-    });
-
-    setFilteredTranscripts(filtered);
-  };
-
-  const uploadFile = async () => {
-    if (!user) {
-      showWarning("Not authenticated", "You must be logged in to upload files.");
-      return;
-    }
-
-    if (!selectedFile) {
-      showWarning("No file selected", "Please select a file to upload.");
-      return;
-    }
-
-    setIsUploading(true);
-    setUploadProgress(0);
-
-    try {
-      const filePath = generateStoragePath(user.id, selectedFile.name);
-      const { data, error } = await supabase.storage
-        .from('transcripts')
-        .upload(filePath, selectedFile, {
-          cacheControl: '3600',
-          upsert: false
-        });
-
-      if (error) {
-        console.error('Error uploading file:', error);
-        showError("File upload failed", "There was an error uploading the file. Please try again.");
-        setIsUploading(false);
-        setUploadProgress(null);
-        return;
-      }
-
-      const publicURL = generatePublicUrl('transcripts', filePath);
+      // Update local state
+      await fetchTranscripts();
       
-      createTranscript(selectedFile.name, '', filePath, publicURL);
-    } catch (error: any) {
-      console.error('Error during upload:', error);
-      showError("File upload failed", "There was an error uploading the file. Please try again.");
-      setIsUploading(false);
-      setUploadProgress(null);
-    }
-  };
-
-  const createTranscript = async (title: string, content: string, filePath: string | null = null, fileURL: string | null = null) => {
-    if (!user) {
-      showWarning("Not authenticated", "You must be logged in to create transcripts.");
-      return;
-    }
-
-    setIsProcessing(true);
-    try {
-      const autoTags = (content && autoDetectTags) ? suggestTagsFromContent(content) : [];
-      const finalTags = [...new Set([...selectedTags, ...autoTags])];
-      
-      const transcriptSource = source || detectSourceCategory(title);
-      
-      const { data, error } = await supabase
-        .from('transcripts')
-        .insert([
-          {
-            title: title,
-            content: content,
-            file_path: filePath,
-            user_id: user.id,
-            source: transcriptSource,
-            tags: finalTags.length > 0 ? finalTags : null
-          },
-        ])
-        .select();
-
-      if (error) {
-        console.error('Error creating transcript:', error);
-        showError("Failed to create transcript", "There was an error creating the transcript. Please try again.");
-        setIsProcessing(false);
-        return;
-      }
-
-      if (data && data.length > 0) {
-        const newTranscript = data[0];
-        setTranscripts(prevTranscripts => [newTranscript, ...prevTranscripts]);
-        setTitle('');
-        setContent('');
-        setSelectedFile(null);
-        setUploadProgress(null);
-        setSource('');
-        setSelectedTags([]);
-        setSuggestedTags([]);
-        if (fileInputRef.current) {
-          fileInputRef.current.value = ''; // Reset the file input
-        }
-        showSuccess("Transcript created", `Successfully created the transcript${autoTags.length > 0 ? ` with ${autoTags.length} auto-detected tags` : ''}.`);
-        setShowAddTranscript(false);
-      } else {
-        showWarning("No transcript created", "No transcript was created.");
-      }
-    } catch (error: any) {
-      console.error('Error creating transcript:', error.message);
-      showError("Failed to create transcript", "There was an error creating the transcript. Please try again.");
-    } finally {
-      setIsProcessing(false);
-      setIsUploading(false);
-    }
-  };
-
-  const handleAddTag = (tag: string) => {
-    if (!selectedTags.includes(tag)) {
-      setSelectedTags(prev => [...prev, tag]);
-    }
-  };
-
-  const handleRemoveTag = (tag: string) => {
-    setSelectedTags(prev => prev.filter(t => t !== tag));
-  };
-
-  const handleContentChange = (e: React.ChangeEvent<HTMLTextAreaElement>) => {
-    const newContent = e.target.value;
-    setContent(newContent);
-  };
-
-  const handleSubmit = async (event: React.FormEvent) => {
-    event.preventDefault();
-    createTranscript(title, content);
-  };
-
-  const handleTagsUpdated = (transcriptId: string | string[], updatedTags: string[]) => {
-    if (Array.isArray(transcriptId)) {
-      setTranscripts(prevTranscripts =>
-        prevTranscripts.map(transcript =>
-          transcriptId.includes(transcript.id) ? { ...transcript, tags: updatedTags } : transcript
-        )
+      showSuccess(
+        "Tags applied", 
+        `Applied ${bulkTags.length} tags to ${successCount} transcripts`
       );
-    } else {
-      setTranscripts(prevTranscripts =>
-        prevTranscripts.map(transcript =>
-          transcript.id === transcriptId ? { ...transcript, tags: updatedTags } : transcript
-        )
-      );
+      
+      setShowBulkTagDialog(false);
+      setSelectedTranscripts([]);
+      setBulkTags([]);
+    } catch (error: any) {
+      console.error("Error applying bulk tags:", error);
+      showError("Failed to apply tags", error.message);
     }
   };
 
-  const handleOpenTranscriptEditor = (transcript: Transcript) => {
-    setSelectedTranscript(transcript);
-    setIsBatchTaggingMode(false);
-    setIsTranscriptEditorOpen(true);
-  };
-
-  const handleCloseTranscriptEditor = () => {
-    setIsTranscriptEditorOpen(false);
-    setSelectedTranscript(null);
-  };
-
-  const handleOpenBulkProcessor = () => {
-    setIsBulkProcessorOpen(true);
-  };
-
-  const handleCloseBulkProcessor = () => {
-    setIsBulkProcessorOpen(false);
-  };
-
-  const handleBulkProcessingComplete = () => {
-    fetchTranscripts();
-    setIsBulkProcessorOpen(false);
-  };
-  
-  const toggleTranscriptSelection = (transcriptId: string) => {
-    setSelectedTranscriptIds(prev => {
-      if (prev.includes(transcriptId)) {
-        return prev.filter(id => id !== transcriptId);
-      } else {
-        return [...prev, transcriptId];
-      }
-    });
-  };
-  
-  const toggleSelectAll = () => {
-    if (selectedTranscriptIds.length === filteredTranscripts.length) {
-      setSelectedTranscriptIds([]);
-    } else {
-      setSelectedTranscriptIds(filteredTranscripts.map(t => t.id));
-    }
-  };
-  
-  const handleOpenBatchTagEditor = () => {
-    if (selectedTranscriptIds.length === 0) {
-      showWarning("No transcripts selected", "Please select at least one transcript to batch edit tags.");
+  const handleBulkSummarize = async () => {
+    if (!selectedTranscripts.length) {
+      showWarning("No transcripts selected", "Please select at least one transcript to summarize");
       return;
     }
     
-    setIsBatchTagEditorOpen(true);
+    await batchSummarizeTranscripts(selectedTranscripts);
   };
-  
-  const handleCloseBatchTagEditor = () => {
-    setIsBatchTagEditorOpen(false);
+
+  const handleTranscriptSelection = (transcriptId: string, isSelected: boolean) => {
+    if (isSelected) {
+      setSelectedTranscripts(prev => [...prev, transcriptId]);
+    } else {
+      setSelectedTranscripts(prev => prev.filter(id => id !== transcriptId));
+    }
   };
+
+  const handleSelectAllTranscripts = (isSelected: boolean) => {
+    if (isSelected) {
+      setSelectedTranscripts(filteredTranscripts.map(t => t.id));
+    } else {
+      setSelectedTranscripts([]);
+    }
+  };
+
+  const handleTagSuggestions = async (transcriptId: string) => {
+    const transcript = transcripts.find(t => t.id === transcriptId);
+    if (!transcript || !transcript.content) {
+      showWarning("Cannot suggest tags", "No content available for analysis");
+      return;
+    }
+    
+    const suggestedTags = suggestTagsFromContent(transcript.content);
+    
+    if (!suggestedTags.length) {
+      showWarning("No tags suggested", "Could not identify relevant tags from content");
+      return;
+    }
+    
+    const currentTags = transcript.tags || [];
+    const newTags = [...new Set([...currentTags, ...suggestedTags])];
+    
+    try {
+      const { error } = await supabase
+        .from("transcripts")
+        .update({ tags: newTags })
+        .eq("id", transcriptId);
+        
+      if (error) throw error;
+      
+      // Update local state
+      setTranscripts(prev => 
+        prev.map(t => t.id === transcriptId ? { ...t, tags: newTags } : t)
+      );
+      
+      if (selectedTranscript?.id === transcriptId) {
+        setSelectedTranscript({ ...selectedTranscript, tags: newTags });
+      }
+      
+      showSuccess(
+        "Tags suggested", 
+        `Added ${newTags.length - currentTags.length} suggested tags`
+      );
+    } catch (error: any) {
+      console.error("Error adding suggested tags:", error);
+      showError("Failed to add tags", error.message);
+    }
+  };
+
+  const getStatusIcon = (transcript: Transcript) => {
+    if (!transcript.is_processed) {
+      return <Clock className="h-4 w-4 text-amber-500" title="Processing" />;
+    } else if (!transcript.is_summarized) {
+      return <CheckCircle2 className="h-4 w-4 text-green-500" title="Processed" />;
+    } else {
+      return <CheckCircle2 className="h-4 w-4 text-blue-500" title="Summarized" />;
+    }
+  };
+
+  const transcriptCounts = getTranscriptCounts(transcripts);
+  const sourceCategories = getSourceCategories();
 
   return (
-    <div className="min-h-screen flex flex-col">
-      <div className="container mx-auto py-6 flex-1">
-        <div className="flex justify-between items-center mb-6">
-          <h1 className="text-2xl font-bold">Transcripts</h1>
-          <div className="flex items-center gap-2">
-            <Button 
-              variant="outline" 
-              size="sm" 
-              onClick={() => setShowFilters(!showFilters)}
-              className="flex items-center gap-1"
-            >
-              <Filter className="w-4 h-4" />
-              {tagFilters.length > 0 && (
-                <Badge variant="secondary" className="ml-1">{tagFilters.length}</Badge>
-              )}
-              <span className="hidden sm:inline">Filter</span>
-            </Button>
-            
-            <Button
-              variant="default"
-              size="sm"
-              onClick={() => setShowAddTranscript(!showAddTranscript)}
-              className="flex items-center gap-1"
-            >
-              <Plus className="w-4 h-4" />
-              <span className="hidden sm:inline">{showAddTranscript ? "Hide Form" : "Add"}</span>
-            </Button>
-            
-            <Button 
-              variant="outline" 
-              size="sm" 
-              onClick={handleOpenBulkProcessor}
-              className="flex items-center gap-1"
-            >
-              <Sparkles className="w-4 h-4" />
-              <span className="hidden sm:inline">Bulk Process</span>
-            </Button>
-            
-            <Button
-              variant="ghost"
-              size="icon"
-              onClick={fetchTranscripts}
-              className="h-9 w-9"
-              title="Refresh transcripts"
-            >
-              <RefreshCw className="h-4 w-4" />
-            </Button>
+    <div className="container py-6 max-w-6xl">
+      <div className="flex items-center justify-between">
+        <h1 className="text-3xl font-bold mb-6">Transcripts</h1>
+        <div className="flex space-x-2">
+          <Button variant="outline" size="sm" onClick={refreshTranscripts}>
+            <RefreshCw className="h-4 w-4 mr-2" />
+            Refresh
+          </Button>
+          <Button variant="outline" size="sm" onClick={() => setShowBulkTagDialog(true)}>
+            <Tag className="h-4 w-4 mr-2" />
+            Bulk Tag
+          </Button>
+        </div>
+      </div>
+
+      <div className="flex flex-col md:flex-row gap-4 mb-6">
+        <div className="flex-1">
+          <div className="relative">
+            <Search className="absolute left-2 top-2.5 h-4 w-4 text-muted-foreground" />
+            <Input
+              placeholder="Search transcripts..."
+              className="pl-8"
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+            />
           </div>
         </div>
-        
-        <div className="grid gap-6 mt-3">
-          {showFilters && (
-            <Card>
-              <CardHeader className="pb-3">
-                <div className="flex justify-between items-center">
-                  <div className="flex items-center">
-                    <Tags className="w-4 h-4 mr-2" />
-                    <CardTitle className="text-lg">Filter by Tags</CardTitle>
-                  </div>
-                  {tagFilters.length > 0 && (
-                    <Button variant="ghost" size="sm" onClick={clearAllTags}>
-                      Clear All
-                    </Button>
-                  )}
-                </div>
-                <TagFilter onTagAdded={handleTagAdded} onTagRemoved={handleTagRemoved} />
-              </CardHeader>
-            </Card>
-          )}
+        <div className="w-full md:w-64">
+          <Select value={selectedSource} onValueChange={setSelectedSource}>
+            <SelectTrigger>
+              <SelectValue placeholder="Filter by source" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">All Sources</SelectItem>
+              {sourceCategories.map(category => (
+                <SelectItem key={category.id} value={category.id}>
+                  {category.label}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        </div>
+      </div>
 
-          {showAddTranscript && (
-            <Card>
-              <CardHeader>
-                <div className="flex justify-between items-center">
-                  <CardTitle>Add New Transcript</CardTitle>
-                  <Button variant="ghost" size="sm" onClick={() => setShowAddTranscript(false)}>
-                    <X className="h-4 w-4" />
-                  </Button>
-                </div>
-              </CardHeader>
-              <CardContent>
-                <Tabs defaultValue="manual" className="w-full">
-                  <TabsList className="grid grid-cols-2 mb-4">
-                    <TabsTrigger value="manual">Manual Input</TabsTrigger>
-                    <TabsTrigger value="upload">File Upload</TabsTrigger>
-                  </TabsList>
+      <Tabs defaultValue="all" value={activeTab} onValueChange={setActiveTab}>
+        <TabsList className="mb-4">
+          <TabsTrigger value="all">
+            All ({transcripts.length})
+          </TabsTrigger>
+          <TabsTrigger value="unprocessed">
+            Unprocessed ({transcripts.filter(t => !t.is_processed).length})
+          </TabsTrigger>
+          <TabsTrigger value="processed">
+            Processed ({transcripts.filter(t => t.is_processed).length})
+          </TabsTrigger>
+          <TabsTrigger value="summarized">
+            Summarized ({transcripts.filter(t => t.is_summarized).length})
+          </TabsTrigger>
+        </TabsList>
+
+        <div className="grid md:grid-cols-[1fr_2fr] gap-6 mt-6">
+          <div className="space-y-6">
+            <div className="border rounded-lg p-4">
+              <TranscriptUploader 
+                userId={user?.id} 
+                onUploadComplete={(id) => {
+                  refreshTranscripts();
+                  // Additional callback actions if needed
+                }} 
+              />
+            </div>
+            
+            {selectedTranscript && (
+              <div className="border rounded-lg p-4">
+                <h3 className="text-lg font-medium mb-2">Selected Transcript</h3>
+                <div className="space-y-2">
+                  <p className="text-sm font-medium">Title</p>
+                  <p className="text-sm text-muted-foreground">{selectedTranscript.title}</p>
                   
-                  <TabsContent value="manual">
-                    <div className="grid gap-4">
-                      <div className="grid gap-2">
-                        <Label htmlFor="title">Title</Label>
-                        <Input
-                          type="text"
-                          id="title"
-                          value={title}
-                          onChange={(e) => setTitle(e.target.value)}
-                          placeholder="Enter transcript title"
-                        />
-                      </div>
-                      
-                      <div className="grid gap-2">
-                        <Label htmlFor="source">Source Category</Label>
-                        <Select 
-                          value={source} 
-                          onValueChange={setSource}
-                        >
-                          <SelectTrigger className="w-full">
-                            <SelectValue placeholder="Select or auto-detect source" />
-                          </SelectTrigger>
-                          <SelectContent>
-                            <SelectGroup>
-                              <SelectLabel>Source Categories</SelectLabel>
-                              {getSourceCategories().map(category => (
-                                <SelectItem key={category.id} value={category.id}>
-                                  {category.label}
-                                </SelectItem>
-                              ))}
-                            </SelectGroup>
-                          </SelectContent>
-                        </Select>
-                        <p className="text-xs text-muted-foreground mt-1">
-                          Source will be auto-detected if not selected
-                        </p>
-                      </div>
-                      
-                      <div className="grid gap-2">
-                        <Label htmlFor="content">Content</Label>
-                        <Textarea
-                          id="content"
-                          value={content}
-                          onChange={handleContentChange}
-                          className="min-h-[200px]"
-                          placeholder="Enter transcript content"
-                        />
-                      </div>
-
-                      <div className="flex items-center space-x-2 mb-2">
-                        <Checkbox
-                          id="auto-detect-tags" 
-                          checked={autoDetectTags}
-                          onCheckedChange={(checked) => setAutoDetectTags(checked === true)}
-                        />
-                        <label
-                          htmlFor="auto-detect-tags"
-                          className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70"
-                        >
-                          Auto-detect tags (uses AI resources)
-                        </label>
-                      </div>
-
-                      {suggestedTags.length > 0 && (
-                        <div className="grid gap-2">
-                          <Label>Suggested Tags</Label>
-                          <div className="flex flex-wrap gap-2">
-                            {suggestedTags.map((tag) => (
-                              <Badge 
-                                key={tag} 
-                                className={`cursor-pointer ${selectedTags.includes(tag) ? 'bg-primary' : 'bg-secondary'}`}
-                                onClick={() => selectedTags.includes(tag) ? handleRemoveTag(tag) : handleAddTag(tag)}
-                              >
-                                {formatTagForDisplay(tag)}
-                                {selectedTags.includes(tag) ? (
-                                  <X className="ml-1 h-3 w-3" />
-                                ) : (
-                                  <Plus className="ml-1 h-3 w-3" />
-                                )}
-                              </Badge>
-                            ))}
-                          </div>
-                        </div>
-                      )}
-
-                      <div className="grid gap-2">
-                        <Label htmlFor="manual-tags">Custom Tags</Label>
-                        <TagsInput
-                          value={selectedTags}
-                          onChange={setSelectedTags}
-                          placeholder="Add custom tags..."
-                        />
-                      </div>
-
-                      <Button onClick={handleSubmit} disabled={isProcessing}>
-                        {isProcessing ? (
-                          <>
-                            <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                            Processing...
-                          </>
-                        ) : (
-                          'Create Transcript'
-                        )}
+                  <p className="text-sm font-medium">Source</p>
+                  <p className="text-sm text-muted-foreground">
+                    {sourceCategories.find(s => s.id === selectedTranscript.source)?.label || selectedTranscript.source || 'Unknown'}
+                  </p>
+                  
+                  <p className="text-sm font-medium">Created</p>
+                  <p className="text-sm text-muted-foreground">
+                    {new Date(selectedTranscript.created_at).toLocaleString()}
+                  </p>
+                  
+                  <p className="text-sm font-medium">Status</p>
+                  <p className="text-sm text-muted-foreground flex items-center">
+                    {getStatusIcon(selectedTranscript)}
+                    <span className="ml-2">
+                      {!selectedTranscript.is_processed 
+                        ? 'Processing' 
+                        : selectedTranscript.is_summarized 
+                          ? 'Summarized' 
+                          : 'Processed'}
+                    </span>
+                  </p>
+                  
+                  <div>
+                    <div className="flex justify-between items-center">
+                      <p className="text-sm font-medium">Tags</p>
+                      <Button 
+                        variant="ghost" 
+                        size="sm"
+                        onClick={() => handleTagSuggestions(selectedTranscript.id)}
+                      >
+                        Suggest
                       </Button>
                     </div>
-                  </TabsContent>
-                  
-                  <TabsContent value="upload">
-                    <div className="grid gap-4">
-                      <div className="grid gap-2">
-                        <Label htmlFor="source">Source Category</Label>
-                        <Select 
-                          value={source} 
-                          onValueChange={setSource}
-                        >
-                          <SelectTrigger className="w-full">
-                            <SelectValue placeholder="Select or auto-detect source" />
-                          </SelectTrigger>
-                          <SelectContent>
-                            <SelectGroup>
-                              <SelectLabel>Source Categories</SelectLabel>
-                              {getSourceCategories().map(category => (
-                                <SelectItem key={category.id} value={category.id}>
-                                  {category.label}
-                                </SelectItem>
-                              ))}
-                            </SelectGroup>
-                          </SelectContent>
-                        </Select>
-                        <p className="text-xs text-muted-foreground mt-1">
-                          Source will be auto-detected from filename if not selected
-                        </p>
-                      </div>
-                      
-                      <Alert variant="default" className="bg-amber-50 border-amber-200 text-amber-800">
-                        <Info className="h-4 w-4 text-amber-800" />
-                        <AlertTitle>File Upload</AlertTitle>
-                        <AlertDescription className="text-xs">
-                          Upload one or multiple files. Each file will create a separate transcript.
-                          After uploading, you can use the Bulk Process feature to automatically categorize and tag your transcripts.
-                        </AlertDescription>
-                      </Alert>
-                      
-                      <FileUploader 
-                        onFileSelect={handleFileSelect}
-                        isUploading={isUploading}
-                        uploadProgress={uploadProgress}
-                        multiple={true}
-                        showPreview={true}
-                      />
-                      
-                      {selectedFile && (
-                        <Button 
-                          onClick={uploadFile} 
-                          disabled={isUploading} 
-                          className="w-full"
-                        >
-                          {isUploading ? (
-                            <span className="flex items-center">
-                              <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                              Uploading... {uploadProgress}%
-                            </span>
-                          ) : (
-                            <>
-                              <Upload className="mr-2 h-4 w-4" />
-                              Upload File
-                            </>
-                          )}
-                        </Button>
+                    <div className="flex flex-wrap gap-1 mt-1">
+                      {selectedTranscript.tags && selectedTranscript.tags.length > 0 ? (
+                        selectedTranscript.tags.map(tag => (
+                          <Badge key={tag} variant="outline" className="flex items-center gap-1">
+                            {formatTagForDisplay(tag)}
+                            <X 
+                              className="h-3 w-3 cursor-pointer" 
+                              onClick={() => handleTagRemove(selectedTranscript.id, tag)}
+                            />
+                          </Badge>
+                        ))
+                      ) : (
+                        <p className="text-sm text-muted-foreground">No tags</p>
                       )}
                     </div>
-                  </TabsContent>
-                </Tabs>
-              </CardContent>
-            </Card>
-          )}
-
-          <Card>
-            <CardHeader className="pb-3 flex flex-row items-center justify-between">
-              <div className="flex items-center">
-                <FileText className="w-5 h-5 mr-2 text-muted-foreground" />
-                <div>
-                  <CardTitle>My Transcripts</CardTitle>
-                  <CardDescription className="mt-1">
-                    {filteredTranscripts.length} transcript{filteredTranscripts.length !== 1 ? 's' : ''}
-                    {tagFilters.length > 0 ? ' (filtered)' : ''}
-                  </CardDescription>
+                    <div className="flex items-center mt-2">
+                      <Input
+                        placeholder="Add tag..."
+                        value={newTag}
+                        onChange={(e) => setNewTag(e.target.value)}
+                        className="text-sm h-8"
+                        onKeyDown={(e) => {
+                          if (e.key === 'Enter' && newTag) {
+                            handleTagAdd(selectedTranscript.id, newTag);
+                            setNewTag('');
+                          }
+                        }}
+                      />
+                      <Button 
+                        size="sm" 
+                        variant="ghost"
+                        onClick={() => {
+                          if (newTag) {
+                            handleTagAdd(selectedTranscript.id, newTag);
+                            setNewTag('');
+                          }
+                        }}
+                      >
+                        Add
+                      </Button>
+                    </div>
+                  </div>
+                  
+                  {transcriptSummary && (
+                    <div className="mt-4">
+                      <p className="text-sm font-medium">Summary</p>
+                      <p className="text-sm text-muted-foreground mt-1">
+                        {transcriptSummary.summary}
+                      </p>
+                    </div>
+                  )}
+                  
+                  {!transcriptSummary && selectedTranscript.is_processed && (
+                    <Button 
+                      variant="outline" 
+                      size="sm" 
+                      className="mt-2"
+                      onClick={() => batchSummarizeTranscripts([selectedTranscript.id])}
+                      disabled={isSummaryLoading}
+                    >
+                      {isSummaryLoading ? "Generating..." : "Generate Summary"}
+                    </Button>
+                  )}
                 </div>
               </div>
-              
-              <div className="flex gap-2">
-                {filteredTranscripts.length > 0 && (
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    onClick={toggleSelectAll}
-                    className="flex items-center gap-1"
-                  >
-                    {selectedTranscriptIds.length === filteredTranscripts.length ? 'Deselect All' : 'Select All'}
-                  </Button>
+            )}
+          </div>
+
+          <div>
+            {isLoading ? (
+              <div className="space-y-4">
+                {[1, 2, 3].map(i => (
+                  <Card key={i}>
+                    <CardHeader>
+                      <Skeleton className="h-6 w-3/4" />
+                      <Skeleton className="h-4 w-1/2" />
+                    </CardHeader>
+                    <CardContent>
+                      <Skeleton className="h-4 w-full" />
+                      <Skeleton className="h-4 w-full mt-2" />
+                    </CardContent>
+                  </Card>
+                ))}
+              </div>
+            ) : filteredTranscripts.length === 0 ? (
+              <div className="text-center py-12">
+                <FileText className="h-12 w-12 mx-auto text-muted-foreground" />
+                <h3 className="mt-4 text-lg font-medium">No transcripts found</h3>
+                <p className="text-muted-foreground">
+                  {searchQuery || selectedSource !== "all" 
+                    ? "Try adjusting your filters" 
+                    : "Upload a transcript to get started"}
+                </p>
+              </div>
+            ) : (
+              <div className="space-y-4">
+                <div className="flex justify-between items-center mb-2">
+                  <div className="flex items-center">
+                    <Checkbox 
+                      id="select-all"
+                      checked={selectedTranscripts.length === filteredTranscripts.length && filteredTranscripts.length > 0}
+                      onCheckedChange={handleSelectAllTranscripts}
+                    />
+                    <Label htmlFor="select-all" className="ml-2">
+                      Select All ({filteredTranscripts.length})
+                    </Label>
+                  </div>
+                  
+                  {selectedTranscripts.length > 0 && (
+                    <div className="flex items-center gap-2">
+                      <span className="text-sm text-muted-foreground">
+                        {selectedTranscripts.length} selected
+                      </span>
+                      <Button 
+                        size="sm" 
+                        variant="outline"
+                        onClick={handleBulkSummarize}
+                        disabled={progress.inProgress}
+                      >
+                        Summarize Selected
+                      </Button>
+                    </div>
+                  )}
+                </div>
+                
+                {progress.inProgress && (
+                  <div className="mb-4">
+                    <div className="flex justify-between text-sm mb-1">
+                      <span>Processing {progress.completed} of {progress.total}</span>
+                      <Button 
+                        variant="ghost" 
+                        size="sm" 
+                        onClick={cancelBatchProcessing}
+                      >
+                        Cancel
+                      </Button>
+                    </div>
+                    <Progress value={(progress.completed / progress.total) * 100} />
+                  </div>
                 )}
                 
-                <Button
-                  variant={selectedTranscriptIds.length > 0 ? "default" : "outline"}
-                  size="sm"
-                  onClick={handleOpenBatchTagEditor}
-                  disabled={selectedTranscriptIds.length === 0}
-                  className="flex items-center gap-1"
-                >
-                  <TagIcon className="w-3 h-3 mr-1" />
-                  Edit Tags ({selectedTranscriptIds.length})
-                </Button>
+                {filteredTranscripts.map(transcript => (
+                  <Card 
+                    key={transcript.id} 
+                    className={`cursor-pointer transition-colors ${
+                      selectedTranscript?.id === transcript.id ? 'border-primary' : ''
+                    }`}
+                    onClick={() => handleTranscriptSelect(transcript)}
+                  >
+                    <CardHeader className="pb-2">
+                      <div className="flex justify-between">
+                        <div className="flex-1">
+                          <CardTitle className="text-lg flex items-center gap-2">
+                            <Checkbox
+                              checked={selectedTranscripts.includes(transcript.id)}
+                              onCheckedChange={(checked) => {
+                                handleTranscriptSelection(transcript.id, !!checked);
+                              }}
+                              onClick={(e) => e.stopPropagation()}
+                            />
+                            {transcript.title}
+                            {getStatusIcon(transcript)}
+                          </CardTitle>
+                          <CardDescription>
+                            {sourceCategories.find(s => s.id === transcript.source)?.label || transcript.source || 'Unknown'} • 
+                            {new Date(transcript.created_at).toLocaleDateString()}
+                          </CardDescription>
+                        </div>
+                      </div>
+                    </CardHeader>
+                    <CardContent className="pb-2">
+                      <div className="flex flex-wrap gap-1">
+                        {transcript.tags && transcript.tags.map(tag => (
+                          <Badge key={tag} variant="outline">
+                            {formatTagForDisplay(tag)}
+                          </Badge>
+                        ))}
+                        {(!transcript.tags || transcript.tags.length === 0) && (
+                          <span className="text-sm text-muted-foreground">No tags</span>
+                        )}
+                      </div>
+                    </CardContent>
+                    <CardFooter className="pt-0">
+                      <div className="flex justify-between w-full text-sm text-muted-foreground">
+                        <span>
+                          {transcript.content?.length ? `${Math.round(transcript.content.length / 1000)}K chars` : 'No content'}
+                        </span>
+                        <span>
+                          {transcript.is_summarized ? 'Summarized' : transcript.is_processed ? 'Processed' : 'Processing...'}
+                        </span>
+                      </div>
+                    </CardFooter>
+                  </Card>
+                ))}
               </div>
-            </CardHeader>
-            
-            <CardContent>
-              {filteredTranscripts.length === 0 ? (
-                <div className="text-center p-6 space-y-4">
-                  <div className="text-muted-foreground">No transcripts found</div>
-                  {tagFilters.length > 0 && (
-                    <Button variant="outline" size="sm" onClick={clearAllTags}>
-                      Clear Filters
-                    </Button>
-                  )}
-                  {tagFilters.length === 0 && (
-                    <Button onClick={() => setShowAddTranscript(true)}>
-                      <Plus className="w-4 h-4 mr-2" />
-                      Add Your First Transcript
-                    </Button>
+            )}
+          </div>
+        </div>
+      </Tabs>
+      
+      {showBulkTagDialog && (
+        <Dialog open={showBulkTagDialog} onOpenChange={setShowBulkTagDialog}>
+          <DialogContent>
+            <DialogHeader>
+              <DialogTitle>Bulk Tag Transcripts</DialogTitle>
+            </DialogHeader>
+            <div className="space-y-4">
+              <div>
+                <Label>Selected Transcripts ({selectedTranscripts.length})</Label>
+                <div className="mt-2 max-h-32 overflow-y-auto border rounded-md p-2">
+                  {selectedTranscripts.length === 0 ? (
+                    <p className="text-sm text-muted-foreground">No transcripts selected</p>
+                  ) : (
+                    selectedTranscripts.map(id => {
+                      const transcript = transcripts.find(t => t.id === id);
+                      return (
+                        <div key={id} className="text-sm flex justify-between items-center py-1">
+                          <span>{transcript?.title || id}</span>
+                          <X 
+                            className="h-4 w-4 cursor-pointer" 
+                            onClick={() => handleTranscriptSelection(id, false)}
+                          />
+                        </div>
+                      );
+                    })
                   )}
                 </div>
-              ) : (
-                <div className="space-y-3">
-                  {filteredTranscripts.map((transcript) => (
-                    <div 
-                      key={transcript.id} 
-                      className={`p-4 border rounded-lg ${selectedTranscriptIds.includes(transcript.id) ? 'border-primary bg-primary/5' : 'border-border'}`}
-                    >
-                      <div className="flex items-start justify-between">
-                        <div className="flex items-center gap-3">
-                          <Checkbox
-                            checked={selectedTranscriptIds.includes(transcript.id)}
-                            onCheckedChange={() => toggleTranscriptSelection(transcript.id)}
-                          />
-                          <div>
-                            <h3 className="font-medium">{transcript.title}</h3>
-                            <p className="text-xs text-muted-foreground">
-                              {new Date(transcript.created_at).toLocaleDateString()} · 
-                              {transcript.source ? ` ${transcript.source.replace(/_/g, ' ')}` : ' No source'}
-                            </p>
-                          </div>
-                        </div>
-                        <Button 
-                          variant="ghost" 
-                          size="sm" 
-                          className="h-8 w-8 p-0" 
-                          onClick={() => handleOpenTranscriptEditor(transcript)}
-                        >
-                          <Edit className="h-4 w-4" />
-                          <span className="sr-only">Edit</span>
-                        </Button>
-                      </div>
-                      
-                      {transcript.tags && transcript.tags.length > 0 && (
-                        <div className="mt-2 ml-9">
-                          <div className="flex flex-wrap gap-1">
-                            {transcript.tags.map((tag) => (
-                              <Badge key={tag} variant="secondary" className="text-xs">
-                                {formatTagForDisplay(tag)}
-                              </Badge>
-                            ))}
-                          </div>
-                        </div>
-                      )}
-                    </div>
+              </div>
+              
+              <div>
+                <Label>Tags to Apply</Label>
+                <div className="flex flex-wrap gap-1 mt-2">
+                  {bulkTags.map(tag => (
+                    <Badge key={tag} variant="outline" className="flex items-center gap-1">
+                      {formatTagForDisplay(tag)}
+                      <X 
+                        className="h-3 w-3 cursor-pointer" 
+                        onClick={() => setBulkTags(prev => prev.filter(t => t !== tag))}
+                      />
+                    </Badge>
                   ))}
                 </div>
-              )}
-            </CardContent>
-            
-            <CardFooter className="flex justify-between pt-2 border-t">
-              <Button 
-                variant="ghost" 
-                size="sm"
-                onClick={() => setIsDiagnosticsOpen(true)} 
-                className="text-xs flex items-center"
-              >
-                <AlertTriangle className="w-3 h-3 mr-1" />
-                Run Diagnostics
-              </Button>
+                <div className="flex items-center mt-2">
+                  <Input
+                    placeholder="Add tag..."
+                    value={newTag}
+                    onChange={(e) => setNewTag(e.target.value)}
+                    onKeyDown={(e) => {
+                      if (e.key === 'Enter' && newTag) {
+                        setBulkTags(prev => [...new Set([...prev, newTag])]);
+                        setNewTag('');
+                      }
+                    }}
+                  />
+                  <Button 
+                    className="ml-2"
+                    variant="outline"
+                    onClick={() => {
+                      if (newTag) {
+                        setBulkTags(prev => [...new Set([...prev, newTag])]);
+                        setNewTag('');
+                      }
+                    }}
+                  >
+                    Add
+                  </Button>
+                </div>
+              </div>
               
-              {filteredTranscripts.length >= 5 && (
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  onClick={handleOpenBulkProcessor}
-                  className="text-xs flex items-center"
-                >
-                  <Sparkles className="w-3 h-3 mr-1" />
-                  Bulk Process All
+              <div className="flex justify-end gap-2">
+                <Button variant="outline" onClick={() => setShowBulkTagDialog(false)}>
+                  Cancel
                 </Button>
-              )}
-            </CardFooter>
-          </Card>
-        </div>
-
-        {selectedTranscript && (
-          <Dialog open={isTranscriptEditorOpen} onOpenChange={setIsTranscriptEditorOpen}>
-            <DialogContent>
-              <TranscriptTagEditor
-                open={isTranscriptEditorOpen}
-                onClose={handleCloseTranscriptEditor}
-                transcriptId={selectedTranscript.id}
-                initialTags={selectedTranscript.tags || []}
-                initialSource={selectedTranscript.source}
-                onTagsUpdated={handleTagsUpdated}
-              />
-            </DialogContent>
-          </Dialog>
-        )}
-        
-        <Dialog open={isBatchTagEditorOpen} onOpenChange={setIsBatchTagEditorOpen}>
-          <DialogContent>
-            <TranscriptTagEditor
-              open={isBatchTagEditorOpen}
-              onClose={handleCloseBatchTagEditor}
-              transcriptId={selectedTranscriptIds}
-              initialTags={[]}
-              onTagsUpdated={handleTagsUpdated}
-              isBatchMode={true}
-            />
+                <Button 
+                  onClick={handleBulkTagsSubmit}
+                  disabled={bulkTags.length === 0 || selectedTranscripts.length === 0}
+                >
+                  Apply Tags
+                </Button>
+              </div>
+            </div>
           </DialogContent>
         </Dialog>
-        
-        <Dialog open={isBulkProcessorOpen} onOpenChange={setIsBulkProcessorOpen}>
-          <DialogContent className="sm:max-w-md">
-            <BulkTagProcessor
-              open={isBulkProcessorOpen}
-              onClose={handleCloseBulkProcessor}
-              onComplete={handleBulkProcessingComplete}
-              userId={user?.id || ''}
-            />
-          </DialogContent>
-        </Dialog>
-        
-        <Dialog open={isDiagnosticsOpen} onOpenChange={setIsDiagnosticsOpen}>
-          <DialogContent className="sm:max-w-md">
-            <DialogHeader>
-              <DialogTitle>Transcript Diagnostics</DialogTitle>
-              <DialogDescription>
-                Troubleshoot and fix issues with transcript uploads
-              </DialogDescription>
-            </DialogHeader>
-            <TranscriptDiagnostics
-              open={isDiagnosticsOpen}
-              onClose={() => setIsDiagnosticsOpen(false)}
-              onComplete={() => {
-                fetchTranscripts();
-              }}
-              transcript={selectedTranscript}
-              userId={user?.id || ''}
-            />
-          </DialogContent>
-        </Dialog>
-      </div>
+      )}
     </div>
   );
 };

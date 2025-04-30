@@ -7,9 +7,12 @@ import os
 import logging
 import uuid
 from datetime import datetime
+import hashlib
+import tempfile
+import requests
 from typing import List, Dict, Any, Optional
 from LightRAG.chunking import chunk_transcript, analyze_chunking_quality
-from LightRAG.supabase_client import upload_file, insert_metadata, get_supabase_client
+from LightRAG.supabase_client import upload_file, insert_metadata, get_supabase_client, get_transcripts, generate_public_url
 from LightRAG.pgvector_client import PGVectorClient
 from LightRAG.utils import load_env
 
@@ -17,10 +20,98 @@ from LightRAG.utils import load_env
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
+def calculate_file_hash(file_path: str) -> str:
+    """
+    Calculate SHA-256 hash of a file.
+    
+    Args:
+        file_path: Path to the file
+        
+    Returns:
+        Hash of the file as a hex string
+    """
+    sha256_hash = hashlib.sha256()
+    with open(file_path, "rb") as f:
+        for byte_block in iter(lambda: f.read(4096), b""):
+            sha256_hash.update(byte_block)
+    return sha256_hash.hexdigest()
+
+def calculate_content_hash(content: str) -> str:
+    """
+    Calculate SHA-256 hash of text content.
+    
+    Args:
+        content: Text content to hash
+        
+    Returns:
+        Hash of the content as a hex string
+    """
+    return hashlib.sha256(content.encode('utf-8')).hexdigest()
+
+def download_from_supabase(bucket: str, file_path: str) -> str:
+    """
+    Download a file from Supabase Storage to a local temporary file.
+    
+    Args:
+        bucket: Storage bucket name
+        file_path: Path to the file in the bucket
+        
+    Returns:
+        Path to the local temporary file
+    """
+    client = get_supabase_client()
+    public_url = generate_public_url(bucket, file_path)
+    
+    try:
+        # Create a temporary file
+        temp_file = tempfile.NamedTemporaryFile(delete=False, suffix=os.path.splitext(file_path)[1])
+        temp_file_path = temp_file.name
+        temp_file.close()
+        
+        # Download the file using requests to the temporary location
+        response = requests.get(public_url, stream=True)
+        response.raise_for_status()
+        
+        with open(temp_file_path, 'wb') as f:
+            for chunk in response.iter_content(chunk_size=8192):
+                f.write(chunk)
+                
+        logger.info(f"Downloaded {public_url} to {temp_file_path}")
+        return temp_file_path
+    except Exception as e:
+        logger.error(f"Error downloading file from Supabase: {str(e)}")
+        raise
+
+def check_duplicate_content(content: str) -> Optional[str]:
+    """
+    Check if content already exists in the transcripts table.
+    
+    Args:
+        content: Content to check for duplicates
+        
+    Returns:
+        ID of the duplicate transcript if found, None otherwise
+    """
+    content_hash = calculate_content_hash(content)
+    client = get_supabase_client()
+    
+    try:
+        # Check for existing content with the same hash
+        # Note: This assumes we store content_hash in the metadata
+        result = client.table("transcripts").select("id").eq("metadata->content_hash", content_hash).execute()
+        
+        if result.data and len(result.data) > 0:
+            return result.data[0]["id"]
+        return None
+    except Exception as e:
+        logger.warning(f"Error checking for duplicate content: {str(e)}")
+        return None
+
 def ingest_transcript(file_path: str, bucket: str = "transcripts", table: str = "transcripts", 
                      topic: str = None, user_id: str = None, 
                      chunk_size: int = 5, chunk_overlap: int = 1,
-                     chunking_strategy: str = 'sentence') -> str:
+                     chunking_strategy: str = 'sentence',
+                     check_duplicates: bool = True) -> str:
     """
     Ingest a transcript file: upload to storage, store metadata, chunk and create embeddings.
     
@@ -33,6 +124,7 @@ def ingest_transcript(file_path: str, bucket: str = "transcripts", table: str = 
         chunk_size: Number of sentences per chunk
         chunk_overlap: Number of sentences to overlap between chunks
         chunking_strategy: Strategy to use for chunking ('sentence', 'paragraph', 'section')
+        check_duplicates: Whether to check for duplicate content
         
     Returns:
         String transcript ID
@@ -47,19 +139,34 @@ def ingest_transcript(file_path: str, bucket: str = "transcripts", table: str = 
         transcript_id = str(uuid.uuid4())
         dest_path = os.path.basename(file_path)
         
-        # Upload file to Supabase Storage
-        logger.info(f"Uploading file to {bucket}/{dest_path}")
-        upload_file(bucket, file_path, dest_path)
-        
+        # Upload file to Supabase Storage if it's a local file (not a URL)
+        if not file_path.startswith(('http://', 'https://')):
+            logger.info(f"Uploading file to {bucket}/{dest_path}")
+            upload_file(bucket, file_path, dest_path)
+        else:
+            # If it's a URL, assume it's already in storage
+            dest_path = file_path.split('/')[-1]
+            logger.info(f"File already in storage: {dest_path}")
+            
         # Extract transcript content
         with open(file_path, "r") as f:
             transcript_content = f.read()
             
+        # Check for duplicates if requested
+        if check_duplicates:
+            content_hash = calculate_content_hash(transcript_content)
+            duplicate_id = check_duplicate_content(transcript_content)
+            
+            if duplicate_id:
+                logger.info(f"Duplicate content found with ID: {duplicate_id}")
+                return duplicate_id
+        else:
+            content_hash = None
+                
         # Create transcript title from filename
         title = os.path.splitext(os.path.basename(file_path))[0].replace("_", " ").title()
         
-        # Insert metadata to the transcripts table
-        logger.info(f"Storing metadata in {table} table")
+        # Prepare metadata with content hash
         metadata = {
             "id": transcript_id,
             "title": title, 
@@ -70,9 +177,17 @@ def ingest_transcript(file_path: str, bucket: str = "transcripts", table: str = 
             "is_summarized": False,
             "created_at": datetime.now().isoformat(),
             "user_id": user_id,
-            "source": topic or "other"
+            "source": topic or "other",
+            "metadata": {
+                "content_hash": content_hash,
+                "original_filename": os.path.basename(file_path)
+            } if content_hash else {
+                "original_filename": os.path.basename(file_path)
+            }
         }
         
+        # Insert metadata to the transcripts table
+        logger.info(f"Storing metadata in {table} table")
         insert_metadata(table, metadata)
         
         # Chunk transcript with configurable parameters
@@ -120,6 +235,142 @@ def ingest_transcript(file_path: str, bucket: str = "transcripts", table: str = 
     except Exception as e:
         logger.error(f"Error during ingestion: {str(e)}")
         raise
+
+def process_existing_transcript(transcript_id: str, bucket: str = "transcripts",
+                             chunk_size: int = 5, chunk_overlap: int = 1,
+                             chunking_strategy: str = 'sentence') -> bool:
+    """
+    Process an already uploaded transcript from Supabase storage.
+    
+    Args:
+        transcript_id: ID of the transcript to process
+        bucket: Storage bucket name
+        chunk_size: Number of sentences per chunk
+        chunk_overlap: Number of sentences to overlap between chunks
+        chunking_strategy: Strategy to use for chunking
+        
+    Returns:
+        Boolean success status
+    """
+    try:
+        # Get Supabase client
+        supabase = get_supabase_client()
+        
+        # Fetch transcript data
+        result = supabase.table("transcripts").select("*").eq("id", transcript_id).execute()
+        
+        if not result.data or len(result.data) == 0:
+            logger.error(f"Transcript not found: {transcript_id}")
+            return False
+        
+        transcript = result.data[0]
+        
+        # Skip if already processed
+        if transcript.get("is_processed"):
+            logger.info(f"Transcript {transcript_id} already processed, skipping")
+            return True
+            
+        # Download file from Supabase storage to temporary location
+        file_path = transcript.get("file_path")
+        content = transcript.get("content")
+        
+        # If we have content, we can process directly
+        if content:
+            logger.info(f"Processing transcript {transcript_id} with existing content")
+            
+            # Chunk transcript with configurable parameters
+            chunks = chunk_transcript(
+                content, 
+                chunk_size=chunk_size, 
+                overlap=chunk_overlap,
+                strategy=chunking_strategy
+            )
+            
+            # Log chunking quality metrics
+            quality_metrics = analyze_chunking_quality(chunks)
+            logger.info(f"Chunking quality: {quality_metrics}")
+            
+            # Store chunks in PGVector
+            pgvector = PGVectorClient()
+            chunk_count = 0
+            for i, chunk in enumerate(chunks):
+                embedding = {
+                    "text": chunk, 
+                    "metadata": {
+                        "transcript_id": transcript_id,
+                        "topic": transcript.get("tags")[0] if transcript.get("tags") else None,
+                        "source": file_path,
+                        "chunk_index": i,
+                        "chunk_count": len(chunks),
+                        "chunking_strategy": chunking_strategy,
+                        "user_id": transcript.get("user_id")
+                    }
+                }
+                pgvector.store_embedding(embedding)
+                chunk_count += 1
+            
+            # Update transcript record to mark as processed
+            logger.info(f"Created {chunk_count} embeddings")
+            supabase.table("transcripts").update({"is_processed": True}).eq("id", transcript_id).execute()
+            
+            return True
+        
+        # If we don't have content but have a file_path, download and process
+        elif file_path:
+            # Download file from storage
+            logger.info(f"Downloading transcript {transcript_id} from storage: {file_path}")
+            local_path = download_from_supabase(bucket, file_path)
+            try:
+                # Read content
+                with open(local_path, "r") as f:
+                    content = f.read()
+                    
+                # Update transcript content
+                supabase.table("transcripts").update({"content": content}).eq("id", transcript_id).execute()
+                
+                # Process the transcript now that we have content
+                chunks = chunk_transcript(
+                    content, 
+                    chunk_size=chunk_size, 
+                    overlap=chunk_overlap,
+                    strategy=chunking_strategy
+                )
+                
+                # Store chunks in PGVector
+                pgvector = PGVectorClient()
+                chunk_count = 0
+                for i, chunk in enumerate(chunks):
+                    embedding = {
+                        "text": chunk, 
+                        "metadata": {
+                            "transcript_id": transcript_id,
+                            "topic": transcript.get("tags")[0] if transcript.get("tags") else None,
+                            "source": file_path,
+                            "chunk_index": i,
+                            "chunk_count": len(chunks),
+                            "chunking_strategy": chunking_strategy,
+                            "user_id": transcript.get("user_id")
+                        }
+                    }
+                    pgvector.store_embedding(embedding)
+                    chunk_count += 1
+                
+                # Update transcript record to mark as processed
+                logger.info(f"Created {chunk_count} embeddings")
+                supabase.table("transcripts").update({"is_processed": True}).eq("id", transcript_id).execute()
+                
+                return True
+            finally:
+                # Clean up temporary file
+                if os.path.exists(local_path):
+                    os.unlink(local_path)
+        else:
+            logger.error(f"Transcript {transcript_id} has no content or file_path")
+            return False
+    
+    except Exception as e:
+        logger.error(f"Error processing existing transcript {transcript_id}: {str(e)}")
+        return False
 
 def rechunk_transcript(transcript_id: str, chunk_size: int = 5, chunk_overlap: int = 1,
                      chunking_strategy: str = 'sentence') -> bool:
