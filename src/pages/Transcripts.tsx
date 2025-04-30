@@ -11,14 +11,16 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Progress } from "@/components/ui/progress";
 import { Textarea } from "@/components/ui/textarea";
-import { Clock, CheckCircle2, FileText, Tag, Upload, X, RefreshCw, Search, Filter, AlertTriangle } from "lucide-react";
+import { Clock, CheckCircle2, FileText, Tag, Upload, X, RefreshCw, Search, Filter, AlertTriangle, Trash2 } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
-import { useAuth } from '@/context/AuthContext';  // Use the AuthContext instead of UserContext
+import { useAuth } from '@/context/AuthContext';
+import { useAdmin } from '@/context/AdminContext';
 import { showSuccess, showError, showWarning } from "@/utils/toastUtils";
 import { useTranscriptSummaries } from "@/hooks/useTranscriptSummaries";
 import { getTranscriptCounts, getSourceCategories, formatTagForDisplay, suggestTagsFromContent, Transcript as TranscriptType } from "@/utils/transcriptUtils";
 import TranscriptUploader from "@/components/TranscriptUploader";
 import { Alert, AlertDescription } from "@/components/ui/alert";
+import DeleteTranscriptDialog from "@/components/DeleteTranscriptDialog";
 
 // Update the Transcript interface to match the one from transcriptUtils
 interface Transcript extends TranscriptType {
@@ -35,6 +37,7 @@ interface TranscriptSummary {
 const TranscriptsPage = () => {
   // Use the useAuth hook instead of UserContext
   const { user, isLoading: authLoading } = useAuth();
+  const { isAdmin, isLoading: adminLoading } = useAdmin();
   
   const [transcripts, setTranscripts] = useState<Transcript[]>([]);
   const [filteredTranscripts, setFilteredTranscripts] = useState<Transcript[]>([]);
@@ -52,6 +55,9 @@ const TranscriptsPage = () => {
   const [isSummaryLoading, setIsSummaryLoading] = useState(false);
   const [activeTab, setActiveTab] = useState("all");
   const [processingStatus, setProcessingStatus] = useState<Record<string, string>>({});
+  const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
+  const [transcriptToDelete, setTranscriptToDelete] = useState<Transcript | null>(null);
+  const [isDeleting, setIsDeleting] = useState(false);
 
   const { progress, batchSummarizeTranscripts, cancelBatchProcessing } = useTranscriptSummaries({
     userId: user?.id || '',
@@ -61,6 +67,7 @@ const TranscriptsPage = () => {
   // Add more detailed logging to help diagnose issues
   useEffect(() => {
     console.log("Auth state:", { user, authLoading });
+    console.log("Admin state:", { isAdmin, adminLoading });
     
     // Wait for auth to be ready before fetching data
     if (!authLoading) {
@@ -92,11 +99,15 @@ const TranscriptsPage = () => {
     try {
       console.log("Starting transcript fetch for user:", user.id);
       
-      const { data, error } = await supabase
-        .from("transcripts")
-        .select("*")
-        .eq("user_id", user.id)
-        .order("created_at", { ascending: false });
+      // If user is admin, fetch all transcripts
+      let query = supabase.from("transcripts").select("*");
+      
+      // Only filter by user_id if not admin
+      if (!isAdmin) {
+        query = query.eq("user_id", user.id);
+      }
+      
+      const { data, error } = await query.order("created_at", { ascending: false });
       
       if (error) {
         console.error("Error fetching transcripts:", error);
@@ -123,12 +134,16 @@ const TranscriptsPage = () => {
     try {
       console.log("Refreshing transcripts for user:", user.id);
       
-      const { data, error } = await supabase
-        .from("transcripts")
-        .select("*")
-        .eq("user_id", user.id)
-        .order("created_at", { ascending: false });
-        
+      // If user is admin, fetch all transcripts
+      let query = supabase.from("transcripts").select("*");
+      
+      // Only filter by user_id if not admin
+      if (!isAdmin) {
+        query = query.eq("user_id", user.id);
+      }
+      
+      const { data, error } = await query.order("created_at", { ascending: false });
+      
       if (error) throw error;
       
       console.log(`Refresh complete. Found ${data?.length || 0} transcripts`);
@@ -376,6 +391,88 @@ const TranscriptsPage = () => {
     }
   };
 
+  // New function to handle transcript deletion
+  const handleDeleteTranscript = (transcript: Transcript, event?: React.MouseEvent) => {
+    if (event) {
+      event.stopPropagation();
+    }
+    
+    if (!isAdmin) {
+      showError("Permission Denied", "Only administrators can delete transcripts.");
+      return;
+    }
+    
+    setTranscriptToDelete(transcript);
+    setDeleteDialogOpen(true);
+  };
+  
+  // Function to perform the actual deletion
+  const confirmDeleteTranscript = async () => {
+    if (!transcriptToDelete || !isAdmin) return;
+    
+    setIsDeleting(true);
+    
+    try {
+      console.log(`Deleting transcript ${transcriptToDelete.id} and related data`);
+      
+      // First, delete any associated summaries
+      const { error: summaryError } = await supabase
+        .from('transcript_summaries')
+        .delete()
+        .eq('transcript_id', transcriptToDelete.id);
+      
+      if (summaryError) {
+        console.error("Error deleting transcript summaries:", summaryError);
+        throw summaryError;
+      }
+      
+      // Then delete the transcript itself
+      const { error: transcriptError } = await supabase
+        .from('transcripts')
+        .delete()
+        .eq('id', transcriptToDelete.id);
+      
+      if (transcriptError) {
+        console.error("Error deleting transcript:", transcriptError);
+        throw transcriptError;
+      }
+      
+      // If the transcript has a file path, delete the file from storage
+      if (transcriptToDelete.file_path) {
+        const filePath = transcriptToDelete.file_path.replace('transcripts/', '');
+        const { error: storageError } = await supabase
+          .storage
+          .from('transcripts')
+          .remove([filePath]);
+        
+        if (storageError) {
+          console.warn("Could not delete associated file:", storageError);
+          // We continue even if file deletion fails
+        }
+      }
+      
+      // Remove the transcript from local state
+      setTranscripts(prev => prev.filter(t => t.id !== transcriptToDelete.id));
+      
+      // If the deleted transcript was selected, clear the selection
+      if (selectedTranscript?.id === transcriptToDelete.id) {
+        setSelectedTranscript(null);
+        setTranscriptSummary(null);
+      }
+      
+      showSuccess("Transcript Deleted", `Successfully deleted "${transcriptToDelete.title}"`);
+      
+      // Close the dialog and reset the transcript to delete
+      setDeleteDialogOpen(false);
+      setTranscriptToDelete(null);
+    } catch (error: any) {
+      console.error("Error deleting transcript:", error);
+      showError("Delete Failed", error.message || "An unknown error occurred");
+    } finally {
+      setIsDeleting(false);
+    }
+  };
+
   const getStatusIcon = (transcript: Transcript) => {
     if (!transcript.is_processed) {
       return <Clock className="h-4 w-4 text-amber-500" aria-label="Processing" />;
@@ -415,7 +512,7 @@ const TranscriptsPage = () => {
   }
 
   // Enhanced loading state with more information
-  if (authLoading || (isLoading && !error)) {
+  if (authLoading || adminLoading || (isLoading && !error)) {
     return (
       <div className="container py-6 max-w-6xl">
         <h1 className="text-3xl font-bold mb-6">Transcripts</h1>
@@ -470,6 +567,7 @@ const TranscriptsPage = () => {
       {user && (
         <div className="bg-muted p-2 rounded mb-4 text-sm">
           <p>Logged in as: {user.email || user.id}</p>
+          {isAdmin && <p className="text-green-600">Admin access granted</p>}
         </div>
       )}
 
@@ -533,7 +631,19 @@ const TranscriptsPage = () => {
             
             {selectedTranscript && (
               <div className="border rounded-lg p-4">
-                <h3 className="text-lg font-medium mb-2">Selected Transcript</h3>
+                <div className="flex justify-between items-center mb-2">
+                  <h3 className="text-lg font-medium">Selected Transcript</h3>
+                  {isAdmin && (
+                    <Button 
+                      variant="destructive" 
+                      size="sm" 
+                      onClick={(e) => handleDeleteTranscript(selectedTranscript, e)}
+                    >
+                      <Trash2 className="h-4 w-4 mr-2" />
+                      Delete
+                    </Button>
+                  )}
+                </div>
                 <div className="space-y-2">
                   <p className="text-sm font-medium">Title</p>
                   <p className="text-sm text-muted-foreground">{selectedTranscript.title}</p>
@@ -724,6 +834,17 @@ const TranscriptsPage = () => {
                             {new Date(transcript.created_at).toLocaleDateString()}
                           </CardDescription>
                         </div>
+                        
+                        {isAdmin && (
+                          <Button 
+                            variant="ghost" 
+                            size="sm" 
+                            className="text-destructive hover:text-destructive hover:bg-destructive/10"
+                            onClick={(e) => handleDeleteTranscript(transcript, e)}
+                          >
+                            <Trash2 className="h-4 w-4" />
+                          </Button>
+                        )}
                       </div>
                     </CardHeader>
                     <CardContent className="pb-2">
@@ -755,6 +876,17 @@ const TranscriptsPage = () => {
           </div>
         </div>
       </Tabs>
+      
+      {/* Delete Transcript Dialog */}
+      {transcriptToDelete && (
+        <DeleteTranscriptDialog
+          isOpen={deleteDialogOpen}
+          onOpenChange={setDeleteDialogOpen}
+          onConfirmDelete={confirmDeleteTranscript}
+          title={transcriptToDelete.title}
+          isDeleting={isDeleting}
+        />
+      )}
       
       {showBulkTagDialog && (
         <Dialog open={showBulkTagDialog} onOpenChange={setShowBulkTagDialog}>
