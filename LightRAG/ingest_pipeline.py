@@ -9,6 +9,15 @@ from LightRAG.supabase_client import upload_file, insert_metadata
 from LightRAG.mem0_client import Mem0Client
 
 def ingest_transcript(file_path: str, bucket: str, table: str, topic: str = None):
+    """
+    Ingest a transcript file: upload to storage, store metadata, and create embeddings.
+    
+    Args:
+        file_path: Path to the transcript file
+        bucket: Supabase storage bucket name
+        table: Supabase metadata table name
+        topic: Optional topic classifier for the transcript
+    """
     # Upload file to Supabase Storage
     dest_path = os.path.basename(file_path)
     upload_file(bucket, file_path, dest_path)
