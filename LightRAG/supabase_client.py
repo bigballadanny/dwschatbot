@@ -1,3 +1,4 @@
+
 """
 Supabase client for file upload and metadata storage.
 """
@@ -136,6 +137,31 @@ def get_transcripts(limit: int = 100, topic: Optional[str] = None) -> Dict[str, 
     except Exception as e:
         logger.error(f"Error fetching transcripts from Supabase: {str(e)}")
         return {"data": [], "error": str(e)}
+
+def generate_public_url(bucket: str, file_path: str) -> str:
+    """
+    Generate a public URL for a file in a storage bucket.
+    
+    Args:
+        bucket: Storage bucket name
+        file_path: Path to the file within the bucket
+        
+    Returns:
+        Public URL for the file
+    """
+    client = get_supabase_client()
+    try:
+        # The Python client doesn't expose a direct method to get the URL,
+        # so we construct it manually based on the Supabase URL pattern
+        url = os.getenv("SUPABASE_URL")
+        if not url:
+            raise ValueError("SUPABASE_URL environment variable not set")
+        
+        # Construct public URL
+        return f"{url}/storage/v1/object/public/{bucket}/{file_path}"
+    except Exception as e:
+        logger.error(f"Error generating public URL: {str(e)}")
+        raise
 
 def healthcheck() -> bool:
     """

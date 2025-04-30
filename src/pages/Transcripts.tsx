@@ -22,7 +22,7 @@ import TagFilter from "@/components/TagFilter";
 import { showSuccess, showError, showWarning } from "@/utils/toastUtils";
 import BulkTagProcessor from "@/components/BulkTagProcessor";
 import FileUploader from "@/components/FileUploader";
-import { sanitizeFilename, generateStoragePath } from "@/utils/fileUtils";
+import { sanitizeFilename, generateStoragePath, generatePublicUrl } from "@/utils/fileUtils";
 
 interface Transcript {
   id: string;
@@ -147,7 +147,7 @@ const TranscriptsPage: React.FC = () => {
           continue;
         }
 
-        const publicURL = `${supabase.storage.url}/object/public/transcripts/${filePath}`;
+        const publicURL = generatePublicUrl('transcripts', filePath);
         
         await createTranscript(file.name, '', filePath, publicURL);
         successCount++;
@@ -224,7 +224,7 @@ const TranscriptsPage: React.FC = () => {
         return;
       }
 
-      const publicURL = `${supabase.storage.url}/object/public/transcripts/${filePath}`;
+      const publicURL = generatePublicUrl('transcripts', filePath);
       
       createTranscript(selectedFile.name, '', filePath, publicURL);
     } catch (error: any) {

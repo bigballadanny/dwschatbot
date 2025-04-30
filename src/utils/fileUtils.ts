@@ -35,6 +35,17 @@ export function generateStoragePath(userId: string, fileName: string): string {
 }
 
 /**
+ * Generates a public URL for a file in Supabase storage
+ * 
+ * @param bucket The bucket name
+ * @param filePath The file path inside the bucket
+ * @returns A public URL for the file
+ */
+export function generatePublicUrl(bucket: string, filePath: string): string {
+  return `https://bfscrjrjwbzpldamcrbz.supabase.co/storage/v1/object/public/${bucket}/${encodeURIComponent(filePath)}`;
+}
+
+/**
  * Gets file extension from filename
  * 
  * @param filename The filename
