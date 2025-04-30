@@ -1,3 +1,4 @@
+
 import { BrowserRouter, Routes, Route, Link, useLocation } from 'react-router-dom';
 import { ThemeProvider } from '@/components/ThemeProvider';
 import { Toaster } from '@/components/ui/sonner';
@@ -21,7 +22,15 @@ import SidebarOpenButton from '@/components/sidebar/SidebarOpenButton';
 import './App.css';
 
 // Initialize the query client
-const queryClient = new QueryClient();
+const queryClient = new QueryClient({
+  defaultOptions: {
+    queries: {
+      retry: 1,
+      refetchOnWindowFocus: false,
+      staleTime: 30000,
+    },
+  },
+});
 
 // Wrap the main content in a component to use hooks like useLocation
 const AppContent = () => {
@@ -41,7 +50,6 @@ const AppContent = () => {
       {/* Add a floating link to easily access the Vertex AI setup page */}
       <div className="fixed bottom-4 right-4 z-50">
         <div className="flex flex-col gap-2">
-          
           <Link to="/vertex-setup" className="bg-blue-600 hover:bg-blue-700 text-white py-2 px-4 rounded shadow flex items-center gap-2">
             <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
               <path d="m21.73 18-8-14a2 2 0 0 0-3.48 0l-8 14A2 2 0 0 0 4 21h16a2 2 0 0 0 1.73-3Z"></path>
@@ -78,7 +86,7 @@ const AppContent = () => {
           
           <Route path="/admin" element={<ManagementRoute>
                 <AdminManagement />
-              </ManagementRoute>} />
+              </ProtectedRoute>} />
           
           <Route path="*" element={<NotFound />} />
         </Routes>

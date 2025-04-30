@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useContext } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -11,13 +11,14 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Progress } from "@/components/ui/progress";
 import { Textarea } from "@/components/ui/textarea";
-import { Clock, CheckCircle2, FileText, Tag, Upload, X, RefreshCw, Search, Filter } from "lucide-react";
+import { Clock, CheckCircle2, FileText, Tag, Upload, X, RefreshCw, Search, Filter, AlertTriangle } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
-import { UserContext } from "@/contexts/UserContext";
+import { useAuth } from '@/context/AuthContext';  // Use the AuthContext instead of UserContext
 import { showSuccess, showError, showWarning } from "@/utils/toastUtils";
 import { useTranscriptSummaries } from "@/hooks/useTranscriptSummaries";
 import { getTranscriptCounts, getSourceCategories, formatTagForDisplay, suggestTagsFromContent, Transcript as TranscriptType } from "@/utils/transcriptUtils";
 import TranscriptUploader from "@/components/TranscriptUploader";
+import { Alert, AlertDescription } from "@/components/ui/alert";
 
 // Update the Transcript interface to match the one from transcriptUtils
 interface Transcript extends TranscriptType {
@@ -32,10 +33,13 @@ interface TranscriptSummary {
 }
 
 const TranscriptsPage = () => {
-  const { user } = useContext(UserContext);
+  // Use the useAuth hook instead of UserContext
+  const { user, isLoading: authLoading } = useAuth();
+  
   const [transcripts, setTranscripts] = useState<Transcript[]>([]);
   const [filteredTranscripts, setFilteredTranscripts] = useState<Transcript[]>([]);
   const [isLoading, setIsLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
   const [searchQuery, setSearchQuery] = useState("");
   const [selectedSource, setSelectedSource] = useState<string>("all");
   const [selectedTranscript, setSelectedTranscript] = useState<Transcript | null>(null);
@@ -54,31 +58,56 @@ const TranscriptsPage = () => {
     maxConcurrent: 2
   });
 
+  // Add more detailed logging to help diagnose issues
   useEffect(() => {
-    if (user) {
-      fetchTranscripts();
+    console.log("Auth state:", { user, authLoading });
+    
+    // Wait for auth to be ready before fetching data
+    if (!authLoading) {
+      if (user) {
+        console.log("User authenticated, fetching transcripts for user:", user.id);
+        fetchTranscripts();
+      } else {
+        console.log("No authenticated user found");
+        setIsLoading(false);
+        setError("Authentication required. Please log in to view your transcripts.");
+      }
     }
-  }, [user]);
+  }, [user, authLoading]);
 
   useEffect(() => {
     filterTranscripts();
   }, [searchQuery, selectedSource, transcripts, activeTab]);
 
   const fetchTranscripts = async () => {
-    if (!user) return;
+    if (!user) {
+      console.log("No user available for fetching transcripts");
+      setIsLoading(false);
+      return;
+    }
+    
     setIsLoading(true);
+    setError(null);
     
     try {
+      console.log("Starting transcript fetch for user:", user.id);
+      
       const { data, error } = await supabase
         .from("transcripts")
         .select("*")
         .eq("user_id", user.id)
         .order("created_at", { ascending: false });
-        
-      if (error) throw error;
+      
+      if (error) {
+        console.error("Error fetching transcripts:", error);
+        throw error;
+      }
+      
+      console.log(`Successfully fetched ${data?.length || 0} transcripts`);
       setTranscripts(data || []);
     } catch (error: any) {
-      console.error("Error fetching transcripts:", error);
+      console.error("Error in fetchTranscripts:", error);
+      setError(`Failed to load transcripts: ${error.message || "Unknown error"}`);
       showError("Failed to load transcripts", error.message);
     } finally {
       setIsLoading(false);
@@ -87,9 +116,13 @@ const TranscriptsPage = () => {
 
   const refreshTranscripts = async () => {
     if (!user) return;
+    
     setIsLoading(true);
+    setError(null);
     
     try {
+      console.log("Refreshing transcripts for user:", user.id);
+      
       const { data, error } = await supabase
         .from("transcripts")
         .select("*")
@@ -97,10 +130,13 @@ const TranscriptsPage = () => {
         .order("created_at", { ascending: false });
         
       if (error) throw error;
+      
+      console.log(`Refresh complete. Found ${data?.length || 0} transcripts`);
       setTranscripts(data || []);
     } catch (error: any) {
-      console.error("Error fetching transcripts:", error);
-      showError("Failed to load transcripts", error.message);
+      console.error("Error refreshing transcripts:", error);
+      setError(`Failed to refresh transcripts: ${error.message || "Unknown error"}`);
+      showError("Failed to refresh transcripts", error.message);
     } finally {
       setIsLoading(false);
     }
@@ -353,6 +389,67 @@ const TranscriptsPage = () => {
   const transcriptCounts = getTranscriptCounts(transcripts);
   const sourceCategories = getSourceCategories();
 
+  // Render a different UI when there's an error
+  if (error) {
+    return (
+      <div className="container py-6 max-w-6xl">
+        <h1 className="text-3xl font-bold mb-6">Transcripts</h1>
+        
+        <Alert variant="destructive" className="mb-6">
+          <AlertTriangle className="h-4 w-4 mr-2" />
+          <AlertDescription>{error}</AlertDescription>
+        </Alert>
+        
+        <div className="flex justify-between">
+          <Button onClick={() => setError(null)} variant="outline">
+            Try Again
+          </Button>
+          
+          <Button onClick={refreshTranscripts}>
+            <RefreshCw className="h-4 w-4 mr-2" />
+            Refresh
+          </Button>
+        </div>
+      </div>
+    );
+  }
+
+  // Enhanced loading state with more information
+  if (authLoading || (isLoading && !error)) {
+    return (
+      <div className="container py-6 max-w-6xl">
+        <h1 className="text-3xl font-bold mb-6">Transcripts</h1>
+        <div className="space-y-4">
+          <div className="flex items-center space-x-4 mb-6">
+            <div className="w-full">
+              <Skeleton className="h-10 w-full" />
+            </div>
+            <div className="w-64">
+              <Skeleton className="h-10 w-full" />
+            </div>
+          </div>
+          
+          {[1, 2, 3].map(i => (
+            <Card key={i}>
+              <CardHeader>
+                <Skeleton className="h-6 w-3/4" />
+                <Skeleton className="h-4 w-1/2" />
+              </CardHeader>
+              <CardContent>
+                <Skeleton className="h-4 w-full" />
+                <Skeleton className="h-4 w-full mt-2" />
+              </CardContent>
+            </Card>
+          ))}
+          
+          <div className="text-center text-sm text-muted-foreground mt-4">
+            {authLoading ? 'Authenticating user...' : 'Loading transcripts...'}
+          </div>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className="container py-6 max-w-6xl">
       <div className="flex items-center justify-between">
@@ -368,6 +465,13 @@ const TranscriptsPage = () => {
           </Button>
         </div>
       </div>
+
+      {/* Show user info for debugging */}
+      {user && (
+        <div className="bg-muted p-2 rounded mb-4 text-sm">
+          <p>Logged in as: {user.email || user.id}</p>
+        </div>
+      )}
 
       <div className="flex flex-col md:flex-row gap-4 mb-6">
         <div className="flex-1">
@@ -388,7 +492,7 @@ const TranscriptsPage = () => {
             </SelectTrigger>
             <SelectContent>
               <SelectItem value="all">All Sources</SelectItem>
-              {sourceCategories.map(category => (
+              {getSourceCategories().map(category => (
                 <SelectItem key={category.id} value={category.id}>
                   {category.label}
                 </SelectItem>
@@ -536,22 +640,7 @@ const TranscriptsPage = () => {
           </div>
 
           <div>
-            {isLoading ? (
-              <div className="space-y-4">
-                {[1, 2, 3].map(i => (
-                  <Card key={i}>
-                    <CardHeader>
-                      <Skeleton className="h-6 w-3/4" />
-                      <Skeleton className="h-4 w-1/2" />
-                    </CardHeader>
-                    <CardContent>
-                      <Skeleton className="h-4 w-full" />
-                      <Skeleton className="h-4 w-full mt-2" />
-                    </CardContent>
-                  </Card>
-                ))}
-              </div>
-            ) : filteredTranscripts.length === 0 ? (
+            {filteredTranscripts.length === 0 ? (
               <div className="text-center py-12">
                 <FileText className="h-12 w-12 mx-auto text-muted-foreground" />
                 <h3 className="mt-4 text-lg font-medium">No transcripts found</h3>
