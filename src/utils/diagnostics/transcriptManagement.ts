@@ -155,15 +155,16 @@ export async function getTranscriptFileContent(filePath: string): Promise<{
   
   try {
     // Get file URL
-    const { data, error: urlError } = supabase.storage
+    const { data } = supabase.storage
       .from('transcripts')
       .getPublicUrl(filePath);
     
-    if (urlError || !data || !data.publicUrl) {
-      console.error(`[MANAGEMENT] Error generating public URL for file:`, urlError);
+    // Fixed: The getPublicUrl method doesn't return an error property
+    if (!data || !data.publicUrl) {
+      console.error(`[MANAGEMENT] Error generating public URL for file: No URL returned`);
       return { 
         success: false,
-        error: urlError?.message || 'Failed to generate URL' 
+        error: 'Failed to generate URL' 
       };
     }
     
