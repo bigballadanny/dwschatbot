@@ -32,7 +32,7 @@ const StuckTranscripts = ({
   }
 
   // Helper function to determine status badge color
-  const getStatusColor = (status: string): string => {
+  const getStatusColor = (status: string): "destructive" | "secondary" | "default" | "outline" | "warning" => {
     if (status.includes('Failed')) return 'destructive';
     if (status.includes('Retried')) return 'warning';
     return 'secondary';
@@ -98,12 +98,13 @@ const StuckTranscripts = ({
                     <div className="flex-1">
                       <Progress 
                         value={processingProgress} 
-                        className="w-full h-2" 
-                        indicatorClassName={
-                          processingProgress < 30 ? "bg-red-500" :
-                          processingProgress < 70 ? "bg-yellow-500" :
-                          "bg-green-500"
-                        }
+                        className="w-full h-2"
+                        // Use inline style instead of indicatorClassName
+                        style={{
+                          '--progress-indicator-color': processingProgress < 30 ? 'var(--red-500)' : 
+                                                      processingProgress < 70 ? 'var(--yellow-500)' : 
+                                                      'var(--green-500)'
+                        } as React.CSSProperties}
                       />
                       <div className="text-xs mt-1 text-right text-muted-foreground">
                         {Math.round(processingProgress)}% complete

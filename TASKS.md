@@ -19,6 +19,17 @@
   - Component: PGVector configuration
   - Zoom-in details: Configure PGVector for better performance with larger datasets
 
+### Transcript Processing Fixes [PRIORITY: HIGH] [UPDATED: 2025-05-01]
+- [ ] Fix content extraction from files with correct paths
+  - Component: process-transcript function
+  - Zoom-in details: Ensure stored file paths correctly resolve to content
+- [ ] Implement hierarchical chunking in process-transcript function
+  - Component: chunking module
+  - Zoom-in details: Create parent-child relationships between chunks
+- [ ] Add metadata tracking for chunking strategies used
+  - Component: chunking module
+  - Zoom-in details: Store information about chunking approaches in metadata
+
 ## Completed Tasks
 
 ### Core Functionality
@@ -33,8 +44,8 @@
 - [x] Add unit tests and /tests directory [COMPLETED: 2025-04-28]
 - [x] Add Supabase and mem0 integration stubs [COMPLETED: 2025-04-28]
 - [x] Implement Ingestion UI in Streamlit app [COMPLETED: 2025-04-28]
-- [x] Replace mem0 with PGVector in Supabase [COMPLETED: 2025-05-01]
-- [x] Implement feedback mechanism for continuous improvement [COMPLETED: 2025-05-01]
+- [x] Replace mem0 with PGVector in Supabase [COMPLETED: 2025-04-30]
+- [x] Implement feedback mechanism for continuous improvement [COMPLETED: 2025-04-30]
 - [x] Remove Python backend dependency from transcript processing [COMPLETED: 2025-05-01]
 - [x] Refactor TranscriptDiagnostics component for better maintainability [COMPLETED: 2025-05-01]
 - [x] Fix environment configuration and dependency issues [COMPLETED: 2025-05-01]
@@ -46,6 +57,7 @@
 - [x] Add source citation functionality [COMPLETED: 2025-05-01]
 - [x] Optimize embedding generation service [COMPLETED: 2025-05-01]
 - [x] Refactor diagnostic utilities into smaller modules [COMPLETED: 2025-05-01]
+- [x] Fix UI components for transcript diagnostics [COMPLETED: 2025-05-01]
 
 ### Infrastructure
 - [x] Configure basic deployment workflow [COMPLETED: 2025-04-26]
