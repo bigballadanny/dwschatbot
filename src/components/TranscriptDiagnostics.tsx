@@ -7,6 +7,7 @@ import { Loader2, AlertCircle, FileCheck, Settings } from 'lucide-react';
 import { toast } from "sonner";
 import { Separator } from '@/components/ui/separator';
 import DiagnosticCard from '@/components/diagnostics/DiagnosticCard';
+import DiagnosticCardSimple from '@/components/diagnostics/DiagnosticCardSimple';
 import IssuesSummary from '@/components/diagnostics/IssuesSummary';
 import UnprocessedTranscripts from '@/components/diagnostics/UnprocessedTranscripts';
 import StuckTranscripts from '@/components/diagnostics/StuckTranscripts';
@@ -15,16 +16,24 @@ import PotentialSummitTranscripts from '@/components/diagnostics/PotentialSummit
 import MaintenanceTab from '@/components/diagnostics/MaintenanceTab';
 
 import { 
-  checkForTranscriptIssues, 
-  forceProcessTranscripts, 
-  checkTranscriptProcessingHealth 
+  checkForTranscriptIssues,
+  fixTranscriptIssues
 } from '@/utils/diagnostics';
+import { DiagnosticTranscript } from '@/utils/diagnostics/transcriptIssues';
 
 const TranscriptDiagnostics: React.FC = () => {
   const [loading, setLoading] = useState(false);
   const [issues, setIssues] = useState<any>(null);
   const [healthStatus, setHealthStatus] = useState<any>(null);
   const [activeTab, setActiveTab] = useState<string>('overview');
+  
+  // Selected transcripts state
+  const [selectedUnprocessed, setSelectedUnprocessed] = useState<string[]>([]);
+  const [selectedEmptyContent, setSelectedEmptyContent] = useState<string[]>([]);
+  const [processingUnprocessed, setProcessingUnprocessed] = useState(false);
+  const [processingEmpty, setProcessingEmpty] = useState(false);
+  const [processingStuck, setProcessingStuck] = useState(false);
+  const [processingProgress, setProcessingProgress] = useState(0);
 
   const runDiagnostics = async () => {
     setLoading(true);
@@ -42,16 +51,156 @@ const TranscriptDiagnostics: React.FC = () => {
 
   const checkSystemHealth = async () => {
     try {
-      const health = await checkTranscriptProcessingHealth();
-      setHealthStatus(health);
-      if (health.healthy) {
+      const health = await fetch('/api/check-system-health');
+      const healthData = await health.json();
+      setHealthStatus(healthData);
+      
+      if (healthData.healthy) {
         toast.success("System appears to be healthy");
       } else {
-        toast.warning(`Found ${health.issues.length} system health issues`);
+        toast.warning(`Found ${healthData.issues?.length || 0} system health issues`);
       }
     } catch (error) {
       toast.error(`Error checking system health: ${error instanceof Error ? error.message : 'Unknown error'}`);
       console.error("Health check error:", error);
+    }
+  };
+
+  // Handle transcript selection
+  const handleSelectTranscript = (id: string, isSelected: boolean, type: 'unprocessed' | 'empty') => {
+    if (type === 'unprocessed') {
+      setSelectedUnprocessed(prev => 
+        isSelected ? [...prev, id] : prev.filter(item => item !== id)
+      );
+    } else {
+      setSelectedEmptyContent(prev => 
+        isSelected ? [...prev, id] : prev.filter(item => item !== id)
+      );
+    }
+  };
+
+  // Handle select all
+  const handleSelectAll = (transcripts: DiagnosticTranscript[], isSelected: boolean, type: 'unprocessed' | 'empty') => {
+    if (type === 'unprocessed') {
+      setSelectedUnprocessed(isSelected ? transcripts.map(t => t.id) : []);
+    } else {
+      setSelectedEmptyContent(isSelected ? transcripts.map(t => t.id) : []);
+    }
+  };
+
+  // Handle force processing
+  const handleForceProcess = async () => {
+    if (selectedUnprocessed.length === 0) {
+      toast.warning("No transcripts selected to process");
+      return;
+    }
+
+    setProcessingUnprocessed(true);
+    setProcessingProgress(0);
+    
+    try {
+      // Process in batches for better UX
+      const batchSize = 5;
+      let processed = 0;
+      
+      for (let i = 0; i < selectedUnprocessed.length; i += batchSize) {
+        const batch = selectedUnprocessed.slice(i, i + batchSize);
+        await Promise.all(batch.map(id => fetch(`/api/force-process-transcript?id=${id}`)));
+        
+        processed += batch.length;
+        setProcessingProgress(Math.round((processed / selectedUnprocessed.length) * 100));
+      }
+      
+      toast.success(`Successfully processed ${processed} transcripts`);
+      runDiagnostics(); // Refresh the data
+    } catch (error) {
+      toast.error(`Error processing transcripts: ${error instanceof Error ? error.message : 'Unknown error'}`);
+    } finally {
+      setProcessingUnprocessed(false);
+      setSelectedUnprocessed([]);
+    }
+  };
+
+  // Handle fix empty content
+  const handleFixEmptyContent = async () => {
+    if (selectedEmptyContent.length === 0) {
+      toast.warning("No transcripts selected to fix");
+      return;
+    }
+
+    setProcessingEmpty(true);
+    setProcessingProgress(0);
+    
+    try {
+      const result = await fixTranscriptIssues(selectedEmptyContent);
+      
+      toast.success(`Fixed ${result.success} transcripts`);
+      
+      if (result.errors.length > 0) {
+        console.error("Errors fixing transcripts:", result.errors);
+        toast.error(`${result.errors.length} errors occurred. Check console for details.`);
+      }
+      
+      runDiagnostics(); // Refresh the data
+    } catch (error) {
+      toast.error(`Error fixing transcripts: ${error instanceof Error ? error.message : 'Unknown error'}`);
+    } finally {
+      setProcessingEmpty(false);
+      setSelectedEmptyContent([]);
+    }
+  };
+
+  // Handle retry stuck transcripts
+  const handleRetryStuck = async () => {
+    if (!issues?.stuckInProcessing?.length) {
+      toast.warning("No stuck transcripts to retry");
+      return;
+    }
+
+    setProcessingStuck(true);
+    setProcessingProgress(0);
+    
+    try {
+      const stuckIds = issues.stuckInProcessing.map((t: DiagnosticTranscript) => t.id);
+      
+      // Process in batches
+      const batchSize = 5;
+      let processed = 0;
+      
+      for (let i = 0; i < stuckIds.length; i += batchSize) {
+        const batch = stuckIds.slice(i, i + batchSize);
+        await Promise.all(batch.map(id => fetch(`/api/retry-transcript?id=${id}`)));
+        
+        processed += batch.length;
+        setProcessingProgress(Math.round((processed / stuckIds.length) * 100));
+      }
+      
+      toast.success(`Successfully retried ${processed} transcripts`);
+      runDiagnostics(); // Refresh the data
+    } catch (error) {
+      toast.error(`Error retrying transcripts: ${error instanceof Error ? error.message : 'Unknown error'}`);
+    } finally {
+      setProcessingStuck(false);
+    }
+  };
+
+  // Handle update transcript source
+  const handleUpdateSource = async (transcriptId: string, sourceType: string) => {
+    try {
+      const response = await fetch('/api/update-transcript-source', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ id: transcriptId, source: sourceType })
+      });
+      
+      if (!response.ok) {
+        throw new Error(`Failed to update transcript source: ${response.statusText}`);
+      }
+      
+      toast.success(`Successfully updated transcript source to ${sourceType}`);
+      runDiagnostics(); // Refresh the data
+    } catch (error) {
+      toast.error(`Error updating source: ${error instanceof Error ? error.message : 'Unknown error'}`);
     }
   };
 
@@ -124,20 +273,20 @@ const TranscriptDiagnostics: React.FC = () => {
               <div>
                 <h3 className="font-medium mb-2">System Statistics</h3>
                 <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-                  <DiagnosticCard 
+                  <DiagnosticCardSimple 
                     title="Total Transcripts" 
                     value={healthStatus.details.statistics.total} 
                   />
-                  <DiagnosticCard 
+                  <DiagnosticCardSimple 
                     title="Processed" 
                     value={`${healthStatus.details.statistics.processed} (${healthStatus.details.statistics.processedPercent}%)`} 
                   />
-                  <DiagnosticCard 
+                  <DiagnosticCardSimple 
                     title="Unprocessed" 
                     value={healthStatus.details.statistics.unprocessed}
                     variant={healthStatus.details.statistics.unprocessed > 0 ? "warning" : "default"}
                   />
-                  <DiagnosticCard 
+                  <DiagnosticCardSimple 
                     title="Summarized" 
                     value={healthStatus.details.statistics.summarized} 
                   />
@@ -170,19 +319,12 @@ const TranscriptDiagnostics: React.FC = () => {
                   </p>
                   <UnprocessedTranscripts 
                     transcripts={issues.unprocessedTranscripts} 
-                    onForceProcess={async (ids) => {
-                      try {
-                        const result = await forceProcessTranscripts(ids);
-                        if (result.success) {
-                          toast.success(`Successfully forced processing for ${result.processed} transcripts`);
-                          runDiagnostics();
-                        } else {
-                          toast.error(`Error forcing processing: ${result.errors.general || "Unknown error"}`);
-                        }
-                      } catch (error) {
-                        toast.error(`Error: ${error instanceof Error ? error.message : "Unknown error"}`);
-                      }
-                    }}
+                    selectedTranscripts={selectedUnprocessed}
+                    onSelectAll={(transcripts, isSelected) => handleSelectAll(transcripts, isSelected, 'unprocessed')}
+                    onSelectTranscript={(id, isSelected) => handleSelectTranscript(id, isSelected, 'unprocessed')}
+                    onProcess={handleForceProcess}
+                    isProcessing={processingUnprocessed}
+                    processingProgress={processingProgress}
                   />
                 </>
               )}
@@ -206,21 +348,37 @@ const TranscriptDiagnostics: React.FC = () => {
               {issues.emptyContentTranscripts?.length > 0 && (
                 <>
                   <h2 className="text-xl font-semibold">Empty Content Transcripts</h2>
-                  <EmptyContentTranscripts transcripts={issues.emptyContentTranscripts} />
+                  <EmptyContentTranscripts 
+                    transcripts={issues.emptyContentTranscripts}
+                    selectedTranscripts={selectedEmptyContent}
+                    onSelectAll={(transcripts, isSelected) => handleSelectAll(transcripts, isSelected, 'empty')}
+                    onSelectTranscript={(id, isSelected) => handleSelectTranscript(id, isSelected, 'empty')}
+                    onFix={handleFixEmptyContent}
+                    isProcessing={processingEmpty}
+                    processingProgress={processingProgress}
+                  />
                 </>
               )}
               
               {issues.stuckInProcessing?.length > 0 && (
                 <>
                   <h2 className="text-xl font-semibold mt-6">Stuck in Processing</h2>
-                  <StuckTranscripts transcripts={issues.stuckInProcessing} />
+                  <StuckTranscripts 
+                    transcripts={issues.stuckInProcessing}
+                    onRetry={handleRetryStuck}
+                    isProcessing={processingStuck}
+                    processingProgress={processingProgress}
+                  />
                 </>
               )}
               
               {issues.potentialSummitTranscripts?.length > 0 && (
                 <>
                   <h2 className="text-xl font-semibold mt-6">Potential Summit Transcripts</h2>
-                  <PotentialSummitTranscripts transcripts={issues.potentialSummitTranscripts} />
+                  <PotentialSummitTranscripts 
+                    transcripts={issues.potentialSummitTranscripts}
+                    onUpdateSource={handleUpdateSource}
+                  />
                 </>
               )}
             </div>

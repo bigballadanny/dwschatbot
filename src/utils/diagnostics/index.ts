@@ -3,8 +3,6 @@
 export * from './environmentCheck';
 export * from './transcriptIssues';
 export * from './transcriptRepair';
-export * from './transcriptManagement';
-export * from './transcriptProcessing';
 
 // We had conflicts with the legacy exports, so we'll rename them when re-exporting
 import { 

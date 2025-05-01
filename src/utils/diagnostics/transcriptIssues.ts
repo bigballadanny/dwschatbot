@@ -1,6 +1,24 @@
 
 import { supabase } from '@/integrations/supabase/client';
-import { Transcript } from '@/utils/transcriptUtils';
+
+// Define a proper type for the transcript metadata
+type TranscriptMetadata = Record<string, any>;
+
+// Extend the Transcript type from the transcriptUtils
+export interface DiagnosticTranscript {
+  id: string;
+  title: string;
+  content: string;
+  file_path?: string | null;
+  created_at: string;
+  updated_at: string;
+  user_id: string;
+  is_processed: boolean;
+  is_summarized: boolean;
+  source?: string;
+  tags?: string[];
+  metadata: TranscriptMetadata;
+}
 
 /**
  * Checks for transcripts that might have upload issues
@@ -8,7 +26,7 @@ import { Transcript } from '@/utils/transcriptUtils';
 export async function checkForTranscriptIssues() {
   try {
     // Get all transcripts
-    const { data: transcripts, error } = await supabase
+    const { data: transcriptsData, error } = await supabase
       .from('transcripts')
       .select('*')
       .order('created_at', { ascending: false });
@@ -16,6 +34,12 @@ export async function checkForTranscriptIssues() {
     if (error) {
       throw error;
     }
+    
+    // Ensure metadata is properly parsed
+    const transcripts: DiagnosticTranscript[] = transcriptsData.map(t => ({
+      ...t,
+      metadata: typeof t.metadata === 'string' ? JSON.parse(t.metadata) : (t.metadata || {})
+    }));
     
     const stats = {
       total: transcripts.length,
@@ -32,12 +56,12 @@ export async function checkForTranscriptIssues() {
     const lastHour = new Date();
     lastHour.setHours(lastHour.getHours() - 1);
     
-    const recentTranscripts: Transcript[] = [];
-    const emptyContentTranscripts: Transcript[] = [];
-    const potentialSummitTranscripts: Transcript[] = [];
-    const unprocessedTranscripts: Transcript[] = [];
-    const processingFailures: Transcript[] = [];
-    const stuckInProcessing: Transcript[] = [];
+    const recentTranscripts: DiagnosticTranscript[] = [];
+    const emptyContentTranscripts: DiagnosticTranscript[] = [];
+    const potentialSummitTranscripts: DiagnosticTranscript[] = [];
+    const unprocessedTranscripts: DiagnosticTranscript[] = [];
+    const processingFailures: DiagnosticTranscript[] = [];
+    const stuckInProcessing: DiagnosticTranscript[] = [];
     
     transcripts.forEach(transcript => {
       // Check for empty content
