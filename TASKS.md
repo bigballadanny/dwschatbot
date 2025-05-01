@@ -3,59 +3,15 @@
 
 ## Currently In Progress
 
-### Environment Configuration [PRIORITY: HIGH] [UPDATED: 2025-04-30]
-- [x] Add dotenv support for managing environment variables
-  - Component: LightRAG/utils.py
-  - Zoom-in details: Created load_env() function to load from .env files
-  - Status: COMPLETED 2025-04-30
-- [x] Add service validation for checking required environment variables
-  - Component: LightRAG/utils.py
-  - Zoom-in details: Created validate_services() function
-  - Status: COMPLETED 2025-04-30
-- [x] Add healthchecks for all services
-  - Component: LightRAG/mem0_client.py, LightRAG/supabase_client.py
-  - Zoom-in details: Added healthcheck() methods
-  - Status: COMPLETED 2025-04-30
-- [x] Create diagnostics UI in Streamlit
-  - Component: app.py
-  - Zoom-in details: Added diagnostics tab with service checks
-  - Status: COMPLETED 2025-04-30
-
-### RAG Enhancement [PRIORITY: HIGH] [UPDATED: 2025-04-30]
-- [x] Implement hybrid retrieval strategy combining keyword and semantic search
-  - Component: LightRAG/rag_agent.py
-  - Zoom-in details: Extend query() method to support both vector similarity and keyword matching
-  - Status: COMPLETED 2025-04-30
+### RAG Enhancement [PRIORITY: HIGH] [UPDATED: 2025-05-01]
 - [ ] Add support for hierarchical document chunking
   - Component: LightRAG/rag_pipeline.py
   - Zoom-in details: Modify chunk_transcript() to create multi-level chunks (document, section, paragraph)
-- [x] Create specialized retrievers for different document types
-  - Component: LightRAG/pgvector_client.py
-  - Zoom-in details: Added API key support and improved error handling
-  - Status: COMPLETED 2025-04-30
-- [x] Implement context re-ranking based on relevance scores
-  - Component: LightRAG/rag_agent.py
-  - Zoom-in details: Add post-retrieval scoring and sorting of results
-  - Status: COMPLETED 2025-04-30
-
-### PGVector Integration [PRIORITY: HIGH] [UPDATED: 2025-05-01]
-- [x] Replace mem0 with pgvector for vector storage
-  - Component: LightRAG/pgvector_client.py
-  - Zoom-in details: Created PGVector client to replace mem0 client
-  - Status: COMPLETED 2025-05-01
-- [x] Create SQL migration for Supabase pgvector setup
-  - Component: supabase/migrations
-  - Zoom-in details: Created tables and extensions for vector operations
-  - Status: COMPLETED 2025-05-01
-- [x] Create feedback mechanism for continuous improvement
-  - Component: LightRAG/rag_agent.py
-  - Zoom-in details: Added record_feedback method and feedback table
-  - Status: COMPLETED 2025-05-01
 - [ ] Implement embedding generation service
   - Component: LightRAG/embedding_service.py
   - Zoom-in details: Create service for generating text embeddings
 
-### UI Improvements [PRIORITY: MEDIUM] [UPDATED: 2025-04-30]
+### UI Improvements [PRIORITY: MEDIUM] [UPDATED: 2025-05-01]
 - [ ] Add conversation history sidebar
   - Component: app.py (Streamlit UI)
   - Zoom-in details: Create collapsible sidebar with st.sidebar and conversation history state
@@ -65,19 +21,11 @@
 - [ ] Create settings panel for user preferences
   - Component: app.py (Streamlit UI)
   - Zoom-in details: Add expandable settings section with model selection and parameters
-- [x] Add document upload interface with progress indicators
-  - Component: app.py (Streamlit UI)
-  - Zoom-in details: Created file uploader with spinner during processing
-  - Status: COMPLETED 2025-04-30
 
 ### Testing & Quality [PRIORITY: HIGH] [UPDATED: 2025-05-01]
 - [ ] Set up continuous integration pipeline
   - Component: .github/workflows
   - Zoom-in details: Create GitHub Actions workflow for Python testing
-- [x] Increase unit test coverage
-  - Component: tests/
-  - Zoom-in details: Added tests for environment configuration and pgvector client
-  - Status: PARTIALLY COMPLETED 2025-05-01
 - [ ] Add integration tests for the full RAG pipeline
   - Component: tests/
   - Zoom-in details: Create end-to-end tests with mock data
@@ -101,6 +49,8 @@
 - [x] Implement Ingestion UI in Streamlit app [COMPLETED: 2025-04-28]
 - [x] Replace mem0 with PGVector in Supabase [COMPLETED: 2025-05-01]
 - [x] Implement feedback mechanism for continuous improvement [COMPLETED: 2025-05-01]
+- [x] Remove Python backend dependency from transcript processing [COMPLETED: 2025-05-01]
+- [x] Refactor TranscriptDiagnostics component for better maintainability [COMPLETED: 2025-05-01]
 
 ### Infrastructure
 - [x] Configure basic deployment workflow [COMPLETED: 2025-04-26]
@@ -108,6 +58,8 @@
 - [x] Create documentation framework [COMPLETED: 2025-04-26]
 - [x] Implement basic logging and monitoring [COMPLETED: 2025-04-30]
 - [x] Set up PGVector in Supabase [COMPLETED: 2025-05-01]
+- [x] Streamline edge function processing pipeline [COMPLETED: 2025-05-01]
+- [x] Fix environment configuration and dependency issues [COMPLETED: 2025-05-01]
 
 ## Backlog
 
@@ -139,6 +91,10 @@
 - [ ] Optimize PGVector query performance
   - Component: LightRAG/pgvector_client.py
   - Zoom-in details: Implement more efficient vector search strategies
+- [ ] Update tests to remove references to Python backend
+  - Component: tests/
+  - Zoom-in details: Update test_mem0_client.py to use PGVector instead
+  - Status: PLANNED 2025-05-01
 
 ### Documentation [PRIORITY: MEDIUM] [UPDATED: 2025-05-01]
 - [ ] Create comprehensive API documentation
@@ -147,4 +103,3 @@
 - [ ] Create video tutorials for common workflows
 - [ ] Create documentation for the feedback system
 - [ ] Document PGVector implementation and configuration
-
