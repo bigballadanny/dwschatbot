@@ -34,7 +34,7 @@ export async function markTranscriptAsProcessed(transcriptId: string) {
         metadata: {
           processing_completed_at: new Date().toISOString(),
           manually_marked_as_processed: true
-        }
+        } as Record<string, any>
       })
       .eq('id', transcriptId);
       

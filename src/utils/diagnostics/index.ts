@@ -4,3 +4,4 @@ export * from './environmentCheck';
 export * from './transcriptIssues';
 export * from './transcriptRepair';
 export * from './transcriptManagement';
+export * from './transcriptProcessing';

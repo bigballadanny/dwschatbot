@@ -21,17 +21,39 @@ import { getTranscriptCounts, getSourceCategories, formatTagForDisplay, suggestT
 import TranscriptUploader from "@/components/TranscriptUploader";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import DeleteTranscriptDialog from "@/components/DeleteTranscriptDialog";
+import { Json } from '@/integrations/supabase/types';
 
 // Update the Transcript interface to match the one from transcriptUtils
 interface Transcript extends TranscriptType {
   // Any additional properties specific to this file can be added here
 }
+
 interface TranscriptSummary {
   id: string;
   summary: string;
   key_points?: any;
   created_at: string;
 }
+
+// Helper function to convert Supabase response to Transcript type
+const mapSupabaseResponseToTranscript = (data: any[]): Transcript[] => {
+  return data.map(item => ({
+    id: item.id,
+    title: item.title,
+    source: item.source,
+    created_at: item.created_at,
+    content: item.content,
+    file_path: item.file_path,
+    file_type: item.file_type,
+    tags: item.tags,
+    is_processed: item.is_processed,
+    is_summarized: item.is_summarized,
+    updated_at: item.updated_at,
+    user_id: item.user_id,
+    metadata: item.metadata as Record<string, any>
+  }));
+};
+
 const TranscriptsPage = () => {
   // Use the useAuth hook instead of UserContext
   const {
@@ -125,7 +147,10 @@ const TranscriptsPage = () => {
         throw error;
       }
       console.log(`Successfully fetched ${data?.length || 0} transcripts`);
-      setTranscripts(data || []);
+      
+      // Convert Supabase response to our Transcript type
+      setTranscripts(data ? mapSupabaseResponseToTranscript(data) : []);
+      
     } catch (error: any) {
       console.error("Error in fetchTranscripts:", error);
       setError(`Failed to load transcripts: ${error.message || "Unknown error"}`);
@@ -156,7 +181,10 @@ const TranscriptsPage = () => {
       });
       if (error) throw error;
       console.log(`Refresh complete. Found ${data?.length || 0} transcripts`);
-      setTranscripts(data || []);
+      
+      // Convert Supabase response to our Transcript type
+      setTranscripts(data ? mapSupabaseResponseToTranscript(data) : []);
+      
     } catch (error: any) {
       console.error("Error refreshing transcripts:", error);
       setError(`Failed to refresh transcripts: ${error.message || "Unknown error"}`);
