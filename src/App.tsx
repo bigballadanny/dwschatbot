@@ -19,6 +19,7 @@ import ManagementRoute from '@/components/ManagementRoute';
 import { AuthProvider } from '@/context/AuthContext';
 import { AdminProvider } from '@/context/AdminContext';
 import SidebarOpenButton from '@/components/sidebar/SidebarOpenButton';
+import TranscriptDiagnostics from '@/components/TranscriptDiagnostics';
 import './App.css';
 
 // Initialize the query client
@@ -47,8 +48,6 @@ const AppContent = () => {
         </>
       )}
       
-      {/* Removed the Vertex AI setup floating button */}
-      
       <div className="flex-1">
         <Routes>
           <Route path="/" element={<Index />} />
@@ -59,6 +58,12 @@ const AppContent = () => {
           <Route path="/transcripts" element={
             <ProtectedRoute>
               <Transcripts />
+            </ProtectedRoute>
+          } />
+          
+          <Route path="/transcript-diagnostics" element={
+            <ProtectedRoute>
+              <TranscriptDiagnostics />
             </ProtectedRoute>
           } />
           

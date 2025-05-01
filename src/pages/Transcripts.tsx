@@ -540,6 +540,14 @@ const TranscriptsPage = () => {
             <Tag className="h-4 w-4 mr-2" />
             Bulk Tag
           </Button>
+          <Button 
+            variant="outline" 
+            size="sm" 
+            onClick={() => window.location.href = '/transcript-diagnostics'}
+          >
+            <AlertTriangle className="h-4 w-4 mr-2" />
+            Diagnostics
+          </Button>
         </div>
       </div>
 

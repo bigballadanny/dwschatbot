@@ -23,12 +23,23 @@ Deno.serve(async (req) => {
   try {
     const payload = await req.json();
     
-    // Handle health check requests
+    // Handle health check requests with enhanced details
     if (payload.health_check === true) {
       console.log("[PROCESS] Received health check request");
+      
+      // Check Supabase connection as part of health check
+      const dbHealthy = await checkDatabaseConnection();
+      
       return new Response(JSON.stringify({
-        status: "healthy",
-        timestamp: new Date().toISOString()
+        status: dbHealthy ? "healthy" : "database_connection_error",
+        timestamp: new Date().toISOString(),
+        details: {
+          supabase_connection: dbHealthy,
+          environment_variables: {
+            supabase_url: !!Deno.env.get('SUPABASE_URL'),
+            service_role_key: !!Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')
+          }
+        }
       }), { 
         status: 200,
         headers: { ...corsHeaders, 'Content-Type': 'application/json' }
@@ -139,3 +150,15 @@ Deno.serve(async (req) => {
     });
   }
 });
+
+// Helper function to check database connection
+async function checkDatabaseConnection() {
+  try {
+    // Simple query to check if database connection works
+    const { data, error } = await supabaseAdmin.from('transcripts').select('id').limit(1);
+    return error === null;
+  } catch (e) {
+    console.error("Database connection check failed:", e);
+    return false;
+  }
+}
