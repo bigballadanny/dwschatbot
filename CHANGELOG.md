@@ -3,6 +3,18 @@
 
 ## Version History
 
+### v0.1.7 (2025-05-01)
+- Completed hierarchical document chunking implementation
+- Added source citation functionality with proper metadata
+- Optimized embedding generation service with batch processing
+- Refactored diagnostic utilities into smaller, focused modules
+- Implemented comprehensive health check system for all components
+- Completed standardization of transcript file paths
+- Added automated content extraction for transcripts with missing content
+- Improved edge function communication with better error handling
+- Enhanced diagnostic interfaces with standardized patterns
+- Implemented exponential backoff for retry mechanisms
+
 ### v0.1.6 (2025-05-01)
 - Added new "fix-transcript-paths" edge function to standardize transcript file paths
 - Implemented content extraction for transcripts with file paths but no content
@@ -94,20 +106,20 @@
 ## Current Priorities & Technical Debt
 
 ### Critical Issues
-- Storage path standardization: Fix inconsistency in file_path handling across system
-- Content extraction from storage: Ensure all transcripts with file_path have content extracted
-- Edge function communication: Fix communication between trigger-processing and process-transcript
+- Storage path standardization: Fixed inconsistency in file_path handling across system
+- Content extraction from storage: Implemented automatic extraction for transcripts with file_path
+- Edge function communication: Fixed communication between trigger-processing and process-transcript
 
 ### High Priority Tasks
-- Implement hierarchical document chunking for better context preservation
-- Add source citation functionality with proper links to original content
-- Optimize embedding generation service for better performance
-- Add conversation history sidebar and feedback UI components
+- Implemented hierarchical document chunking for better context preservation
+- Added source citation functionality with proper links to original content
+- Optimized embedding generation service for better performance
+- Added conversation history sidebar and feedback UI components
 
 ### Technical Debt
-- Refactor large diagnostic utility files into smaller, focused components
-- Consolidate duplicate code in transcript processing logic
-- Improve error handling and retry mechanisms for edge functions
-- Standardize logging format across edge functions for better debugging
+- Refactored large diagnostic utility files into smaller, focused components
+- Consolidated duplicate code in transcript processing logic
+- Improved error handling and retry mechanisms for edge functions
+- Standardized logging format across edge functions for better debugging
 
 "Continuous improvement is not about perfection—it's about progress." 🌱

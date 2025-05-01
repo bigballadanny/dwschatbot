@@ -3,29 +3,21 @@
 
 ## Currently In Progress
 
-### RAG Enhancement [PRIORITY: HIGH] [UPDATED: 2025-05-01]
-- [ ] Add support for hierarchical document chunking
-  - Component: LightRAG/rag_pipeline.py
-  - Zoom-in details: Modify chunk_transcript() to create multi-level chunks (document, section, paragraph)
-- [ ] Implement embedding generation service
-  - Component: LightRAG/embedding_service.py
-  - Zoom-in details: Create service for generating text embeddings
+### Advanced RAG Features [PRIORITY: HIGH] [UPDATED: 2025-05-01]
+- [ ] Implement conversational context management
+  - Component: RAG pipeline
+  - Zoom-in details: Add ability to reference previous questions and answers in new queries
+- [ ] Add multilingual support
+  - Component: Embedding service
+  - Zoom-in details: Ensure embeddings work well with multiple languages
 
-### UI Improvements [PRIORITY: MEDIUM] [UPDATED: 2025-05-01]
-- [ ] Add conversation history sidebar
-  - Component: app.py (Streamlit UI)
-  - Zoom-in details: Create collapsible sidebar with st.sidebar and conversation history state
-- [ ] Implement response feedback buttons (thumbs up/down)
-  - Component: app.py (Streamlit UI)
-  - Zoom-in details: Add buttons with callback to store feedback in Supabase
-
-### Testing & Quality [PRIORITY: HIGH] [UPDATED: 2025-05-01]
-- [ ] Set up continuous integration pipeline
-  - Component: .github/workflows
-  - Zoom-in details: Create GitHub Actions workflow for Python testing
-- [ ] Add integration tests for the full RAG pipeline
-  - Component: tests/
-  - Zoom-in details: Create end-to-end tests with mock data
+### Performance Optimization [PRIORITY: MEDIUM] [UPDATED: 2025-05-01]
+- [ ] Implement caching layer for frequent queries
+  - Component: search_embeddings edge function
+  - Zoom-in details: Store common query results to reduce processing time and API costs
+- [ ] Optimize vector search with approximate nearest neighbors
+  - Component: PGVector configuration
+  - Zoom-in details: Configure PGVector for better performance with larger datasets
 
 ## Completed Tasks
 
@@ -48,6 +40,12 @@
 - [x] Fix environment configuration and dependency issues [COMPLETED: 2025-05-01]
 - [x] Add transcript diagnostic tools [COMPLETED: 2025-05-01]
 - [x] Streamline edge function processing pipeline [COMPLETED: 2025-05-01]
+- [x] Standardize transcript file path handling [COMPLETED: 2025-05-01]
+- [x] Implement content extraction for transcripts with missing content [COMPLETED: 2025-05-01]
+- [x] Implement hierarchical document chunking [COMPLETED: 2025-05-01]
+- [x] Add source citation functionality [COMPLETED: 2025-05-01]
+- [x] Optimize embedding generation service [COMPLETED: 2025-05-01]
+- [x] Refactor diagnostic utilities into smaller modules [COMPLETED: 2025-05-01]
 
 ### Infrastructure
 - [x] Configure basic deployment workflow [COMPLETED: 2025-04-26]
@@ -55,6 +53,7 @@
 - [x] Create documentation framework [COMPLETED: 2025-04-26]
 - [x] Implement basic logging and monitoring [COMPLETED: 2025-04-30]
 - [x] Set up PGVector in Supabase [COMPLETED: 2025-05-01]
+- [x] Implement health check system for all components [COMPLETED: 2025-05-01]
 
 ## Backlog
 
@@ -66,13 +65,11 @@
 - [ ] Add admin endpoints for health/status monitoring
 - [ ] Integrate Supabase Auth for user authentication
 - [ ] Enhance RAG agent with context windowing/reranking
-- [ ] Add source citation functionality
 - [ ] Add custom settings panel for user preferences
 - [ ] Implement performance benchmarking suite
 
 ### Technical Improvements [PRIORITY: MEDIUM] [UPDATED: 2025-05-01]
 - [ ] Optimize token usage for cost reduction
-- [ ] Implement caching layer for frequent queries
 - [ ] Create fallback mechanisms for API failures
 - [ ] Add support for alternative embedding models
 - [ ] Optimize PGVector query performance
