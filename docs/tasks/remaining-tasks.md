@@ -60,10 +60,10 @@ This file tracks the remaining tasks for our RAG system implementation. Tasks ar
 ## Next Tasks (Current Sprint)
 
 ### Transcript Processing Pipeline
-- [ ] Fix edge function communication between transcript-webhook and process-transcript 
+- [x] Fix edge function communication between transcript-webhook and process-transcript 
 - [ ] Ensure metadata is properly updated during processing
-- [ ] Implement error handling and retry mechanisms for processing failures
-- [ ] Add structured logging for better debugging
+- [x] Implement error handling and retry mechanisms for processing failures
+- [x] Add structured logging for better debugging
 
 ### Content Processing
 - [ ] Fix content extraction from files with correct paths
@@ -72,10 +72,10 @@ This file tracks the remaining tasks for our RAG system implementation. Tasks ar
 - [ ] Enable source citation in search results
 
 ### System Health Check
-- [ ] Add monitoring for stuck transcripts
-- [ ] Implement transcript processing metrics collection
-- [ ] Create dashboard for system health visualization
-- [ ] Set up alerts for processing failures
+- [x] Add monitoring for stuck transcripts
+- [x] Implement transcript processing metrics collection
+- [x] Create dashboard for system health visualization
+- [x] Set up alerts for processing failures
 
 ## Completed Tasks
 
@@ -92,4 +92,5 @@ This file tracks the remaining tasks for our RAG system implementation. Tasks ar
 - [x] Added visualizations for chunking analysis
 - [x] Added health check functionality for system monitoring
 - [x] Created storage path standardization utilities
+
 
