@@ -48,19 +48,34 @@ const StuckTranscripts = ({
           <TableRow>
             <TableHead>Title</TableHead>
             <TableHead>Started At</TableHead>
+            <TableHead>Time Stuck</TableHead>
           </TableRow>
         </TableHeader>
         <TableBody>
-          {transcripts.map((transcript) => (
-            <TableRow key={transcript.id}>
-              <TableCell>{transcript.title}</TableCell>
-              <TableCell>
-                {transcript.metadata?.processing_started_at 
-                  ? new Date(transcript.metadata.processing_started_at).toLocaleTimeString()
-                  : 'Unknown'}
-              </TableCell>
-            </TableRow>
-          ))}
+          {transcripts.map((transcript) => {
+            // Calculate how long the transcript has been stuck
+            let timeStuck = '';
+            const processingStartedAt = transcript.metadata?.processing_started_at;
+            
+            if (processingStartedAt) {
+              const startTime = new Date(processingStartedAt);
+              const now = new Date();
+              const diffMinutes = Math.floor((now.getTime() - startTime.getTime()) / (1000 * 60));
+              timeStuck = `${diffMinutes} mins`;
+            }
+            
+            return (
+              <TableRow key={transcript.id}>
+                <TableCell>{transcript.title}</TableCell>
+                <TableCell>
+                  {processingStartedAt 
+                    ? new Date(processingStartedAt).toLocaleTimeString()
+                    : 'Unknown'}
+                </TableCell>
+                <TableCell>{timeStuck || 'Unknown'}</TableCell>
+              </TableRow>
+            );
+          })}
         </TableBody>
       </Table>
     </DiagnosticCard>

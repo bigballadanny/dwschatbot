@@ -3,6 +3,15 @@
 
 ## Version History
 
+### v0.1.4 (2025-05-01)
+- Fixed transcript processing pipeline issues
+- Standardized edge function communication
+- Consolidated transcript management utilities
+- Improved error handling and reporting
+- Added "Time Stuck" column to stuck transcripts view
+- Added "Has File Path" column to empty content transcripts view
+- Implemented direct edge function calls instead of non-existent API routes
+
 ### v0.1.3 (2025-05-01)
 - Fixed type definitions in diagnostic components
 - Added proper error handling for diagnostic tools
@@ -66,3 +75,4 @@
 - Type definitions are crucial for complex system integration
 
 "Continuous improvement is not about perfection—it's about progress." 🌱
+

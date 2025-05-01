@@ -23,11 +23,14 @@ Deno.serve(async (req) => {
       );
     }
 
+    console.log(`[PROCESS] Received request to process transcript ${id}`);
+
     // Create Supabase client
     const supabaseUrl = Deno.env.get('SUPABASE_URL');
     const supabaseKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY');
     
     if (!supabaseUrl || !supabaseKey) {
+      console.error('[PROCESS] Missing Supabase environment variables');
       throw new Error('Missing Supabase environment variables');
     }
 
@@ -43,11 +46,14 @@ Deno.serve(async (req) => {
       .single();
     
     if (getError || !transcript) {
+      console.error(`[PROCESS] Error fetching transcript ${id}:`, getError?.message || 'Not found');
       return new Response(
         JSON.stringify({ error: getError?.message || 'Transcript not found' }),
         { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 404 }
       );
     }
+
+    console.log(`[PROCESS] Found transcript ${id}: "${transcript.title}"`);
 
     // Update metadata to indicate processing
     const { error: updateError } = await supabase
@@ -62,13 +68,17 @@ Deno.serve(async (req) => {
       .eq('id', id);
 
     if (updateError) {
+      console.error(`[PROCESS] Error updating transcript ${id} metadata:`, updateError);
       return new Response(
         JSON.stringify({ error: updateError.message }),
         { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 500 }
       );
     }
 
+    console.log(`[PROCESS] Updated metadata for transcript ${id}`);
+
     // Call the transcript webhook function to trigger processing
+    console.log(`[PROCESS] Invoking transcript-webhook for transcript ${id}`);
     const { error: webhookError } = await supabase.functions.invoke('transcript-webhook', {
       body: { 
         type: 'INSERT',
@@ -77,18 +87,20 @@ Deno.serve(async (req) => {
     });
 
     if (webhookError) {
+      console.error(`[PROCESS] Error calling webhook for transcript ${id}:`, webhookError);
       return new Response(
         JSON.stringify({ error: webhookError.message }),
         { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 500 }
       );
     }
 
+    console.log(`[PROCESS] Successfully triggered processing for transcript ${id}`);
     return new Response(
       JSON.stringify({ success: true, message: 'Transcript processing triggered' }),
       { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
     );
   } catch (error) {
-    console.error('Error processing transcript:', error);
+    console.error('[PROCESS] Error processing transcript:', error);
     
     return new Response(
       JSON.stringify({ error: error.message || 'Internal server error' }),

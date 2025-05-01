@@ -76,6 +76,7 @@ const EmptyContentTranscripts = ({
             </TableHead>
             <TableHead>Title</TableHead>
             <TableHead>Created At</TableHead>
+            <TableHead>Has File Path</TableHead>
           </TableRow>
         </TableHeader>
         <TableBody>
@@ -90,6 +91,7 @@ const EmptyContentTranscripts = ({
               </TableCell>
               <TableCell>{transcript.title}</TableCell>
               <TableCell>{new Date(transcript.created_at).toLocaleDateString()}</TableCell>
+              <TableCell>{transcript.file_path ? 'Yes' : 'No'}</TableCell>
             </TableRow>
           ))}
         </TableBody>

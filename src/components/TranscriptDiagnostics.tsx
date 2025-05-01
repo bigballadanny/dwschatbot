@@ -1,3 +1,4 @@
+
 import React, { useState } from 'react';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
@@ -16,9 +17,16 @@ import MaintenanceTab from '@/components/diagnostics/MaintenanceTab';
 
 import { 
   checkForTranscriptIssues,
-  fixTranscriptIssues,
   DiagnosticTranscript
-} from '@/utils/diagnostics';
+} from '@/utils/diagnostics/transcriptIssues';
+
+import {
+  batchProcessTranscripts,
+  checkTranscriptSystemHealth,
+  fixEmptyContentTranscripts,
+  retryTranscriptProcessing,
+  updateTranscriptSource
+} from '@/utils/diagnostics/edgeFunctions';
 
 const TranscriptDiagnostics: React.FC = () => {
   const [loading, setLoading] = useState(false);
@@ -50,14 +58,14 @@ const TranscriptDiagnostics: React.FC = () => {
 
   const checkSystemHealth = async () => {
     try {
-      const health = await fetch('/api/check-system-health');
-      const healthData = await health.json();
-      setHealthStatus(healthData);
+      // Use direct edge function call instead of fetch
+      const health = await checkTranscriptSystemHealth();
+      setHealthStatus(health);
       
-      if (healthData.healthy) {
+      if (health.healthy) {
         toast.success("System appears to be healthy");
       } else {
-        toast.warning(`Found ${healthData.issues?.length || 0} system health issues`);
+        toast.warning(`Found ${health.issues?.length || 0} system health issues`);
       }
     } catch (error) {
       toast.error(`Error checking system health: ${error instanceof Error ? error.message : 'Unknown error'}`);
@@ -98,19 +106,20 @@ const TranscriptDiagnostics: React.FC = () => {
     setProcessingProgress(0);
     
     try {
-      // Process in batches for better UX
-      const batchSize = 5;
-      let processed = 0;
+      // Use our new direct edge function call
+      const result = await batchProcessTranscripts(
+        selectedUnprocessed,
+        (processed, total) => {
+          setProcessingProgress(Math.round((processed / total) * 100));
+        }
+      );
       
-      for (let i = 0; i < selectedUnprocessed.length; i += batchSize) {
-        const batch = selectedUnprocessed.slice(i, i + batchSize);
-        await Promise.all(batch.map(id => fetch(`/api/force-process-transcript?id=${id}`)));
-        
-        processed += batch.length;
-        setProcessingProgress(Math.round((processed / selectedUnprocessed.length) * 100));
+      if (result.success) {
+        toast.success(`Successfully processed ${result.processed} transcripts`);
+      } else {
+        toast.warning(`Processed ${result.processed} transcripts with ${Object.keys(result.errors).length} errors`);
       }
       
-      toast.success(`Successfully processed ${processed} transcripts`);
       runDiagnostics(); // Refresh the data
     } catch (error) {
       toast.error(`Error processing transcripts: ${error instanceof Error ? error.message : 'Unknown error'}`);
@@ -131,13 +140,18 @@ const TranscriptDiagnostics: React.FC = () => {
     setProcessingProgress(0);
     
     try {
-      const result = await fixTranscriptIssues(selectedEmptyContent);
+      // Use our new direct edge function call
+      const result = await fixEmptyContentTranscripts(
+        selectedEmptyContent,
+        (processed, total) => {
+          setProcessingProgress(Math.round((processed / total) * 100));
+        }
+      );
       
-      toast.success(`Fixed ${result.success} transcripts`);
-      
-      if (result.errors.length > 0) {
-        console.error("Errors fixing transcripts:", result.errors);
-        toast.error(`${result.errors.length} errors occurred. Check console for details.`);
+      if (result.success) {
+        toast.success(`Fixed content for ${result.fixed} transcripts`);
+      } else {
+        toast.warning(`Fixed ${result.fixed} transcripts with ${Object.keys(result.errors).length} errors`);
       }
       
       runDiagnostics(); // Refresh the data
@@ -161,20 +175,29 @@ const TranscriptDiagnostics: React.FC = () => {
     
     try {
       const stuckIds = issues.stuckInProcessing.map((t: DiagnosticTranscript) => t.id);
-      
-      // Process in batches
-      const batchSize = 5;
       let processed = 0;
+      const errors: Record<string, string> = {};
       
-      for (let i = 0; i < stuckIds.length; i += batchSize) {
-        const batch = stuckIds.slice(i, i + batchSize);
-        await Promise.all(batch.map(id => fetch(`/api/retry-transcript?id=${id}`)));
+      // Process in batches with progress updates
+      for (let i = 0; i < stuckIds.length; i++) {
+        const id = stuckIds[i];
+        const result = await retryTranscriptProcessing(id);
         
-        processed += batch.length;
-        setProcessingProgress(Math.round((processed / stuckIds.length) * 100));
+        if (result.success) {
+          processed++;
+        } else if (result.error) {
+          errors[id] = result.error;
+        }
+        
+        setProcessingProgress(Math.round(((i + 1) / stuckIds.length) * 100));
       }
       
-      toast.success(`Successfully retried ${processed} transcripts`);
+      if (Object.keys(errors).length > 0) {
+        toast.warning(`Retried ${processed} transcripts with ${Object.keys(errors).length} errors`);
+      } else {
+        toast.success(`Successfully retried ${processed} transcripts`);
+      }
+      
       runDiagnostics(); // Refresh the data
     } catch (error) {
       toast.error(`Error retrying transcripts: ${error instanceof Error ? error.message : 'Unknown error'}`);
@@ -186,18 +209,14 @@ const TranscriptDiagnostics: React.FC = () => {
   // Handle update transcript source
   const handleUpdateSource = async (transcriptId: string, sourceType: string) => {
     try {
-      const response = await fetch('/api/update-transcript-source', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ id: transcriptId, source: sourceType })
-      });
+      const result = await updateTranscriptSource(transcriptId, sourceType);
       
-      if (!response.ok) {
-        throw new Error(`Failed to update transcript source: ${response.statusText}`);
+      if (result.success) {
+        toast.success(`Successfully updated transcript source to ${sourceType}`);
+        runDiagnostics(); // Refresh the data
+      } else {
+        toast.error(`Error updating source: ${result.error}`);
       }
-      
-      toast.success(`Successfully updated transcript source to ${sourceType}`);
-      runDiagnostics(); // Refresh the data
     } catch (error) {
       toast.error(`Error updating source: ${error instanceof Error ? error.message : 'Unknown error'}`);
     }
