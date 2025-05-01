@@ -3,6 +3,15 @@
 
 ## Version History
 
+### v0.1.5 (2025-05-01)
+- Enhanced "StuckTranscripts" component with improved time tracking and status display
+- Added "Time Stuck" column using formatDistanceToNow from date-fns
+- Added "Status" column showing processing state and retry information
+- Enhanced "EmptyContentTranscripts" component with "Has File Path" column
+- Updated diagnostic tools for better transcript issue identification
+- Documented pending tasks and technical debt
+- Enhanced edge function communication and error handling
+
 ### v0.1.4 (2025-05-01)
 - Fixed transcript processing pipeline issues
 - Standardized edge function communication
@@ -74,5 +83,23 @@
 - Smaller, focused components improve maintainability
 - Type definitions are crucial for complex system integration
 
-"Continuous improvement is not about perfection—it's about progress." 🌱
+## Current Priorities & Technical Debt
 
+### Critical Issues
+- Storage path standardization: Fix inconsistency in file_path handling across system
+- Content extraction from storage: Ensure all transcripts with file_path have content extracted
+- Edge function communication: Fix communication between trigger-processing and process-transcript
+
+### High Priority Tasks
+- Implement hierarchical document chunking for better context preservation
+- Add source citation functionality with proper links to original content
+- Optimize embedding generation service for better performance
+- Add conversation history sidebar and feedback UI components
+
+### Technical Debt
+- Refactor large diagnostic utility files into smaller, focused components
+- Consolidate duplicate code in transcript processing logic
+- Improve error handling and retry mechanisms for edge functions
+- Standardize logging format across edge functions for better debugging
+
+"Continuous improvement is not about perfection—it's about progress." 🌱
