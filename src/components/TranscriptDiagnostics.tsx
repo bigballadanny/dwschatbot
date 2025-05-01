@@ -25,7 +25,8 @@ import {
   forceProcessTranscriptsWithRetry,
   standardizeTranscriptFilePaths,
   batchExtractTranscriptContent,
-  batchProcessUnprocessedTranscripts
+  batchProcessUnprocessedTranscripts,
+  checkSystemHealth
 } from "@/utils/diagnostics";
 
 import { showSuccess, showError, showWarning } from "@/utils/toastUtils";
@@ -40,6 +41,7 @@ const TranscriptDiagnostics = () => {
   const [isFixingContent, setIsFixingContent] = useState(false);
   const [isRetryingStuck, setIsRetryingStuck] = useState(false);
   const [processingProgress, setProcessingProgress] = useState(0);
+  const [systemHealth, setSystemHealth] = useState<any>(null);
   
   // Check transcript issues on mount
   useEffect(() => {
@@ -53,6 +55,10 @@ const TranscriptDiagnostics = () => {
       setTranscriptIssues(issues);
       setSelectedTranscripts([]);
       setSelectedEmptyTranscripts([]);
+      
+      // Also check system health
+      const health = await checkSystemHealth();
+      setSystemHealth(health);
     } catch (error) {
       console.error("Failed to check transcript issues:", error);
       showError("Error", "Failed to check transcript issues");
@@ -260,7 +266,7 @@ const TranscriptDiagnostics = () => {
         </TabsList>
         
         <TabsContent value="issues">
-          <IssuesSummary stats={transcriptIssues.stats} />
+          <IssuesSummary stats={transcriptIssues.stats} systemHealth={systemHealth} />
         </TabsContent>
         
         <TabsContent value="unprocessed">
