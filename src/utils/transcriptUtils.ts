@@ -1,3 +1,4 @@
+
 import { Tables } from '../integrations/supabase/types';
 
 export type Transcript = {
@@ -11,9 +12,10 @@ export type Transcript = {
   relevanceScore?: number;
   tags?: string[];
   is_processed?: boolean;
-  is_summarized?: boolean;  // Add this property
+  is_summarized?: boolean;  
   updated_at?: string;
   user_id?: string;
+  metadata?: Record<string, any>; // Add metadata property
 };
 
 export function getTranscriptCounts(transcripts: Transcript[]) {
