@@ -21,6 +21,22 @@ Deno.serve(async (req) => {
   try {
     // Get request body
     const requestData = await req.json()
+    
+    // Handle health check request
+    if (requestData.health_check === true) {
+      console.log(`[PROCESS] Received health check request`);
+      return new Response(
+        JSON.stringify({ 
+          status: 'healthy', 
+          timestamp: new Date().toISOString() 
+        }),
+        {
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+          status: 200,
+        }
+      );
+    }
+    
     const { transcript_id } = requestData
 
     console.log(`[PROCESS] Starting transcript processing for ID: ${transcript_id}`, {
@@ -88,11 +104,18 @@ Deno.serve(async (req) => {
       try {
         console.log(`[PROCESS] Transcript ${transcript_id} has empty content but has file_path: ${transcript.file_path}`);
         
+        // Normalize the file path to ensure consistent access
+        let storagePath = transcript.file_path;
+        if (storagePath.startsWith('transcripts/')) {
+          storagePath = storagePath.slice('transcripts/'.length);
+          console.log(`[PROCESS] Normalized storage path: ${storagePath}`);
+        }
+        
         // Get the file from storage
-        console.log(`[PROCESS] Downloading file from storage path: ${transcript.file_path}`);
+        console.log(`[PROCESS] Downloading file from storage path: ${storagePath}`);
         const { data: fileData, error: fileError } = await supabaseAdmin.storage
           .from('transcripts')
-          .download(transcript.file_path);
+          .download(storagePath);
         
         if (fileError) {
           console.error('[PROCESS] Error downloading file from storage:', fileError);
@@ -124,6 +147,56 @@ Deno.serve(async (req) => {
         }
       } catch (error) {
         console.error('[PROCESS] Error extracting content from file:', error);
+        
+        // Try alternative approach: get public URL and fetch
+        try {
+          console.log(`[PROCESS] Attempting alternate approach: fetch via public URL`);
+          
+          // Normalize the file path for consistent access
+          let storagePath = transcript.file_path;
+          if (storagePath.startsWith('transcripts/')) {
+            storagePath = storagePath.slice('transcripts/'.length);
+          }
+          
+          // Get public URL
+          const { data: urlData } = supabaseAdmin.storage
+            .from('transcripts')
+            .getPublicUrl(storagePath);
+            
+          if (urlData && urlData.publicUrl) {
+            console.log(`[PROCESS] Got public URL: ${urlData.publicUrl}`);
+            
+            // Fetch content from URL
+            const response = await fetch(urlData.publicUrl);
+            if (!response.ok) {
+              throw new Error(`HTTP error: ${response.status} ${response.statusText}`);
+            }
+            
+            const textContent = await response.text();
+            if (textContent) {
+              console.log(`[PROCESS] Retrieved content via public URL (${textContent.length} characters)`);
+              
+              // Update transcript with content
+              const { error: updateContentError } = await supabaseAdmin
+                .from('transcripts')
+                .update({ content: textContent })
+                .eq('id', transcript_id);
+                
+              if (updateContentError) {
+                console.error('[PROCESS] Error updating content from public URL:', updateContentError);
+              } else {
+                transcript.content = textContent;
+                console.log(`[PROCESS] Successfully updated transcript content via public URL`);
+              }
+            } else {
+              console.warn(`[PROCESS] Content from public URL was empty`);
+            }
+          } else {
+            console.warn(`[PROCESS] Could not generate public URL`);
+          }
+        } catch (alternativeError) {
+          console.error('[PROCESS] Alternative content retrieval also failed:', alternativeError);
+        }
       }
     }
 

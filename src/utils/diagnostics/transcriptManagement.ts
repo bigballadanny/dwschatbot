@@ -194,3 +194,273 @@ export async function getTranscriptFileContent(filePath: string): Promise<{
     };
   }
 }
+
+/**
+ * Standardizes the file path format in transcripts table
+ * Ensures consistency by adding or removing the "transcripts/" prefix
+ */
+export async function standardizeTranscriptFilePaths(): Promise<{
+  success: boolean;
+  standardized: number;
+  errors: Record<string, string>;
+}> {
+  console.log(`[MANAGEMENT] Standardizing transcript file paths`);
+  
+  const result = {
+    success: false,
+    standardized: 0,
+    errors: {} as Record<string, string>
+  };
+  
+  try {
+    // Get all transcripts with file paths
+    const { data: transcripts, error } = await supabase
+      .from('transcripts')
+      .select('id, file_path')
+      .not('file_path', 'is', null);
+      
+    if (error) {
+      console.error(`[MANAGEMENT] Error fetching transcripts:`, error);
+      throw error;
+    }
+    
+    if (!transcripts || transcripts.length === 0) {
+      console.log(`[MANAGEMENT] No transcripts with file paths found`);
+      return {
+        success: true,
+        standardized: 0,
+        errors: {}
+      };
+    }
+    
+    console.log(`[MANAGEMENT] Found ${transcripts.length} transcripts with file paths`);
+    
+    // Track standardization results
+    let standardizedCount = 0;
+    const errors: Record<string, string> = {};
+    
+    // Process each transcript
+    for (const transcript of transcripts) {
+      try {
+        if (!transcript.file_path) continue;
+        
+        // Normalize path: remove "transcripts/" prefix if present
+        // We'll add it back when accessing storage to ensure consistency
+        let normalizedPath = transcript.file_path;
+        if (normalizedPath.startsWith('transcripts/')) {
+          normalizedPath = normalizedPath.slice('transcripts/'.length);
+        }
+        
+        // Only update if the path actually changed
+        if (normalizedPath !== transcript.file_path) {
+          const { error: updateError } = await supabase
+            .from('transcripts')
+            .update({ file_path: normalizedPath })
+            .eq('id', transcript.id);
+            
+          if (updateError) {
+            errors[transcript.id] = updateError.message;
+            console.error(`[MANAGEMENT] Error updating file path for transcript ${transcript.id}:`, updateError);
+          } else {
+            standardizedCount++;
+            console.log(`[MANAGEMENT] Standardized file path for transcript ${transcript.id}: ${transcript.file_path} -> ${normalizedPath}`);
+          }
+        }
+      } catch (err: any) {
+        errors[transcript.id] = err.message;
+        console.error(`[MANAGEMENT] Error processing transcript ${transcript.id}:`, err);
+      }
+    }
+    
+    result.standardized = standardizedCount;
+    result.errors = errors;
+    result.success = Object.keys(errors).length === 0;
+    
+    console.log(`[MANAGEMENT] Standardization complete: ${standardizedCount} paths standardized, ${Object.keys(errors).length} errors`);
+    
+    return result;
+  } catch (error: any) {
+    console.error(`[MANAGEMENT] Error in standardizeTranscriptFilePaths:`, error);
+    return {
+      success: false,
+      standardized: 0,
+      errors: { general: error.message }
+    };
+  }
+}
+
+/**
+ * Batch processes all transcripts that need content extracted from files
+ */
+export async function batchExtractTranscriptContent(): Promise<{
+  success: boolean;
+  processed: number;
+  errors: Record<string, string>;
+}> {
+  console.log(`[MANAGEMENT] Starting batch content extraction for transcripts`);
+  
+  const result = {
+    success: false,
+    processed: 0,
+    errors: {} as Record<string, string>
+  };
+  
+  try {
+    // Find transcripts with file paths but empty content
+    const { data: transcripts, error } = await supabase
+      .from('transcripts')
+      .select('id, file_path')
+      .not('file_path', 'is', null)
+      .or('content.is.null,content.eq.');
+      
+    if (error) {
+      console.error(`[MANAGEMENT] Error fetching transcripts:`, error);
+      throw error;
+    }
+    
+    if (!transcripts || transcripts.length === 0) {
+      console.log(`[MANAGEMENT] No transcripts requiring content extraction`);
+      return {
+        success: true,
+        processed: 0,
+        errors: {}
+      };
+    }
+    
+    console.log(`[MANAGEMENT] Found ${transcripts.length} transcripts needing content extraction`);
+    
+    // Extract content for each transcript
+    let processedCount = 0;
+    
+    for (const transcript of transcripts) {
+      try {
+        if (!transcript.file_path) continue;
+        
+        // Ensure the file_path has the correct format for storage access
+        let storagePath = transcript.file_path;
+        if (storagePath.startsWith('transcripts/')) {
+          storagePath = storagePath.slice('transcripts/'.length);
+        }
+        
+        // Get file content
+        const { success, content, error: contentError } = await getTranscriptFileContent(storagePath);
+        
+        if (!success || !content) {
+          result.errors[transcript.id] = contentError || 'Failed to retrieve content';
+          console.error(`[MANAGEMENT] Error extracting content for transcript ${transcript.id}: ${contentError}`);
+          continue;
+        }
+        
+        // Update transcript with content
+        const { error: updateError } = await supabase
+          .from('transcripts')
+          .update({ content })
+          .eq('id', transcript.id);
+          
+        if (updateError) {
+          result.errors[transcript.id] = updateError.message;
+          console.error(`[MANAGEMENT] Error updating content for transcript ${transcript.id}:`, updateError);
+          continue;
+        }
+        
+        processedCount++;
+        console.log(`[MANAGEMENT] Successfully extracted content for transcript ${transcript.id} (${content.length} characters)`);
+      } catch (err: any) {
+        result.errors[transcript.id] = err.message;
+        console.error(`[MANAGEMENT] Error processing transcript ${transcript.id}:`, err);
+      }
+    }
+    
+    result.processed = processedCount;
+    result.success = processedCount > 0;
+    
+    console.log(`[MANAGEMENT] Content extraction complete: ${processedCount} transcripts processed, ${Object.keys(result.errors).length} errors`);
+    
+    return result;
+  } catch (error: any) {
+    console.error(`[MANAGEMENT] Error in batchExtractTranscriptContent:`, error);
+    return {
+      success: false,
+      processed: 0,
+      errors: { general: error.message }
+    };
+  }
+}
+
+/**
+ * Directly forces transcript processing by manually triggering the webhook endpoint
+ * This method includes an additional retry mechanism with exponential backoff
+ */
+export async function forceProcessTranscriptsWithRetry(
+  transcriptIds: string[], 
+  maxRetries: number = 3
+): Promise<{
+  success: boolean;
+  processed: number;
+  errors: Record<string, string>;
+}> {
+  console.log(`[MANAGEMENT] Force processing ${transcriptIds.length} transcripts with up to ${maxRetries} retries`);
+  
+  const result = {
+    success: false,
+    processed: 0,
+    errors: {} as Record<string, string>
+  };
+  
+  for (const id of transcriptIds) {
+    let retries = 0;
+    let success = false;
+    
+    while (!success && retries <= maxRetries) {
+      try {
+        const retryMessage = retries > 0 ? ` (retry ${retries}/${maxRetries})` : '';
+        console.log(`[MANAGEMENT] Invoking webhook endpoint for transcript ${id}${retryMessage}`);
+        
+        // Directly call the webhook endpoint with a simulated INSERT event
+        const { error } = await supabase.functions.invoke('transcript-webhook', {
+          body: { 
+            type: 'INSERT',
+            record: { 
+              id,
+              is_processed: false,
+              metadata: {
+                force_processing_triggered_at: new Date().toISOString(),
+                retry_attempt: retries
+              }
+            } 
+          }
+        });
+        
+        if (error) {
+          console.error(`[MANAGEMENT] Error invoking webhook for transcript ${id}${retryMessage}:`, error);
+          retries++;
+          
+          if (retries > maxRetries) {
+            result.errors[id] = `Failed after ${maxRetries} attempts: ${error.message}`;
+          }
+          
+          // Exponential backoff delay before retry
+          const backoffMs = Math.min(1000 * (2 ** retries), 10000);
+          console.log(`[MANAGEMENT] Waiting ${backoffMs}ms before retry for transcript ${id}`);
+          await new Promise(resolve => setTimeout(resolve, backoffMs));
+        } else {
+          console.log(`[MANAGEMENT] Successfully triggered processing for transcript ${id}`);
+          success = true;
+          result.processed++;
+          break;
+        }
+      } catch (error: any) {
+        console.error(`[MANAGEMENT] Exception during force processing for transcript ${id}:`, error);
+        retries++;
+        
+        if (retries > maxRetries) {
+          result.errors[id] = `Failed after ${maxRetries} attempts: ${error.message || 'Unknown error'}`;
+        }
+      }
+    }
+  }
+  
+  console.log(`[MANAGEMENT] Force processing complete. Processed: ${result.processed}, Errors: ${Object.keys(result.errors).length}`);
+  result.success = result.processed > 0;
+  return result;
+}

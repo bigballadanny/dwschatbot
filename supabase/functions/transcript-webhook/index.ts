@@ -20,15 +20,30 @@ Deno.serve(async (req) => {
   }
 
   try {
-    const { record, type } = await req.json()
+    // Parse the request body
+    const payload = await req.json();
+    
+    // Check if this is a health check request
+    if (payload.type === 'HEALTH_CHECK') {
+      console.log(`[WEBHOOK] Received health check request`);
+      return new Response(JSON.stringify({ 
+        status: 'healthy',
+        timestamp: new Date().toISOString()
+      }), { 
+        status: 200,
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+      });
+    }
+    
+    const { record, type } = payload;
     
     console.log(`[WEBHOOK] Received event: ${type} for transcript ID ${record?.id || 'unknown'}`);
     console.log(`[WEBHOOK] Full record data:`, JSON.stringify(record, null, 2));
     
-    // Only process INSERT events
-    if (type !== 'INSERT') {
-      console.log(`[WEBHOOK] Ignoring non-INSERT event: ${type}`);
-      return new Response('Not an INSERT event, ignoring', { 
+    // Only process INSERT events and forced processing
+    if (type !== 'INSERT' && type !== 'FORCE_PROCESSING') {
+      console.log(`[WEBHOOK] Ignoring non-processing event: ${type}`);
+      return new Response('Not a processing event, ignoring', { 
         status: 200,
         headers: corsHeaders 
       });
@@ -43,8 +58,8 @@ Deno.serve(async (req) => {
       });
     }
     
-    // Don't process if transcript is already being processed or processed
-    if (record.is_processed === true) {
+    // Don't process if transcript is already processed (unless force processing)
+    if (record.is_processed === true && type !== 'FORCE_PROCESSING') {
       console.log(`[WEBHOOK] Transcript ${record.id} already processed, skipping`);
       return new Response('Transcript already processed', { 
         status: 200,
@@ -53,7 +68,8 @@ Deno.serve(async (req) => {
     }
 
     // Check if there is already a processing_started_at timestamp in metadata
-    if (record.metadata?.processing_started_at) {
+    // and it's not a forced processing request
+    if (type !== 'FORCE_PROCESSING' && record.metadata?.processing_started_at) {
       const processingStartedAt = new Date(record.metadata.processing_started_at);
       const fiveMinutesAgo = new Date();
       fiveMinutesAgo.setMinutes(fiveMinutesAgo.getMinutes() - 5);
@@ -70,7 +86,34 @@ Deno.serve(async (req) => {
       }
     }
     
-    console.log(`[WEBHOOK] Received new transcript, triggering processing: ${record.id}`);
+    // Get the current transcript data to make sure we have the most up-to-date information
+    const { data: transcript, error: fetchError } = await supabaseAdmin
+      .from('transcripts')
+      .select('*')
+      .eq('id', record.id)
+      .single();
+      
+    if (fetchError) {
+      console.error(`[WEBHOOK] Error fetching transcript ${record.id}:`, fetchError);
+      return new Response(JSON.stringify({ 
+        error: `Failed to fetch transcript: ${fetchError.message}` 
+      }), { 
+        status: 404,
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+      });
+    }
+      
+    if (!transcript) {
+      console.error(`[WEBHOOK] Transcript ${record.id} not found in database`);
+      return new Response(JSON.stringify({ 
+        error: 'Transcript not found in database'
+      }), { 
+        status: 404,
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+      });
+    }
+    
+    console.log(`[WEBHOOK] Starting processing for transcript: ${transcript.id}`);
 
     // Update the transcript status to indicate it's being processed
     console.log(`[WEBHOOK] Updating transcript ${record.id} to mark as in processing`);
@@ -78,7 +121,7 @@ Deno.serve(async (req) => {
       .from('transcripts')
       .update({ 
         metadata: { 
-          ...record.metadata,
+          ...transcript.metadata,
           processing_started_at: new Date().toISOString(),
           webhook_triggered_at: new Date().toISOString()
         } 
@@ -95,7 +138,7 @@ Deno.serve(async (req) => {
     console.log(`[WEBHOOK] Invoking process-transcript function for transcript ${record.id}`);
     const { data, error } = await supabaseAdmin.functions.invoke('process-transcript', {
       body: { transcript_id: record.id }
-    })
+    });
     
     if (error) {
       console.error('[WEBHOOK] Error invoking process-transcript function:', error);
@@ -108,7 +151,7 @@ Deno.serve(async (req) => {
           .update({ 
             is_processed: true,
             metadata: { 
-              ...record.metadata,
+              ...transcript.metadata,
               processing_completed_at: new Date().toISOString(),
               processing_error: `Failed to invoke processing: ${error.message}`,
               processing_failed: true

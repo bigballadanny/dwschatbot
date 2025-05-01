@@ -5,7 +5,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { AlertCircle, RefreshCw } from "lucide-react";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 
-// Import our new diagnostic components
+// Import our diagnostic components
 import IssuesSummary from './diagnostics/IssuesSummary';
 import PotentialSummitTranscripts from './diagnostics/PotentialSummitTranscripts';
 import UnprocessedTranscripts from './diagnostics/UnprocessedTranscripts';
@@ -13,14 +13,19 @@ import StuckTranscripts from './diagnostics/StuckTranscripts';
 import EmptyContentTranscripts from './diagnostics/EmptyContentTranscripts';
 import MaintenanceTab from './diagnostics/MaintenanceTab';
 
-// Import all utilities from the new diagnostics index
+// Import all utilities from the diagnostics index
 import { 
   checkForTranscriptIssues,
   fixTranscriptIssues,
   manuallyProcessTranscripts,
   updateTranscriptSourceType,
   markTranscriptAsProcessed,
-  retryStuckTranscripts
+  retryStuckTranscripts,
+  forceProcessTranscripts,
+  forceProcessTranscriptsWithRetry,
+  standardizeTranscriptFilePaths,
+  batchExtractTranscriptContent,
+  batchProcessUnprocessedTranscripts
 } from "@/utils/diagnostics";
 
 import { showSuccess, showError, showWarning } from "@/utils/toastUtils";
@@ -30,7 +35,10 @@ const TranscriptDiagnostics = () => {
   const [transcriptIssues, setTranscriptIssues] = useState<any>(null);
   const [isTranscriptIssuesLoading, setIsTranscriptIssuesLoading] = useState(false);
   const [selectedTranscripts, setSelectedTranscripts] = useState<string[]>([]);
+  const [selectedEmptyTranscripts, setSelectedEmptyTranscripts] = useState<string[]>([]);
   const [isProcessing, setIsProcessing] = useState(false);
+  const [isFixingContent, setIsFixingContent] = useState(false);
+  const [isRetryingStuck, setIsRetryingStuck] = useState(false);
   const [processingProgress, setProcessingProgress] = useState(0);
   
   // Check transcript issues on mount
@@ -44,6 +52,7 @@ const TranscriptDiagnostics = () => {
       const issues = await checkForTranscriptIssues();
       setTranscriptIssues(issues);
       setSelectedTranscripts([]);
+      setSelectedEmptyTranscripts([]);
     } catch (error) {
       console.error("Failed to check transcript issues:", error);
       showError("Error", "Failed to check transcript issues");
@@ -53,13 +62,13 @@ const TranscriptDiagnostics = () => {
   };
   
   const handleFixSelectedTranscripts = async () => {
-    if (!selectedTranscripts.length) return;
+    if (!selectedEmptyTranscripts.length) return;
     
-    setIsProcessing(true);
+    setIsFixingContent(true);
     setProcessingProgress(0);
     
     try {
-      const result = await fixTranscriptIssues(selectedTranscripts);
+      const result = await fixTranscriptIssues(selectedEmptyTranscripts);
       
       if (result.errors.length) {
         showWarning(
@@ -79,7 +88,7 @@ const TranscriptDiagnostics = () => {
       console.error("Failed to fix transcripts:", error);
       showError("Error", "Failed to fix selected transcripts");
     } finally {
-      setIsProcessing(false);
+      setIsFixingContent(false);
     }
   };
   
@@ -90,17 +99,18 @@ const TranscriptDiagnostics = () => {
     setProcessingProgress(0);
     
     try {
-      const result = await manuallyProcessTranscripts(selectedTranscripts);
+      // We'll use the enhanced version with retry
+      const result = await forceProcessTranscriptsWithRetry(selectedTranscripts);
       
-      if (result.errors.length) {
+      if (Object.keys(result.errors).length) {
         showWarning(
           "Process Completed with Errors", 
-          `Processed ${result.success} transcripts, but encountered ${result.errors.length} errors.`
+          `Processed ${result.processed} transcripts, but encountered ${Object.keys(result.errors).length} errors.`
         );
       } else {
         showSuccess(
           "Process Completed", 
-          `Successfully processed ${result.success} transcripts.`
+          `Successfully processed ${result.processed} transcripts.`
         );
       }
       
@@ -114,70 +124,19 @@ const TranscriptDiagnostics = () => {
     }
   };
   
-  const handleRetryStuckTranscripts = async () => {
-    if (!transcriptIssues?.stuckInProcessing.length) return;
-    
-    const stuckIds = transcriptIssues.stuckInProcessing.map((t: any) => t.id);
-    
-    setIsProcessing(true);
-    setProcessingProgress(0);
-    
-    try {
-      const result = await retryStuckTranscripts(stuckIds);
-      
-      if (result.errors.length) {
-        showWarning(
-          "Retry Completed with Errors", 
-          `Retried ${result.success} transcripts, but encountered ${result.errors.length} errors.`
-        );
-      } else {
-        showSuccess(
-          "Retry Completed", 
-          `Successfully reset and retried ${result.success} stuck transcripts.`
-        );
-      }
-      
-      // Refresh the issues list
-      checkIssues();
-    } catch (error) {
-      console.error("Failed to retry stuck transcripts:", error);
-      showError("Error", "Failed to retry stuck transcripts");
-    } finally {
-      setIsProcessing(false);
-    }
-  };
-  
-  const handleUpdateSourceType = async (transcriptId: string, sourceType: string) => {
-    try {
-      await updateTranscriptSourceType(transcriptId, sourceType);
-      showSuccess("Source Updated", "Successfully updated transcript source");
-      
-      // Refresh the issues list
-      checkIssues();
-    } catch (error) {
-      console.error("Failed to update source type:", error);
-      showError("Error", "Failed to update transcript source type");
-    }
-  };
-  
-  const handleMarkAsProcessed = async (transcriptId: string) => {
-    try {
-      await markTranscriptAsProcessed(transcriptId);
-      showSuccess("Transcript Updated", "Successfully marked transcript as processed");
-      
-      // Refresh the issues list
-      checkIssues();
-    } catch (error) {
-      console.error("Failed to mark as processed:", error);
-      showError("Error", "Failed to mark transcript as processed");
-    }
-  };
-  
   const handleSelectTranscript = (transcriptId: string, isSelected: boolean) => {
     if (isSelected) {
       setSelectedTranscripts(prev => [...prev, transcriptId]);
     } else {
       setSelectedTranscripts(prev => prev.filter(id => id !== transcriptId));
+    }
+  };
+  
+  const handleSelectEmptyTranscript = (transcriptId: string, isSelected: boolean) => {
+    if (isSelected) {
+      setSelectedEmptyTranscripts(prev => [...prev, transcriptId]);
+    } else {
+      setSelectedEmptyTranscripts(prev => prev.filter(id => id !== transcriptId));
     }
   };
   
@@ -189,94 +148,165 @@ const TranscriptDiagnostics = () => {
     }
   };
   
-  return (
-    <div className="space-y-6">
-      <div className="border rounded-lg p-6 shadow-sm">
-        <h2 className="text-xl font-semibold mb-2">Transcript Processing Diagnostics</h2>
-        <p className="text-muted-foreground mb-4">
-          Troubleshoot and manage transcript processing issues
-        </p>
-        
-        <Tabs value={activeTab} onValueChange={setActiveTab}>
-          <TabsList className="mb-4">
-            <TabsTrigger value="issues">Transcript Issues</TabsTrigger>
-            <TabsTrigger value="maintenance">Maintenance</TabsTrigger>
-          </TabsList>
-          
-          <TabsContent value="issues">
-            <div className="space-y-4">
-              <div className="flex items-center justify-between">
-                <h3 className="text-lg font-medium">Transcript Issues</h3>
-                <Button variant="outline" size="sm" onClick={checkIssues} disabled={isTranscriptIssuesLoading}>
-                  <RefreshCw className={`h-4 w-4 mr-2 ${isTranscriptIssuesLoading ? 'animate-spin' : ''}`} />
-                  Refresh
-                </Button>
-              </div>
-              
-              {isTranscriptIssuesLoading ? (
-                <div className="flex items-center justify-center py-8">
-                  <RefreshCw className="h-8 w-8 animate-spin text-primary" />
-                  <span className="ml-2">Checking for transcript issues...</span>
-                </div>
-              ) : transcriptIssues ? (
-                <div className="space-y-4">
-                  <IssuesSummary stats={transcriptIssues.stats} />
-                  
-                  <PotentialSummitTranscripts 
-                    transcripts={transcriptIssues.potentialSummitTranscripts} 
-                    onUpdateSource={handleUpdateSourceType} 
-                  />
-                  
-                  <UnprocessedTranscripts 
-                    transcripts={transcriptIssues.unprocessedTranscripts}
-                    selectedTranscripts={selectedTranscripts}
-                    onSelectAll={handleSelectAll}
-                    onSelectTranscript={handleSelectTranscript}
-                    onProcess={handleProcessSelectedTranscripts}
-                    isProcessing={isProcessing}
-                    processingProgress={processingProgress}
-                  />
-                  
-                  <StuckTranscripts 
-                    transcripts={transcriptIssues.stuckInProcessing}
-                    onRetry={handleRetryStuckTranscripts}
-                    isProcessing={isProcessing}
-                    processingProgress={processingProgress}
-                  />
-                  
-                  {transcriptIssues.stats.emptyContent > 0 && (
-                    <EmptyContentTranscripts 
-                      transcripts={transcriptIssues.unprocessedTranscripts}
-                      selectedTranscripts={selectedTranscripts}
-                      onSelectAll={handleSelectAll}
-                      onSelectTranscript={handleSelectTranscript}
-                      onFix={handleFixSelectedTranscripts}
-                      isProcessing={isProcessing}
-                      processingProgress={processingProgress}
-                    />
-                  )}
-                </div>
-              ) : (
-                <Alert className="bg-red-50 text-red-800 border-red-200">
-                  <AlertCircle className="h-4 w-4" />
-                  <AlertDescription>
-                    Failed to check transcript issues. Please try again.
-                  </AlertDescription>
-                </Alert>
-              )}
-            </div>
-          </TabsContent>
-          
-          <TabsContent value="maintenance">
-            {transcriptIssues && (
-              <MaintenanceTab 
-                unprocessedTranscripts={transcriptIssues.unprocessedTranscripts}
-                onMarkAsProcessed={handleMarkAsProcessed}
-              />
-            )}
-          </TabsContent>
-        </Tabs>
+  const handleSelectAllEmpty = (transcripts: any[], isSelected: boolean) => {
+    if (isSelected) {
+      setSelectedEmptyTranscripts(transcripts.map(t => t.id));
+    } else {
+      setSelectedEmptyTranscripts([]);
+    }
+  };
+  
+  const handleRetryStuckTranscripts = async () => {
+    if (!transcriptIssues?.stuckInProcessing?.length) return;
+    
+    setIsRetryingStuck(true);
+    setProcessingProgress(0);
+    
+    try {
+      const transcriptsToRetry = transcriptIssues.stuckInProcessing.map((t: any) => t.id);
+      const result = await retryStuckTranscripts(transcriptsToRetry);
+      
+      if (result.errors.length) {
+        showWarning(
+          "Process Completed with Errors", 
+          `Retried ${result.success} transcripts, but encountered ${result.errors.length} errors.`
+        );
+      } else {
+        showSuccess(
+          "Process Completed", 
+          `Successfully retried ${result.success} transcripts.`
+        );
+      }
+      
+      // Refresh the issues list
+      checkIssues();
+    } catch (error) {
+      console.error("Failed to retry stuck transcripts:", error);
+      showError("Error", "Failed to retry stuck transcripts");
+    } finally {
+      setIsRetryingStuck(false);
+    }
+  };
+  
+  const handleUpdateTranscriptSource = async (transcriptId: string, newSource: string) => {
+    try {
+      const result = await updateTranscriptSourceType(transcriptId, newSource);
+      
+      if (result.success) {
+        showSuccess("Success", `Updated transcript source to "${newSource}"`);
+        checkIssues();
+      } else {
+        showError("Error", `Failed to update source: ${result.error}`);
+      }
+    } catch (error: any) {
+      console.error("Failed to update transcript source:", error);
+      showError("Error", error.message);
+    }
+  };
+  
+  if (isTranscriptIssuesLoading) {
+    return (
+      <div className="p-6">
+        <div className="flex items-center justify-between mb-6">
+          <h2 className="text-2xl font-bold">Transcript Diagnostics</h2>
+          <Button variant="outline" disabled>
+            <RefreshCw className="mr-2 h-4 w-4 animate-spin" />
+            Checking...
+          </Button>
+        </div>
+        <div className="text-center py-10">
+          <p>Checking transcripts for issues...</p>
+        </div>
       </div>
+    );
+  }
+  
+  if (!transcriptIssues) {
+    return (
+      <div className="p-6">
+        <div className="flex items-center justify-between mb-6">
+          <h2 className="text-2xl font-bold">Transcript Diagnostics</h2>
+          <Button variant="outline" onClick={checkIssues}>
+            <RefreshCw className="mr-2 h-4 w-4" />
+            Check Issues
+          </Button>
+        </div>
+        <Alert>
+          <AlertCircle className="h-4 w-4" />
+          <AlertDescription>No issues check has been performed yet</AlertDescription>
+        </Alert>
+      </div>
+    );
+  }
+  
+  return (
+    <div className="p-6">
+      <div className="flex items-center justify-between mb-6">
+        <h2 className="text-2xl font-bold">Transcript Diagnostics</h2>
+        <Button variant="outline" onClick={checkIssues}>
+          <RefreshCw className="mr-2 h-4 w-4" />
+          Refresh
+        </Button>
+      </div>
+      
+      <Tabs value={activeTab} onValueChange={setActiveTab}>
+        <TabsList className="mb-6">
+          <TabsTrigger value="issues">Issues Summary</TabsTrigger>
+          <TabsTrigger value="unprocessed">Unprocessed ({transcriptIssues.stats.unprocessedTranscripts})</TabsTrigger>
+          <TabsTrigger value="stuck">Stuck ({transcriptIssues.stats.stuckInProcessing})</TabsTrigger>
+          <TabsTrigger value="empty">Empty Content ({transcriptIssues.stats.emptyContent})</TabsTrigger>
+          <TabsTrigger value="summit">Summit Transcripts ({transcriptIssues.stats.potentialSummitTranscripts})</TabsTrigger>
+          <TabsTrigger value="maintenance">Maintenance</TabsTrigger>
+        </TabsList>
+        
+        <TabsContent value="issues">
+          <IssuesSummary stats={transcriptIssues.stats} />
+        </TabsContent>
+        
+        <TabsContent value="unprocessed">
+          <UnprocessedTranscripts 
+            transcripts={transcriptIssues.unprocessedTranscripts} 
+            selectedTranscripts={selectedTranscripts}
+            onSelectAll={handleSelectAll}
+            onSelectTranscript={handleSelectTranscript}
+            onProcess={handleProcessSelectedTranscripts}
+            isProcessing={isProcessing}
+            processingProgress={processingProgress}
+          />
+        </TabsContent>
+        
+        <TabsContent value="stuck">
+          <StuckTranscripts 
+            transcripts={transcriptIssues.stuckInProcessing}
+            onRetry={handleRetryStuckTranscripts}
+            isProcessing={isRetryingStuck}
+            processingProgress={processingProgress}
+          />
+        </TabsContent>
+        
+        <TabsContent value="empty">
+          <EmptyContentTranscripts 
+            transcripts={transcriptIssues.recentTranscripts} 
+            selectedTranscripts={selectedEmptyTranscripts}
+            onSelectAll={handleSelectAllEmpty}
+            onSelectTranscript={handleSelectEmptyTranscript}
+            onFix={handleFixSelectedTranscripts}
+            isProcessing={isFixingContent}
+            processingProgress={processingProgress}
+          />
+        </TabsContent>
+        
+        <TabsContent value="summit">
+          <PotentialSummitTranscripts 
+            transcripts={transcriptIssues.potentialSummitTranscripts}
+            onUpdateSource={handleUpdateTranscriptSource}
+          />
+        </TabsContent>
+        
+        <TabsContent value="maintenance">
+          <MaintenanceTab />
+        </TabsContent>
+      </Tabs>
     </div>
   );
 };
