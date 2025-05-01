@@ -4,7 +4,7 @@ import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle }
 
 interface DiagnosticCardProps {
   title: string;
-  description?: string;
+  description?: React.ReactNode;
   children: React.ReactNode;
   footer?: React.ReactNode;
 }
@@ -17,7 +17,12 @@ const DiagnosticCard = ({ title, description, children, footer }: DiagnosticCard
     <Card className="border rounded-lg overflow-hidden">
       <CardHeader>
         <CardTitle>{title}</CardTitle>
-        {description && <CardDescription>{description}</CardDescription>}
+        {description && 
+          (typeof description === 'string' ? 
+            <CardDescription>{description}</CardDescription> : 
+            <div className="text-sm text-muted-foreground mt-1">{description}</div>
+          )
+        }
       </CardHeader>
       <CardContent>
         {children}
