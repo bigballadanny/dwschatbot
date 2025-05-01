@@ -1,11 +1,13 @@
 
-import React from 'react';
+import React, { useState } from 'react';
 import { Table, TableHeader, TableBody, TableRow, TableHead, TableCell } from "@/components/ui/table";
 import { Button } from "@/components/ui/button";
 import { Progress } from "@/components/ui/progress";
 import DiagnosticCard from './DiagnosticCard';
 import { DiagnosticTranscript } from '@/utils/diagnostics/transcriptIssues';
 import { formatDistanceToNow } from 'date-fns';
+import { Badge } from '@/components/ui/badge';
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 
 interface StuckTranscriptsProps {
   transcripts: DiagnosticTranscript[];
@@ -23,25 +25,99 @@ const StuckTranscripts = ({
   isProcessing,
   processingProgress
 }: StuckTranscriptsProps) => {
+  const [currentStatus, setCurrentStatus] = useState<string>('');
+
   if (!transcripts.length) {
     return null;
   }
 
+  // Helper function to determine status badge color
+  const getStatusColor = (status: string): string => {
+    if (status.includes('Failed')) return 'destructive';
+    if (status.includes('Retried')) return 'warning';
+    return 'secondary';
+  };
+
+  // Calculate total time stuck for all transcripts
+  const totalStuckTime = transcripts.reduce((total, transcript) => {
+    const metadata = transcript.metadata && 
+      typeof transcript.metadata === 'object' && 
+      !Array.isArray(transcript.metadata) 
+        ? transcript.metadata as Record<string, any>
+        : {};
+    
+    if (metadata.processing_started_at) {
+      const startTime = new Date(metadata.processing_started_at as string);
+      const stuckMs = Date.now() - startTime.getTime();
+      return total + stuckMs;
+    }
+    return total;
+  }, 0);
+  
+  const avgStuckTime = transcripts.length > 0 
+    ? formatDistanceToNow(new Date(Date.now() - (totalStuckTime / transcripts.length)))
+    : 'Unknown';
+
+  const handleRetry = () => {
+    setCurrentStatus('Starting retry process...');
+    onRetry();
+  };
+
   return (
     <DiagnosticCard
       title="Stuck In Processing"
-      description="Transcripts that have been processing for more than 5 minutes"
+      description={
+        <div className="space-y-2">
+          <p>Transcripts that have been processing for more than 5 minutes</p>
+          <div className="flex text-sm items-center gap-2 text-muted-foreground">
+            <span>Average stuck time: {avgStuckTime}</span>
+            <span>•</span>
+            <span>Total transcripts: {transcripts.length}</span>
+          </div>
+        </div>
+      }
       footer={
-        <Button variant="destructive" onClick={onRetry} disabled={isProcessing}>
-          {isProcessing ? (
-            <>
-              Retrying...
-              <Progress value={processingProgress} className="ml-2 w-24" />
-            </>
-          ) : (
-            "Retry Stuck Transcripts"
+        <div className="space-y-2 w-full">
+          {currentStatus && (
+            <div className="text-sm text-muted-foreground">{currentStatus}</div>
           )}
-        </Button>
+          <div className="flex items-center gap-2 w-full">
+            <Button 
+              variant="destructive" 
+              onClick={handleRetry} 
+              disabled={isProcessing}
+              className="flex-1"
+            >
+              {isProcessing ? "Retrying..." : "Retry Stuck Transcripts"}
+            </Button>
+            
+            {isProcessing && (
+              <TooltipProvider>
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <div className="flex-1">
+                      <Progress 
+                        value={processingProgress} 
+                        className="w-full h-2" 
+                        indicatorClassName={
+                          processingProgress < 30 ? "bg-red-500" :
+                          processingProgress < 70 ? "bg-yellow-500" :
+                          "bg-green-500"
+                        }
+                      />
+                      <div className="text-xs mt-1 text-right text-muted-foreground">
+                        {Math.round(processingProgress)}% complete
+                      </div>
+                    </div>
+                  </TooltipTrigger>
+                  <TooltipContent>
+                    <p>Retrying {transcripts.length} transcript(s)</p>
+                  </TooltipContent>
+                </Tooltip>
+              </TooltipProvider>
+            )}
+          </div>
+        </div>
       }
     >
       <Table>
@@ -87,16 +163,34 @@ const StuckTranscripts = ({
               }
             }
             
+            const statusColor = getStatusColor(status);
+            
             return (
-              <TableRow key={transcript.id}>
-                <TableCell>{transcript.title}</TableCell>
+              <TableRow key={transcript.id} className="hover:bg-muted/50">
+                <TableCell className="font-medium">{transcript.title}</TableCell>
                 <TableCell>
                   {startTime 
                     ? startTime.toLocaleString()
                     : 'Unknown'}
                 </TableCell>
-                <TableCell>{timeStuck || 'Unknown'}</TableCell>
-                <TableCell>{status}</TableCell>
+                <TableCell>
+                  <TooltipProvider>
+                    <Tooltip>
+                      <TooltipTrigger>
+                        {timeStuck || 'Unknown'}
+                      </TooltipTrigger>
+                      <TooltipContent>
+                        <p>Processing started: {startTime?.toLocaleString() || 'Unknown'}</p>
+                        {metadata.retry_triggered_at && (
+                          <p>Last retry: {new Date(metadata.retry_triggered_at as string).toLocaleString()}</p>
+                        )}
+                      </TooltipContent>
+                    </Tooltip>
+                  </TooltipProvider>
+                </TableCell>
+                <TableCell>
+                  <Badge variant={statusColor}>{status}</Badge>
+                </TableCell>
               </TableRow>
             );
           })}
