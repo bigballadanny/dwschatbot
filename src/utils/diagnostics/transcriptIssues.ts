@@ -1,5 +1,6 @@
 
 import { supabase } from '@/integrations/supabase/client';
+import { Transcript } from '@/utils/transcriptUtils';
 
 /**
  * Checks for transcripts that might have upload issues
@@ -31,16 +32,18 @@ export async function checkForTranscriptIssues() {
     const lastHour = new Date();
     lastHour.setHours(lastHour.getHours() - 1);
     
-    const recentTranscripts = [];
-    const potentialSummitTranscripts = [];
-    const unprocessedTranscripts = [];
-    const processingFailures = [];
-    const stuckInProcessing = [];
+    const recentTranscripts: Transcript[] = [];
+    const emptyContentTranscripts: Transcript[] = [];
+    const potentialSummitTranscripts: Transcript[] = [];
+    const unprocessedTranscripts: Transcript[] = [];
+    const processingFailures: Transcript[] = [];
+    const stuckInProcessing: Transcript[] = [];
     
     transcripts.forEach(transcript => {
       // Check for empty content
       if (!transcript.content || transcript.content.trim() === '') {
         stats.emptyContent++;
+        emptyContentTranscripts.push(transcript);
       }
       
       // Check for missing file path
@@ -105,6 +108,7 @@ export async function checkForTranscriptIssues() {
     return { 
       stats, 
       recentTranscripts, 
+      emptyContentTranscripts,
       potentialSummitTranscripts, 
       unprocessedTranscripts, 
       processingFailures,

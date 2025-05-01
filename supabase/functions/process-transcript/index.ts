@@ -82,11 +82,35 @@ Deno.serve(async (req) => {
       // Process the transcript content
       console.log(`[PROCESS] Processing transcript content for ${transcript_id}`);
       
+      // Simple processing logic:
+      // 1. If content is missing but file_path exists, try to get content from storage
+      if (!transcript.content && transcript.file_path) {
+        const fileContent = await getFileContent(transcript.file_path);
+        if (fileContent) {
+          // Update transcript with content from file
+          await supabaseAdmin
+            .from('transcripts')
+            .update({ content: fileContent })
+            .eq('id', transcript_id);
+          
+          console.log(`[PROCESS] Updated transcript ${transcript_id} with content from file`);
+        }
+      }
+      
+      // 2. Apply basic cleanup and standardization to content if needed
+      let processedContent = transcript.content || '';
+      
+      // Simple processing example: Remove excessive whitespace
+      processedContent = processedContent
+        .replace(/\s+/g, ' ')
+        .trim();
+      
       // Update the transcript as processed
       const { error: updateError } = await supabaseAdmin
         .from('transcripts')
         .update({ 
           is_processed: true,
+          content: processedContent,
           metadata: { 
             ...transcript.metadata,
             processing_completed_at: new Date().toISOString(),
@@ -160,5 +184,44 @@ async function checkDatabaseConnection() {
   } catch (e) {
     console.error("Database connection check failed:", e);
     return false;
+  }
+}
+
+// Helper function to get file content from storage
+async function getFileContent(filePath: string): Promise<string | null> {
+  try {
+    console.log(`[PROCESS] Fetching file content for path: ${filePath}`);
+    
+    // Ensure the file path is correctly formatted for storage
+    let storagePath = filePath;
+    if (storagePath.startsWith('transcripts/')) {
+      storagePath = storagePath.slice('transcripts/'.length);
+    }
+    
+    // Get file URL
+    const { data } = supabaseAdmin.storage
+      .from('transcripts')
+      .getPublicUrl(storagePath);
+    
+    if (!data || !data.publicUrl) {
+      console.error(`[PROCESS] Error generating public URL for file: No URL returned`);
+      return null;
+    }
+    
+    // Fetch the file content
+    const response = await fetch(data.publicUrl);
+    
+    if (!response.ok) {
+      console.error(`[PROCESS] Error fetching file: ${response.status} ${response.statusText}`);
+      return null;
+    }
+    
+    const content = await response.text();
+    console.log(`[PROCESS] Successfully fetched file content (${content.length} characters)`);
+    
+    return content;
+  } catch (error) {
+    console.error(`[PROCESS] Error getting file content:`, error);
+    return null;
   }
 }
