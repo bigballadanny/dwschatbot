@@ -5,6 +5,7 @@ import { Button } from "@/components/ui/button";
 import { Progress } from "@/components/ui/progress";
 import DiagnosticCard from './DiagnosticCard';
 import { DiagnosticTranscript } from '@/utils/diagnostics/transcriptIssues';
+import { formatDistanceToNow } from 'date-fns';
 
 interface StuckTranscriptsProps {
   transcripts: DiagnosticTranscript[];
@@ -49,30 +50,45 @@ const StuckTranscripts = ({
             <TableHead>Title</TableHead>
             <TableHead>Started At</TableHead>
             <TableHead>Time Stuck</TableHead>
+            <TableHead>Status</TableHead>
           </TableRow>
         </TableHeader>
         <TableBody>
           {transcripts.map((transcript) => {
             // Calculate how long the transcript has been stuck
             let timeStuck = '';
+            let startTime: Date | null = null;
+            let status = 'Unknown';
+            
             const processingStartedAt = transcript.metadata?.processing_started_at;
             
             if (processingStartedAt) {
-              const startTime = new Date(processingStartedAt);
-              const now = new Date();
-              const diffMinutes = Math.floor((now.getTime() - startTime.getTime()) / (1000 * 60));
-              timeStuck = `${diffMinutes} mins`;
+              startTime = new Date(processingStartedAt);
+              timeStuck = formatDistanceToNow(startTime, { addSuffix: false });
+              
+              // Determine processing status
+              const retryCount = transcript.metadata?.retry_count || 0;
+              const processingFailed = transcript.metadata?.processing_failed;
+              
+              if (processingFailed) {
+                status = `Failed${retryCount > 0 ? ` (${retryCount} retries)` : ''}`;
+              } else if (retryCount > 0) {
+                status = `Retried ${retryCount} times`;
+              } else {
+                status = 'Stuck';
+              }
             }
             
             return (
               <TableRow key={transcript.id}>
                 <TableCell>{transcript.title}</TableCell>
                 <TableCell>
-                  {processingStartedAt 
-                    ? new Date(processingStartedAt).toLocaleTimeString()
+                  {startTime 
+                    ? startTime.toLocaleString()
                     : 'Unknown'}
                 </TableCell>
                 <TableCell>{timeStuck || 'Unknown'}</TableCell>
+                <TableCell>{status}</TableCell>
               </TableRow>
             );
           })}
