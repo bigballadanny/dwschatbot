@@ -3,6 +3,14 @@
 
 ## Version History
 
+### v0.1.6 (2025-05-01)
+- Added new "fix-transcript-paths" edge function to standardize transcript file paths
+- Implemented content extraction for transcripts with file paths but no content
+- Updated task tracking for transcript processing pipeline
+- Improved communication between edge functions for transcript processing
+- Removed duplicate code in transcript management utilities
+- Documented all remaining tasks with detailed tracking
+
 ### v0.1.5 (2025-05-01)
 - Enhanced "StuckTranscripts" component with improved time tracking and status display
 - Added "Time Stuck" column using formatDistanceToNow from date-fns

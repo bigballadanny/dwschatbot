@@ -3,3 +3,6 @@ project_id = "bfscrjrjwbzpldamcrbz"
 
 [functions.transcript-processing-health]
 verify_jwt = false
+
+[functions.fix-transcript-paths]
+verify_jwt = false

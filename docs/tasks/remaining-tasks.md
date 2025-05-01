@@ -38,7 +38,7 @@ This file tracks the remaining tasks for our RAG system implementation. Tasks ar
 - [ ] Optimize PGVector indexing
 
 ### Monitoring and Analytics
-- [ ] Add logging for all pipeline steps
+- [x] Add logging for all pipeline steps
 - [ ] Create analytics dashboard for system performance
 - [ ] Implement user interaction tracking
 - [ ] Add error reporting and notification system
@@ -57,6 +57,19 @@ This file tracks the remaining tasks for our RAG system implementation. Tasks ar
 - [ ] Implement automated testing in the pipeline
 - [ ] Add monitoring and alerting
 
+## Cleanup Tasks
+
+### Streamlit Removal
+- [ ] Remove streamlit_app.py (used only for local development)
+- [ ] Remove unused Python backend dependencies related to Streamlit
+- [ ] Document transition from Streamlit to pure Supabase implementation
+
+### Code Cleanup
+- [ ] Remove deprecated mem0 references
+- [ ] Consolidate duplicate utility functions
+- [ ] Fix inconsistent naming patterns
+- [ ] Remove unused imports and code
+
 ## Completed Tasks
 
 ### Core Functionality
@@ -70,3 +83,5 @@ This file tracks the remaining tasks for our RAG system implementation. Tasks ar
 - [x] Enhanced chunking with multiple strategies (sentence, paragraph, section, semantic)
 - [x] Implemented advanced search modes (hybrid, semantic, keyword)
 - [x] Added visualizations for chunking analysis
+- [x] Added health check functionality for system monitoring
+- [x] Created storage path standardization utilities
