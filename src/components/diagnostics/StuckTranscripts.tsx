@@ -4,10 +4,10 @@ import { Table, TableHeader, TableBody, TableRow, TableHead, TableCell } from "@
 import { Button } from "@/components/ui/button";
 import { Progress } from "@/components/ui/progress";
 import DiagnosticCard from './DiagnosticCard';
-import { Transcript } from '@/utils/transcriptUtils';
+import { DiagnosticTranscript } from '@/utils/diagnostics/transcriptIssues';
 
 interface StuckTranscriptsProps {
-  transcripts: Transcript[];
+  transcripts: DiagnosticTranscript[];
   onRetry: () => void;
   isProcessing: boolean;
   processingProgress: number;

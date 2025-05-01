@@ -1,4 +1,3 @@
-
 import React, { useState } from 'react';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
@@ -17,9 +16,9 @@ import MaintenanceTab from '@/components/diagnostics/MaintenanceTab';
 
 import { 
   checkForTranscriptIssues,
-  fixTranscriptIssues
+  fixTranscriptIssues,
+  DiagnosticTranscript
 } from '@/utils/diagnostics';
-import { DiagnosticTranscript } from '@/utils/diagnostics/transcriptIssues';
 
 const TranscriptDiagnostics: React.FC = () => {
   const [loading, setLoading] = useState(false);

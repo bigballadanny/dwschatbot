@@ -6,12 +6,12 @@ import { Label } from "@/components/ui/label";
 import { Button } from "@/components/ui/button";
 import { Progress } from "@/components/ui/progress";
 import DiagnosticCard from './DiagnosticCard';
-import { Transcript } from '@/utils/transcriptUtils';
+import { DiagnosticTranscript } from '@/utils/diagnostics/transcriptIssues';
 
 interface EmptyContentTranscriptsProps {
-  transcripts: Transcript[];
+  transcripts: DiagnosticTranscript[];
   selectedTranscripts: string[];
-  onSelectAll: (transcripts: Transcript[], isSelected: boolean) => void;
+  onSelectAll: (transcripts: DiagnosticTranscript[], isSelected: boolean) => void;
   onSelectTranscript: (transcriptId: string, isSelected: boolean) => void;
   onFix: () => void;
   isProcessing: boolean;
@@ -30,24 +30,19 @@ const EmptyContentTranscripts = ({
   isProcessing,
   processingProgress
 }: EmptyContentTranscriptsProps) => {
-  // Filter only transcripts with empty content
-  const emptyContentTranscripts = transcripts.filter(
-    t => !t.content || t.content.trim() === ''
-  );
-  
-  if (!emptyContentTranscripts.length) {
+  if (!transcripts.length) {
     return null;
   }
 
-  const allSelected = emptyContentTranscripts.length > 0 && 
-    selectedTranscripts.length === emptyContentTranscripts.length;
+  const allSelected = transcripts.length > 0 && 
+    selectedTranscripts.length === transcripts.length;
 
   return (
     <DiagnosticCard
       title="Fix Empty Content"
       description="Transcripts with missing content"
       footer={
-        <Button variant="default" onClick={onFix} disabled={isProcessing}>
+        <Button variant="default" onClick={onFix} disabled={isProcessing || selectedTranscripts.length === 0}>
           {isProcessing ? (
             <>
               Processing...
@@ -63,7 +58,7 @@ const EmptyContentTranscripts = ({
         <Checkbox
           id="select-all-empty"
           checked={allSelected}
-          onCheckedChange={(checked) => onSelectAll(emptyContentTranscripts, !!checked)}
+          onCheckedChange={(checked) => onSelectAll(transcripts, !!checked)}
         />
         <Label htmlFor="select-all-empty" className="ml-2">
           Select All
@@ -76,7 +71,7 @@ const EmptyContentTranscripts = ({
               <Checkbox
                 id="select-all-header-empty"
                 checked={allSelected}
-                onCheckedChange={(checked) => onSelectAll(emptyContentTranscripts, !!checked)}
+                onCheckedChange={(checked) => onSelectAll(transcripts, !!checked)}
               />
             </TableHead>
             <TableHead>Title</TableHead>
@@ -84,7 +79,7 @@ const EmptyContentTranscripts = ({
           </TableRow>
         </TableHeader>
         <TableBody>
-          {emptyContentTranscripts.map((transcript) => (
+          {transcripts.map((transcript) => (
             <TableRow key={transcript.id}>
               <TableCell>
                 <Checkbox

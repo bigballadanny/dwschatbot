@@ -18,9 +18,6 @@
 - [ ] Implement response feedback buttons (thumbs up/down)
   - Component: app.py (Streamlit UI)
   - Zoom-in details: Add buttons with callback to store feedback in Supabase
-- [ ] Create settings panel for user preferences
-  - Component: app.py (Streamlit UI)
-  - Zoom-in details: Add expandable settings section with model selection and parameters
 
 ### Testing & Quality [PRIORITY: HIGH] [UPDATED: 2025-05-01]
 - [ ] Set up continuous integration pipeline
@@ -29,9 +26,6 @@
 - [ ] Add integration tests for the full RAG pipeline
   - Component: tests/
   - Zoom-in details: Create end-to-end tests with mock data
-- [ ] Implement performance benchmarking suite
-  - Component: tests/benchmarks
-  - Zoom-in details: Add timing measurements for key operations
 
 ## Completed Tasks
 
@@ -51,6 +45,9 @@
 - [x] Implement feedback mechanism for continuous improvement [COMPLETED: 2025-05-01]
 - [x] Remove Python backend dependency from transcript processing [COMPLETED: 2025-05-01]
 - [x] Refactor TranscriptDiagnostics component for better maintainability [COMPLETED: 2025-05-01]
+- [x] Fix environment configuration and dependency issues [COMPLETED: 2025-05-01]
+- [x] Add transcript diagnostic tools [COMPLETED: 2025-05-01]
+- [x] Streamline edge function processing pipeline [COMPLETED: 2025-05-01]
 
 ### Infrastructure
 - [x] Configure basic deployment workflow [COMPLETED: 2025-04-26]
@@ -58,8 +55,6 @@
 - [x] Create documentation framework [COMPLETED: 2025-04-26]
 - [x] Implement basic logging and monitoring [COMPLETED: 2025-04-30]
 - [x] Set up PGVector in Supabase [COMPLETED: 2025-05-01]
-- [x] Streamline edge function processing pipeline [COMPLETED: 2025-05-01]
-- [x] Fix environment configuration and dependency issues [COMPLETED: 2025-05-01]
 
 ## Backlog
 
@@ -71,35 +66,21 @@
 - [ ] Add admin endpoints for health/status monitoring
 - [ ] Integrate Supabase Auth for user authentication
 - [ ] Enhance RAG agent with context windowing/reranking
-- [ ] Add advanced logging and error handling
-- [ ] Implement customizable feedback collection UI
-- [ ] Add feedback analytics dashboard
+- [ ] Add source citation functionality
+- [ ] Add custom settings panel for user preferences
+- [ ] Implement performance benchmarking suite
 
-### Technical Improvements [PRIORITY: LOW] [UPDATED: 2025-05-01]
+### Technical Improvements [PRIORITY: MEDIUM] [UPDATED: 2025-05-01]
 - [ ] Optimize token usage for cost reduction
 - [ ] Implement caching layer for frequent queries
 - [ ] Create fallback mechanisms for API failures
 - [ ] Add support for alternative embedding models
-- [x] Review and clean up unused submodules or directories (`mcp-mem0`, `supabase-mcp`, `flows/`, etc.)
-  - Component: Project root
-  - Zoom-in details: Identify and archive/remove unused TypeScript files not part of the LightRAG implementation
-  - Status: PARTIALLY COMPLETED 2025-04-30 - Removed redundant chat hooks
-- [x] Document environment variable requirements
-  - Component: LightRAG/utils.py and app.py
-  - Zoom-in details: Created documentation and validation for environment variables
-  - Status: COMPLETED 2025-04-30
 - [ ] Optimize PGVector query performance
-  - Component: LightRAG/pgvector_client.py
-  - Zoom-in details: Implement more efficient vector search strategies
-- [ ] Update tests to remove references to Python backend
-  - Component: tests/
-  - Zoom-in details: Update test_mem0_client.py to use PGVector instead
-  - Status: PLANNED 2025-05-01
+- [x] Review and clean up unused submodules or directories [COMPLETED: 2025-05-01]
+- [x] Document environment variable requirements [COMPLETED: 2025-04-30]
 
-### Documentation [PRIORITY: MEDIUM] [UPDATED: 2025-05-01]
+### Documentation [PRIORITY: LOW] [UPDATED: 2025-05-01]
 - [ ] Create comprehensive API documentation
 - [ ] Develop end-user guide
 - [ ] Document deployment and maintenance procedures
 - [ ] Create video tutorials for common workflows
-- [ ] Create documentation for the feedback system
-- [ ] Document PGVector implementation and configuration

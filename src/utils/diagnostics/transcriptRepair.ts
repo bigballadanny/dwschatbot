@@ -1,8 +1,11 @@
 
 import { supabase } from '@/integrations/supabase/client';
+import { toast } from "sonner";
+import { DiagnosticTranscript } from './transcriptIssues';
 
 /**
  * Attempts to fix issues with transcript uploads
+ * @param transcriptIds Array of transcript IDs to fix
  */
 export async function fixTranscriptIssues(transcriptIds: string[]) {
   const results = {
@@ -67,7 +70,7 @@ export async function fixTranscriptIssues(transcriptIds: string[]) {
           results.errors.push(`Error fetching file for transcript ${id}: ${fetchError.message}`);
         }
       } else {
-        // No issues to fix for this transcript
+        // No issues to fix for this transcript or no file path to retrieve content from
         results.success++;
       }
     } catch (error: any) {
@@ -76,4 +79,73 @@ export async function fixTranscriptIssues(transcriptIds: string[]) {
   }
   
   return results;
+}
+
+/**
+ * Retries processing for transcripts that are stuck
+ */
+export async function retryStuckTranscripts(transcriptIds: string[]) {
+  const results = {
+    success: 0,
+    errors: [] as string[]
+  };
+
+  for (const id of transcriptIds) {
+    try {
+      // Reset processing metadata
+      const { error: resetError } = await supabase
+        .from('transcripts')
+        .update({ 
+          is_processed: false,
+          metadata: {
+            retry_triggered_at: new Date().toISOString(),
+            retry_count: 1
+          } 
+        })
+        .eq('id', id);
+        
+      if (resetError) {
+        results.errors.push(`Error resetting transcript ${id}: ${resetError.message}`);
+        continue;
+      }
+
+      // Call the webhook function to restart processing
+      const { error } = await supabase.functions.invoke('trigger-transcript-processing', {
+        body: { id }
+      });
+      
+      if (error) {
+        results.errors.push(`Error triggering processing for transcript ${id}: ${error.message}`);
+        continue;
+      }
+      
+      results.success++;
+      toast.success(`Successfully triggered processing for transcript ${id}`);
+    } catch (error: any) {
+      results.errors.push(`Unexpected error processing transcript ${id}: ${error.message}`);
+    }
+  }
+  
+  return results;
+}
+
+/**
+ * Updates a transcript's source type
+ */
+export async function updateTranscriptSourceType(transcriptId: string, newSource: string) {
+  try {
+    const { error } = await supabase
+      .from('transcripts')
+      .update({ source: newSource })
+      .eq('id', transcriptId);
+      
+    if (error) {
+      throw error;
+    }
+    
+    return { success: true };
+  } catch (error: any) {
+    console.error('Error updating transcript source type:', error);
+    return { success: false, error: error.message };
+  }
 }

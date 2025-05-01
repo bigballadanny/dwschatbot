@@ -3,6 +3,16 @@
 
 ## Version History
 
+### v0.1.3 (2025-05-01)
+- Fixed type definitions in diagnostic components
+- Added proper error handling for diagnostic tools
+- Improved usability of transcript management tools
+- Enhanced diagnostic interface with better UX/UI
+- Standardized diagnostic component interfaces
+- Implemented type conversion utilities for diagnostics
+- Created DiagnosticCardSimple component for simpler visualizations
+- Added support for trigger-transcript-processing edge function
+
 ### v0.1.2 (2025-05-01)
 - Removed Python backend dependency from transcript processing
 - Refactored TranscriptDiagnostics component for better maintainability
@@ -46,11 +56,13 @@
 - Implemented Streamlit UI for both chat and ingestion workflows
 - Removed unnecessary dependencies on external Python backend service
 - Simplified environment management and processing pipeline
+- Developed comprehensive diagnostic tools for transcript management
 
 ### Lessons Applied
 - Focusing on core functionality first ensures quicker time to value
 - Regular documentation updates improve team alignment
 - Testing from the start prevents technical debt
 - Smaller, focused components improve maintainability
+- Type definitions are crucial for complex system integration
 
 "Continuous improvement is not about perfection—it's about progress." 🌱

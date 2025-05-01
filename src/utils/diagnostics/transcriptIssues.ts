@@ -1,23 +1,27 @@
 
 import { supabase } from '@/integrations/supabase/client';
+import { Transcript } from '@/utils/transcriptUtils';
 
 // Define a proper type for the transcript metadata
 type TranscriptMetadata = Record<string, any>;
 
-// Extend the Transcript type from the transcriptUtils
-export interface DiagnosticTranscript {
-  id: string;
-  title: string;
-  content: string;
-  file_path?: string | null;
-  created_at: string;
-  updated_at: string;
-  user_id: string;
-  is_processed: boolean;
-  is_summarized: boolean;
-  source?: string;
-  tags?: string[];
+// Export the DiagnosticTranscript type that extends Transcript
+export interface DiagnosticTranscript extends Transcript {
   metadata: TranscriptMetadata;
+}
+
+/**
+ * Converts a standard Transcript to DiagnosticTranscript
+ * This ensures that all required fields are present
+ */
+export function convertToDiagnosticTranscript(transcript: Transcript): DiagnosticTranscript {
+  return {
+    ...transcript,
+    updated_at: transcript.updated_at || transcript.created_at,
+    metadata: typeof transcript.metadata === 'string' 
+      ? JSON.parse(transcript.metadata) 
+      : (transcript.metadata || {})
+  };
 }
 
 /**
@@ -35,11 +39,8 @@ export async function checkForTranscriptIssues() {
       throw error;
     }
     
-    // Ensure metadata is properly parsed
-    const transcripts: DiagnosticTranscript[] = transcriptsData.map(t => ({
-      ...t,
-      metadata: typeof t.metadata === 'string' ? JSON.parse(t.metadata) : (t.metadata || {})
-    }));
+    // Convert transcripts to DiagnosticTranscript type
+    const transcripts: DiagnosticTranscript[] = transcriptsData.map(t => convertToDiagnosticTranscript(t as Transcript));
     
     const stats = {
       total: transcripts.length,
@@ -105,7 +106,7 @@ export async function checkForTranscriptIssues() {
         
         // Check for transcripts stuck in processing
         if (transcript.metadata && typeof transcript.metadata === 'object') {
-          const metadata = transcript.metadata as Record<string, any>;
+          const metadata = transcript.metadata;
           if (metadata.processing_started_at) {
             const processingStartedAt = new Date(metadata.processing_started_at);
             const fiveMinutesAgo = new Date();
@@ -121,7 +122,7 @@ export async function checkForTranscriptIssues() {
       
       // Check for processing failures
       if (transcript.metadata && typeof transcript.metadata === 'object') {
-        const metadata = transcript.metadata as Record<string, any>;
+        const metadata = transcript.metadata;
         if (metadata.processing_failed || metadata.processing_error) {
           processingFailures.push(transcript);
           stats.processingFailures++;

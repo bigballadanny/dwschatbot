@@ -6,12 +6,12 @@ import { Label } from "@/components/ui/label";
 import { Button } from "@/components/ui/button";
 import { Progress } from "@/components/ui/progress";
 import DiagnosticCard from './DiagnosticCard';
-import { Transcript } from '@/utils/transcriptUtils';
+import { DiagnosticTranscript } from '@/utils/diagnostics/transcriptIssues';
 
 interface UnprocessedTranscriptsProps {
-  transcripts: Transcript[];
+  transcripts: DiagnosticTranscript[];
   selectedTranscripts: string[];
-  onSelectAll: (transcripts: Transcript[], isSelected: boolean) => void;
+  onSelectAll: (transcripts: DiagnosticTranscript[], isSelected: boolean) => void;
   onSelectTranscript: (transcriptId: string, isSelected: boolean) => void;
   onProcess: () => void;
   isProcessing: boolean;
@@ -41,7 +41,7 @@ const UnprocessedTranscripts = ({
       title="Unprocessed Transcripts"
       description="Transcripts that have not been processed yet"
       footer={
-        <Button variant="default" onClick={onProcess} disabled={isProcessing}>
+        <Button variant="default" onClick={onProcess} disabled={isProcessing || selectedTranscripts.length === 0}>
           {isProcessing ? (
             <>
               Processing...
