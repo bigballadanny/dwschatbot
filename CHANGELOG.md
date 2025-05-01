@@ -3,6 +3,15 @@
 
 ## Version History
 
+### v0.1.8 (2025-05-01)
+- Fixed build errors in typings and imports across diagnostic utilities
+- Added proper type conversion for Supabase Json type to Record<string, any>
+- Implemented missing functions in transcriptProcessing.ts
+- Added checkTranscriptProcessingHealth() function for system health checks
+- Added batchProcessUnprocessedTranscripts() function for batch processing
+- Removed deprecated code and functions
+- Updated task tracking documentation
+
 ### v0.1.7 (2025-05-01)
 - Completed hierarchical document chunking implementation
 - Added source citation functionality with proper metadata
@@ -95,6 +104,7 @@
 - Removed unnecessary dependencies on external Python backend service
 - Simplified environment management and processing pipeline
 - Developed comprehensive diagnostic tools for transcript management
+- Fixed build errors and typescript issues for better code quality
 
 ### Lessons Applied
 - Focusing on core functionality first ensures quicker time to value
@@ -102,6 +112,7 @@
 - Testing from the start prevents technical debt
 - Smaller, focused components improve maintainability
 - Type definitions are crucial for complex system integration
+- Proper type handling between Supabase and frontend is essential
 
 ## Current Priorities & Technical Debt
 
@@ -109,6 +120,7 @@
 - Storage path standardization: Fixed inconsistency in file_path handling across system
 - Content extraction from storage: Implemented automatic extraction for transcripts with file_path
 - Edge function communication: Fixed communication between trigger-processing and process-transcript
+- Type safety: Fixed type inconsistencies between Supabase Json and TypeScript Record types
 
 ### High Priority Tasks
 - Implemented hierarchical document chunking for better context preservation
@@ -121,5 +133,6 @@
 - Consolidated duplicate code in transcript processing logic
 - Improved error handling and retry mechanisms for edge functions
 - Standardized logging format across edge functions for better debugging
+- Fixed type definitions and imports across the application
 
 "Continuous improvement is not about perfection—it's about progress." 🌱

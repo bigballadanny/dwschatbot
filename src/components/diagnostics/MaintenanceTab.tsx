@@ -1,16 +1,10 @@
-
 import React, { useState } from 'react';
 import { Card, CardHeader, CardTitle, CardDescription, CardContent, CardFooter } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Progress } from "@/components/ui/progress";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { AlertCircle, CheckCircle } from "lucide-react";
-import { 
-  checkTranscriptStorageBucket, 
-  createTranscriptsBucket,
-  standardizeTranscriptFilePaths, 
-  batchExtractTranscriptContent 
-} from '@/utils/diagnostics/transcriptManagement';
+import { runTranscriptMaintenance, standardizeAllTranscriptPaths, extractTranscriptContent } from '@/utils/diagnostics/transcriptProcessing';
 import { 
   batchProcessUnprocessedTranscripts,
   checkTranscriptProcessingHealth
@@ -61,26 +55,19 @@ const MaintenanceTab: React.FC = () => {
     setStorageStatus(null);
     
     try {
-      // Check bucket status
-      const { exists, isPublic } = await checkTranscriptStorageBucket();
+      // Call maintenance function to check and fix storage
+      const result = await runTranscriptMaintenance();
       
-      if (!exists) {
-        const createResult = await createTranscriptsBucket();
+      if (result.success) {
         setStorageStatus({
-          action: 'created',
-          success: createResult.success,
-          error: createResult.error
-        });
-      } else if (!isPublic) {
-        setStorageStatus({
-          action: 'exists',
-          isPublic: false,
-          message: 'Storage bucket exists but is not public. Consider recreating it as public.'
+          action: 'checked',
+          success: true,
+          message: 'Storage maintenance completed successfully.'
         });
       } else {
         setStorageStatus({
-          action: 'no_action',
-          message: 'Storage bucket exists and is configured correctly.'
+          action: 'error',
+          error: result.error
         });
       }
     } catch (error: any) {
@@ -99,7 +86,7 @@ const MaintenanceTab: React.FC = () => {
     setStandardizeStatus(null);
     
     try {
-      const result = await standardizeTranscriptFilePaths();
+      const result = await standardizeAllTranscriptPaths();
       setStandardizeStatus(result);
     } catch (error: any) {
       setStandardizeStatus({
@@ -118,8 +105,17 @@ const MaintenanceTab: React.FC = () => {
     setExtractStatus(null);
     
     try {
-      const result = await batchExtractTranscriptContent();
-      setExtractStatus(result);
+      // Extract content from transcripts with empty content
+      const result = await extractTranscriptContent([]);
+      setExtractStatus({
+        success: result.success > 0,
+        processed: result.success,
+        errors: result.errors.reduce((acc, error) => {
+          const id = error.split(' ')[4]; // Extract ID from error message
+          acc[id] = error;
+          return acc;
+        }, {} as Record<string, string>)
+      });
     } catch (error: any) {
       setExtractStatus({
         success: false,

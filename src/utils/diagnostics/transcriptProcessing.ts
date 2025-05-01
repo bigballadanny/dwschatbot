@@ -253,3 +253,207 @@ export async function standardizeAllTranscriptPaths() {
     };
   }
 }
+
+/**
+ * Check the health of the transcript processing system
+ */
+export async function checkTranscriptProcessingHealth() {
+  console.log('[HEALTH] Checking transcript processing system health');
+  
+  try {
+    const { data, error } = await supabase.functions.invoke('transcript-processing-health', {
+      method: 'GET'
+    });
+    
+    if (error) {
+      console.error('[HEALTH] Error checking transcript processing health:', error);
+      return {
+        healthy: false,
+        issues: [`Error checking health: ${error.message}`],
+        details: { error: error.message }
+      };
+    }
+    
+    if (!data) {
+      return {
+        healthy: false,
+        issues: ['Invalid response from health check'],
+        details: { error: 'Invalid response' }
+      };
+    }
+    
+    // Calculate if the system is healthy based on the issues
+    const healthy = !data.issues || data.issues.length === 0;
+    
+    // Format the response
+    return {
+      healthy,
+      issues: data.issues || [],
+      recommendations: data.recommendations || [],
+      details: {
+        storage: data.storage,
+        statistics: {
+          total: data.transcripts.total,
+          processed: data.transcripts.processed,
+          processedPercent: data.transcripts.total > 0 
+            ? Math.round((data.transcripts.processed / data.transcripts.total) * 100) 
+            : 0,
+          unprocessed: data.transcripts.unprocessed,
+          withContent: data.transcripts.withContent,
+          withoutContent: data.transcripts.withoutContent,
+          summarized: data.transcripts.summarized || 0,
+          stuck: data.transcripts.stuck
+        },
+        functions: data.edgeFunctions,
+        timestamp: data.timestamp
+      }
+    };
+  } catch (error: any) {
+    console.error('[HEALTH] Unexpected error checking health:', error);
+    return {
+      healthy: false,
+      issues: [`Unexpected error: ${error.message || 'Unknown error'}`],
+      details: { error: error.message || 'Unknown error' }
+    };
+  }
+}
+
+/**
+ * Batch process unprocessed transcripts with progress tracking
+ */
+export async function batchProcessUnprocessedTranscripts(options = {
+  prepareFirst: true,
+  batchSize: 5,
+  maxRetries: 2
+}) {
+  console.log('[BATCH] Starting batch processing of unprocessed transcripts');
+  
+  try {
+    // Get all unprocessed transcripts
+    const { data: transcripts, error } = await supabase
+      .from('transcripts')
+      .select('id, title, content, file_path')
+      .eq('is_processed', false)
+      .order('created_at', { ascending: true });
+      
+    if (error) {
+      console.error('[BATCH] Error fetching unprocessed transcripts:', error);
+      return {
+        success: false,
+        message: `Error fetching transcripts: ${error.message}`,
+        total: 0,
+        processed: 0,
+        prepared: 0,
+        errors: { general: error.message }
+      };
+    }
+    
+    if (!transcripts || transcripts.length === 0) {
+      console.log('[BATCH] No unprocessed transcripts found');
+      return {
+        success: true,
+        message: 'No unprocessed transcripts found',
+        total: 0,
+        processed: 0,
+        prepared: 0,
+        errors: {}
+      };
+    }
+    
+    console.log(`[BATCH] Found ${transcripts.length} unprocessed transcripts`);
+    
+    const results = {
+      success: true,
+      total: transcripts.length,
+      processed: 0,
+      prepared: 0,
+      errors: {} as Record<string, string>
+    };
+    
+    // First pass: prepare transcripts by ensuring they have content
+    if (options.prepareFirst) {
+      console.log('[BATCH] Preparing transcripts before processing');
+      
+      // Identify transcripts that need preparation (have file_path but no content)
+      const needsContentExtraction = transcripts.filter(t => 
+        (!t.content || t.content.trim() === '') && t.file_path
+      );
+      
+      if (needsContentExtraction.length > 0) {
+        console.log(`[BATCH] Extracting content for ${needsContentExtraction.length} transcripts`);
+        
+        // Call the fix-transcript-paths function to extract content
+        const { data, error: extractError } = await supabase.functions.invoke('fix-transcript-paths', {
+          method: 'POST'
+        });
+        
+        if (extractError) {
+          console.error('[BATCH] Error extracting content:', extractError);
+        } else if (data && data.extraction) {
+          results.prepared = data.extraction.extracted || 0;
+          console.log(`[BATCH] Prepared ${results.prepared} transcripts`);
+        }
+      }
+    }
+    
+    // Second pass: process transcripts in batches
+    console.log(`[BATCH] Processing transcripts in batches of ${options.batchSize}`);
+    
+    const batchSize = options.batchSize || 5;
+    const errors = {} as Record<string, string>;
+    
+    // Process in batches
+    for (let i = 0; i < transcripts.length; i += batchSize) {
+      const batch = transcripts.slice(i, i + batchSize);
+      
+      console.log(`[BATCH] Processing batch ${Math.floor(i / batchSize) + 1} of ${Math.ceil(transcripts.length / batchSize)}`);
+      
+      // Process each transcript in the batch
+      for (const transcript of batch) {
+        try {
+          const { error: processError } = await supabase.functions.invoke('trigger-transcript-processing', {
+            body: { id: transcript.id }
+          });
+          
+          if (processError) {
+            console.error(`[BATCH] Error processing transcript ${transcript.id}:`, processError);
+            errors[transcript.id] = `Processing error: ${processError.message}`;
+          } else {
+            results.processed++;
+          }
+        } catch (error: any) {
+          console.error(`[BATCH] Unexpected error for transcript ${transcript.id}:`, error);
+          errors[transcript.id] = `Unexpected error: ${error.message || 'Unknown error'}`;
+        }
+        
+        // Small delay between requests to avoid overwhelming the system
+        await new Promise(resolve => setTimeout(resolve, 500));
+      }
+      
+      // Delay between batches
+      if (i + batchSize < transcripts.length) {
+        await new Promise(resolve => setTimeout(resolve, 2000));
+      }
+    }
+    
+    results.errors = errors;
+    
+    // Update result status
+    if (Object.keys(errors).length > 0) {
+      results.success = results.processed > 0;
+    }
+    
+    console.log(`[BATCH] Batch processing complete: ${results.processed} of ${results.total} processed`);
+    return results;
+  } catch (error: any) {
+    console.error('[BATCH] Unexpected error in batch processing:', error);
+    return {
+      success: false,
+      message: `Unexpected error: ${error.message || 'Unknown error'}`,
+      total: 0,
+      processed: 0,
+      prepared: 0,
+      errors: { general: error.message || 'Unknown error' }
+    };
+  }
+}

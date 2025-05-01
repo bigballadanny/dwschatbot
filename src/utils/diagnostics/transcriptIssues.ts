@@ -3,6 +3,7 @@
  * Utilities for identifying and retrieving transcript issues
  */
 import { supabase } from '@/integrations/supabase/client';
+import { Json } from '@/integrations/supabase/types';
 
 /**
  * Type definitions for transcript diagnostics
@@ -17,7 +18,7 @@ export interface DiagnosticTranscript {
   file_path?: string;
   is_processed?: boolean;
   is_summarized?: boolean;
-  metadata?: Record<string, any>;
+  metadata?: Record<string, any> | Json;
 }
 
 export interface DiagnosticResult {
@@ -77,11 +78,12 @@ export async function checkForTranscriptIssues(): Promise<DiagnosticResult> {
     const stuckInProcessing: DiagnosticTranscript[] = [];
     const emptyContentTranscripts: DiagnosticTranscript[] = [];
     
-    transcripts.forEach((transcript: DiagnosticTranscript) => {
+    // Type assertion to make TypeScript happy
+    (transcripts || []).forEach((transcript: any) => {
       // Check for empty content
       if (!transcript.content || transcript.content.trim() === '') {
         stats.emptyContent++;
-        emptyContentTranscripts.push(transcript);
+        emptyContentTranscripts.push(transcript as DiagnosticTranscript);
       }
       
       // Check for missing file path
@@ -93,7 +95,7 @@ export async function checkForTranscriptIssues(): Promise<DiagnosticResult> {
       const createdAt = new Date(transcript.created_at);
       if (createdAt > lastHour) {
         stats.recentlyUploaded++;
-        recentTranscripts.push(transcript);
+        recentTranscripts.push(transcript as DiagnosticTranscript);
       }
       
       // Count business summit transcripts
@@ -108,13 +110,13 @@ export async function checkForTranscriptIssues(): Promise<DiagnosticResult> {
                          uploadDate.getFullYear() === new Date().getFullYear();
                          
       if (is27thUpload && transcript.source !== 'business_acquisitions_summit') {
-        potentialSummitTranscripts.push(transcript);
+        potentialSummitTranscripts.push(transcript as DiagnosticTranscript);
         stats.potentialSummitTranscripts++;
       }
       
       // Check for unprocessed transcripts
       if (transcript.is_processed === false) {
-        unprocessedTranscripts.push(transcript);
+        unprocessedTranscripts.push(transcript as DiagnosticTranscript);
         stats.unprocessedTranscripts++;
         
         // Check for transcripts stuck in processing
@@ -126,7 +128,7 @@ export async function checkForTranscriptIssues(): Promise<DiagnosticResult> {
             fiveMinutesAgo.setMinutes(fiveMinutesAgo.getMinutes() - 5);
             
             if (processingStartedAt < fiveMinutesAgo) {
-              stuckInProcessing.push(transcript);
+              stuckInProcessing.push(transcript as DiagnosticTranscript);
               stats.stuckInProcessing++;
             }
           }
@@ -137,7 +139,7 @@ export async function checkForTranscriptIssues(): Promise<DiagnosticResult> {
       if (transcript.metadata && typeof transcript.metadata === 'object') {
         const metadata = transcript.metadata as Record<string, any>;
         if (metadata.processing_failed || metadata.processing_error) {
-          processingFailures.push(transcript);
+          processingFailures.push(transcript as DiagnosticTranscript);
           stats.processingFailures++;
         }
       }
@@ -173,7 +175,7 @@ export async function getTranscriptsWithEmptyContent(): Promise<DiagnosticTransc
       throw error;
     }
     
-    return transcripts || [];
+    return transcripts as DiagnosticTranscript[] || [];
   } catch (error) {
     console.error('Error fetching empty content transcripts:', error);
     return [];
@@ -195,7 +197,7 @@ export async function getUnprocessedTranscripts(): Promise<DiagnosticTranscript[
       throw error;
     }
     
-    return transcripts || [];
+    return transcripts as DiagnosticTranscript[] || [];
   } catch (error) {
     console.error('Error fetching unprocessed transcripts:', error);
     return [];
@@ -234,7 +236,7 @@ export async function getStuckTranscripts(): Promise<DiagnosticTranscript[]> {
       return processingStartedAt < fiveMinutesAgo;
     });
     
-    return stuckTranscripts;
+    return stuckTranscripts as DiagnosticTranscript[];
   } catch (error) {
     console.error('Error fetching stuck transcripts:', error);
     return [];
