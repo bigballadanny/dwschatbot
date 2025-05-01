@@ -60,23 +60,23 @@ const StuckTranscripts = ({
             let startTime: Date | null = null;
             let status = 'Unknown';
             
-            // Safe access to metadata properties using type guards
-            const metadata = transcript.metadata || {};
-            const processingStartedAt = typeof metadata === 'object' 
-              ? metadata.processing_started_at as string || null 
-              : null;
+            // Safely check if metadata is a Record (object) and not an array
+            const metadata = transcript.metadata && 
+              typeof transcript.metadata === 'object' && 
+              !Array.isArray(transcript.metadata) 
+                ? transcript.metadata as Record<string, any>
+                : {};
+            
+            // Now safely access properties from the metadata object
+            const processingStartedAt = metadata.processing_started_at as string | undefined;
             
             if (processingStartedAt) {
               startTime = new Date(processingStartedAt);
               timeStuck = formatDistanceToNow(startTime, { addSuffix: false });
               
               // Determine processing status - safely access metadata properties
-              const retryCount = typeof metadata === 'object' 
-                ? (metadata.retry_count as number) || 0 
-                : 0;
-              const processingFailed = typeof metadata === 'object' 
-                ? !!metadata.processing_failed 
-                : false;
+              const retryCount = metadata.retry_count as number | undefined || 0;
+              const processingFailed = !!metadata.processing_failed;
               
               if (processingFailed) {
                 status = `Failed${retryCount > 0 ? ` (${retryCount} retries)` : ''}`;
