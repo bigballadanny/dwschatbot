@@ -9,3 +9,6 @@ verify_jwt = false
 
 [functions.trigger-transcript-processing]
 verify_jwt = false
+
+[functions.process-transcript]
+verify_jwt = false

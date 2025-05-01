@@ -60,15 +60,23 @@ const StuckTranscripts = ({
             let startTime: Date | null = null;
             let status = 'Unknown';
             
-            const processingStartedAt = transcript.metadata?.processing_started_at;
+            // Safe access to metadata properties using type guards
+            const metadata = transcript.metadata || {};
+            const processingStartedAt = typeof metadata === 'object' 
+              ? metadata.processing_started_at as string || null 
+              : null;
             
             if (processingStartedAt) {
               startTime = new Date(processingStartedAt);
               timeStuck = formatDistanceToNow(startTime, { addSuffix: false });
               
-              // Determine processing status
-              const retryCount = transcript.metadata?.retry_count || 0;
-              const processingFailed = transcript.metadata?.processing_failed;
+              // Determine processing status - safely access metadata properties
+              const retryCount = typeof metadata === 'object' 
+                ? (metadata.retry_count as number) || 0 
+                : 0;
+              const processingFailed = typeof metadata === 'object' 
+                ? !!metadata.processing_failed 
+                : false;
               
               if (processingFailed) {
                 status = `Failed${retryCount > 0 ? ` (${retryCount} retries)` : ''}`;

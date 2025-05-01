@@ -1,5 +1,5 @@
 
-import { createClient } from "https://esm.sh/@supabase/supabase-js@2.39.6";
+import { createClient } from "https://esm.sh/@supabase/supabase-js@2.39.7";
 
 // Define CORS headers for browser requests
 const corsHeaders = {
@@ -14,168 +14,180 @@ Deno.serve(async (req) => {
   }
 
   try {
-    console.log("[HEALTH] Starting transcript processing health check");
-    
-    // Create Supabase client with the service role key
+    // Create Supabase client
     const supabaseUrl = Deno.env.get('SUPABASE_URL');
     const supabaseKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY');
     
     if (!supabaseUrl || !supabaseKey) {
-      throw new Error("Missing Supabase environment variables");
+      throw new Error('Missing Supabase environment variables');
     }
-    
+
     const supabase = createClient(supabaseUrl, supabaseKey, {
       auth: { persistSession: false }
     });
     
-    // Check 1: Storage bucket exists and is configured correctly
+    console.log("[HEALTH] Starting transcript processing health check");
+    
+    // Check storage bucket configuration
     console.log("[HEALTH] Checking storage bucket configuration");
     const { data: buckets, error: bucketsError } = await supabase.storage.listBuckets();
     
+    const transcriptsBucket = buckets?.find(b => b.name === 'transcripts');
+    const storageIssues = [];
+    
     if (bucketsError) {
-      throw new Error(`Storage bucket check failed: ${bucketsError.message}`);
+      storageIssues.push(`Error accessing storage: ${bucketsError.message}`);
     }
     
-    const transcriptsBucket = buckets?.find(bucket => bucket.name === 'transcripts');
-    const bucketStatus = {
-      exists: !!transcriptsBucket,
-      isPublic: transcriptsBucket?.public ?? false,
-      error: null
-    };
+    if (!transcriptsBucket) {
+      storageIssues.push('Transcripts bucket does not exist');
+    }
     
-    // Check 2: Transcript table statistics
+    // Check transcripts table and gather statistics
     console.log("[HEALTH] Gathering transcript statistics");
     const { data: transcripts, error: transcriptsError } = await supabase
       .from('transcripts')
-      .select('id, is_processed, content, file_path, metadata, created_at');
-    
+      .select('id, title, content, is_processed, is_summarized, metadata, file_path')
+      .order('created_at', { ascending: false });
+      
     if (transcriptsError) {
-      throw new Error(`Transcript table check failed: ${transcriptsError.message}`);
+      return new Response(JSON.stringify({ 
+        status: 'error',
+        message: `Error fetching transcripts: ${transcriptsError.message}`
+      }), { 
+        status: 500,
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+      });
     }
     
     // Calculate statistics
-    const now = new Date();
-    const total = transcripts?.length || 0;
-    const processed = transcripts?.filter(t => t.is_processed).length || 0;
-    const unprocessed = total - processed;
-    const withContent = transcripts?.filter(t => t.content && t.content.trim() !== '').length || 0;
-    const withoutContent = total - withContent;
-    const withFilePath = transcripts?.filter(t => t.file_path).length || 0;
-    const withoutFilePath = total - withFilePath;
-    
-    // Check for stuck transcripts
-    const stuckTranscripts = transcripts?.filter(t => {
-      if (t.is_processed) return false;
-      
-      const processingStartedAt = t.metadata?.processing_started_at;
-      if (!processingStartedAt) return false;
-      
-      try {
-        const startedTime = new Date(processingStartedAt);
-        const elapsedMinutes = (now.getTime() - startedTime.getTime()) / (1000 * 60);
-        return elapsedMinutes > 5; // Stuck for more than 5 minutes
-      } catch (e) {
-        return false;
-      }
-    }) || [];
-    
-    // Check 3: Verify edge functions
-    console.log("[HEALTH] Checking edge functions");
-    let webhookStatus = "unknown";
-    let processStatus = "unknown";
-    let triggerStatus = "unknown";
-
-    try {
-      const { error: webhookError } = await supabase.functions.invoke('transcript-webhook', {
-        body: { type: 'HEALTH_CHECK' }
-      });
-      webhookStatus = webhookError ? "error" : "healthy";
-    } catch (e) {
-      webhookStatus = "error";
-    }
-    
-    try {
-      const { error: processError } = await supabase.functions.invoke('process-transcript', {
-        body: { health_check: true }
-      });
-      processStatus = processError ? "error" : "healthy";
-    } catch (e) {
-      processStatus = "error";
-    }
-    
-    try {
-      const { error: triggerError } = await supabase.functions.invoke('trigger-transcript-processing', {
-        body: { health_check: true }
-      });
-      triggerStatus = triggerError ? "error" : "healthy";
-    } catch (e) {
-      triggerStatus = "error";
-    }
-    
-    // Compile the health report
-    const healthReport = {
-      timestamp: now.toISOString(),
-      storage: bucketStatus,
-      transcripts: {
-        total,
-        processed,
-        unprocessed,
-        withContent,
-        withoutContent,
-        withFilePath,
-        withoutFilePath,
-        stuck: stuckTranscripts.length
-      },
-      edgeFunctions: {
-        webhookStatus,
-        processStatus,
-        triggerStatus
-      },
-      issues: [] as string[],
-      recommendations: [] as string[]
+    const stats = {
+      total: transcripts?.length || 0,
+      processed: 0,
+      unprocessed: 0,
+      summarized: 0,
+      withContent: 0,
+      withoutContent: 0,
+      stuck: 0,
+      withErrors: 0
     };
     
-    // Add issues and recommendations
-    if (!bucketStatus.exists) {
-      healthReport.issues.push("Storage bucket 'transcripts' does not exist");
-      healthReport.recommendations.push("Create storage bucket 'transcripts' with public access");
-    } else if (!bucketStatus.isPublic) {
-      healthReport.issues.push("Storage bucket 'transcripts' is not public");
-      healthReport.recommendations.push("Make storage bucket 'transcripts' public for content access");
+    const fiveMinutesAgo = new Date();
+    fiveMinutesAgo.setMinutes(fiveMinutesAgo.getMinutes() - 5);
+    
+    transcripts?.forEach(transcript => {
+      // Count processed/unprocessed transcripts
+      if (transcript.is_processed) {
+        stats.processed++;
+      } else {
+        stats.unprocessed++;
+      }
+      
+      // Count summarized transcripts
+      if (transcript.is_summarized) {
+        stats.summarized++;
+      }
+      
+      // Count transcripts with/without content
+      if (transcript.content && transcript.content.trim() !== '') {
+        stats.withContent++;
+      } else {
+        stats.withoutContent++;
+      }
+      
+      // Count stuck transcripts
+      const metadata = transcript.metadata || {};
+      if (typeof metadata === 'object' && metadata.processing_started_at) {
+        const processingStartedAt = new Date(metadata.processing_started_at as string);
+        if (processingStartedAt < fiveMinutesAgo && !transcript.is_processed) {
+          stats.stuck++;
+        }
+      }
+      
+      // Count transcripts with errors
+      if (typeof metadata === 'object' && (metadata.processing_error || metadata.processing_failed)) {
+        stats.withErrors++;
+      }
+    });
+    
+    // Check edge functions
+    console.log("[HEALTH] Checking edge functions");
+    const requiredFunctions = [
+      'trigger-transcript-processing', 
+      'process-transcript',
+      'fix-transcript-paths',
+      'transcript-processing-health'
+    ];
+    
+    const functionIssues = [];
+    const edgeFunctionStatus = {};
+    
+    // Check process-transcript function with a health check
+    try {
+      const { data: processTranscriptHealth, error: healthError } = await supabase.functions.invoke(
+        'process-transcript', 
+        { 
+          body: { health_check: true }
+        }
+      );
+      
+      if (healthError) {
+        functionIssues.push(`process-transcript health check failed: ${healthError.message}`);
+        edgeFunctionStatus['process-transcript'] = 'error';
+      } else {
+        edgeFunctionStatus['process-transcript'] = processTranscriptHealth?.status || 'ok';
+      }
+    } catch (error) {
+      functionIssues.push(`process-transcript health check error: ${error.message}`);
+      edgeFunctionStatus['process-transcript'] = 'error';
     }
     
-    if (withoutContent > 0 && withFilePath > 0) {
-      healthReport.issues.push(`${withoutContent} transcripts have no content but ${withFilePath} have file paths`);
-      healthReport.recommendations.push("Run batch content extraction to extract content from file paths");
+    // Compile all issues
+    const issues = [...storageIssues, ...functionIssues];
+    
+    // Prepare recommendations
+    const recommendations = [];
+    
+    if (stats.stuck > 0) {
+      recommendations.push(`Retry ${stats.stuck} stuck transcripts using the diagnostic tool`);
     }
     
-    if (stuckTranscripts.length > 0) {
-      healthReport.issues.push(`${stuckTranscripts.length} transcripts are stuck in processing`);
-      healthReport.recommendations.push("Retry stuck transcripts with the retry function");
+    if (stats.withoutContent > 0 && stats.withoutContent < 5) {
+      recommendations.push(`Extract content for ${stats.withoutContent} transcript(s) with missing content`);
+    } else if (stats.withoutContent >= 5) {
+      recommendations.push(`Run batch content extraction for ${stats.withoutContent} transcripts with missing content`);
     }
     
-    if (webhookStatus === "error" || processStatus === "error" || triggerStatus === "error") {
-      healthReport.issues.push("One or more edge functions are not responding correctly");
-      healthReport.recommendations.push("Check edge function logs and environment variables");
+    if (stats.unprocessed > 0) {
+      recommendations.push(`Process ${stats.unprocessed} unprocessed transcripts`);
     }
     
-    console.log(`[HEALTH] Health check complete: ${healthReport.issues.length} issues found`);
+    console.log("[HEALTH] Health check complete:", issues.length ? `${issues.length} issues found` : 'all systems operational');
     
-    return new Response(JSON.stringify(healthReport), {
+    return new Response(JSON.stringify({
+      status: issues.length ? 'issues_found' : 'healthy',
+      timestamp: new Date().toISOString(),
+      issues,
+      recommendations,
+      storage: {
+        buckets: {
+          transcripts: !!transcriptsBucket
+        }
+      },
+      transcripts: stats,
+      edgeFunctions: edgeFunctionStatus
+    }), { 
+      status: 200,
       headers: { ...corsHeaders, 'Content-Type': 'application/json' }
     });
   } catch (error) {
-    console.error('[HEALTH] Error during health check:', error);
-    
-    return new Response(
-      JSON.stringify({ 
-        error: error.message || 'Unknown error during health check',
-        timestamp: new Date().toISOString()
-      }),
-      { 
-        status: 500,
-        headers: { ...corsHeaders, 'Content-Type': 'application/json' }
-      }
-    );
+    console.error('[HEALTH] Error in health check:', error);
+    return new Response(JSON.stringify({ 
+      status: 'error',
+      message: error.message || 'Unknown error'
+    }), { 
+      status: 500,
+      headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+    });
   }
 });

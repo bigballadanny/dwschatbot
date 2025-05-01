@@ -57,18 +57,25 @@ This file tracks the remaining tasks for our RAG system implementation. Tasks ar
 - [ ] Implement automated testing in the pipeline
 - [ ] Add monitoring and alerting
 
-## Cleanup Tasks
+## Next Tasks (Current Sprint)
 
-### Streamlit Removal
-- [x] Remove streamlit_app.py (used only for local development)
-- [x] Remove unused Python backend dependencies related to Streamlit
-- [x] Document transition from Streamlit to pure Supabase implementation
+### Transcript Processing Pipeline
+- [ ] Fix edge function communication between transcript-webhook and process-transcript 
+- [ ] Ensure metadata is properly updated during processing
+- [ ] Implement error handling and retry mechanisms for processing failures
+- [ ] Add structured logging for better debugging
 
-### Code Cleanup
-- [x] Remove deprecated mem0 references
-- [x] Consolidate duplicate utility functions
-- [x] Fix inconsistent naming patterns
-- [x] Remove unused imports and code
+### Content Processing
+- [ ] Fix content extraction from files with correct paths
+- [ ] Implement hierarchical chunking in process-transcript function
+- [ ] Add metadata tracking for chunking strategies used
+- [ ] Enable source citation in search results
+
+### System Health Check
+- [ ] Add monitoring for stuck transcripts
+- [ ] Implement transcript processing metrics collection
+- [ ] Create dashboard for system health visualization
+- [ ] Set up alerts for processing failures
 
 ## Completed Tasks
 
@@ -85,3 +92,4 @@ This file tracks the remaining tasks for our RAG system implementation. Tasks ar
 - [x] Added visualizations for chunking analysis
 - [x] Added health check functionality for system monitoring
 - [x] Created storage path standardization utilities
+
