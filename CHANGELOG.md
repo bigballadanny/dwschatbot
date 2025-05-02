@@ -3,6 +3,13 @@
 
 ## Version History
 
+### v0.1.9 (2025-05-02)
+- Consolidated documentation into five focused files for better maintainability
+- Created SYNTHIOS.md as the central documentation hub
+- Implemented hierarchical chunking in transcriptProcessing.ts for better context preservation
+- Fixed Vite build error by adding missing dependency
+- Updated task tracking with progress on TASK-TP-02
+
 ### v0.1.8 (2025-05-01)
 - Fixed build errors in typings and imports across diagnostic utilities
 - Added proper type conversion for Supabase Json type to Record<string, any>

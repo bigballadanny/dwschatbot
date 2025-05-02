@@ -3,7 +3,7 @@
 
 ## Currently In Progress
 
-### Advanced RAG Features [PRIORITY: HIGH] [UPDATED: 2025-05-01]
+### Advanced RAG Features [PRIORITY: HIGH] [UPDATED: 2025-05-02]
 - [ ] Implement conversational context management
   - Component: RAG pipeline
   - Zoom-in details: Add ability to reference previous questions and answers in new queries
@@ -11,7 +11,7 @@
   - Component: Embedding service
   - Zoom-in details: Ensure embeddings work well with multiple languages
 
-### Performance Optimization [PRIORITY: MEDIUM] [UPDATED: 2025-05-01]
+### Performance Optimization [PRIORITY: MEDIUM] [UPDATED: 2025-05-02]
 - [ ] Implement caching layer for frequent queries
   - Component: search_embeddings edge function
   - Zoom-in details: Store common query results to reduce processing time and API costs
@@ -19,13 +19,14 @@
   - Component: PGVector configuration
   - Zoom-in details: Configure PGVector for better performance with larger datasets
 
-### Transcript Processing Fixes [PRIORITY: HIGH] [UPDATED: 2025-05-01]
+### Transcript Processing Fixes [PRIORITY: HIGH] [UPDATED: 2025-05-02]
 - [ ] Fix content extraction from files with correct paths [TASK-TP-01]
   - Component: process-transcript function
   - Zoom-in details: Ensure stored file paths correctly resolve to content
-- [ ] Implement hierarchical chunking in process-transcript function [TASK-TP-02]
+- [/] Implement hierarchical chunking in process-transcript function [TASK-TP-02] (In progress)
   - Component: chunking module
   - Zoom-in details: Create parent-child relationships between chunks
+  - Status: Implementation added to transcriptProcessing.ts utility
 - [ ] Add metadata tracking for chunking strategies used [TASK-TP-03]
   - Component: chunking module
   - Zoom-in details: Store information about chunking approaches in metadata
@@ -58,6 +59,7 @@
 - [x] Optimize embedding generation service [COMPLETED: 2025-05-01]
 - [x] Refactor diagnostic utilities into smaller modules [COMPLETED: 2025-05-01]
 - [x] Fix UI components for transcript diagnostics [COMPLETED: 2025-05-01]
+- [x] Consolidate documentation into focused, maintainable files [COMPLETED: 2025-05-02]
 
 ### Infrastructure
 - [x] Configure basic deployment workflow [COMPLETED: 2025-04-26]

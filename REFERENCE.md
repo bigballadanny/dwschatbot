@@ -1,5 +1,5 @@
 
-# Reference Documentation Standards
+# SYNTHIOS - Reference Documentation
 
 ## Purpose
 

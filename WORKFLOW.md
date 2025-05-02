@@ -8,43 +8,6 @@ This system is fundamental to project integrity. Changes require:
 2. Version backup before structural changes
 3. All task implementations must reference an approved task ID
 
-## First Principles Framework
-
-### Core Philosophy
-We approach all problems using first principles thinking:
-1. Question all assumptions and conventional approaches
-2. Break down complex problems to fundamental truths
-3. Rebuild solutions from these fundamental elements
-4. Evaluate ideas on merit, not authority or convention
-
-### Elon Musk's 5-Step Optimization Method
-1. **Question requirements**: Remove unnecessary constraints
-2. **Delete parts/processes**: Simplify ruthlessly
-3. **Optimize remaining elements**: Only after simplification
-4. **Accelerate cycle time**: Speed up development after optimization
-5. **Automate**: Only automate already-simplified processes
-
-## Task Management System
-
-### Task Lifecycle
-1. **Proposal**: Tasks must be clearly defined and added to TASKS.md
-2. **Approval**: All tasks require explicit approval with "TASK APPROVAL: [TaskID]"
-3. **Implementation**: Work references the approved task ID
-4. **Verification**: Testing and validation against requirements
-5. **Completion**: Move to CHANGELOG.md with completion date
-
-### Task Structure
-[ ] Task description [TASK-ID]
-Component: Affected system component
-Priority: HIGH/MEDIUM/LOW
-Dependencies: List of prerequisite tasks
-Acceptance Criteria: Clear conditions for completion
-
-### Task Status Tracking
-- **[ ]** = Not started
-- **[/]** = In progress (with implementation notes)
-- **[x]** = Completed (include date)
-
 ## Communication Framework
 
 ### Zoom In/Zoom Out Method
@@ -54,10 +17,7 @@ Acceptance Criteria: Clear conditions for completion
 
 ### Communication Modes
 - **Code Mode**: Implementation, debugging, refactoring
-- **Vibe Mode**: Planning, system design, technical vision
-- **Ask Mode**: Information, explanations, clarifications
-- **Debug Mode**: Issue diagnosis, error resolution
-- **Explain Mode**: Breaking down complex concepts
+- **Vibe Mode**: Planning, system design, technical vision, diagnosing and fixing issues, breaking down complex concepts
 
 ## Resource Management
 
@@ -89,14 +49,6 @@ After 3 unsuccessful solution attempts:
 2. Perform a complete perspective shift
 3. Re-examine problem from first principles
 4. Consider radical alternative approaches
-
-## Code Excellence Standards
-
-- Components under 200 lines
-- Functions under 50 lines
-- Proper TypeScript typing
-- Comprehensive error handling
-- Regular refactoring of complex modules
 
 ## Maintenance Discipline
 
