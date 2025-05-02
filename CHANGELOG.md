@@ -3,6 +3,13 @@
 
 ## Version History
 
+### v0.1.12 (2025-05-02)
+- Integrated hierarchical chunking in process-transcript edge function
+- Updated task management with more relevant chunking-related tasks
+- Created reprocessing utility plans for existing transcripts
+- Enhanced RAG search plans to leverage parent-child chunk relationships
+- Fixed integration between chunking utilities and processing functions
+
 ### v0.1.11 (2025-05-02)
 - Fixed TypeScript errors in transcriptChunking.ts utility
 - Created proper 'chunks' table in database for transcript chunking

@@ -1,6 +1,20 @@
+
 # Project Tasks
 
 ## Currently In Progress
+
+### Transcript Processing Fixes [PRIORITY: HIGH] [UPDATED: 2025-05-02]
+- [ ] Test the integrated hierarchical chunking implementation [TASK-TP-04]
+  - Component: process-transcript edge function
+  - Zoom-in details: Verify that transcripts are being properly chunked during processing
+  - Status: In progress
+- [ ] Fix content extraction from files with correct paths [TASK-TP-01]
+  - Component: process-transcript function
+  - Zoom-in details: Ensure stored file paths correctly resolve to content
+- [ ] Create reprocessing utility for existing transcripts [TASK-TP-05]
+  - Component: transcript management
+  - Zoom-in details: Provide a way to reprocess already processed transcripts to apply chunking
+  - Dependencies: TASK-TP-04
 
 ### Advanced RAG Features [PRIORITY: HIGH] [UPDATED: 2025-05-02]
 - [ ] Implement conversational context management
@@ -9,6 +23,10 @@
 - [ ] Add multilingual support
   - Component: Embedding service
   - Zoom-in details: Ensure embeddings work well with multiple languages
+- [ ] Enhance RAG search with hierarchical chunk awareness [TASK-RAG-01]
+  - Component: search_embeddings edge function
+  - Zoom-in details: Update search logic to leverage parent-child relationships between chunks
+  - Dependencies: TASK-TP-04
 
 ### Performance Optimization [PRIORITY: MEDIUM] [UPDATED: 2025-05-02]
 - [ ] Implement caching layer for frequent queries
@@ -17,21 +35,22 @@
 - [ ] Optimize vector search with approximate nearest neighbors
   - Component: PGVector configuration
   - Zoom-in details: Configure PGVector for better performance with larger datasets
+- [ ] Implement batch reprocessing for large transcript collections [TASK-PO-01]
+  - Component: transcript processing utilities
+  - Zoom-in details: Create utilities to reprocess transcripts in batches with progress tracking
+  - Dependencies: TASK-TP-05
 
-### Transcript Processing Fixes [PRIORITY: HIGH] [UPDATED: 2025-05-02]
-- [ ] Fix content extraction from files with correct paths [TASK-TP-01]
-  - Component: process-transcript function
-  - Zoom-in details: Ensure stored file paths correctly resolve to content
+## Completed Tasks
+
+### Transcript Processing Enhancements
 - [x] Implement hierarchical chunking in process-transcript function [TASK-TP-02] (Completed)
   - Component: chunking module
   - Zoom-in details: Create parent-child relationships between chunks
-  - Status: Implemented in transcriptChunking.ts utility
+  - Status: Implemented in transcriptChunking.ts utility and integrated in process-transcript
 - [x] Add metadata tracking for chunking strategies used [TASK-TP-03] (Completed)
   - Component: chunking module
   - Zoom-in details: Store information about chunking approaches in metadata
   - Status: Implemented in transcriptChunking.ts utility with proper database table
-
-## Completed Tasks
 
 ### Core Functionality
 - [x] Set up basic Streamlit interface [COMPLETED: 2025-04-25]
@@ -71,7 +90,7 @@
 
 ## Backlog
 
-### Feature Enhancements [PRIORITY: MEDIUM] [UPDATED: 2025-05-01]
+### Feature Enhancements [PRIORITY: MEDIUM] [UPDATED: 2025-05-02]
 - [ ] Add multi-user support with personalized histories [TASK-FE-01]
   - Component: User system
   - Dependencies: None
@@ -109,7 +128,7 @@
   - Dependencies: None
   - Acceptance Criteria: Automated tests measure and report system performance
 
-### Technical Improvements [PRIORITY: MEDIUM] [UPDATED: 2025-05-01]
+### Technical Improvements [PRIORITY: MEDIUM] [UPDATED: 2025-05-02]
 - [ ] Optimize token usage for cost reduction [TASK-TI-01]
   - Component: RAG agent
   - Dependencies: None
@@ -129,7 +148,7 @@
 - [x] Review and clean up unused submodules or directories [COMPLETED: 2025-05-01]
 - [x] Document environment variable requirements [COMPLETED: 2025-04-30]
 
-### Documentation [PRIORITY: LOW] [UPDATED: 2025-05-01]
+### Documentation [PRIORITY: LOW] [UPDATED: 2025-05-02]
 - [ ] Create comprehensive API documentation [TASK-DOC-01]
   - Component: Documentation
   - Dependencies: None

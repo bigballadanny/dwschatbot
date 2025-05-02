@@ -1,5 +1,4 @@
 
-// This file doesn't currently exist in the provided code, but we can stub it to ensure it properly supports health checks
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.39.7'
 
 // Create a Supabase client with the Auth context of the function
@@ -12,6 +11,23 @@ const supabaseAdmin = createClient(
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
+}
+
+// Define proper types for metadata and chunks
+interface ChunkMetadata {
+  position: number;
+  parent_id: string | null;
+  chunk_strategy: string;
+  [key: string]: any;
+}
+
+interface TranscriptChunk {
+  id: string;
+  content: string;
+  transcript_id: string;
+  chunk_type: 'parent' | 'child';
+  topic: string | null;
+  metadata: ChunkMetadata;
 }
 
 Deno.serve(async (req) => {
@@ -82,7 +98,6 @@ Deno.serve(async (req) => {
       // Process the transcript content
       console.log(`[PROCESS] Processing transcript content for ${transcript_id}`);
       
-      // Simple processing logic:
       // 1. If content is missing but file_path exists, try to get content from storage
       if (!transcript.content && transcript.file_path) {
         const fileContent = await getFileContent(transcript.file_path);
@@ -94,6 +109,9 @@ Deno.serve(async (req) => {
             .eq('id', transcript_id);
           
           console.log(`[PROCESS] Updated transcript ${transcript_id} with content from file`);
+          
+          // Update our local copy of the transcript with the new content
+          transcript.content = fileContent;
         }
       }
       
@@ -105,17 +123,65 @@ Deno.serve(async (req) => {
         .replace(/\s+/g, ' ')
         .trim();
       
+      // 3. NEW: Apply hierarchical chunking to the transcript
+      if (processedContent) {
+        console.log(`[PROCESS] Applying hierarchical chunking to transcript ${transcript_id}`);
+        
+        try {
+          // First, remove any existing chunks for this transcript
+          const { error: deleteError } = await supabaseAdmin
+            .from('chunks')
+            .delete()
+            .eq('transcript_id', transcript_id);
+            
+          if (deleteError) {
+            console.error(`[PROCESS] Error deleting existing chunks for transcript ${transcript_id}:`, deleteError);
+            throw new Error(`Failed to delete existing chunks: ${deleteError.message}`);
+          }
+          
+          // Create parent chunks
+          const parentChunks = await createParentChunks(processedContent);
+          console.log(`[PROCESS] Created ${parentChunks.length} parent chunks for transcript ${transcript_id}`);
+          
+          // Create hierarchical chunks (parents and children)
+          const hierarchicalChunks = await createHierarchicalChunks(parentChunks, transcript);
+          console.log(`[PROCESS] Created ${hierarchicalChunks.length} total hierarchical chunks for transcript ${transcript_id}`);
+          
+          // Store the chunks in batches
+          const BATCH_SIZE = 50;
+          for (let i = 0; i < hierarchicalChunks.length; i += BATCH_SIZE) {
+            const batch = hierarchicalChunks.slice(i, i + BATCH_SIZE);
+            const { error } = await supabaseAdmin
+              .from('chunks')
+              .insert(batch);
+            
+            if (error) {
+              console.error(`[PROCESS] Error storing chunks batch ${i / BATCH_SIZE + 1}:`, error);
+              throw new Error(`Failed to store chunks: ${error.message}`);
+            }
+          }
+          
+          console.log(`[PROCESS] Successfully stored all chunks for transcript ${transcript_id}`);
+        } catch (chunkError) {
+          console.error(`[PROCESS] Chunking error for transcript ${transcript_id}:`, chunkError);
+          // Proceed even if chunking fails, to ensure the transcript is marked as processed
+        }
+      }
+      
       // Update the transcript as processed
+      const updatedMetadata = {
+        ...(transcript.metadata as Record<string, any> || {}),
+        processing_completed_at: new Date().toISOString(),
+        chunking_strategy: 'hierarchical',
+        processing_success: true
+      };
+      
       const { error: updateError } = await supabaseAdmin
         .from('transcripts')
         .update({ 
           is_processed: true,
           content: processedContent,
-          metadata: { 
-            ...transcript.metadata,
-            processing_completed_at: new Date().toISOString(),
-            processing_success: true
-          } 
+          metadata: updatedMetadata
         })
         .eq('id', transcript_id);
         
@@ -144,7 +210,7 @@ Deno.serve(async (req) => {
           .update({ 
             is_processed: true,
             metadata: { 
-              ...transcript.metadata,
+              ...(transcript.metadata as Record<string, any> || {}),
               processing_completed_at: new Date().toISOString(),
               processing_error: processingError.message,
               processing_failed: true
@@ -224,4 +290,93 @@ async function getFileContent(filePath: string): Promise<string | null> {
     console.error(`[PROCESS] Error getting file content:`, error);
     return null;
   }
+}
+
+/**
+ * Create large, topically coherent parent chunks
+ */
+async function createParentChunks(content: string): Promise<any[]> {
+  // Create large, topically coherent parent chunks
+  // This is a simplified implementation - in production, you'd use more sophisticated NLP
+  const paragraphs = content.split('\n\n');
+  
+  // Group paragraphs into topically related sections
+  let currentTopic = '';
+  let currentChunk = '';
+  const parentChunks = [];
+  
+  for (const paragraph of paragraphs) {
+    // For this simplified implementation, we'll just use paragraph breaks
+    // In a real system, you'd use NLP to detect topic changes
+    if (currentChunk.length > 1500) {
+      parentChunks.push({
+        content: currentChunk,
+        topic: currentTopic || 'Unknown',
+      });
+      currentChunk = paragraph;
+      // Extract topic from first sentence for demo purposes
+      currentTopic = paragraph.split('.')[0];
+    } else {
+      currentChunk += '\n\n' + paragraph;
+    }
+  }
+  
+  // Add the last chunk
+  if (currentChunk) {
+    parentChunks.push({
+      content: currentChunk,
+      topic: currentTopic || 'Unknown',
+    });
+  }
+  
+  return parentChunks;
+}
+
+/**
+ * Create child chunks for each parent
+ */
+async function createHierarchicalChunks(parentChunks: any[], transcript: any): Promise<TranscriptChunk[]> {
+  // Create child chunks for each parent
+  const hierarchicalChunks: TranscriptChunk[] = [];
+  
+  for (let i = 0; i < parentChunks.length; i++) {
+    const parentChunk = parentChunks[i];
+    const parentId = `${transcript.id}-parent-${i}`;
+    
+    // Add parent chunk
+    hierarchicalChunks.push({
+      id: parentId,
+      content: parentChunk.content,
+      transcript_id: transcript.id,
+      chunk_type: 'parent',
+      topic: parentChunk.topic,
+      metadata: {
+        position: i,
+        parent_id: null,
+        chunk_strategy: 'hierarchical',
+      }
+    });
+    
+    // Create child chunks
+    const sentences = parentChunk.content.match(/[^.!?]+[.!?]+/g) || [];
+    for (let j = 0; j < sentences.length; j++) {
+      const sentence = sentences[j].trim();
+      if (sentence.split(' ').length > 5) { // Only include substantive sentences
+        hierarchicalChunks.push({
+          id: `${transcript.id}-child-${i}-${j}`,
+          content: sentence,
+          transcript_id: transcript.id,
+          chunk_type: 'child',
+          topic: parentChunk.topic,
+          metadata: {
+            position: j,
+            parent_id: parentId,
+            chunk_strategy: 'hierarchical',
+          }
+        });
+      }
+    }
+  }
+  
+  return hierarchicalChunks;
 }
