@@ -3,6 +3,12 @@
 
 ## Version History
 
+### v0.1.10 (2025-05-02)
+- Fixed TypeScript errors in transcriptProcessing.ts utility
+- Refactored transcript chunking functionality into separate module
+- Completed hierarchical chunking implementation [TASK-TP-02]
+- Marked TASK-TP-02 as completed in task tracking
+
 ### v0.1.9 (2025-05-02)
 - Consolidated documentation into five focused files for better maintainability
 - Created SYNTHIOS.md as the central documentation hub
@@ -143,3 +149,4 @@
 - Fixed type definitions and imports across the application
 
 "Continuous improvement is not about perfection—it's about progress." 🌱
+

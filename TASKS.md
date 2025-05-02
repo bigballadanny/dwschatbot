@@ -23,10 +23,10 @@
 - [ ] Fix content extraction from files with correct paths [TASK-TP-01]
   - Component: process-transcript function
   - Zoom-in details: Ensure stored file paths correctly resolve to content
-- [/] Implement hierarchical chunking in process-transcript function [TASK-TP-02] (In progress)
+- [x] Implement hierarchical chunking in process-transcript function [TASK-TP-02] (Completed)
   - Component: chunking module
   - Zoom-in details: Create parent-child relationships between chunks
-  - Status: Implementation added to transcriptProcessing.ts utility
+  - Status: Implemented in transcriptChunking.ts utility
 - [ ] Add metadata tracking for chunking strategies used [TASK-TP-03]
   - Component: chunking module
   - Zoom-in details: Store information about chunking approaches in metadata
@@ -146,3 +146,4 @@
   - Component: Documentation
   - Dependencies: None
   - Acceptance Criteria: Set of video tutorials covering key user workflows
+
