@@ -201,19 +201,14 @@ export default function TranscriptDiagnostics() {
     setSelectedTranscriptId(id);
   };
 
+  // Updated to match the expected function signature
   const handleSelectAll = (transcripts: DiagnosticTranscript[], selected: boolean) => {
-    // Placeholder for select all functionality
-    console.log('Select all transcripts:', selected);
+    console.log('Select all transcripts:', selected, transcripts.length);
   };
 
-  const handleRetryProcessing = (id: string) => {
-    // Placeholder for retry processing functionality
-    console.log('Retry processing transcript:', id);
-  };
-
-  const handleUpdateSource = (id: string, source: string) => {
-    // Placeholder for update source functionality
-    console.log('Update source for transcript:', id, source);
+  // Updated to include the required parameter
+  const handleProcessingProgress = () => {
+    console.log('Processing progress update');
   };
 
   if (!isAdmin && !isAdminLoading) {
@@ -306,16 +301,16 @@ export default function TranscriptDiagnostics() {
               selectedTranscripts={[]}
               onSelectAll={handleSelectAll}
               onSelectTranscript={(id, isSelected) => console.log('Selected:', id, isSelected)}
-              onViewTranscript={handleSelectTranscript}
-              onProcessTranscript={handleRetryProcessing}
+              onProcessTranscript={handleSelectTranscript}
               isProcessing={false}
+              onProgress={handleProcessingProgress}
             />
           </TabsContent>
 
           <TabsContent value="stuck">
             <StuckTranscripts 
               transcripts={transcripts.filter(t => !t.is_processed && t.metadata?.processing_started_at)}
-              onRetry={handleRetryProcessing} 
+              onRetry={handleSelectTranscript} 
               isProcessing={false}
               processingProgress={0}
             />
@@ -327,16 +322,16 @@ export default function TranscriptDiagnostics() {
               selectedTranscripts={[]}
               onSelectAll={handleSelectAll}
               onSelectTranscript={(id, isSelected) => console.log('Selected:', id, isSelected)}
-              onViewTranscript={handleSelectTranscript}
-              onFixTranscript={handleRetryProcessing}
+              onFixTranscript={handleSelectTranscript}
               isProcessing={false}
+              onProgress={handleProcessingProgress}
             />
           </TabsContent>
 
           <TabsContent value="summits">
             <PotentialSummitTranscripts 
               transcripts={transcripts.filter(t => t.source?.includes('summit'))}
-              onUpdateSource={handleUpdateSource} 
+              onUpdateSource={(id, source) => console.log('Update source:', id, source)} 
             />
           </TabsContent>
 

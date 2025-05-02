@@ -11,6 +11,7 @@
 import { useState, useEffect, useCallback } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/components/ui/use-toast';
+import { Json } from '@/integrations/supabase/types';
 
 // Define proper types for metadata and chunks
 export interface ChunkMetadata {
@@ -96,13 +97,19 @@ export function useTranscriptDetails(transcriptId: string | null) {
       }
       
       // Map the data with proper type casting
-      const typedChunks: TranscriptChunk[] = data?.map(chunk => ({
-        ...chunk,
-        chunk_type: (chunk.chunk_type === 'parent' || chunk.chunk_type === 'child') 
-          ? chunk.chunk_type 
-          : 'parent', // Default to parent if invalid
-        metadata: chunk.metadata as ChunkMetadata
-      })) || [];
+      const typedChunks: TranscriptChunk[] = data?.map(chunk => {
+        // Ensure chunk_type is either 'parent' or 'child', defaulting to 'parent' if invalid
+        const validatedChunkType: 'parent' | 'child' = 
+          (chunk.chunk_type === 'parent' || chunk.chunk_type === 'child') 
+            ? chunk.chunk_type as 'parent' | 'child'
+            : 'parent';
+            
+        return {
+          ...chunk,
+          chunk_type: validatedChunkType,
+          metadata: chunk.metadata as ChunkMetadata
+        };
+      }) || [];
       
       setChunks(typedChunks);
     } catch (err: any) {

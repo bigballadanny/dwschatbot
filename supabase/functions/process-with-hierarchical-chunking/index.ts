@@ -3,6 +3,7 @@
 // This function processes a transcript with hierarchical chunking strategy
 
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.39.6";
+import { v4 as uuidv4 } from "https://esm.sh/uuid@9.0.0";
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -97,7 +98,8 @@ Deno.serve(async (req) => {
       const parentParagraphs = paragraphs.slice(startIdx, endIdx);
       
       const parentContent = parentParagraphs.join('\n\n');
-      const parentId = `${transcriptId}-parent-${i}`;
+      // Use proper UUIDs instead of concatenating strings
+      const parentId = uuidv4();
       const topic = `Topic ${i + 1}`;
       
       // Add parent chunk
@@ -136,7 +138,7 @@ Deno.serve(async (req) => {
         const sentence = sentences[j] ? sentences[j].trim() : `Child chunk ${j + 1} content`;
         
         allChunks.push({
-          id: `${transcriptId}-child-${i}-${j}`,
+          id: uuidv4(), // Generate proper UUID for child chunks
           content: sentence,
           transcript_id: transcriptId,
           chunk_type: 'child',

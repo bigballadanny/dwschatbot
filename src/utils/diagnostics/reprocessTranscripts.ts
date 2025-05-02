@@ -10,6 +10,7 @@
 
 import { supabase } from '@/integrations/supabase/client';
 import { Json } from '@/integrations/supabase/types';
+import { v4 as uuidv4 } from 'uuid';
 
 /**
  * Reprocesses a transcript with the new hierarchical chunking strategy
@@ -138,7 +139,8 @@ async function storeSimulatedHierarchicalChunks(parentChunks: any[], transcriptI
     
     // Create parent chunks
     for (let i = 0; i < parentChunks.length; i++) {
-      const parentId = `${transcriptId}-parent-${i}`;
+      // Use proper UUID format rather than concatenated strings
+      const parentId = uuidv4();
       const parentChunk = parentChunks[i];
       
       // Add parent chunk
@@ -164,7 +166,7 @@ async function storeSimulatedHierarchicalChunks(parentChunks: any[], transcriptI
         const sentence = sentences[j] ? sentences[j].trim() : `Child chunk ${j + 1} content`;
         
         allChunks.push({
-          id: `${transcriptId}-child-${i}-${j}`,
+          id: uuidv4(), // Use proper UUID for child chunks too
           content: sentence,
           transcript_id: transcriptId,
           chunk_type: 'child',
