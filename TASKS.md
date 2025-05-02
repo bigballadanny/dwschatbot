@@ -1,4 +1,3 @@
-
 # Project Tasks
 
 ## Currently In Progress
@@ -27,9 +26,10 @@
   - Component: chunking module
   - Zoom-in details: Create parent-child relationships between chunks
   - Status: Implemented in transcriptChunking.ts utility
-- [ ] Add metadata tracking for chunking strategies used [TASK-TP-03]
+- [x] Add metadata tracking for chunking strategies used [TASK-TP-03] (Completed)
   - Component: chunking module
   - Zoom-in details: Store information about chunking approaches in metadata
+  - Status: Implemented in transcriptChunking.ts utility with proper database table
 
 ## Completed Tasks
 
@@ -146,4 +146,3 @@
   - Component: Documentation
   - Dependencies: None
   - Acceptance Criteria: Set of video tutorials covering key user workflows
-

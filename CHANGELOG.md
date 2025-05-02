@@ -3,6 +3,15 @@
 
 ## Version History
 
+### v0.1.11 (2025-05-02)
+- Fixed TypeScript errors in transcriptChunking.ts utility
+- Created proper 'chunks' table in database for transcript chunking
+- Added proper TypeScript typing for chunk metadata and transcript chunks
+- Removed Streamlit dependencies (removed app.py and updated requirements.txt)
+- Improved hierarchical chunking with batched processing
+- Fixed metadata handling in transcript processing
+- Marked TASK-TP-03 as completed in task tracking
+
 ### v0.1.10 (2025-05-02)
 - Fixed TypeScript errors in transcriptProcessing.ts utility
 - Refactored transcript chunking functionality into separate module

@@ -1,7 +1,25 @@
 
-streamlit
-requests
-pydantic
-pytest
-supabase
-python-dotenv
+# Core libraries
+pgvector>=0.1.8
+psycopg2-binary>=2.9.5
+
+# LightRAG specific dependencies  
+python-dotenv>=0.21.0
+openai>=0.27.0
+supabase>=1.0.3
+
+# Content processing
+pdfminer.six>=20220524
+pandas>=1.5.3
+numpy>=1.23.5
+
+# Testing
+pytest>=7.3.1
+pytest-cov>=4.1.0
+hypothesis>=6.75.3
+
+# Utilities
+python-slugify>=8.0.1
+tenacity>=8.2.3
+
+# Removed Streamlit as it's no longer needed

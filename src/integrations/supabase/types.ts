@@ -110,6 +110,44 @@ export type Database = {
         }
         Relationships: []
       }
+      chunks: {
+        Row: {
+          chunk_type: string
+          content: string
+          created_at: string | null
+          id: string
+          metadata: Json | null
+          topic: string | null
+          transcript_id: string
+        }
+        Insert: {
+          chunk_type: string
+          content: string
+          created_at?: string | null
+          id?: string
+          metadata?: Json | null
+          topic?: string | null
+          transcript_id: string
+        }
+        Update: {
+          chunk_type?: string
+          content?: string
+          created_at?: string | null
+          id?: string
+          metadata?: Json | null
+          topic?: string | null
+          transcript_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "chunks_transcript_id_fkey"
+            columns: ["transcript_id"]
+            isOneToOne: false
+            referencedRelation: "transcripts"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       conversations: {
         Row: {
           created_at: string

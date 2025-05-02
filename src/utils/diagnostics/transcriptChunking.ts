@@ -3,6 +3,24 @@
  * Utilities for transcript chunking strategies
  */
 import { supabase } from '@/integrations/supabase/client';
+import { Json } from '@/integrations/supabase/types';
+
+// Define proper types for metadata and chunks
+interface ChunkMetadata {
+  position: number;
+  parent_id: string | null;
+  chunk_strategy: string;
+  [key: string]: any;
+}
+
+interface TranscriptChunk {
+  id: string;
+  content: string;
+  transcript_id: string;
+  chunk_type: 'parent' | 'child';
+  topic: string | null;
+  metadata: ChunkMetadata;
+}
 
 /**
  * Process a single transcript with hierarchical chunking
@@ -32,15 +50,18 @@ export async function processTranscriptWithHierarchicalChunking(transcriptId: st
     
     // Update transcript status
     if (success) {
+      // Create a new metadata object that merges with existing metadata
+      const updatedMetadata: Record<string, any> = {
+        ...(transcript.metadata as Record<string, any> || {}),
+        processing_completed_at: new Date().toISOString(),
+        chunking_strategy: 'hierarchical'
+      };
+      
       await supabase
         .from('transcripts')
         .update({
           is_processed: true,
-          metadata: {
-            ...transcript.metadata,
-            processing_completed_at: new Date().toISOString(),
-            chunking_strategy: 'hierarchical'
-          }
+          metadata: updatedMetadata
         })
         .eq('id', transcriptId);
     }
@@ -95,9 +116,9 @@ export async function createParentChunks(content: string): Promise<any[]> {
 /**
  * Create child chunks for each parent
  */
-export async function createHierarchicalChunks(parentChunks: any[], transcript: any): Promise<any[]> {
+export async function createHierarchicalChunks(parentChunks: any[], transcript: any): Promise<TranscriptChunk[]> {
   // Create child chunks for each parent
-  const hierarchicalChunks = [];
+  const hierarchicalChunks: TranscriptChunk[] = [];
   
   for (let i = 0; i < parentChunks.length; i++) {
     const parentChunk = parentChunks[i];
@@ -144,22 +165,32 @@ export async function createHierarchicalChunks(parentChunks: any[], transcript: 
 /**
  * Store hierarchical chunks with parent-child relationships
  */
-export async function storeHierarchicalChunks(chunks: any[], transcriptId: string): Promise<boolean> {
+export async function storeHierarchicalChunks(chunks: TranscriptChunk[], transcriptId: string): Promise<boolean> {
   try {
     // First, remove any existing chunks for this transcript
-    await supabase
+    const { error: deleteError } = await supabase
       .from('chunks')
       .delete()
       .eq('transcript_id', transcriptId);
     
-    // Then insert the new hierarchical chunks
-    const { error } = await supabase
-      .from('chunks')
-      .insert(chunks);
-    
-    if (error) {
-      console.error('Error storing hierarchical chunks:', error);
+    if (deleteError) {
+      console.error('Error deleting existing chunks:', deleteError);
       return false;
+    }
+    
+    // Then insert the new hierarchical chunks
+    // Performing in batches to avoid potential payload size limitations
+    const BATCH_SIZE = 50;
+    for (let i = 0; i < chunks.length; i += BATCH_SIZE) {
+      const batch = chunks.slice(i, i + BATCH_SIZE);
+      const { error } = await supabase
+        .from('chunks')
+        .insert(batch);
+      
+      if (error) {
+        console.error(`Error storing hierarchical chunks (batch ${i / BATCH_SIZE + 1}):`, error);
+        return false;
+      }
     }
     
     return true;
