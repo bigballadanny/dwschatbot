@@ -18,22 +18,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Separator } from '@/components/ui/separator';
 import { InfoIcon, ChevronRight, ChevronDown } from 'lucide-react';
 import { useToast } from '@/components/ui/use-toast';
-
-interface ChunkMetadata {
-  position: number;
-  parent_id: string | null;
-  chunk_strategy: string;
-  [key: string]: any;
-}
-
-interface TranscriptChunk {
-  id: string;
-  content: string;
-  transcript_id: string;
-  chunk_type: 'parent' | 'child';
-  topic: string | null;
-  metadata: ChunkMetadata;
-}
+import { TranscriptChunk } from '@/hooks/useTranscriptDetails';
 
 interface TranscriptChunksProps {
   transcriptId: string;
@@ -63,11 +48,27 @@ export const TranscriptChunks: React.FC<TranscriptChunksProps> = ({ transcriptId
         }
 
         if (data) {
-          setChunks(data as TranscriptChunk[]);
+          // Type casting and transformation to ensure proper chunk metadata structure
+          const formattedChunks: TranscriptChunk[] = data.map(chunk => ({
+            id: chunk.id,
+            content: chunk.content,
+            transcript_id: chunk.transcript_id,
+            chunk_type: chunk.chunk_type as 'parent' | 'child',
+            topic: chunk.topic,
+            created_at: chunk.created_at,
+            metadata: {
+              position: chunk.metadata?.position || 0,
+              parent_id: chunk.metadata?.parent_id || null,
+              chunk_strategy: chunk.metadata?.chunk_strategy || 'unknown',
+              ...chunk.metadata
+            }
+          }));
+          
+          setChunks(formattedChunks);
           
           // Initialize expanded state for parent chunks
           const initialExpanded: Record<string, boolean> = {};
-          data
+          formattedChunks
             .filter((chunk: TranscriptChunk) => chunk.chunk_type === 'parent')
             .forEach((chunk: TranscriptChunk) => {
               initialExpanded[chunk.id] = false;
@@ -116,7 +117,7 @@ export const TranscriptChunks: React.FC<TranscriptChunksProps> = ({ transcriptId
       <CardHeader>
         <CardTitle className="flex justify-between items-center">
           <span>Transcript Chunks</span>
-          <Badge variant={chunks.length > 0 ? "success" : "destructive"}>
+          <Badge variant={chunks.length > 0 ? "secondary" : "destructive"}>
             {chunks.length} chunks
           </Badge>
         </CardTitle>

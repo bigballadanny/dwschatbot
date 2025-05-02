@@ -83,10 +83,10 @@ export const TranscriptDetailsView: React.FC<TranscriptDetailsViewProps> = ({
       </div>
 
       <div className="flex flex-wrap gap-2">
-        <Badge variant={transcript.is_processed ? "success" : "outline"}>
+        <Badge variant={transcript.is_processed ? "secondary" : "outline"}>
           {transcript.is_processed ? "Processed" : "Unprocessed"}
         </Badge>
-        <Badge variant={transcript.is_summarized ? "success" : "outline"}>
+        <Badge variant={transcript.is_summarized ? "secondary" : "outline"}>
           {transcript.is_summarized ? "Summarized" : "Not Summarized"}
         </Badge>
         {transcript.tags && transcript.tags.map((tag: string) => (

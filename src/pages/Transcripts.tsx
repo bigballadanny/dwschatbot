@@ -462,6 +462,38 @@ const TranscriptsPage = () => {
       setIsDeleting(false);
     }
   };
+
+  // Add a new function to trigger hierarchical chunking for a transcript
+  const triggerHierarchicalChunking = async (transcriptId: string) => {
+    try {
+      const result = await fetch(`${import.meta.env.VITE_SUPABASE_URL}/functions/v1/process-transcript`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${import.meta.env.VITE_SUPABASE_ANON_KEY}`
+        },
+        body: JSON.stringify({
+          transcript_id: transcriptId,
+          force_hierarchical: true
+        })
+      });
+
+      if (!result.ok) {
+        throw new Error(`Error processing transcript: ${result.statusText}`);
+      }
+
+      showSuccess("Processing started", "Transcript is now being processed with hierarchical chunking");
+      
+      // Wait a bit and then fetch the updated transcript
+      setTimeout(() => {
+        refreshTranscripts();
+      }, 3000);
+    } catch (error: any) {
+      console.error('Error triggering hierarchical chunking:', error);
+      showError("Processing failed", error.message);
+    }
+  };
+
   const getStatusIcon = (transcript: Transcript) => {
     if (!transcript.is_processed) {
       return <Clock className="h-4 w-4 text-amber-500" aria-label="Processing" />;
@@ -630,8 +662,22 @@ const TranscriptsPage = () => {
                     </span>
                   </p>
                   
+                  {/* Add Hierarchical Chunking Button */}
+                  <div className="flex justify-between items-center pt-3">
+                    <Button 
+                      variant="outline" 
+                      size="sm"
+                      onClick={() => triggerHierarchicalChunking(selectedTranscript.id)}
+                    >
+                      Process with Hierarchical Chunking
+                    </Button>
+                    <Button variant="outline" size="sm" onClick={() => window.location.href = `/transcript-diagnostics?id=${selectedTranscript.id}`}>
+                      View Diagnostics
+                    </Button>
+                  </div>
+                  
                   <div>
-                    <div className="flex justify-between items-center">
+                    <div className="flex justify-between items-center mt-4">
                       <p className="text-sm font-medium">Tags</p>
                       <Button variant="ghost" size="sm" onClick={() => handleTagSuggestions(selectedTranscript.id)}>
                         Suggest
@@ -661,16 +707,7 @@ const TranscriptsPage = () => {
                     </div>
                   </div>
                   
-                  {transcriptSummary && <div className="mt-4">
-                      <p className="text-sm font-medium">Summary</p>
-                      <p className="text-sm text-muted-foreground mt-1">
-                        {transcriptSummary.summary}
-                      </p>
-                    </div>}
-                  
-                  {!transcriptSummary && selectedTranscript.is_processed && <Button variant="outline" size="sm" className="mt-2" onClick={() => batchSummarizeTranscripts([selectedTranscript.id])} disabled={isSummaryLoading}>
-                      {isSummaryLoading ? "Generating..." : "Generate Summary"}
-                    </Button>}
+                  {/* ... keep existing code (summary section) */}
                 </div>
               </div>}
           </div>

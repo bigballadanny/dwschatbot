@@ -12,6 +12,24 @@ import { useState, useEffect, useCallback } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/components/ui/use-toast';
 
+// Define proper types for metadata and chunks
+interface ChunkMetadata {
+  position: number;
+  parent_id: string | null;
+  chunk_strategy: string;
+  [key: string]: any;
+}
+
+export interface TranscriptChunk {
+  id: string;
+  content: string;
+  transcript_id: string;
+  chunk_type: 'parent' | 'child';
+  topic: string | null;
+  metadata: ChunkMetadata;
+  created_at?: string;
+}
+
 export function useTranscriptDetails(transcriptId: string | null) {
   const [transcript, setTranscript] = useState<any | null>(null);
   const [isLoading, setIsLoading] = useState(false);
