@@ -246,6 +246,42 @@ export type Database = {
         }
         Relationships: []
       }
+      file_status: {
+        Row: {
+          created_at: string
+          dependencies: string[] | null
+          file_path: string
+          id: string
+          last_used: string
+          status: string
+          tags: string[] | null
+          updated_at: string
+          version: string | null
+        }
+        Insert: {
+          created_at?: string
+          dependencies?: string[] | null
+          file_path: string
+          id?: string
+          last_used?: string
+          status?: string
+          tags?: string[] | null
+          updated_at?: string
+          version?: string | null
+        }
+        Update: {
+          created_at?: string
+          dependencies?: string[] | null
+          file_path?: string
+          id?: string
+          last_used?: string
+          status?: string
+          tags?: string[] | null
+          updated_at?: string
+          version?: string | null
+        }
+        Relationships: []
+      }
       message_feedback: {
         Row: {
           comment: string | null
