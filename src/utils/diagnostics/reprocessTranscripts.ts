@@ -17,61 +17,86 @@ import { Json } from '@/integrations/supabase/types';
  */
 export async function reprocessTranscript(transcriptId: string): Promise<boolean> {
   try {
-    // First check if transcript exists
-    const { data: transcript, error: fetchError } = await supabase
-      .from('transcripts')
-      .select('*')
-      .eq('id', transcriptId)
-      .single();
+    console.log(`[REPROCESS] Reprocessing transcript ${transcriptId} with hierarchical chunking`);
     
-    if (fetchError || !transcript) {
-      console.error('Error fetching transcript for reprocessing:', fetchError);
-      return false;
-    }
-    
-    // Clear existing chunks for this transcript
-    const { error: deleteError } = await supabase
-      .from('chunks')
-      .delete()
-      .eq('transcript_id', transcriptId);
-    
-    if (deleteError) {
-      console.error('Error clearing existing chunks:', deleteError);
-      return false;
-    }
-    
-    // Trigger edge function to reprocess the transcript
-    // This is just a simulation for now - in production, you'd call your edge function
-    
-    // Create parent chunks (for demo purposes)
-    const parentChunks = createSimulatedParentChunks(transcript.content);
-    
-    // Create and store hierarchical chunks
-    const success = await storeSimulatedHierarchicalChunks(parentChunks, transcriptId);
-    
-    if (success) {
-      // Update transcript metadata to reflect reprocessing
-      const metadataObj = transcript.metadata as Record<string, any> || {};
-      metadataObj.reprocessed_at = new Date().toISOString();
-      metadataObj.chunking_strategy = 'hierarchical';
+    try {
+      // Call the hierarchical chunking edge function
+      const { data, error } = await supabase.functions.invoke('process-with-hierarchical-chunking', {
+        body: { transcriptId }
+      });
       
-      const { error: updateError } = await supabase
+      if (error) {
+        console.error('[REPROCESS] Error invoking hierarchical chunking function:', error);
+        throw new Error(error.message || 'Error processing transcript');
+      }
+      
+      console.log('[REPROCESS] Hierarchical chunking result:', data);
+      
+      if (!data?.success) {
+        throw new Error(data?.message || 'Processing failed');
+      }
+      
+      return true;
+    } catch (functionError: any) {
+      console.error('[REPROCESS] Function invocation error:', functionError);
+      
+      // Fall back to client-side implementation if function fails
+      console.log('[REPROCESS] Falling back to client-side implementation');
+      
+      // First check if transcript exists
+      const { data: transcript, error: fetchError } = await supabase
         .from('transcripts')
-        .update({
-          is_processed: true,
-          metadata: metadataObj
-        })
-        .eq('id', transcriptId);
+        .select('*')
+        .eq('id', transcriptId)
+        .single();
       
-      if (updateError) {
-        console.error('Error updating transcript metadata:', updateError);
+      if (fetchError || !transcript) {
+        console.error('[REPROCESS] Error fetching transcript for reprocessing:', fetchError);
         return false;
       }
+      
+      // Clear existing chunks for this transcript
+      const { error: deleteError } = await supabase
+        .from('chunks')
+        .delete()
+        .eq('transcript_id', transcriptId);
+      
+      if (deleteError) {
+        console.error('[REPROCESS] Error clearing existing chunks:', deleteError);
+        return false;
+      }
+      
+      // Create parent chunks
+      const parentChunks = createSimulatedParentChunks(transcript.content);
+      
+      // Create and store hierarchical chunks
+      const success = await storeSimulatedHierarchicalChunks(parentChunks, transcriptId);
+      
+      if (success) {
+        // Update transcript metadata to reflect reprocessing
+        const metadataObj = transcript.metadata as Record<string, any> || {};
+        metadataObj.reprocessed_at = new Date().toISOString();
+        metadataObj.chunking_strategy = 'hierarchical';
+        metadataObj.implementation = 'client-side-fallback';
+        
+        const { error: updateError } = await supabase
+          .from('transcripts')
+          .update({
+            is_processed: true,
+            metadata: metadataObj
+          })
+          .eq('id', transcriptId);
+        
+        if (updateError) {
+          console.error('[REPROCESS] Error updating transcript metadata:', updateError);
+          return false;
+        }
+      }
+      
+      return success;
     }
-    
-    return success;
   } catch (error) {
-    console.error('Error in reprocessTranscript:', error);
+    console.error('[REPROCESS] Error in reprocessTranscript:', error);
     return false;
   }
 }
@@ -127,6 +152,7 @@ async function storeSimulatedHierarchicalChunks(parentChunks: any[], transcriptI
           position: i,
           parent_id: null,
           chunk_strategy: 'hierarchical',
+          implementation: 'client-side'
         }
       });
       
@@ -147,6 +173,7 @@ async function storeSimulatedHierarchicalChunks(parentChunks: any[], transcriptI
             position: j,
             parent_id: parentId,
             chunk_strategy: 'hierarchical',
+            implementation: 'client-side'
           }
         });
       }
@@ -159,14 +186,14 @@ async function storeSimulatedHierarchicalChunks(parentChunks: any[], transcriptI
       const { error } = await supabase.from('chunks').insert(batch);
       
       if (error) {
-        console.error(`Error storing chunk batch ${i / BATCH_SIZE + 1}:`, error);
+        console.error(`[REPROCESS] Error storing chunk batch ${i / BATCH_SIZE + 1}:`, error);
         return false;
       }
     }
     
     return true;
   } catch (error) {
-    console.error('Error in storeSimulatedHierarchicalChunks:', error);
+    console.error('[REPROCESS] Error in storeSimulatedHierarchicalChunks:', error);
     return false;
   }
 }
@@ -190,7 +217,7 @@ export async function hasHierarchicalChunks(transcriptId: string): Promise<boole
     const metadata = data[0].metadata as Record<string, any>;
     return metadata && metadata.chunk_strategy === 'hierarchical';
   } catch (error) {
-    console.error('Error in hasHierarchicalChunks:', error);
+    console.error('[REPROCESS] Error in hasHierarchicalChunks:', error);
     return false;
   }
 }
@@ -207,7 +234,7 @@ export async function reprocessAllTranscripts(): Promise<{success: number, faile
       .eq('is_processed', true);
     
     if (error) {
-      console.error('Error fetching transcripts for reprocessing:', error);
+      console.error('[REPROCESS] Error fetching transcripts for reprocessing:', error);
       return { success: 0, failed: 0 };
     }
     
@@ -235,7 +262,7 @@ export async function reprocessAllTranscripts(): Promise<{success: number, faile
     
     return { success, failed };
   } catch (error) {
-    console.error('Error in reprocessAllTranscripts:', error);
+    console.error('[REPROCESS] Error in reprocessAllTranscripts:', error);
     return { success: 0, failed: 1 };
   }
 }

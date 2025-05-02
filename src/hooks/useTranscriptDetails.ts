@@ -13,7 +13,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/components/ui/use-toast';
 
 // Define proper types for metadata and chunks
-interface ChunkMetadata {
+export interface ChunkMetadata {
   position: number;
   parent_id: string | null;
   chunk_strategy: string;

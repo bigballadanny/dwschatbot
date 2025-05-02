@@ -24,6 +24,29 @@ interface TranscriptChunksProps {
   transcriptId: string;
 }
 
+interface ChunkMetadata {
+  position: number;
+  parent_id: string | null;
+  chunk_strategy: string;
+  [key: string]: any;
+}
+
+// Helper function to safely parse metadata
+const parseMetadata = (metadata: any): ChunkMetadata => {
+  if (!metadata) return { position: 0, parent_id: null, chunk_strategy: 'unknown' };
+  
+  // If it's already an object, use it, otherwise try to parse if it's a string
+  const metaObj = typeof metadata === 'object' ? metadata : 
+                 (typeof metadata === 'string' ? JSON.parse(metadata) : {});
+  
+  return {
+    position: metaObj.position || 0,
+    parent_id: metaObj.parent_id || null,
+    chunk_strategy: metaObj.chunk_strategy || 'unknown',
+    ...metaObj
+  };
+};
+
 export const TranscriptChunks: React.FC<TranscriptChunksProps> = ({ transcriptId }) => {
   const [chunks, setChunks] = useState<TranscriptChunk[]>([]);
   const [expandedParents, setExpandedParents] = useState<Record<string, boolean>>({});
@@ -34,6 +57,13 @@ export const TranscriptChunks: React.FC<TranscriptChunksProps> = ({ transcriptId
 
   useEffect(() => {
     const fetchChunks = async () => {
+      if (!transcriptId) {
+        setChunks([]);
+        setError('No transcript ID provided');
+        setIsLoading(false);
+        return;
+      }
+      
       try {
         setIsLoading(true);
         setError(null);
@@ -48,37 +78,36 @@ export const TranscriptChunks: React.FC<TranscriptChunksProps> = ({ transcriptId
         }
 
         if (data) {
-          // Type casting and transformation to ensure proper chunk metadata structure
-          const formattedChunks: TranscriptChunk[] = data.map(chunk => ({
-            id: chunk.id,
-            content: chunk.content,
-            transcript_id: chunk.transcript_id,
-            chunk_type: chunk.chunk_type as 'parent' | 'child',
-            topic: chunk.topic,
-            created_at: chunk.created_at,
-            metadata: {
-              position: chunk.metadata?.position || 0,
-              parent_id: chunk.metadata?.parent_id || null,
-              chunk_strategy: chunk.metadata?.chunk_strategy || 'unknown',
-              ...chunk.metadata
-            }
-          }));
+          // Transform and properly type the data
+          const formattedChunks: TranscriptChunk[] = data.map(chunk => {
+            const metadata = parseMetadata(chunk.metadata);
+            
+            return {
+              id: chunk.id,
+              content: chunk.content,
+              transcript_id: chunk.transcript_id,
+              chunk_type: chunk.chunk_type as 'parent' | 'child',
+              topic: chunk.topic,
+              created_at: chunk.created_at,
+              metadata: metadata
+            };
+          });
           
           setChunks(formattedChunks);
           
           // Initialize expanded state for parent chunks
           const initialExpanded: Record<string, boolean> = {};
           formattedChunks
-            .filter((chunk: TranscriptChunk) => chunk.chunk_type === 'parent')
-            .forEach((chunk: TranscriptChunk) => {
+            .filter(chunk => chunk.chunk_type === 'parent')
+            .forEach(chunk => {
               initialExpanded[chunk.id] = false;
             });
           
           setExpandedParents(initialExpanded);
         }
-      } catch (err) {
+      } catch (err: any) {
         console.error('Error fetching transcript chunks:', err);
-        setError('Failed to fetch chunks for this transcript');
+        setError(`Failed to fetch chunks: ${err.message || 'Unknown error'}`);
         toast({
           title: 'Error',
           description: 'Failed to fetch transcript chunks',

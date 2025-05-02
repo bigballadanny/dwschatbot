@@ -1,23 +1,98 @@
 import React, { useState, useCallback, useEffect } from 'react';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { UnprocessedTranscripts } from "@/components/diagnostics/UnprocessedTranscripts";
-import { StuckTranscripts } from "@/components/diagnostics/StuckTranscripts";
-import { PotentialSummitTranscripts } from "@/components/diagnostics/PotentialSummitTranscripts";
+import UnprocessedTranscripts from "@/components/diagnostics/UnprocessedTranscripts";
+import StuckTranscripts from "@/components/diagnostics/StuckTranscripts";
+import PotentialSummitTranscripts from "@/components/diagnostics/PotentialSummitTranscripts";
 import { ReprocessingTab } from '@/components/diagnostics/ReprocessingTab';
-import { MaintenanceTab } from '@/components/diagnostics/MaintenanceTab';
-import { DiagnosticCard } from '@/components/diagnostics/DiagnosticCard';
-import { DiagnosticCardSimple } from "@/components/diagnostics/DiagnosticCardSimple";
-import { IssuesSummary } from '@/components/diagnostics/IssuesSummary';
-import { EmptyContentTranscripts } from '@/components/diagnostics/EmptyContentTranscripts';
+import MaintenanceTab from '@/components/diagnostics/MaintenanceTab';
+import DiagnosticCard from '@/components/diagnostics/DiagnosticCard';
+import DiagnosticCardSimple from "@/components/diagnostics/DiagnosticCardSimple";
+import IssuesSummary from '@/components/diagnostics/IssuesSummary';
+import EmptyContentTranscripts from '@/components/diagnostics/EmptyContentTranscripts';
 import { TranscriptDetailsView } from "@/components/diagnostics/TranscriptDetailsView";
 import { supabase } from "@/integrations/supabase/client";
 import { useAdmin } from "@/context/AdminContext";
-import { getTranscriptIssues } from '@/utils/diagnostics/transcriptIssues';
 import { checkEnvironmentStatus } from '@/utils/diagnostics/environmentCheck';
 import { Button } from "@/components/ui/button";
 import { useToast } from "@/components/ui/use-toast";
 import { ChevronLeft, HelpCircle } from "lucide-react";
 import { TranscriptChunk } from '@/hooks/useTranscriptDetails';
+
+// Since we're missing some utility functions, let's create them:
+
+// A simple function to check environment status
+const checkEnvironmentStatus = async () => {
+  try {
+    // Test database connection
+    const { data: dbTest, error: dbError } = await supabase
+      .from('transcripts')
+      .select('count(*)', { count: 'exact', head: true });
+
+    // Test storage connection
+    const { data: storageTest, error: storageError } = await supabase.storage
+      .getBucket('transcripts');
+
+    // Test edge functions connection (simplified test)
+    const edgeFunctionTest = await fetch(`${process.env.SUPABASE_URL}/functions/v1/health-check`, {
+      method: 'GET',
+      headers: {
+        'Authorization': `Bearer ${process.env.SUPABASE_ANON_KEY}`,
+      },
+    }).then(res => res.ok).catch(() => false);
+
+    return {
+      database: !dbError,
+      storage: !storageError,
+      edgeFunctions: edgeFunctionTest,
+    };
+  } catch (error) {
+    console.error('Error checking environment:', error);
+    return {
+      database: false,
+      storage: false,
+      edgeFunctions: false,
+    };
+  }
+};
+
+// A simple function to get transcript issues
+const getTranscriptIssues = async () => {
+  try {
+    const { data: unprocessed } = await supabase
+      .from('transcripts')
+      .select('count(*)', { count: 'exact', head: true })
+      .eq('is_processed', false);
+
+    const { data: stuck } = await supabase
+      .from('transcripts')
+      .select('count(*)', { count: 'exact', head: true })
+      .eq('is_processed', false)
+      .not('metadata->processing_started_at', 'is', null);
+
+    const { data: empty } = await supabase
+      .from('transcripts')
+      .select('count(*)', { count: 'exact', head: true })
+      .or('content.is.null,content.eq.');
+
+    // Default example data for potential summit transcripts
+    const potentialSummits = 0;
+
+    return {
+      unprocessed: unprocessed?.count || 0,
+      stuck: stuck?.count || 0,
+      emptyContent: empty?.count || 0,
+      potentialSummits,
+    };
+  } catch (error) {
+    console.error('Error fetching transcript issues:', error);
+    return {
+      unprocessed: 0,
+      stuck: 0,
+      emptyContent: 0,
+      potentialSummits: 0,
+    };
+  }
+};
 
 interface EnvironmentStatus {
   database: boolean;

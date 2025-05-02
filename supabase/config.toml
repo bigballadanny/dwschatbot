@@ -1,14 +1,41 @@
 
 project_id = "bfscrjrjwbzpldamcrbz"
 
-[functions.transcript-processing-health]
-verify_jwt = false
+[api]
+enabled = true
+port = 54321
+schemas = ["public", "storage", "graphql_public"]
 
-[functions.fix-transcript-paths]
-verify_jwt = false
+[db]
+port = 54322
 
-[functions.trigger-transcript-processing]
-verify_jwt = false
+[studio]
+enabled = true
+port = 54323
+api_url = "http://localhost"
 
-[functions.process-transcript]
-verify_jwt = false
+[inbucket]
+enabled = true
+port = 54324
+
+[storage]
+enabled = true
+
+[edge_functions]
+[edge_functions.fix-transcript-paths]
+verify_jwt = true
+
+[edge_functions.process-transcript]
+verify_jwt = true
+
+[edge_functions.transcript-webhook]
+verify_jwt = true
+
+[edge_functions.transcript-processing-health] 
+verify_jwt = true
+
+[edge_functions.trigger-transcript-processing]
+verify_jwt = true
+
+[edge_functions.process-with-hierarchical-chunking]
+verify_jwt = true
