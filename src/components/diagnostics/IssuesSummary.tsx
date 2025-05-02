@@ -22,9 +22,32 @@ interface IssuesSummaryProps {
     issues: string[];
     details: any;
   };
+  // For backwards compatibility
+  unprocessedCount?: number;
+  stuckCount?: number;
+  emptyCount?: number;
+  summitCount?: number;
 }
 
-const IssuesSummary: React.FC<IssuesSummaryProps> = ({ stats, systemHealth }) => {
+const IssuesSummary: React.FC<IssuesSummaryProps> = ({ 
+  stats, 
+  systemHealth,
+  unprocessedCount,
+  stuckCount,
+  emptyCount,
+  summitCount
+}) => {
+  // Handle backwards compatibility
+  if (unprocessedCount !== undefined && stats.unprocessedTranscripts === 0) {
+    stats = {
+      ...stats,
+      unprocessedTranscripts: unprocessedCount,
+      stuckInProcessing: stuckCount || 0,
+      emptyContent: emptyCount || 0,
+      potentialSummitTranscripts: summitCount || 0
+    };
+  }
+
   // Calculate percentages for stats cards
   const processedPercent = stats.total > 0 
     ? Math.round(((stats.total - stats.unprocessedTranscripts) / stats.total) * 100) 

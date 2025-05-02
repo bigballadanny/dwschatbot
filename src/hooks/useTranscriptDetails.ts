@@ -95,7 +95,16 @@ export function useTranscriptDetails(transcriptId: string | null) {
         throw chunksError;
       }
       
-      setChunks(data || []);
+      // Map the data with proper type casting
+      const typedChunks: TranscriptChunk[] = data?.map(chunk => ({
+        ...chunk,
+        chunk_type: (chunk.chunk_type === 'parent' || chunk.chunk_type === 'child') 
+          ? chunk.chunk_type 
+          : 'parent', // Default to parent if invalid
+        metadata: chunk.metadata as ChunkMetadata
+      })) || [];
+      
+      setChunks(typedChunks);
     } catch (err: any) {
       console.error('Error fetching transcript chunks:', err);
       setChunksError(`Failed to load chunks: ${err.message}`);

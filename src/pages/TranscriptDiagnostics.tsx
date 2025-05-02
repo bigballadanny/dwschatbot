@@ -17,6 +17,7 @@ import { checkEnvironmentStatus } from '@/utils/diagnostics/environmentCheck';
 import { Button } from "@/components/ui/button";
 import { useToast } from "@/components/ui/use-toast";
 import { ChevronLeft, HelpCircle } from "lucide-react";
+import { DiagnosticTranscript } from '@/utils/diagnostics/transcriptIssues';
 
 /**
  * Get basic counts of transcript issues in the system
@@ -200,7 +201,7 @@ export default function TranscriptDiagnostics() {
     setSelectedTranscriptId(id);
   };
 
-  const handleSelectAll = (selected: boolean) => {
+  const handleSelectAll = (transcripts: DiagnosticTranscript[], selected: boolean) => {
     // Placeholder for select all functionality
     console.log('Select all transcripts:', selected);
   };
@@ -269,29 +270,33 @@ export default function TranscriptDiagnostics() {
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
               <DiagnosticCardSimple
                 title="Database Status"
-                isSuccess={environmentStatus.database}
-                successMessage="Database is operational"
-                errorMessage="Database connection failed"
+                value={environmentStatus.database ? "Operational" : "Not Connected"}
+                variant={environmentStatus.database ? "success" : "error"}
               />
               <DiagnosticCardSimple
                 title="Storage Status"
-                isSuccess={environmentStatus.storage}
-                successMessage="Storage is operational"
-                errorMessage="Storage connection failed"
+                value={environmentStatus.storage ? "Operational" : "Not Connected"}
+                variant={environmentStatus.storage ? "success" : "error"}
               />
               <DiagnosticCardSimple
                 title="Edge Functions Status"
-                isSuccess={environmentStatus.edgeFunctions}
-                successMessage="Edge functions are operational"
-                errorMessage="Edge functions are not responding"
+                value={environmentStatus.edgeFunctions ? "Operational" : "Not Connected"}
+                variant={environmentStatus.edgeFunctions ? "success" : "error"}
               />
             </div>
 
             <IssuesSummary 
-              unprocessedCount={issuesSummary.unprocessed} 
-              stuckCount={issuesSummary.stuck}
-              emptyCount={issuesSummary.emptyContent}
-              summitCount={issuesSummary.potentialSummits}
+              stats={{
+                total: transcripts.length,
+                unprocessedTranscripts: issuesSummary.unprocessed,
+                stuckInProcessing: issuesSummary.stuck,
+                emptyContent: issuesSummary.emptyContent,
+                potentialSummitTranscripts: issuesSummary.potentialSummits,
+                missingFilePath: 0,
+                recentlyUploaded: 0,
+                businessSummitTranscripts: 0,
+                processingFailures: 0
+              }}
             />
           </TabsContent>
 
@@ -300,7 +305,7 @@ export default function TranscriptDiagnostics() {
               transcripts={transcripts.filter(t => !t.is_processed)}
               selectedTranscripts={[]}
               onSelectAll={handleSelectAll}
-              onSelectTranscript={handleSelectTranscript}
+              onSelectTranscript={(id, isSelected) => console.log('Selected:', id, isSelected)}
               onViewTranscript={handleSelectTranscript}
               onProcessTranscript={handleRetryProcessing}
               isProcessing={false}
@@ -321,7 +326,7 @@ export default function TranscriptDiagnostics() {
               transcripts={transcripts.filter(t => !t.content || t.content === '')}
               selectedTranscripts={[]}
               onSelectAll={handleSelectAll}
-              onSelectTranscript={handleSelectTranscript}
+              onSelectTranscript={(id, isSelected) => console.log('Selected:', id, isSelected)}
               onViewTranscript={handleSelectTranscript}
               onFixTranscript={handleRetryProcessing}
               isProcessing={false}

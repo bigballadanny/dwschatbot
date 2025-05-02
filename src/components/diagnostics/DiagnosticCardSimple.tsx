@@ -7,6 +7,10 @@ interface DiagnosticCardSimpleProps {
   value: React.ReactNode;
   description?: string;
   variant?: 'default' | 'warning' | 'error' | 'success';
+  // These properties are used in older parts of the code
+  isSuccess?: boolean;
+  successMessage?: string;
+  errorMessage?: string;
 }
 
 /**
@@ -16,8 +20,17 @@ const DiagnosticCardSimple = ({
   title, 
   value, 
   description, 
-  variant = 'default' 
+  variant = 'default',
+  isSuccess,
+  successMessage,
+  errorMessage
 }: DiagnosticCardSimpleProps) => {
+  // Handle backwards compatibility with isSuccess props
+  if (isSuccess !== undefined) {
+    variant = isSuccess ? 'success' : 'error';
+    value = isSuccess ? (successMessage || 'Success') : (errorMessage || 'Error');
+  }
+
   const getVariantClasses = () => {
     switch (variant) {
       case 'warning':
