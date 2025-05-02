@@ -2,77 +2,46 @@
 import { supabase } from '@/integrations/supabase/client';
 
 /**
- * Checks environment status for transcript processing
+ * Check the status of various environment components
+ * @returns Object with status of database, storage, and edge functions
  */
-export async function checkEnvironmentVariables() {
+export const checkEnvironmentStatus = async (): Promise<{
+  database: boolean;
+  storage: boolean;
+  edgeFunctions: boolean;
+}> => {
   try {
-    // Call the edge function to check environment status
-    const { data, error } = await supabase.functions.invoke('process-transcript', {
-      body: { health_check: true }
-    });
-    
-    if (error) {
-      console.error('[ENV_CHECK] Error checking environment:', error);
-      return {
-        systemStatus: 'error',
-        transcriptProcessingEnabled: false,
-        supabaseConfigured: false,
-        error: error.message
-      };
-    }
-    
-    console.log('[ENV_CHECK] Health check response:', data);
-    
-    // Return simplified status
-    return {
-      systemStatus: data.status === 'healthy' ? 'healthy' : 'error',
-      transcriptProcessingEnabled: data.status === 'healthy',
-      supabaseConfigured: !!data.details?.supabase_connection,
-      environmentVariables: data.details?.environment_variables || {},
-      timestamp: data.timestamp,
-      details: data.details
-    };
-  } catch (error) {
-    console.error('[ENV_CHECK] Error checking environment:', error);
-    return {
-      systemStatus: 'error',
-      transcriptProcessingEnabled: false,
-      supabaseConfigured: false,
-      error: error instanceof Error ? error.message : 'Unknown error'
-    };
-  }
-}
+    // Test database connection
+    const { error: dbError } = await supabase
+      .from('transcripts')
+      .select('id')
+      .limit(1);
 
-/**
- * Tests the transcript-webhook edge function
- */
-export async function testWebhookEndpoint() {
-  try {
-    // Send a test request to the webhook endpoint
-    const { data, error } = await supabase.functions.invoke('transcript-webhook', {
-      body: { type: 'HEALTH_CHECK' }
-    });
-    
-    if (error) {
-      console.error('[ENV_CHECK] Error testing webhook endpoint:', error);
-      return {
-        success: false,
-        error: error.message
-      };
+    // Test storage connection
+    const { error: storageError } = await supabase.storage
+      .from('transcripts')
+      .list('', { limit: 1 });
+
+    // Test edge functions connection using a simple health check
+    let edgeFunctionTest = false;
+    try {
+      const { error: funcError } = await supabase.functions.invoke('transcript-processing-health');
+      edgeFunctionTest = !funcError;
+    } catch (e) {
+      edgeFunctionTest = false;
     }
-    
-    console.log('[ENV_CHECK] Webhook test response:', data);
-    
+
     return {
-      success: true,
-      status: data?.status || 'ok',
-      timestamp: data?.timestamp
+      database: !dbError,
+      storage: !storageError,
+      edgeFunctions: edgeFunctionTest,
     };
   } catch (error) {
-    console.error('[ENV_CHECK] Error testing webhook endpoint:', error);
+    console.error('Error checking environment:', error);
     return {
-      success: false,
-      error: error instanceof Error ? error.message : 'Unknown error'
+      database: false,
+      storage: false,
+      edgeFunctions: false,
     };
   }
-}
+};

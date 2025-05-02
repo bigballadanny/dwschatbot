@@ -466,31 +466,25 @@ const TranscriptsPage = () => {
   // Add a new function to trigger hierarchical chunking for a transcript
   const triggerHierarchicalChunking = async (transcriptId: string) => {
     try {
-      const result = await fetch(`${import.meta.env.VITE_SUPABASE_URL}/functions/v1/process-transcript`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          Authorization: `Bearer ${import.meta.env.VITE_SUPABASE_ANON_KEY}`
-        },
-        body: JSON.stringify({
-          transcript_id: transcriptId,
-          force_hierarchical: true
-        })
-      });
-
-      if (!result.ok) {
-        throw new Error(`Error processing transcript: ${result.statusText}`);
-      }
-
-      showSuccess("Processing started", "Transcript is now being processed with hierarchical chunking");
+      // Use the reprocessTranscript utility function which has proper implementation
+      // and error handling for hierarchical chunking
+      const { reprocessTranscript } = await import('@/utils/diagnostics/reprocessTranscripts');
       
-      // Wait a bit and then fetch the updated transcript
-      setTimeout(() => {
-        refreshTranscripts();
-      }, 3000);
+      const result = await reprocessTranscript(transcriptId);
+      
+      if (result) {
+        showSuccess("Processing started", "Transcript is now being processed with hierarchical chunking");
+        
+        // Wait a bit and then fetch the updated transcript
+        setTimeout(() => {
+          refreshTranscripts();
+        }, 3000);
+      } else {
+        throw new Error("Processing failed");
+      }
     } catch (error: any) {
       console.error('Error triggering hierarchical chunking:', error);
-      showError("Processing failed", error.message);
+      showError("Processing failed", error.message || "An unknown error occurred");
     }
   };
 

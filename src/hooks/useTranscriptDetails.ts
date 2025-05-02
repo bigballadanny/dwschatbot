@@ -32,8 +32,11 @@ export interface TranscriptChunk {
 
 export function useTranscriptDetails(transcriptId: string | null) {
   const [transcript, setTranscript] = useState<any | null>(null);
+  const [chunks, setChunks] = useState<TranscriptChunk[]>([]);
   const [isLoading, setIsLoading] = useState(false);
+  const [isLoadingChunks, setIsLoadingChunks] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [chunksError, setChunksError] = useState<string | null>(null);
   const { toast } = useToast();
 
   const fetchTranscript = useCallback(async () => {
@@ -70,19 +73,68 @@ export function useTranscriptDetails(transcriptId: string | null) {
       setIsLoading(false);
     }
   }, [transcriptId, toast]);
+  
+  const fetchChunks = useCallback(async () => {
+    if (!transcriptId) {
+      setChunks([]);
+      setChunksError(null);
+      return;
+    }
+    
+    try {
+      setIsLoadingChunks(true);
+      setChunksError(null);
+      
+      const { data, error: chunksError } = await supabase
+        .from('chunks')
+        .select('*')
+        .eq('transcript_id', transcriptId)
+        .order('metadata->position', { ascending: true });
+        
+      if (chunksError) {
+        throw chunksError;
+      }
+      
+      setChunks(data || []);
+    } catch (err: any) {
+      console.error('Error fetching transcript chunks:', err);
+      setChunksError(`Failed to load chunks: ${err.message}`);
+      toast({
+        title: 'Error',
+        description: 'Failed to load transcript chunks',
+        variant: 'destructive',
+      });
+    } finally {
+      setIsLoadingChunks(false);
+    }
+  }, [transcriptId, toast]);
 
   useEffect(() => {
     fetchTranscript();
   }, [fetchTranscript]);
+  
+  useEffect(() => {
+    if (transcript && transcript.is_processed) {
+      fetchChunks();
+    }
+  }, [transcript, fetchChunks]);
 
   const refreshTranscript = useCallback(() => {
     fetchTranscript();
   }, [fetchTranscript]);
+  
+  const refreshChunks = useCallback(() => {
+    fetchChunks();
+  }, [fetchChunks]);
 
   return {
     transcript,
+    chunks,
     isLoading,
+    isLoadingChunks,
     error,
-    refreshTranscript
+    chunksError,
+    refreshTranscript,
+    refreshChunks
   };
 }
