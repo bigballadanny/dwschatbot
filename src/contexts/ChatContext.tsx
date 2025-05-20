@@ -392,7 +392,6 @@ export const ChatProvider: React.FC<ChatProviderProps> = ({
         });
       }
     
-    try {
       // Generate an appropriate prompt based on file type
       let filePrompt = '';
       
@@ -422,7 +421,6 @@ export const ChatProvider: React.FC<ChatProviderProps> = ({
         variant: "destructive"
       });
     }
-  }, [sendMessage, toast]);
   }, [sendMessage, toast]);
   
   // Create context value

@@ -11,7 +11,11 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Progress } from "@/components/ui/progress";
 import { Textarea } from "@/components/ui/textarea";
-import { Clock, CheckCircle2, FileText, Tag, Upload, X, RefreshCw, Search, Filter, AlertTriangle, Trash2 } from "lucide-react";
+import { FileText, Tag, Upload, X, RefreshCw, Search, Filter, AlertTriangle, Trash2, Info, BarChart, Sparkles, CheckCircle, HelpCircle, Clock } from "lucide-react";
+import TranscriptStatusIndicator, { TranscriptStatus } from "@/components/TranscriptStatusIndicator";
+import TranscriptDetailProgress from "@/components/TranscriptDetailProgress";
+import TagFilter from "@/components/TagFilter";
+import BulkTranscriptManager from "@/components/BulkTranscriptManager";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from '@/context/AuthContext';
 import { useAdmin } from '@/context/AdminContext';
@@ -194,6 +198,11 @@ const TranscriptsPage = () => {
     }
   };
   const filterTranscripts = () => {
+    // If we're on the bulk tab, don't filter anything
+    if (activeTab === "bulk") {
+      return;
+    }
+    
     let filtered = [...transcripts];
 
     // Filter by search query
@@ -488,13 +497,38 @@ const TranscriptsPage = () => {
     }
   };
 
-  const getStatusIcon = (transcript: Transcript) => {
+  const getTranscriptStatus = (transcript: Transcript): TranscriptStatus => {
+    // Check for empty content
+    if (!transcript.content || transcript.content.trim() === '') {
+      return 'empty';
+    }
+
+    // Check for processing failure
+    if (transcript.metadata && typeof transcript.metadata === 'object' && 
+        (transcript.metadata.processing_failed || transcript.metadata.processing_error)) {
+      return 'failed';
+    }
+
+    // Check for stuck transcripts
+    if (!transcript.is_processed && transcript.metadata && typeof transcript.metadata === 'object' && 
+        transcript.metadata.processing_started_at) {
+      const startedAt = new Date(transcript.metadata.processing_started_at as string);
+      const fiveMinutesAgo = new Date();
+      fiveMinutesAgo.setMinutes(fiveMinutesAgo.getMinutes() - 5);
+      
+      if (startedAt < fiveMinutesAgo) {
+        return 'stuck';
+      }
+      return 'processing';
+    }
+    
+    // Normal status flow
     if (!transcript.is_processed) {
-      return <Clock className="h-4 w-4 text-amber-500" aria-label="Processing" />;
+      return 'unprocessed';
     } else if (!transcript.is_summarized) {
-      return <CheckCircle2 className="h-4 w-4 text-green-500" aria-label="Processed" />;
+      return 'processed';
     } else {
-      return <CheckCircle2 className="h-4 w-4 text-blue-500" aria-label="Summarized" />;
+      return 'summarized';
     }
   };
   const transcriptCounts = getTranscriptCounts(transcripts);
@@ -587,18 +621,24 @@ const TranscriptsPage = () => {
             <Input placeholder="Search transcripts..." className="pl-8" value={searchQuery} onChange={e => setSearchQuery(e.target.value)} />
           </div>
         </div>
-        <div className="w-full md:w-64">
-          <Select value={selectedSource} onValueChange={setSelectedSource}>
-            <SelectTrigger>
-              <SelectValue placeholder="Filter by source" />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="all">All Sources</SelectItem>
-              {getSourceCategories().map(category => <SelectItem key={category.id} value={category.id}>
-                  {category.label}
-                </SelectItem>)}
-            </SelectContent>
-          </Select>
+        <div className="flex gap-2">
+          <TagFilter 
+            onTagAdded={(tag) => setSearchQuery(tag)}
+            title="Filter by tag"
+          />
+          <div className="w-48">
+            <Select value={selectedSource} onValueChange={setSelectedSource}>
+              <SelectTrigger>
+                <SelectValue placeholder="Filter by source" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">All Sources</SelectItem>
+                {getSourceCategories().map(category => <SelectItem key={category.id} value={category.id}>
+                    {category.label}
+                  </SelectItem>)}
+              </SelectContent>
+            </Select>
+          </div>
         </div>
       </div>
 
@@ -615,6 +655,9 @@ const TranscriptsPage = () => {
           </TabsTrigger>
           <TabsTrigger value="summarized">
             Summarized ({transcripts.filter(t => t.is_summarized).length})
+          </TabsTrigger>
+          <TabsTrigger value="bulk">
+            Bulk Management
           </TabsTrigger>
         </TabsList>
 
@@ -648,13 +691,14 @@ const TranscriptsPage = () => {
                     {new Date(selectedTranscript.created_at).toLocaleString()}
                   </p>
                   
-                  <p className="text-sm font-medium">Status</p>
-                  <p className="text-sm text-muted-foreground flex items-center">
-                    {getStatusIcon(selectedTranscript)}
-                    <span className="ml-2">
-                      {!selectedTranscript.is_processed ? 'Processing' : selectedTranscript.is_summarized ? 'Summarized' : 'Processed'}
-                    </span>
-                  </p>
+                  <TranscriptDetailProgress
+                    transcriptId={selectedTranscript.id}
+                    metadata={selectedTranscript.metadata as Record<string, any>}
+                    isProcessed={selectedTranscript.is_processed}
+                    isSummarized={selectedTranscript.is_summarized}
+                    onRefresh={() => handleTranscriptSelect(selectedTranscript)}
+                    className="mt-4 mb-2"
+                  />
                   
                   {/* Add Hierarchical Chunking Button */}
                   <div className="flex justify-between items-center pt-3">
@@ -742,7 +786,11 @@ const TranscriptsPage = () => {
                     <Progress value={progress.completed / progress.total * 100} />
                   </div>}
                 
-                {filteredTranscripts.map(transcript => <Card key={transcript.id} className={`cursor-pointer transition-colors ${selectedTranscript?.id === transcript.id ? 'border-primary' : ''}`} onClick={() => handleTranscriptSelect(transcript)}>
+                {filteredTranscripts.map(transcript => <Card 
+                    key={transcript.id} 
+                    className={`cursor-pointer transition-colors ${selectedTranscript?.id === transcript.id ? 'border-primary' : ''} ${!transcript.is_processed ? 'bg-amber-50/30 dark:bg-amber-950/10' : transcript.is_summarized ? 'bg-blue-50/30 dark:bg-blue-950/10' : ''}`} 
+                    onClick={() => handleTranscriptSelect(transcript)}
+                  >
                     <CardHeader className="pb-2">
                       <div className="flex justify-between">
                         <div className="flex-1">
@@ -751,7 +799,7 @@ const TranscriptsPage = () => {
                         handleTranscriptSelection(transcript.id, !!checked);
                       }} onClick={e => e.stopPropagation()} />
                             {transcript.title}
-                            {getStatusIcon(transcript)}
+                            <TranscriptStatusIndicator status={getTranscriptStatus(transcript)} showText={false} size="sm" />
                           </CardTitle>
                           <CardDescription>
                             {sourceCategories.find(s => s.id === transcript.source)?.label || transcript.source || 'Unknown'} • 
@@ -774,11 +822,17 @@ const TranscriptsPage = () => {
                     </CardContent>
                     <CardFooter className="pt-0">
                       <div className="flex justify-between w-full text-sm text-muted-foreground">
-                        <span>
+                        <span className="flex items-center gap-1">
+                          <FileText className="h-3.5 w-3.5 opacity-70" />
                           {transcript.content?.length ? `${Math.round(transcript.content.length / 1000)}K chars` : 'No content'}
                         </span>
                         <span>
-                          {transcript.is_summarized ? 'Summarized' : transcript.is_processed ? 'Processed' : 'Processing...'}
+                          <TranscriptStatusIndicator 
+                            status={getTranscriptStatus(transcript)} 
+                            showText={true} 
+                            showTooltip={false} 
+                            size="sm" 
+                          />
                         </span>
                       </div>
                     </CardFooter>
@@ -786,6 +840,17 @@ const TranscriptsPage = () => {
               </div>}
           </div>
         </div>
+        
+        {activeTab === "bulk" && (
+          <div className="mt-6">
+            <BulkTranscriptManager
+              transcripts={transcripts}
+              onUpdate={refreshTranscripts}
+              isAdmin={isAdmin}
+              userId={user?.id || ''}
+            />
+          </div>
+        )}
       </Tabs>
       
       {/* Delete Transcript Dialog */}

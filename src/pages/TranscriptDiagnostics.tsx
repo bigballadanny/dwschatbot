@@ -234,8 +234,11 @@ export default function TranscriptDiagnostics() {
             <ChevronLeft className="h-4 w-4 mr-2" />
             Back to Transcripts
           </Button>
-          <Button variant="ghost" size="sm">
-            <HelpCircle className="h-4 w-4 mr-2" />
+          <Button 
+            variant="outlineHover" 
+            size="sm" 
+            iconLeft={<HelpCircle className="h-4 w-4" />}
+          >
             Help
           </Button>
         </div>
