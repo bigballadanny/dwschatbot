@@ -36,7 +36,26 @@ const queryClient = new QueryClient({
 // Wrap the main content in a component to use hooks like useLocation
 const AppContent = () => {
   const location = useLocation();
-  const showSidebar = location.pathname !== '/auth';
+  const { user, isLoading } = useAuth();
+  const isAuthPage = location.pathname === '/auth';
+  const showSidebar = !isAuthPage && user;
+
+  // Always redirect to auth page if not authenticated and not already on auth page
+  React.useEffect(() => {
+    if (!isLoading && !user && !isAuthPage) {
+      // We use this approach instead of Navigate to avoid render issues
+      window.location.href = '/auth';
+    }
+  }, [user, isLoading, isAuthPage]);
+
+  // Don't render anything while checking authentication to prevent flashes
+  if (isLoading) {
+    return (
+      <div className="flex items-center justify-center w-full min-h-screen bg-slate-900">
+        <div className="w-16 h-16 border-4 border-t-primary rounded-full animate-spin"></div>
+      </div>
+    );
+  }
 
   return (
     <div className="flex w-full min-h-screen">
@@ -50,7 +69,11 @@ const AppContent = () => {
       
       <div className="flex-1">
         <Routes>
-          <Route path="/" element={<Index />} />
+          <Route path="/" element={
+            <ProtectedRoute>
+              <Index />
+            </ProtectedRoute>
+          } />
           <Route path="/auth" element={<Auth />} />
           
           <Route path="/transcripts" element={

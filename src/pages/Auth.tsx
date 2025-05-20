@@ -1,6 +1,6 @@
 
 import React, { useState, useEffect } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useLocation } from 'react-router-dom';
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
 import { Label } from "@/components/ui/label";
 import { Input } from "@/components/ui/input";
@@ -9,6 +9,8 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { useToast } from "@/components/ui/use-toast";
 import { supabase } from "@/integrations/supabase/client";
+import { useAuth } from "@/context/AuthContext";
+import { AuthError } from "@supabase/supabase-js";
 import { Loader2 } from "lucide-react";
 import { WavyBackground } from "@/components/ui/wavy-background";
 
@@ -23,12 +25,20 @@ const Auth = () => {
   const [quickLoginEmail, setQuickLoginEmail] = useState('');
   const { toast } = useToast();
   const navigate = useNavigate();
+  const location = useLocation();
+  const { signUp, signIn, resetPassword: resetPasswordAuth, updatePassword: updatePasswordAuth, quickLogin: quickLoginAuth } = useAuth();
   
   useEffect(() => {
     const checkSession = async () => {
       const { data } = await supabase.auth.getSession();
       if (data.session) {
-        navigate('/');
+        // Check if there's a redirect path in location state
+        const locationState = location.state as { from?: { pathname: string } };
+        const redirectPath = locationState?.from?.pathname || '/';
+        
+        // Don't redirect back to auth or non-existent pages
+        const finalRedirect = redirectPath === '/auth' || !redirectPath ? '/' : redirectPath;
+        navigate(finalRedirect, { replace: true });
       }
     };
     
@@ -37,13 +47,19 @@ const Auth = () => {
     const { data: { subscription } } = supabase.auth.onAuthStateChange(
       (event, session) => {
         if (session) {
-          navigate('/');
+          // Check if there's a redirect path in location state
+          const locationState = location.state as { from?: { pathname: string } };
+          const redirectPath = locationState?.from?.pathname || '/';
+          
+          // Don't redirect back to auth or non-existent pages
+          const finalRedirect = redirectPath === '/auth' || !redirectPath ? '/' : redirectPath;
+          navigate(finalRedirect, { replace: true });
         }
       }
     );
     
     return () => subscription.unsubscribe();
-  }, [navigate]);
+  }, [navigate, location.state]);
 
   useEffect(() => {
     const params = new URLSearchParams(window.location.search);
@@ -68,23 +84,19 @@ const Auth = () => {
     
     try {
       setLoading(true);
-      const { data, error } = await supabase.auth.signUp({
-        email,
-        password,
-        options: {
-          emailRedirectTo: `${window.location.origin}/auth`
-        }
-      });
+      // Use the AuthContext's signUp method
+      const { error, success, message } = await signUp(email, password);
       
       if (error) throw error;
       
       setConfirmationSent(true);
       toast({
         title: "Sign up initiated",
-        description: "Please check your email for a confirmation link",
+        description: message,
       });
-    } catch (error: any) {
-      const errorMsg = error.message || "An error occurred during sign up";
+    } catch (error) {
+      const authError = error as AuthError;
+      const errorMsg = authError.message || "An error occurred during sign up";
       setErrorMessage(errorMsg);
       
       if (errorMsg.includes("already registered")) {
@@ -115,15 +127,20 @@ const Auth = () => {
     
     try {
       setLoading(true);
-      const { data, error } = await supabase.auth.signInWithPassword({
-        email,
-        password,
-      });
+      // Use the AuthContext's signIn method
+      const { error, success, message } = await signIn(email, password);
       
       if (error) throw error;
       
-    } catch (error: any) {
-      const errorMsg = error.message || "An error occurred during sign in";
+      // Success is handled by the Auth subscription in useEffect
+      toast({
+        title: "Sign in successful",
+        description: "Welcome back!",
+      });
+      
+    } catch (error) {
+      const authError = error as AuthError;
+      const errorMsg = authError.message || "An error occurred during sign in";
       
       setErrorMessage(errorMsg);
       
@@ -162,57 +179,23 @@ const Auth = () => {
     
     try {
       setLoading(true);
+      // Use the AuthContext's quickLogin method
+      const { error, success, message } = await quickLoginAuth(quickLoginEmail);
       
-      const { data: signInData, error: signInError } = await supabase.auth.signInWithPassword({
-        email: quickLoginEmail,
-        password: "123123",
-      });
-      
-      if (signInError) {
-        console.log("Quick login sign in failed, attempting to create account:", signInError.message);
-        
-        const { data: signUpData, error: signUpError } = await supabase.auth.signUp({
-          email: quickLoginEmail,
-          password: "123123",
-          options: {
-            data: {
-              is_quick_login: true
-            },
-            emailRedirectTo: `${window.location.origin}/auth`
-          }
-        });
-        
-        if (signUpError) {
-          throw signUpError;
-        }
-        
-        const { error: finalSignInError } = await supabase.auth.signInWithPassword({
-          email: quickLoginEmail,
-          password: "123123",
-        });
-        
-        if (finalSignInError) {
-          console.log("Final sign in attempt failed:", finalSignInError.message);
-          toast({
-            title: "Quick account created",
-            description: "Your account was created, but we couldn't sign you in automatically. Try signing in again.",
-          });
-          setLoading(false);
-          return;
-        }
-      }
+      if (error) throw error;
       
       toast({
         title: "Quick login successful",
         description: "You are now signed in with quick access",
       });
       
-    } catch (error: any) {
+    } catch (error) {
       console.error("Quick login error:", error);
-      setErrorMessage(error.message || "An error occurred");
+      const authError = error as AuthError;
+      setErrorMessage(authError.message || "An error occurred");
       toast({
         title: "Error with quick login",
-        description: error.message || "An error occurred with quick login",
+        description: authError.message || "An error occurred with quick login",
         variant: "destructive"
       });
     } finally {
@@ -231,9 +214,8 @@ const Auth = () => {
     
     try {
       setLoading(true);
-      const { error } = await supabase.auth.resetPasswordForEmail(email, {
-        redirectTo: `${window.location.origin}/auth?tab=resetpassword`,
-      });
+      // Use the AuthContext's resetPassword method
+      const { error, success, message } = await resetPasswordAuth(email);
       
       if (error) throw error;
       
@@ -242,8 +224,9 @@ const Auth = () => {
         title: "Password reset email sent",
         description: "Check your email for a password reset link",
       });
-    } catch (error: any) {
-      const errorMsg = error.message || "An error occurred during password reset";
+    } catch (error) {
+      const authError = error as AuthError;
+      const errorMsg = authError.message || "An error occurred during password reset";
       setErrorMessage(errorMsg);
       toast({
         title: "Error",
@@ -266,9 +249,8 @@ const Auth = () => {
     
     try {
       setLoading(true);
-      const { error } = await supabase.auth.updateUser({
-        password
-      });
+      // Use the AuthContext's updatePassword method
+      const { error, success, message } = await updatePasswordAuth(password);
       
       if (error) throw error;
       
@@ -277,11 +259,17 @@ const Auth = () => {
         description: "Your password has been updated successfully",
       });
       
-    } catch (error: any) {
-      setErrorMessage(error.message || "An error occurred updating your password");
+      // Redirect to home page after successful password update
+      setTimeout(() => {
+        navigate('/', { replace: true });
+      }, 2000);
+      
+    } catch (error) {
+      const authError = error as AuthError;
+      setErrorMessage(authError.message || "An error occurred updating your password");
       toast({
         title: "Error",
-        description: error.message || "An error occurred updating your password",
+        description: authError.message || "An error occurred updating your password",
         variant: "destructive"
       });
     } finally {
@@ -335,7 +323,7 @@ const Auth = () => {
               <Button 
                 onClick={() => setConfirmationSent(false)} 
                 variant="outline"
-                className="w-full bg-slate-800 text-white border-slate-700 hover:bg-slate-700"
+                className="w-full bg-slate-800 text-white border-slate-700 hover:bg-slate-700 hover:border-slate-600 shadow-md hover:shadow-lg transition-all duration-200"
               >
                 Back to sign in
               </Button>
@@ -396,7 +384,7 @@ const Auth = () => {
               <CardFooter>
                 <Button 
                   type="submit" 
-                  className="w-full bg-blue-600 hover:bg-blue-700 text-white"
+                  className="w-full bg-blue-600 hover:bg-blue-700 text-white shadow-md hover:shadow-lg transition-all duration-200"
                   disabled={loading}
                 >
                   {loading ? (
@@ -470,7 +458,7 @@ const Auth = () => {
               <CardFooter className="flex flex-col space-y-2">
                 <Button 
                   type="submit" 
-                  className="w-full bg-blue-600 hover:bg-blue-700 text-white"
+                  className="w-full bg-blue-600 hover:bg-blue-700 text-white shadow-md hover:shadow-lg transition-all duration-200"
                   disabled={loading || resetSent}
                 >
                   {loading ? (
@@ -522,10 +510,25 @@ const Auth = () => {
             </CardDescription>
           </CardHeader>
           <Tabs defaultValue="quicklogin" className="w-full">
-            <TabsList className="grid w-full grid-cols-3 bg-slate-800">
-              <TabsTrigger value="signin" className="text-slate-300 data-[state=active]:bg-slate-700 data-[state=active]:text-white">Sign In</TabsTrigger>
-              <TabsTrigger value="signup" className="text-slate-300 data-[state=active]:bg-slate-700 data-[state=active]:text-white">Sign Up</TabsTrigger>
-              <TabsTrigger value="quicklogin" className="text-slate-300 data-[state=active]:bg-slate-700 data-[state=active]:text-white">Quick Login</TabsTrigger>
+            <TabsList className="grid w-full grid-cols-3 bg-slate-800 p-1">
+              <TabsTrigger 
+                value="signin" 
+                className="text-slate-300 data-[state=active]:bg-blue-600 data-[state=active]:text-white data-[state=active]:shadow-md transition-all duration-200"
+              >
+                Sign In
+              </TabsTrigger>
+              <TabsTrigger 
+                value="signup" 
+                className="text-slate-300 data-[state=active]:bg-blue-600 data-[state=active]:text-white data-[state=active]:shadow-md transition-all duration-200"
+              >
+                Sign Up
+              </TabsTrigger>
+              <TabsTrigger 
+                value="quicklogin" 
+                className="text-slate-300 data-[state=active]:bg-blue-600 data-[state=active]:text-white data-[state=active]:shadow-md transition-all duration-200"
+              >
+                Quick Login
+              </TabsTrigger>
             </TabsList>
             
             <TabsContent value="signin">
@@ -546,7 +549,7 @@ const Auth = () => {
                       onChange={(e) => setEmail(e.target.value)}
                       disabled={loading}
                       autoComplete="email"
-                      className="bg-slate-800 border-slate-700 text-white"
+                      className="bg-slate-800 border-slate-700 text-white hover:border-slate-600 focus:border-blue-500 transition-colors"
                     />
                   </div>
                   <div className="space-y-2">
@@ -558,7 +561,7 @@ const Auth = () => {
                       onChange={(e) => setPassword(e.target.value)}
                       disabled={loading}
                       autoComplete="current-password"
-                      className="bg-slate-800 border-slate-700 text-white"
+                      className="bg-slate-800 border-slate-700 text-white hover:border-slate-600 focus:border-blue-500 transition-colors"
                     />
                   </div>
                   <Button 
@@ -573,7 +576,7 @@ const Auth = () => {
                 <CardFooter>
                   <Button 
                     type="submit" 
-                    className="w-full bg-blue-600 hover:bg-blue-700 text-white" 
+                    className="w-full bg-blue-600 hover:bg-blue-700 text-white shadow-md hover:shadow-lg transition-all duration-200" 
                     disabled={loading}
                   >
                     {loading ? (
@@ -605,7 +608,7 @@ const Auth = () => {
                       onChange={(e) => setEmail(e.target.value)}
                       disabled={loading}
                       autoComplete="email"
-                      className="bg-slate-800 border-slate-700 text-white"
+                      className="bg-slate-800 border-slate-700 text-white hover:border-slate-600 focus:border-blue-500 transition-colors"
                     />
                   </div>
                   <div className="space-y-2">
@@ -617,14 +620,14 @@ const Auth = () => {
                       onChange={(e) => setPassword(e.target.value)}
                       disabled={loading}
                       autoComplete="new-password"
-                      className="bg-slate-800 border-slate-700 text-white"
+                      className="bg-slate-800 border-slate-700 text-white hover:border-slate-600 focus:border-blue-500 transition-colors"
                     />
                   </div>
                 </CardContent>
                 <CardFooter>
                   <Button 
                     type="submit" 
-                    className="w-full bg-blue-600 hover:bg-blue-700 text-white"
+                    className="w-full bg-blue-600 hover:bg-blue-700 text-white shadow-md hover:shadow-lg transition-all duration-200"
                     disabled={loading}
                   >
                     {loading ? (
@@ -656,7 +659,7 @@ const Auth = () => {
                       onChange={(e) => setQuickLoginEmail(e.target.value)}
                       disabled={loading}
                       autoComplete="email"
-                      className="bg-slate-800 border-slate-700 text-white"
+                      className="bg-slate-800 border-slate-700 text-white hover:border-slate-600 focus:border-blue-500 transition-colors"
                     />
                   </div>
                   <Alert className="bg-slate-800 text-slate-200 border-slate-700">
@@ -668,7 +671,7 @@ const Auth = () => {
                 <CardFooter>
                   <Button 
                     type="submit" 
-                    className="w-full bg-blue-600 hover:bg-blue-700 text-white"
+                    className="w-full bg-blue-600 hover:bg-blue-700 text-white shadow-md hover:shadow-lg transition-all duration-200"
                     disabled={loading}
                   >
                     {loading ? (
