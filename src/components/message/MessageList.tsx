@@ -4,6 +4,7 @@ import { MessageData } from '@/utils/messageUtils';
 import { cn } from '@/lib/utils';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useThrottle } from '@/utils/performanceUtils';
+import { ConversationSkeleton } from '@/components/ui/skeleton-message';
 
 interface MessageListProps {
   messages: MessageData[];
@@ -11,6 +12,7 @@ interface MessageListProps {
   showNewestOnTop?: boolean;
   virtualized?: boolean;
   maxItems?: number;
+  isLoading?: boolean;
 }
 
 /**
@@ -21,7 +23,8 @@ const MessageList: React.FC<MessageListProps> = ({
   className,
   showNewestOnTop = false,
   virtualized = false,
-  maxItems = 50
+  maxItems = 50,
+  isLoading = false
 }) => {
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const containerRef = useRef<HTMLDivElement>(null);
@@ -79,6 +82,15 @@ const MessageList: React.FC<MessageListProps> = ({
       setHasScrolled(false);
     }
   }, [messages.length]);
+  
+  // If loading, show skeleton
+  if (isLoading && displayMessages.length === 0) {
+    return (
+      <div className={cn("p-4", className)}>
+        <ConversationSkeleton />
+      </div>
+    );
+  }
   
   // If no messages, show empty state
   if (displayMessages.length === 0) {

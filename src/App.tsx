@@ -19,6 +19,7 @@ import { AudioProvider } from '@/contexts/AudioContext';
 import { ChatProvider } from '@/contexts/ChatContext';
 import SidebarOpenButton from '@/components/sidebar/SidebarOpenButton';
 import TranscriptDiagnostics from '@/pages/TranscriptDiagnostics';
+import ErrorBoundary from '@/components/ErrorBoundary';
 import './App.css';
 
 // Initialize the query client
@@ -98,21 +99,23 @@ const AppContent = () => {
 
 function App() {
   return (
-    <ThemeProvider defaultTheme="light" storageKey="vite-ui-theme">
-      <QueryClientProvider client={queryClient}>
-        <BrowserRouter>
-          <SidebarProvider>
-            <AuthProvider>
-              <AdminProvider>
-                <AudioProvider options={{ autoPlay: true }}>
-                  <ChatContextWrapper />
-                </AudioProvider>
-              </AdminProvider>
-            </AuthProvider>
-          </SidebarProvider>
-        </BrowserRouter>
-      </QueryClientProvider>
-    </ThemeProvider>
+    <ErrorBoundary>
+      <ThemeProvider defaultTheme="light" storageKey="vite-ui-theme">
+        <QueryClientProvider client={queryClient}>
+          <BrowserRouter>
+            <SidebarProvider>
+              <AuthProvider>
+                <AdminProvider>
+                  <AudioProvider options={{ autoPlay: true }}>
+                    <ChatContextWrapper />
+                  </AudioProvider>
+                </AdminProvider>
+              </AuthProvider>
+            </SidebarProvider>
+          </BrowserRouter>
+        </QueryClientProvider>
+      </ThemeProvider>
+    </ErrorBoundary>
   );
 }
 

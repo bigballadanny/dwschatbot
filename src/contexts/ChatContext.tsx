@@ -1,4 +1,4 @@
-import React, { createContext, useContext, useState, useCallback, ReactNode } from 'react';
+import React, { createContext, useContext, useState, useCallback, ReactNode, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { supabase } from '@/integrations/supabase/client';
 import { useMessages } from '@/hooks/useMessages';
@@ -8,6 +8,7 @@ import { useSearchConfig } from '@/hooks/useSearchConfig';
 import { MessageData } from '@/utils/messageUtils';
 import { useToast } from '@/components/ui/use-toast';
 import { useAudio } from '@/contexts/AudioContext';
+import offlineQueue from '@/utils/offlineQueue';
 
 // Define context type
 interface ChatContextType {
@@ -89,6 +90,13 @@ export const ChatProvider: React.FC<ChatProviderProps> = ({
   user, 
   initialConversationId = null 
 }) => {
+  // Register send function with offline queue when component mounts
+  useEffect(() => {
+    if (user) {
+      offlineQueue.registerSendFunction(sendMessage);
+    }
+  }, []);
+  
   const navigate = useNavigate();
   const { toast } = useToast();
   const [conversationId, setConversationId] = useState<string | null>(initialConversationId);
@@ -240,6 +248,25 @@ export const ChatProvider: React.FC<ChatProviderProps> = ({
 
     addUserMessage(trimmedMessage);
     
+    // Add message to offline queue for automatic retries if needed
+    if (!navigator.onLine) {
+      toast({ 
+        title: "You're offline", 
+        description: "Your message has been queued and will be sent when you're back online.",
+        variant: "warning"
+      });
+      
+      offlineQueue.enqueue(
+        trimmedMessage,
+        currentConvId,
+        user.id,
+        { isVoiceInput, enableOnlineSearch }
+      );
+      
+      // Don't proceed with sending while offline
+      return;
+    }
+    
     setIsLoading(true);
 
     const sendMessageToAI = async (retryAttempt = 0): Promise<void> => {
@@ -338,54 +365,64 @@ export const ChatProvider: React.FC<ChatProviderProps> = ({
   const handleFileUpload = useCallback(async (files: FileList) => {
     if (!files || files.length === 0) return;
     
-    const file = files[0];
-    const allowedTypes = [
-      'application/pdf', 
-      'application/msword', 
-      'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
-      'text/plain',
-      'text/csv',
-      'application/vnd.ms-excel',
-      'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
-      'image/jpeg',
-      'image/png',
-      'image/jpg'
-    ];
-    
-    if (!allowedTypes.includes(file.type)) {
-      toast({
-        title: "Unsupported File Type",
-        description: "Please upload a PDF, Word, Excel, CSV, image, or text document.",
-        variant: "destructive"
-      });
-      return;
-    }
-    
-    if (file.size > 15 * 1024 * 1024) {
-      toast({
-        title: "File Too Large",
-        description: "Please upload a file smaller than 15MB.",
-        variant: "destructive"
-      });
-      return;
-    }
+    try {
+      // Import dynamically to avoid circular dependencies
+      const { processFileForUpload } = await import('@/utils/fileUtils');
+      
+      // Process the file (validate and compress if needed)
+      const file = files[0];
+      const { file: processedFile, validation } = await processFileForUpload(file);
+      
+      // Check validation result
+      if (!validation.isValid) {
+        toast({
+          title: "File Upload Error",
+          description: validation.errorMessage || "File validation failed.",
+          variant: "destructive"
+        });
+        return;
+      }
+      
+      // Show toast if file was compressed
+      if (processedFile.size < file.size && processedFile.size !== file.size) {
+        toast({
+          title: "Image Optimized",
+          description: `Image compressed from ${(file.size / (1024 * 1024)).toFixed(2)}MB to ${(processedFile.size / (1024 * 1024)).toFixed(2)}MB.`,
+          variant: "default"
+        });
+      }
     
     try {
-      const filePrompt = `I've uploaded a document titled "${file.name}". Please analyze this document and provide insights.`;
+      // Generate an appropriate prompt based on file type
+      let filePrompt = '';
+      
+      if (validation.fileType === 'image') {
+        filePrompt = `I've uploaded an image titled "${processedFile.name}". Please analyze this image and provide insights.`;
+      } else if (validation.fileType === 'document') {
+        filePrompt = `I've uploaded a document titled "${processedFile.name}". Please analyze this document and provide insights.`;
+      } else if (validation.fileType === 'audio') {
+        filePrompt = `I've uploaded an audio file titled "${processedFile.name}". Please analyze this audio file.`;
+      } else if (validation.fileType === 'video') {
+        filePrompt = `I've uploaded a video file titled "${processedFile.name}". Please analyze this video file.`;
+      } else {
+        filePrompt = `I've uploaded a file titled "${processedFile.name}". Please analyze this file and provide insights.`;
+      }
+      
       await sendMessage(filePrompt, false);
       
       toast({
-        title: "Document Uploaded",
-        description: `"${file.name}" has been uploaded and is being analyzed.`,
+        title: "File Uploaded",
+        description: `"${processedFile.name}" has been uploaded and is being analyzed.`,
       });
     } catch (error) {
-      console.error('Error uploading document:', error);
+      console.error('Error processing file upload:', error);
       toast({
         title: "Upload Failed",
-        description: "There was a problem uploading your document. Please try again.",
+        description: error instanceof Error ? error.message : "There was a problem processing your file. Please try again.",
         variant: "destructive"
       });
     }
+  }, [sendMessage, toast]);
   }, [sendMessage, toast]);
   
   // Create context value

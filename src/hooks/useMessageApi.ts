@@ -1,6 +1,7 @@
 import { supabase } from '@/integrations/supabase/client';
 import { DbMessage, dbMessageToUiMessage } from '@/utils/messageUtils';
 import { useCallback } from 'react';
+import { generateCacheKey, getCachedItem, setCacheItem } from '@/utils/cacheUtils';
 
 interface UseMessageApiProps {
   userId?: string;
@@ -14,9 +15,20 @@ interface UseMessageApiProps {
 export function useMessageApi({ userId, conversationId }: UseMessageApiProps) {
   /**
    * Load messages for a conversation from the database
+   * with client-side caching for better performance
    */
   const loadMessages = useCallback(async (convId: string, userId: string) => {
     try {
+      // Generate cache key for this conversation
+      const cacheKey = generateCacheKey('messages', { conversationId: convId, userId });
+      
+      // Try to get from cache first
+      const cachedMessages = getCachedItem(cacheKey);
+      if (cachedMessages) {
+        console.log('Retrieved messages from cache for conversation:', convId);
+        return cachedMessages;
+      }
+      
       // First check if the conversation exists and belongs to the user
       const { data: convData, error: convError } = await supabase
         .from('conversations')
@@ -40,16 +52,23 @@ export function useMessageApi({ userId, conversationId }: UseMessageApiProps) {
         
       if (error) throw error;
       
+      let result;
       if (data && data.length > 0) {
         // Convert database messages to UI format
         const loadedMessages = data.map((message) => 
           dbMessageToUiMessage(message as unknown as DbMessage)
         );
-        return { success: true, messages: loadedMessages };
+        result = { success: true, messages: loadedMessages };
+      } else {
+        // Conversation exists but has no messages
+        result = { success: true, messages: [] };
       }
       
-      // Conversation exists but has no messages
-      return { success: true, messages: [] };
+      // Cache the result for 5 minutes
+      // Use a shorter cache time since messages might be updated frequently
+      setCacheItem(cacheKey, result, 5 * 60 * 1000);
+      
+      return result;
     } catch (error) {
       console.error('Error loading messages:', error);
       return { success: false, messages: [] };

@@ -1,4 +1,3 @@
-
 import React from 'react';
 import { cn } from "@/lib/utils";
 import UnifiedInputBar from '@/components/UnifiedInputBar';
@@ -27,7 +26,7 @@ interface ChatInputBarProps {
   className?: string;
 }
 
-const ChatInputBar: React.FC<ChatInputBarProps> = ({
+const MobileFriendlyChatInputBar: React.FC<ChatInputBarProps> = ({
   onSendMessage,
   onToggleOnlineSearch,
   onFileUpload,
@@ -43,12 +42,19 @@ const ChatInputBar: React.FC<ChatInputBarProps> = ({
   placeholder = "Ask anything...",
   className,
 }) => {
+  // Check if we're on mobile view
+  const isMobile = useIsMobile();
+  
   return (
     <div className={cn(
       "w-full border-t border-zinc-800 bg-background/80 backdrop-blur-sm z-10 shadow-lg",
+      isMobile ? "fixed bottom-0 left-0 right-0" : "", // Fixed position on mobile
       className
     )}>
-      <div className="max-w-3xl mx-auto px-4 pt-3 pb-5 space-y-3">
+      <div className={cn(
+        "mx-auto px-4 pt-3 space-y-3",
+        isMobile ? "pb-8" : "pb-5 max-w-3xl" // More bottom padding on mobile
+      )}>
         <AnimatePresence>
           {currentAudioSrc && (
             <motion.div
@@ -68,7 +74,10 @@ const ChatInputBar: React.FC<ChatInputBarProps> = ({
           )}
         </AnimatePresence>
 
-        <div className="flex flex-wrap items-center gap-3 justify-between">
+        <div className={cn(
+          "flex items-center gap-3", 
+          isMobile ? "flex-col" : "flex-wrap justify-between"
+        )}>
           <UnifiedInputBar
             onSend={onSendMessage}
             onFileUpload={onFileUpload}
@@ -77,15 +86,28 @@ const ChatInputBar: React.FC<ChatInputBarProps> = ({
             enableAudio={audioEnabled}
             onToggleAudio={onToggleAudio}
             placeholder={placeholder}
-            className="flex-1 min-w-0"
+            className={cn("min-w-0", isMobile ? "w-full" : "flex-1")}
             showVoiceFeatures={true}
           />
-          <SearchModeToggle
-            enableOnlineSearch={enableOnlineSearch}
-            onToggle={onToggleOnlineSearch}
-            className="text-xs"
-          />
+          {!isMobile && (
+            <SearchModeToggle
+              enableOnlineSearch={enableOnlineSearch}
+              onToggle={onToggleOnlineSearch}
+              className="text-xs"
+            />
+          )}
         </div>
+        
+        {/* Mobile search toggle in a separate row */}
+        {isMobile && (
+          <div className="flex justify-center mt-2">
+            <SearchModeToggle
+              enableOnlineSearch={enableOnlineSearch}
+              onToggle={onToggleOnlineSearch}
+              className="text-xs"
+            />
+          </div>
+        )}
       </div>
     </div>
   );
@@ -94,7 +116,7 @@ const ChatInputBar: React.FC<ChatInputBarProps> = ({
 /**
  * Context-aware ChatInputBar that uses ChatContext and AudioContext
  */
-export const ContextChatInputBar: React.FC<Partial<ChatInputBarProps>> = (props) => {
+export const ContextMobileFriendlyChatInputBar: React.FC<Partial<ChatInputBarProps>> = (props) => {
   const { user } = useAuth();
   
   const {
@@ -115,7 +137,7 @@ export const ContextChatInputBar: React.FC<Partial<ChatInputBarProps>> = (props)
   } = useAudio();
   
   return (
-    <ChatInputBar
+    <MobileFriendlyChatInputBar
       onSendMessage={sendMessage}
       onToggleOnlineSearch={toggleOnlineSearch}
       onFileUpload={handleFileUpload}
@@ -133,4 +155,4 @@ export const ContextChatInputBar: React.FC<Partial<ChatInputBarProps>> = (props)
   );
 };
 
-export default ChatInputBar;
+export default MobileFriendlyChatInputBar;

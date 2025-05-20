@@ -1,13 +1,18 @@
 
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 import { MessageData } from '@/utils/messageUtils';
 import MessageList from '../message/MessageList';
+import VirtualizedMessageList from '../message/VirtualizedMessageList';
 import ChatInputBar, { ContextChatInputBar } from './ChatInputBar';
+import MobileFriendlyChatInputBar, { ContextMobileFriendlyChatInputBar } from './MobileFriendlyChatInputBar';
 import { Alert, AlertTitle, AlertDescription } from '@/components/ui/alert';
 import { AlertCircle, RefreshCw } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { useChat } from '@/contexts/ChatContext';
 import { useAudio } from '@/contexts/AudioContext';
+import ErrorBoundary from '@/components/ErrorBoundary';
+import { useIsMobile } from '@/hooks/use-mobile';
+import { cn } from '@/lib/utils';
 
 interface ChatContainerProps {
   messages: MessageData[];
@@ -68,6 +73,9 @@ const ChatContainer: React.FC<ChatContainerProps> = ({
     stopAudio: contextStopAudio,
   } = useAudio();
   
+  // Check if we're on mobile view
+  const isMobile = useIsMobile();
+  
   // Use context values if available, otherwise use props
   const messages = propMessages || contextMessages;
   const isLoading = propIsLoading !== undefined ? propIsLoading : contextIsLoading;
@@ -100,34 +108,73 @@ const ChatContainer: React.FC<ChatContainerProps> = ({
     !propHandleFileUpload;
   
   return (
-    <div className="flex flex-col relative h-full w-full bg-black">
+    <div className={cn(
+      "flex flex-col relative h-full w-full bg-black",
+      isMobile ? "pt-2" : ""  // Add top padding on mobile for better spacing
+    )}>
       <div className="flex-1 overflow-hidden relative">
-        <MessageList 
-          messages={messages} 
-          showNewestOnTop={false}
-          className="h-full pb-20" // Add bottom padding to make space for the input bar
-        />
+        <ErrorBoundary>
+          {messages.length > 50 && !isMobile ? (
+            <VirtualizedMessageList 
+              messages={messages} 
+              showNewestOnTop={false}
+              className="h-full pb-20" // Add bottom padding to make space for the input bar
+            />
+          ) : (
+            <MessageList 
+              messages={messages} 
+              showNewestOnTop={false}
+              isLoading={isLoading && messages.length === 0}
+              className={cn(
+                "h-full", 
+                isMobile ? "pb-28" : "pb-20" // More padding on mobile for input bar
+              )}
+            />
+          )}
+        </ErrorBoundary>
       </div>
       
       {useContextInputBar ? (
-        <ContextChatInputBar className="sticky bottom-0 z-20" />
+        isMobile ? (
+          <ContextMobileFriendlyChatInputBar />
+        ) : (
+          <ContextChatInputBar className="sticky bottom-0 z-20" />
+        )
       ) : (
-        <ChatInputBar
-          onSendMessage={sendMessage}
-          onToggleOnlineSearch={toggleOnlineSearch}
-          onFileUpload={handleFileUpload}
-          isLoading={isLoading}
-          disabled={isLoading || (!user && !conversationId)}
-          audioEnabled={audioEnabled}
-          onToggleAudio={toggleAudio}
-          enableOnlineSearch={enableOnlineSearch}
-          currentAudioSrc={audioSrc}
-          onAudioStop={stopAudio}
-          isPlaying={isPlaying}
-          onTogglePlayback={togglePlayback}
-          placeholder={user ? "Ask anything..." : "Please sign in to chat"}
-          className="sticky bottom-0 z-20"
-        />
+        isMobile ? (
+          <MobileFriendlyChatInputBar
+            onSendMessage={sendMessage}
+            onToggleOnlineSearch={toggleOnlineSearch}
+            onFileUpload={handleFileUpload}
+            isLoading={isLoading}
+            disabled={isLoading || (!user && !conversationId)}
+            audioEnabled={audioEnabled}
+            onToggleAudio={toggleAudio}
+            enableOnlineSearch={enableOnlineSearch}
+            currentAudioSrc={audioSrc}
+            onAudioStop={stopAudio}
+            isPlaying={isPlaying}
+            onTogglePlayback={togglePlayback}
+            placeholder={user ? "Ask anything..." : "Please sign in to chat"}
+          />
+        ) : (
+          <ChatInputBar
+            onSendMessage={sendMessage}
+            onToggleOnlineSearch={toggleOnlineSearch}
+            onFileUpload={handleFileUpload}
+            isLoading={isLoading}
+            disabled={isLoading || (!user && !conversationId)}
+            audioEnabled={audioEnabled}
+            onToggleAudio={toggleAudio}
+            enableOnlineSearch={enableOnlineSearch}
+            currentAudioSrc={audioSrc}
+            onAudioStop={stopAudio}
+            isPlaying={isPlaying}
+            onTogglePlayback={togglePlayback}
+            placeholder={user ? "Ask anything..." : "Please sign in to chat"}
+            className="sticky bottom-0 z-20"
+          />
+        )
       )}
     </div>
   );
