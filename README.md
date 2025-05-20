@@ -1,24 +1,21 @@
+# DWS AI Chatbot - BETA
 
-# LightRAG - Lightweight Retrieval-Augmented Generation System
-
-LightRAG is a specialized RAG (Retrieval-Augmented Generation) system designed for lightweight deployment with Supabase PGVector for vector storage and retrieval. The system provides efficient document ingestion, intelligent chunking, and semantic search capabilities.
+A React-based chatbot application with n8n workflows for chat processing and transcript ingestion.
 
 ## Features
 
-- **Smart Document Chunking**: Multiple chunking strategies (sentence, paragraph, section-based) to optimize retrieval quality
-- **PGVector Integration**: Leverages Supabase's PGVector extension for efficient vector storage and similarity search
-- **Hybrid Search**: Combines semantic (vector) and keyword-based search for improved accuracy
-- **Feedback Mechanism**: Integrated user feedback loop for continuous improvement of search results
-- **Rechunking Support**: Ability to re-process documents with improved chunking strategies
-- **Quality Analysis**: Tools to analyze and visualize chunking quality
+- **Chat Interface**: Modern, responsive chat UI built with React and Shadcn UI
+- **Transcript Processing**: Upload and process transcripts with automated chunking
+- **Vector Search**: Leverages Supabase PGVector for efficient semantic search
+- **Audio Support**: Text-to-speech and speech-to-text capabilities
+- **n8n Workflows**: Flexible workflow automation for processing chat and transcripts
 
 ## Key Components
 
-- `LightRAG/chunking.py`: Core chunking algorithms with multiple strategies
-- `LightRAG/pgvector_client.py`: Interface to PGVector in Supabase
-- `LightRAG/ingest_pipeline.py`: Pipeline for document processing and ingestion
-- `LightRAG/rag_agent.py`: The RAG retrieval agent for answering queries
-- `LightRAG/visualization.py`: Tools for analyzing and visualizing chunking quality
+- **React Frontend**: Modern UI built with TypeScript and Shadcn UI
+- **Supabase Backend**: Database, storage, and edge functions
+- **n8n Workflows**: Automated workflows for chat and transcript processing
+- **PGVector**: Vector database for semantic search
 
 ## Getting Started
 
@@ -26,85 +23,56 @@ LightRAG is a specialized RAG (Retrieval-Augmented Generation) system designed f
    ```
    SUPABASE_URL=your-supabase-url
    SUPABASE_KEY=your-supabase-key
+   N8N_CHAT_WEBHOOK=your-n8n-webhook-url
+   N8N_TRANSCRIPT_WEBHOOK=your-n8n-webhook-url
    ```
 
-2. **Ingest Documents**:
-   ```python
-   from LightRAG.ingest_pipeline import ingest_transcript
-   
-   transcript_id = ingest_transcript(
-       file_path="your-document.txt",
-       topic="your-topic",
-       chunking_strategy="sentence"  # or "paragraph", "section"
-   )
+2. **Install Dependencies**:
+   ```bash
+   npm install
    ```
 
-3. **Query the Knowledge Base**:
-   ```python
-   from LightRAG.rag_agent import LightRAGAgent
-   
-   agent = LightRAGAgent()
-   results = agent.query(
-       query_text="Your question here?",
-       topic="optional-topic-filter",
-       use_hybrid_search=True
-   )
+3. **Start Development Server**:
+   ```bash
+   npm run dev
    ```
 
-4. **Rechunk Documents**:
-   ```python
-   from LightRAG.ingest_pipeline import rechunk_transcript
-   
-   success = rechunk_transcript(
-       transcript_id="your-transcript-id", 
-       chunking_strategy="paragraph"
-   )
-   ```
+4. **Set Up n8n**:
+   - Install n8n: `npm install n8n -g`
+   - Configure workflows as described in [N8N_WORKFLOWS.md](N8N_WORKFLOWS.md)
 
-5. **Analyze Chunking Quality**:
-   ```python
-   from LightRAG.chunking import chunk_transcript, analyze_chunking_quality
-   from LightRAG.visualization import plot_chunk_distribution
-   
-   with open("your-document.txt", "r") as f:
-       text = f.read()
-   
-   chunks = chunk_transcript(text, strategy="sentence")
-   quality = analyze_chunking_quality(chunks)
-   print(quality)
-   
-   # Visualize chunk distribution
-   plot_chunk_distribution(chunks)
-   ```
+## Architecture
 
-## Command-Line Tools
+The application follows a clean, modular architecture:
 
-LightRAG includes CLI tools for analyzing and managing chunking:
+1. **Frontend** (React + TypeScript):
+   - Components for chat, transcript management, and diagnostics
+   - Hooks for state management and API communication
 
-```bash
-# Analyze a document with different chunking strategies
-python -m LightRAG.cli.chunking_tools analyze document.txt --strategies sentence paragraph section --visualize
+2. **Backend** (Supabase):
+   - Edge functions for processing requests
+   - PGVector for semantic search
+   - Storage for transcript files
+   - Realtime subscriptions for updates
 
-# Re-chunk an existing transcript
-python -m LightRAG.cli.chunking_tools rechunk your-transcript-id --strategy paragraph
-```
+3. **Workflows** (n8n):
+   - Chat processing workflow
+   - Transcript ingestion workflow
+   - Connected to Supabase via webhooks
 
-## Continuous Improvement Workflow
+See [UPDATED_ARCHITECTURE.md](UPDATED_ARCHITECTURE.md) for detailed architecture information.
 
-1. **Ingest documents** with default chunking parameters
-2. **Analyze retrieval quality** using real queries
-3. **Collect user feedback** on search results
-4. **Rechunk documents** with optimized parameters based on analysis
-5. **Monitor improvement** in retrieval performance
+## Project Structure
 
-## Testing
+- `/src`: React frontend code
+- `/supabase`: Supabase configuration and edge functions
+- `/docs`: Documentation
+- `/n8n`: n8n workflow definitions
 
-Run the test suite:
+## Contributing
 
-```bash
-pytest tests/
-```
+See [TASKS.md](TASKS.md) for current tasks and priorities.
 
 ## License
 
-[MIT License](LICENSE)
+MIT License

@@ -1,4 +1,3 @@
-
 import { BrowserRouter, Routes, Route, Link, useLocation } from 'react-router-dom';
 import { ThemeProvider } from '@/components/ThemeProvider';
 import { Toaster } from '@/components/ui/sonner';
@@ -12,14 +11,14 @@ import Transcripts from '@/pages/Transcripts';
 import WarRoom from '@/pages/WarRoom';
 import Analytics from '@/pages/Analytics';
 import AdminManagement from '@/pages/AdminManagement';
-import VertexAISetup from '@/pages/VertexAISetup';
-import VertexTest from '@/pages/VertexTest';
 import ProtectedRoute from '@/components/ProtectedRoute';
 import ManagementRoute from '@/components/ManagementRoute';
-import { AuthProvider } from '@/context/AuthContext';
+import { AuthProvider, useAuth } from '@/context/AuthContext';
 import { AdminProvider } from '@/context/AdminContext';
+import { AudioProvider } from '@/contexts/AudioContext';
+import { ChatProvider } from '@/contexts/ChatContext';
 import SidebarOpenButton from '@/components/sidebar/SidebarOpenButton';
-import TranscriptDiagnostics from '@/components/TranscriptDiagnostics';
+import TranscriptDiagnostics from '@/pages/TranscriptDiagnostics';
 import './App.css';
 
 // Initialize the query client
@@ -52,8 +51,6 @@ const AppContent = () => {
         <Routes>
           <Route path="/" element={<Index />} />
           <Route path="/auth" element={<Auth />} />
-          <Route path="/vertex-setup" element={<VertexAISetup />} />
-          <Route path="/vertex-test" element={<VertexTest />} />
           
           <Route path="/transcripts" element={
             <ProtectedRoute>
@@ -107,14 +104,26 @@ function App() {
           <SidebarProvider>
             <AuthProvider>
               <AdminProvider>
-                {/* AppContent needs to be inside BrowserRouter to use useLocation */}
-                <AppContent /> 
+                <AudioProvider options={{ autoPlay: true }}>
+                  <ChatContextWrapper />
+                </AudioProvider>
               </AdminProvider>
             </AuthProvider>
           </SidebarProvider>
         </BrowserRouter>
       </QueryClientProvider>
     </ThemeProvider>
+  );
+}
+
+// Wrapper for ChatContext that needs access to the user from AuthContext
+const ChatContextWrapper = () => {
+  const { user } = useAuth();
+  
+  return (
+    <ChatProvider user={user} initialConversationId={null}>
+      <AppContent />
+    </ChatProvider>
   );
 }
 

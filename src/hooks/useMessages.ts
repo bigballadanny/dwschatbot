@@ -1,131 +1,118 @@
-
-import { useState } from 'react';
-import { supabase } from '@/integrations/supabase/client';
-import { MessageData, MessageSource, dbMessageToUiMessage, DbMessage } from '@/utils/messageUtils';
+import { useState, useCallback, useEffect } from 'react';
+import { MessageData } from '@/utils/messageUtils';
+import { useMessageCreation } from './useMessageCreation';
+import { useMessageApi } from './useMessageApi';
 
 interface UseMessagesProps {
   userId: string | undefined;
   conversationId: string | null;
 }
 
+/**
+ * Optimized useMessages hook that separates concerns and improves performance
+ */
 export function useMessages({ userId, conversationId }: UseMessagesProps) {
+  // State
   const [messages, setMessages] = useState<MessageData[]>([]);
   const [isLoading, setIsLoading] = useState(false);
   const [hasInteracted, setHasInteracted] = useState(false);
-
-  const resetMessages = () => {
+  
+  // Import separated functionality
+  const messageCreation = useMessageCreation();
+  const messageApi = useMessageApi({ userId, conversationId });
+  
+  // Load messages effect
+  useEffect(() => {
+    if (conversationId && userId) {
+      loadMessages(conversationId, userId)
+        .catch(err => console.error('Error in automatic message loading:', err));
+    } else {
+      // Reset messages if conversation ID or user ID is missing
+      resetMessages();
+    }
+  }, [conversationId, userId]);
+  
+  /**
+   * Reset messages state
+   */
+  const resetMessages = useCallback(() => {
     setMessages([]);
     setHasInteracted(false);
-  };
+  }, []);
 
-  const loadMessages = async (convId: string, userId: string) => {
+  /**
+   * Load messages from the database
+   */
+  const loadMessages = useCallback(async (convId: string, userId: string) => {
     try {
-      const { data, error } = await supabase
-        .from('messages')
-        .select('*')
-        .eq('conversation_id', convId)
-        .order('created_at', { ascending: true });
-        
-      if (error) throw error;
+      const result = await messageApi.loadMessages(convId, userId);
       
-      if (data && data.length > 0) {
-        // Convert database messages to UI format
-        const loadedMessages = data.map((message) => dbMessageToUiMessage(message as unknown as DbMessage));
-        setMessages(loadedMessages);
+      if (result.success && result.messages.length > 0) {
+        setMessages(result.messages);
         setHasInteracted(true);
         return true;
-      } else {
-        // Check if the conversation exists but has no messages
-        const { data: convData, error: convError } = await supabase
-          .from('conversations')
-          .select('user_id')
-          .eq('id', convId)
-          .single();
-        
-        if (convError || !convData) return false;
-        
-        // Verify user has access to this conversation
-        return convData.user_id === userId;
       }
+      
+      return result.success;
     } catch (error) {
       console.error('Error loading messages:', error);
       return false;
     }
-  };
+  }, [messageApi]);
 
-  const addUserMessage = (content: string): MessageData => {
-    const userMessage: MessageData = {
-      content,
-      source: 'user',
-      timestamp: new Date()
-    };
-    
-    setMessages((prevMessages) => [...prevMessages, userMessage]);
+  /**
+   * Add a user message to the UI
+   */
+  const addUserMessage = useCallback((content: string): MessageData => {
+    const userMessage = messageCreation.createUserMessage(content);
+    setMessages(prevMessages => [...prevMessages, userMessage]);
     return userMessage;
-  };
+  }, [messageCreation]);
 
-  const addSystemMessage = (
+  /**
+   * Add a system/AI message to the UI
+   */
+  const addSystemMessage = useCallback((
     content: string,
-    source: MessageSource = 'gemini',
+    source = 'gemini' as const,
     citation?: string[]
   ): MessageData => {
-    const systemMessage: MessageData = {
-      content,
-      source,
-      timestamp: new Date(),
-      citation
-    };
-    
-    setMessages((prevMessages) => [
-      ...prevMessages,
-      systemMessage
-    ]);
-    
+    const systemMessage = messageCreation.createSystemMessage(content, source, citation);
+    setMessages(prevMessages => [...prevMessages, systemMessage]);
     return systemMessage;
-  };
+  }, [messageCreation]);
 
-  const addErrorMessage = (error: string): MessageData => {
-    const errorMessage = addSystemMessage(
-      `Error: ${error}. Please try again or rephrase your question.`,
-      'system'
-    );
+  /**
+   * Add an error message to the UI
+   */
+  const addErrorMessage = useCallback((error: string): MessageData => {
+    const errorMessage = messageCreation.createErrorMessage(error);
+    setMessages(prevMessages => [...prevMessages, errorMessage]);
     return errorMessage;
-  };
+  }, [messageCreation]);
   
-  const addLoadingMessage = (): MessageData => {
-    const loadingMessage: MessageData = {
-      content: 'Thinking...',
-      source: 'system',
-      isLoading: true
-    };
-    
-    setMessages((prevMessages) => [...prevMessages, loadingMessage]);
+  /**
+   * Add a loading message to the UI
+   */
+  const addLoadingMessage = useCallback((): MessageData => {
+    const loadingMessage = messageCreation.createLoadingMessage();
+    setMessages(prevMessages => [...prevMessages, loadingMessage]);
     return loadingMessage;
-  };
+  }, [messageCreation]);
   
-  const removeLoadingMessage = () => {
-    setMessages((prevMessages) => 
-      prevMessages.filter(msg => !msg.isLoading)
-    );
-  };
+  /**
+   * Remove loading messages from the UI
+   */
+  const removeLoadingMessage = useCallback(() => {
+    setMessages(prevMessages => prevMessages.filter(msg => !msg.isLoading));
+  }, []);
 
-  const formatMessagesForApi = (newUserContent: string) => {
-    // Filter out loading messages and keep only message content for API
-    const apiMessages = messages
-      .filter(msg => !msg.isLoading)
-      .map(msg => ({
-        role: msg.source === 'user' ? 'user' : 'assistant',
-        content: msg.content
-      }));
-    
-    // Add the new user message to the API messages
-    apiMessages.push({
-      role: 'user',
-      content: newUserContent
-    });
-    
-    return apiMessages;
-  };
+  /**
+   * Format messages for the API
+   */
+  const formatMessagesForApi = useCallback((newUserContent: string) => {
+    return messageCreation.formatMessagesForApi(messages, newUserContent);
+  }, [messages, messageCreation]);
 
   return {
     messages,

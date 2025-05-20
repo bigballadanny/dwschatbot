@@ -1,5 +1,4 @@
-
-import React, { useRef, useEffect, useState, useMemo } from 'react';
+import React, { useRef, useEffect, useState, useMemo, memo } from 'react';
 import MessageItem from '@/components/MessageItem';
 import { MessageData } from '@/utils/messageUtils';
 import { cn } from '@/lib/utils';
@@ -10,22 +9,35 @@ interface MessageListProps {
   messages: MessageData[];
   className?: string;
   showNewestOnTop?: boolean;
+  virtualized?: boolean;
+  maxItems?: number;
 }
 
+/**
+ * Optimized message list component with improved performance for large message lists
+ */
 const MessageList: React.FC<MessageListProps> = ({ 
   messages, 
   className,
-  showNewestOnTop = false 
+  showNewestOnTop = false,
+  virtualized = false,
+  maxItems = 50
 }) => {
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const containerRef = useRef<HTMLDivElement>(null);
   const [hasScrolled, setHasScrolled] = useState(false);
   const [previousMessageCount, setPreviousMessageCount] = useState(messages.length);
   
-  // Memoize display messages to avoid unnecessary re-sorting on every render
+  // Memoize display messages to avoid unnecessary operations on every render
   const displayMessages = useMemo(() => {
-    return showNewestOnTop ? [...messages].reverse() : messages;
-  }, [messages, showNewestOnTop]);
+    // First filter for virtualization if needed
+    const filteredMessages = virtualized && messages.length > maxItems 
+      ? messages.slice(-maxItems) 
+      : messages;
+    
+    // Then sort if needed
+    return showNewestOnTop ? [...filteredMessages].reverse() : filteredMessages;
+  }, [messages, showNewestOnTop, virtualized, maxItems]);
   
   // Effect to detect when messages are added
   useEffect(() => {
@@ -68,6 +80,15 @@ const MessageList: React.FC<MessageListProps> = ({
     }
   }, [messages.length]);
   
+  // If no messages, show empty state
+  if (displayMessages.length === 0) {
+    return (
+      <div className={cn("py-4 text-center text-muted-foreground", className)}>
+        <p>Start a conversation by sending a message.</p>
+      </div>
+    );
+  }
+  
   return (
     <div 
       className={cn(
@@ -76,6 +97,12 @@ const MessageList: React.FC<MessageListProps> = ({
       )} 
       data-testid="message-list"
     >
+      {virtualized && messages.length > maxItems && (
+        <div className="absolute top-0 left-0 right-0 z-10 py-2 px-4 text-center text-xs text-muted-foreground bg-secondary/30 backdrop-blur-sm">
+          Showing the most recent {maxItems} of {messages.length} messages
+        </div>
+      )}
+      
       <div 
         ref={containerRef}
         className="absolute inset-0 overflow-y-auto px-4 py-8 scrollbar-thin"
@@ -85,7 +112,7 @@ const MessageList: React.FC<MessageListProps> = ({
           <AnimatePresence initial={false}>
             {displayMessages.map((message, index) => (
               <motion.div
-                key={`${message.source}-${index}`}
+                key={`${message.source}-${message.timestamp?.getTime() || ''}-${index}`}
                 initial={{ 
                   opacity: 0, 
                   y: message.source === 'user' ? -20 : 20
@@ -98,7 +125,7 @@ const MessageList: React.FC<MessageListProps> = ({
                 }}
                 data-testid={`message-item-${message.source}`}
               >
-                <MessageItem
+                <MemoizedMessageItem
                   content={message.content}
                   source={message.source}
                   timestamp={message.timestamp}
@@ -115,4 +142,7 @@ const MessageList: React.FC<MessageListProps> = ({
   );
 };
 
-export default React.memo(MessageList);
+// Create a memoized version of MessageItem to prevent unnecessary re-renders
+const MemoizedMessageItem = memo(MessageItem);
+
+export default memo(MessageList);

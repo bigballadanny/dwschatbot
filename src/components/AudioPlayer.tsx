@@ -3,49 +3,53 @@ import { Button } from "@/components/ui/button";
 import { Slider } from "@/components/ui/slider";
 import { Pause, Play, Volume2, VolumeX } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { useAudio } from '@/contexts/AudioContext';
 
 interface AudioPlayerProps {
-  audioSrc: string;
   className?: string;
-  onStop?: () => void;
-  isPlayingExternally?: boolean;
   displayControls?: boolean;
+  compact?: boolean;
   autoPlay?: boolean;
+  onStop?: () => void;
 }
 
+/**
+ * Enhanced AudioPlayer component that uses the consolidated AudioContext
+ */
 const AudioPlayer = ({ 
-  audioSrc, 
   className, 
-  onStop, 
-  isPlayingExternally = false,
   displayControls = true,
-  autoPlay = false
+  compact = false,
+  autoPlay = false,
+  onStop
 }: AudioPlayerProps) => {
-  const [isPlaying, setIsPlaying] = useState(false);
+  // Get audio state and methods from context
+  const { 
+    audioSrc, 
+    isPlaying, 
+    togglePlayback, 
+    stopAudio, 
+    clearAudio
+  } = useAudio();
+  
+  // Local state for UI
   const [progress, setProgress] = useState(0);
   const [volume, setVolume] = useState(0.8);
   const [isMuted, setIsMuted] = useState(false);
   const [duration, setDuration] = useState(0);
-  const audioRef = useRef<HTMLAudioElement | null>(null);
   const prevVolume = useRef(volume);
   const animationRef = useRef<number | null>(null);
   
+  // Reference to audio element for direct manipulation
+  const audioElementRef = useRef<HTMLAudioElement | null>(null);
+  
   useEffect(() => {
-    // Create or update audio element
-    let audio: HTMLAudioElement;
-    const isNewAudio = !audioRef.current;
+    // Use the audio element from context if available
+    if (!audioSrc) return;
     
-    if (isNewAudio) {
-      audio = new Audio(audioSrc);
-      audioRef.current = audio;
-    } else {
-      audio = audioRef.current;
-      // Only update source if it has changed
-      if (audio.src !== audioSrc) {
-        audio.src = audioSrc;
-        audio.load();
-      }
-    }
+    // Create a new audio element for local control
+    const audio = new Audio(audioSrc);
+    audioElementRef.current = audio;
     
     // Set initial volume
     audio.volume = volume;
@@ -54,41 +58,19 @@ const AudioPlayer = ({
     const handleLoadedMetadata = () => {
       setDuration(audio.duration);
       
-      // Auto-play if requested and it's a new audio element
-      if (autoPlay && isNewAudio) {
+      // Auto-play if requested
+      if (autoPlay) {
         audio.play().catch(err => console.error('Error playing audio:', err));
       }
     };
 
     const handleEnded = () => {
-      setIsPlaying(false);
       setProgress(0);
       if (animationRef.current) {
         cancelAnimationFrame(animationRef.current);
         animationRef.current = null;
       }
     };
-    
-    const handlePlay = () => {
-      setIsPlaying(true);
-      // Start progress tracking
-      animationRef.current = requestAnimationFrame(updateProgress);
-    };
-    
-    const handlePause = () => {
-      setIsPlaying(false);
-      // Stop progress tracking
-      if (animationRef.current) {
-        cancelAnimationFrame(animationRef.current);
-        animationRef.current = null;
-      }
-    };
-
-    // Add event listeners
-    audio.addEventListener('loadedmetadata', handleLoadedMetadata);
-    audio.addEventListener('ended', handleEnded);
-    audio.addEventListener('play', handlePlay);
-    audio.addEventListener('pause', handlePause);
     
     // Update progress function for smoother UI updates
     const updateProgress = () => {
@@ -100,26 +82,28 @@ const AudioPlayer = ({
       }
     };
     
-    // Handle external play state changes
-    if (isPlayingExternally !== isPlaying) {
-      if (isPlayingExternally && !isPlaying) {
-        audio.play().catch(err => console.error('Error playing audio:', err));
-      } else if (!isPlayingExternally && isPlaying && !audio.paused) {
-        audio.pause();
+    // Add event listeners
+    audio.addEventListener('loadedmetadata', handleLoadedMetadata);
+    audio.addEventListener('ended', handleEnded);
+    audio.addEventListener('play', () => {
+      animationRef.current = requestAnimationFrame(updateProgress);
+    });
+    audio.addEventListener('pause', () => {
+      if (animationRef.current) {
+        cancelAnimationFrame(animationRef.current);
+        animationRef.current = null;
       }
-    }
+    });
 
     return () => {
       // Cleanup
-      if (audioRef.current) {
+      if (audioElementRef.current) {
         // Keep reference but pause playback
         audio.pause();
         
         // Remove event listeners
         audio.removeEventListener('loadedmetadata', handleLoadedMetadata);
         audio.removeEventListener('ended', handleEnded);
-        audio.removeEventListener('play', handlePlay);
-        audio.removeEventListener('pause', handlePause);
         
         // Cancel animation frame
         if (animationRef.current) {
@@ -128,27 +112,27 @@ const AudioPlayer = ({
         }
       }
     };
-  }, [audioSrc, isPlayingExternally, autoPlay]);
+  }, [audioSrc, autoPlay, volume]);
 
-  // Handle play/pause
-  const togglePlay = () => {
-    if (!audioRef.current) return;
-    
-    if (isPlaying) {
-      audioRef.current.pause();
-    } else {
-      audioRef.current.play().catch(err => console.error('Error playing audio:', err));
+  // Keep local UI in sync with global playing state
+  useEffect(() => {
+    if (audioElementRef.current) {
+      if (isPlaying && audioElementRef.current.paused) {
+        audioElementRef.current.play().catch(err => console.error('Error playing audio:', err));
+      } else if (!isPlaying && !audioElementRef.current.paused) {
+        audioElementRef.current.pause();
+      }
     }
-  };
+  }, [isPlaying]);
 
   // Handle volume change
   const handleVolumeChange = (value: number[]) => {
-    if (!audioRef.current) return;
+    if (!audioElementRef.current) return;
     
     const newVolume = value[0];
     setVolume(newVolume);
     prevVolume.current = newVolume;
-    audioRef.current.volume = newVolume;
+    audioElementRef.current.volume = newVolume;
     
     if (newVolume === 0) {
       setIsMuted(true);
@@ -159,40 +143,40 @@ const AudioPlayer = ({
 
   // Handle mute toggle
   const toggleMute = () => {
-    if (!audioRef.current) return;
+    if (!audioElementRef.current) return;
     
     if (isMuted) {
       setVolume(prevVolume.current);
-      audioRef.current.volume = prevVolume.current;
+      audioElementRef.current.volume = prevVolume.current;
       setIsMuted(false);
     } else {
       prevVolume.current = volume;
       setVolume(0);
-      audioRef.current.volume = 0;
+      audioElementRef.current.volume = 0;
       setIsMuted(true);
     }
   };
 
   // Handle seeking
   const handleSeek = (value: number[]) => {
-    if (!audioRef.current) return;
+    if (!audioElementRef.current) return;
     
     const seekTime = (value[0] / 100) * duration;
-    audioRef.current.currentTime = seekTime;
+    audioElementRef.current.currentTime = seekTime;
     setProgress(value[0]);
   };
   
   // Handle stop audio
   const handleStop = () => {
-    if (audioRef.current) {
-      audioRef.current.pause();
-      audioRef.current.currentTime = 0;
-      setIsPlaying(false);
+    stopAudio();
+    
+    if (audioElementRef.current) {
+      audioElementRef.current.currentTime = 0;
       setProgress(0);
-      
-      if (onStop) {
-        onStop();
-      }
+    }
+    
+    if (onStop) {
+      onStop();
     }
   };
 
@@ -206,11 +190,31 @@ const AudioPlayer = ({
   // Calculate current time
   const currentTime = duration * (progress / 100);
 
-  // If we don't want to display controls, just return null
-  if (!displayControls) {
+  // If no audio or controls display is disabled, just return null
+  if (!audioSrc || !displayControls) {
     return null;
   }
 
+  // Compact player layout (just play/pause button)
+  if (compact) {
+    return (
+      <div className={cn("inline-flex items-center", className)}>
+        <Button 
+          variant="ghost" 
+          size="icon" 
+          className="h-8 w-8"
+          onClick={togglePlayback}
+        >
+          {isPlaying ? 
+            <Pause className="h-4 w-4" /> : 
+            <Play className="h-4 w-4" />
+          }
+        </Button>
+      </div>
+    );
+  }
+
+  // Full player layout
   return (
     <div className={cn("w-full flex flex-col space-y-2 p-3 bg-secondary/20 rounded-lg", className)}>
       <div className="flex items-center space-x-2">
@@ -218,7 +222,7 @@ const AudioPlayer = ({
           variant="outline" 
           size="icon" 
           className="h-8 w-8"
-          onClick={togglePlay}
+          onClick={togglePlayback}
         >
           {isPlaying ? <Pause className="h-4 w-4" /> : <Play className="h-4 w-4" />}
         </Button>

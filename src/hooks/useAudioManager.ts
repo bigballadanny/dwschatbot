@@ -1,5 +1,4 @@
-
-import { useState, useRef, useEffect } from 'react';
+import { useState, useRef, useEffect, useCallback } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
 
@@ -7,16 +6,21 @@ export interface AudioManagerOptions {
   autoPlay?: boolean;
   enabled?: boolean;
   defaultVoice?: string;
+  onPlaybackStart?: () => void;
+  onPlaybackEnd?: () => void;
 }
 
 /**
  * Unified hook for managing audio playback and recording
+ * This consolidated hook replaces useAudio, useAudioPlayer, useAudioPlayback and useVoiceInput
  */
 export function useAudioManager(options: AudioManagerOptions = {}) {
   const {
     autoPlay = false,
     enabled = true,
-    defaultVoice = "en-US-Neural2-F"
+    defaultVoice = "en-US-Neural2-F",
+    onPlaybackStart,
+    onPlaybackEnd
   } = options;
 
   // Audio playback state
@@ -38,9 +42,15 @@ export function useAudioManager(options: AudioManagerOptions = {}) {
   useEffect(() => {
     if (!audioRef.current) {
       audioRef.current = new Audio();
-      audioRef.current.onplay = () => setIsPlaying(true);
+      audioRef.current.onplay = () => {
+        setIsPlaying(true);
+        onPlaybackStart?.();
+      };
       audioRef.current.onpause = () => setIsPlaying(false);
-      audioRef.current.onended = () => setIsPlaying(false);
+      audioRef.current.onended = () => {
+        setIsPlaying(false);
+        onPlaybackEnd?.();
+      };
     }
 
     return () => {
@@ -59,7 +69,7 @@ export function useAudioManager(options: AudioManagerOptions = {}) {
         URL.revokeObjectURL(audioSrc);
       }
     };
-  }, []);
+  }, [onPlaybackStart, onPlaybackEnd]);
 
   // PLAYBACK FUNCTIONALITY
   
@@ -123,7 +133,7 @@ export function useAudioManager(options: AudioManagerOptions = {}) {
   /**
    * Play audio from base64 content
    */
-  const playAudioContent = (audioContent: string): void => {
+  const playAudioContent = useCallback((audioContent: string): void => {
     if (!enabled || !audioContent) return;
     
     try {
@@ -154,12 +164,12 @@ export function useAudioManager(options: AudioManagerOptions = {}) {
         variant: "destructive"
       });
     }
-  };
+  }, [enabled, audioSrc, autoPlay, toast]);
 
   /**
    * Toggle audio playback on/off
    */
-  const togglePlayback = (): void => {
+  const togglePlayback = useCallback((): void => {
     if (!audioRef.current || !audioSrc) return;
     
     if (isPlaying) {
@@ -169,23 +179,23 @@ export function useAudioManager(options: AudioManagerOptions = {}) {
         console.error('Error playing audio:', err);
       });
     }
-  };
+  }, [audioSrc, isPlaying]);
 
   /**
    * Stop audio and reset to beginning
    */
-  const stopAudio = (): void => {
+  const stopAudio = useCallback((): void => {
     if (!audioRef.current) return;
     
     audioRef.current.pause();
     audioRef.current.currentTime = 0;
     setIsPlaying(false);
-  };
+  }, []);
 
   /**
    * Clear all audio resources
    */
-  const clearAudio = (): void => {
+  const clearAudio = useCallback((): void => {
     if (audioRef.current) {
       audioRef.current.pause();
       audioRef.current.src = '';
@@ -197,7 +207,7 @@ export function useAudioManager(options: AudioManagerOptions = {}) {
     }
     
     setIsPlaying(false);
-  };
+  }, [audioSrc]);
 
   // RECORDING FUNCTIONALITY
   
@@ -249,20 +259,23 @@ export function useAudioManager(options: AudioManagerOptions = {}) {
     if (mediaRecorder && mediaRecorder.state !== 'recording') {
       mediaRecorder.start(1000); // Collect chunks every second
       setIsRecording(true);
+      
+      // Clear any existing transcript
+      setTranscript('');
     }
   };
 
   /**
    * Stop recording audio
    */
-  const stopRecording = (): void => {
+  const stopRecording = useCallback((): void => {
     if (mediaRecorder && mediaRecorder.state === 'recording') {
       mediaRecorder.stop();
       setIsRecording(false);
     } else {
       setIsRecording(false);
     }
-  };
+  }, [mediaRecorder]);
 
   /**
    * Process recorded audio for transcription
@@ -314,9 +327,9 @@ export function useAudioManager(options: AudioManagerOptions = {}) {
   /**
    * Clear transcription text
    */
-  const clearTranscript = (): void => {
+  const clearTranscript = useCallback((): void => {
     setTranscript('');
-  };
+  }, []);
 
   // UTILITY FUNCTIONS
   
@@ -342,9 +355,37 @@ export function useAudioManager(options: AudioManagerOptions = {}) {
     return new Blob(byteArrays, { type: mimeType });
   };
 
+  // Method to set source directly - needed for compatibility with some components
+  const setAudioSource = useCallback((src: string | null): void => {
+    if (audioSrc) {
+      URL.revokeObjectURL(audioSrc);
+    }
+    
+    setAudioSrc(src);
+    
+    if (src && audioRef.current) {
+      audioRef.current.src = src;
+      if (autoPlay) {
+        audioRef.current.play().catch(err => {
+          console.error('Error playing audio:', err);
+        });
+      }
+    }
+  }, [audioSrc, autoPlay]);
+
+  // Toggle enabled state (for muting/unmuting)
+  const toggleEnabled = useCallback((): void => {
+    if (!enabled) {
+      if (audioRef.current) {
+        audioRef.current.pause();
+      }
+    }
+  }, [enabled]);
+
   return {
     // Shared state
     enabled,
+    toggleEnabled,
     
     // Playback API
     audioSrc,
@@ -355,6 +396,7 @@ export function useAudioManager(options: AudioManagerOptions = {}) {
     togglePlayback,
     stopAudio,
     clearAudio,
+    setAudioSource,
     
     // Recording API
     transcript,
@@ -363,6 +405,9 @@ export function useAudioManager(options: AudioManagerOptions = {}) {
     startRecording,
     stopRecording,
     clearTranscript,
-    setTranscript
+    setTranscript,
+    
+    // Audio element (for direct access when needed)
+    audioElement: audioRef.current
   };
 }

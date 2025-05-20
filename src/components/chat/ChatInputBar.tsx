@@ -5,6 +5,9 @@ import UnifiedInputBar from '@/components/UnifiedInputBar';
 import SearchModeToggle from '@/components/SearchModeToggle';
 import AudioPlayer from '@/components/AudioPlayer';
 import { motion, AnimatePresence } from 'framer-motion';
+import { useChat } from '@/contexts/ChatContext';
+import { useAudio } from '@/contexts/AudioContext';
+import { useAuth } from '@/context/AuthContext';
 
 interface ChatInputBarProps {
   onSendMessage: (message: string, isVoice: boolean) => Promise<void>;
@@ -84,6 +87,48 @@ const ChatInputBar: React.FC<ChatInputBarProps> = ({
         </div>
       </div>
     </div>
+  );
+};
+
+/**
+ * Context-aware ChatInputBar that uses ChatContext and AudioContext
+ */
+export const ContextChatInputBar: React.FC<Partial<ChatInputBarProps>> = (props) => {
+  const { user } = useAuth();
+  
+  const {
+    isLoading,
+    enableOnlineSearch,
+    conversationId,
+    sendMessage,
+    toggleOnlineSearch,
+    handleFileUpload
+  } = useChat();
+  
+  const {
+    audioSrc,
+    isPlaying,
+    enabled: audioEnabled,
+    toggleEnabled: toggleAudio,
+    stopAudio,
+  } = useAudio();
+  
+  return (
+    <ChatInputBar
+      onSendMessage={sendMessage}
+      onToggleOnlineSearch={toggleOnlineSearch}
+      onFileUpload={handleFileUpload}
+      isLoading={isLoading}
+      disabled={isLoading || (!user && !conversationId)}
+      audioEnabled={audioEnabled}
+      onToggleAudio={toggleAudio}
+      enableOnlineSearch={enableOnlineSearch}
+      currentAudioSrc={audioSrc}
+      onAudioStop={stopAudio}
+      isPlaying={isPlaying}
+      placeholder={user ? "Ask anything..." : "Please sign in to chat"}
+      {...props}
+    />
   );
 };
 
