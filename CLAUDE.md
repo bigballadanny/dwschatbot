@@ -113,3 +113,11 @@ The project uses:
 - React Router for navigation
 - Supabase for backend services
 - n8n for workflow automation
+
+## Git Configuration
+
+When committing changes, use the following git configuration:
+```bash
+git config user.email "danielreynoso8@gmail.com"
+git config user.name "bigballadanny"
+```
