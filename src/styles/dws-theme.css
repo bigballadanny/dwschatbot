@@ -1,0 +1,128 @@
+/* DealMaker Wealth Society Theme */
+
+:root {
+  /* Primary Colors */
+  --dws-black: #000000;
+  --dws-gold: #FFD700;
+  --dws-gold-light: #FFE7A0;
+  --dws-gold-dark: #CCAA00;
+  --dws-blue: #3182CE;
+  --dws-blue-light: #90CDF4;
+  --dws-blue-dark: #1E3A8A;
+  
+  /* Gradients */
+  --dws-gradient-gold: linear-gradient(135deg, #FFD700 0%, #CCAA00 100%);
+  --dws-gradient-premium: linear-gradient(135deg, #FFD700 0%, #3182CE 50%, #000000 100%);
+  --dws-gradient-subtle: linear-gradient(180deg, rgba(255, 215, 0, 0.1) 0%, transparent 100%);
+  
+  /* Shadows */
+  --dws-shadow-gold: 0 10px 25px -5px rgba(255, 215, 0, 0.3);
+  --dws-shadow-blue: 0 10px 25px -5px rgba(49, 130, 206, 0.3);
+  --dws-shadow-premium: 0 20px 30px -5px rgba(0, 0, 0, 0.5);
+}
+
+/* Premium Button Styles */
+.dws-button-gold {
+  background: var(--dws-gradient-gold);
+  color: var(--dws-black);
+  font-weight: 600;
+  transition: all 0.3s ease;
+  box-shadow: var(--dws-shadow-gold);
+}
+
+.dws-button-gold:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 15px 30px -5px rgba(255, 215, 0, 0.4);
+}
+
+.dws-button-premium {
+  background: var(--dws-gradient-premium);
+  color: white;
+  font-weight: 600;
+  transition: all 0.3s ease;
+  box-shadow: var(--dws-shadow-premium);
+}
+
+/* Enhanced Input Styles */
+.dws-input {
+  border: 2px solid rgba(255, 215, 0, 0.2);
+  background: rgba(0, 0, 0, 0.05);
+  transition: all 0.3s ease;
+}
+
+.dws-input:focus {
+  border-color: var(--dws-gold);
+  box-shadow: 0 0 0 3px rgba(255, 215, 0, 0.1);
+  background: white;
+}
+
+/* Card Styles */
+.dws-card {
+  background: white;
+  border: 1px solid rgba(255, 215, 0, 0.1);
+  transition: all 0.3s ease;
+}
+
+.dws-card:hover {
+  border-color: var(--dws-gold);
+  box-shadow: var(--dws-shadow-gold);
+}
+
+/* Chat Message Styles */
+.dws-message-user {
+  background: var(--dws-gradient-gold);
+  color: var(--dws-black);
+}
+
+.dws-message-ai {
+  background: linear-gradient(135deg, #f8f9fa 0%, #e9ecef 100%);
+  border: 1px solid rgba(255, 215, 0, 0.2);
+}
+
+/* Sidebar Styles */
+.dws-sidebar-closed-icon {
+  background: var(--dws-gradient-gold);
+  color: var(--dws-black);
+  padding: 0.5rem;
+  border-radius: 0.5rem;
+  transition: all 0.3s ease;
+}
+
+.dws-sidebar-closed-icon:hover {
+  transform: scale(1.1);
+  box-shadow: var(--dws-shadow-gold);
+}
+
+/* Animation Classes */
+@keyframes dws-shimmer {
+  0% {
+    background-position: -200% 0;
+  }
+  100% {
+    background-position: 200% 0;
+  }
+}
+
+.dws-shimmer {
+  background: linear-gradient(
+    90deg,
+    transparent 0%,
+    rgba(255, 215, 0, 0.3) 50%,
+    transparent 100%
+  );
+  background-size: 200% 100%;
+  animation: dws-shimmer 2s infinite;
+}
+
+@keyframes dws-pulse-gold {
+  0%, 100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.7;
+  }
+}
+
+.dws-pulse-gold {
+  animation: dws-pulse-gold 2s ease-in-out infinite;
+}

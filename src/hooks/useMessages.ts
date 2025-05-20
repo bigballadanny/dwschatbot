@@ -1,5 +1,6 @@
 
 import { useState } from 'react';
+import { v4 as uuidv4 } from 'uuid'; // Import uuid
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/components/ui/use-toast';
 import { MessageData, MessageSource, DbMessage, convertMessagesToApi, dbMessageToUiMessage } from '@/utils/messageUtils';
@@ -93,16 +94,24 @@ export function useMessages({ userId, conversationId }: UseMessagesProps) {
 
   // Add a user message to the UI
   const addUserMessage = (content: string): MessageData => {
-    const userMessage: MessageData = { 
-      content, 
-      source: 'user', 
-      timestamp: new Date() 
+    const userMessage: MessageData = {
+      id: `temp-${uuidv4()}`, // Add temporary ID
+      content,
+      source: 'user',
+      timestamp: new Date()
     };
-    
+    const loadingMessage: MessageData = { // Define loading message with ID
+      id: `temp-loading-${uuidv4()}`,
+      content: '',
+      source: 'system',
+      isLoading: true,
+      timestamp: new Date()
+    };
+
     setMessages(prevMessages => [
       ...prevMessages,
       userMessage,
-      { content: '', source: 'system', isLoading: true, timestamp: new Date() }
+      loadingMessage // Add the defined loading message
     ]);
     
     return userMessage;
@@ -111,6 +120,7 @@ export function useMessages({ userId, conversationId }: UseMessagesProps) {
   // Add a system/AI message to the UI
   const addSystemMessage = (content: string, source: MessageSource = 'gemini', citation?: string[]): MessageData => {
     const message: MessageData = {
+      id: `temp-${uuidv4()}`, // Add temporary ID
       content,
       source,
       timestamp: new Date(),
@@ -126,10 +136,11 @@ export function useMessages({ userId, conversationId }: UseMessagesProps) {
   const addErrorMessage = (errorText: string): void => {
     setMessages(prev => [
       ...prev.filter(msg => !msg.isLoading),
-      { 
-        content: `Error: ${errorText}`, 
-        source: 'system', 
-        timestamp: new Date() 
+      {
+        id: `temp-error-${uuidv4()}`, // Add temporary ID
+        content: `Error: ${errorText}`,
+        source: 'system',
+        timestamp: new Date()
       }
     ]);
   };

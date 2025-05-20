@@ -7,6 +7,7 @@ import { useMessages } from './useMessages';
 import { useConversation } from './useConversation';
 import { useAudioPlayback } from './useAudioPlayback';
 import { useSearchConfig } from './useSearchConfig';
+import { submitMessageFeedback } from '@/utils/feedbackUtils'; // Import feedback utility
 
 interface UseChatControllerProps {
   user: any;
@@ -202,6 +203,41 @@ export function useChatController({
     });
   };
 
+  // AN-03: Handle message feedback submission
+  const handleMessageFeedback = async (messageId: string, rating: 1 | -1) => {
+    if (!userId) {
+      toast({ title: "Error", description: "User not logged in.", variant: "destructive" });
+      return;
+    }
+    if (!conversationId) {
+       toast({ title: "Error", description: "Cannot submit feedback outside a conversation.", variant: "destructive" });
+       return;
+    }
+    if (!messageId || messageId.startsWith('temp-')) {
+       toast({ title: "Error", description: "Cannot submit feedback for temporary messages.", variant: "destructive" });
+       return;
+    }
+
+    console.log(`Controller handling feedback for message ${messageId}, rating: ${rating}`);
+
+    const { error } = await submitMessageFeedback(messageId, conversationId, userId, rating);
+
+    if (error) {
+      toast({
+        title: "Feedback Error",
+        description: `Failed to submit feedback: ${error.message}`,
+        variant: "destructive",
+      });
+    } else {
+      toast({
+        title: "Feedback Submitted",
+        description: `Thank you for your feedback! (${rating === 1 ? '👍' : '👎'})`,
+      });
+      // Note: Visual feedback (highlighting thumb) is handled in MessageItem.tsx
+    }
+  };
+
+
   return {
     messages,
     isLoading,
@@ -214,6 +250,7 @@ export function useChatController({
     resetChat,
     toggleOnlineSearch,
     toggleAudio,
-    stopAudio
+    stopAudio,
+    handleMessageFeedback // Expose the feedback handler
   };
 }

@@ -1,13 +1,11 @@
 
-import { useState, useEffect, useRef, useCallback } from 'react';
+import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useToast } from '@/components/ui/use-toast';
 import { supabase } from '@/integrations/supabase/client';
 import { useMessages } from './useMessages';
 import { useConversation } from './useConversation';
-import { useAudio } from './useAudio';
 import { useSearchConfig } from './useSearchConfig';
-import { MessageSource } from '@/utils/messageUtils';
 
 // Simple client-side request queue to prevent multiple rapid requests
 const requestQueue = {
@@ -61,19 +59,16 @@ const messageCache = new Map<string, any>();
 interface UseChatProps {
   user: any;
   conversationId: string | null;
-  audioEnabled?: boolean;
 }
 
 export function useChat({ 
   user, 
-  conversationId, 
-  audioEnabled = false 
+  conversationId
 }: UseChatProps) {
   const navigate = useNavigate();
   const { toast } = useToast();
   const userId = user?.id;
   
-  const [isAudioEnabled, setIsAudioEnabled] = useState<boolean>(audioEnabled);
   const [actualConversationId, setActualConversationId] = useState<string | null>(conversationId);
   const [retryCount, setRetryCount] = useState<number>(0);
   const [lastError, setLastError] = useState<string | null>(null);
@@ -94,22 +89,11 @@ export function useChat({
   } = useMessages({ userId, conversationId: actualConversationId });
   
   const {
-    hasMetadataColumn,
     createNewConversation,
     saveMessages,
     updateConversationTitle,
     setupConversationMonitor
   } = useConversation({ userId });
-  
-  const {
-    audioSrc,
-    isGenerating,
-    isPlaying,
-    playAudio,
-    stopAudio,
-    togglePlayback,
-    clearAudio
-  } = useAudio(isAudioEnabled);
   
   const {
     enableOnlineSearch,
@@ -140,8 +124,6 @@ export function useChat({
       } else if (!user) {
         resetMessages();
       }
-      
-      clearAudio();
     };
     
     loadConversation();
@@ -165,63 +147,12 @@ export function useChat({
 
   const resetChat = () => {
     resetMessages();
-    clearAudio();
     setRetryCount(0);
     setLastError(null);
   };
 
-  const handleFileUpload = async (files: FileList) => {
-    if (!files || files.length === 0) return;
-    
-    const file = files[0];
-    const allowedTypes = [
-      'application/pdf', 
-      'application/msword', 
-      'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
-      'text/plain',
-      'text/csv',
-      'application/vnd.ms-excel',
-      'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
-    ];
-    
-    if (!allowedTypes.includes(file.type)) {
-      toast({
-        title: "Unsupported File Type",
-        description: "Please upload a PDF, Word, Excel, CSV, or text document.",
-        variant: "destructive"
-      });
-      return;
-    }
-    
-    if (file.size > 10 * 1024 * 1024) { // 10MB limit
-      toast({
-        title: "File Too Large",
-        description: "Please upload a file smaller than 10MB.",
-        variant: "destructive"
-      });
-      return;
-    }
-    
-    try {
-      // For now, just create a prompt about the file
-      const filePrompt = `I've uploaded a document titled "${file.name}". Please analyze this document and provide insights.`;
-      await sendMessage(filePrompt, false);
-      
-      toast({
-        title: "Document Uploaded",
-        description: `"${file.name}" has been uploaded and is being analyzed.`,
-      });
-    } catch (error) {
-      console.error('Error uploading document:', error);
-      toast({
-        title: "Upload Failed",
-        description: "There was a problem uploading your document. Please try again.",
-        variant: "destructive"
-      });
-    }
-  };
 
-  const sendMessage = async (message: string, isVoiceInput: boolean = false): Promise<void> => {
+  const sendMessage = async (message: string): Promise<void> => {
     const trimmedMessage = message.trim();
     if (!trimmedMessage || isLoading) return;
     
@@ -232,8 +163,6 @@ export function useChat({
 
     let currentConvId = conversationId;
     let isFirstUserInteraction = !hasInteracted;
-
-    clearAudio();
 
     // Create new conversation if needed
     if (!currentConvId) {
@@ -259,7 +188,6 @@ export function useChat({
           body: {
             query: trimmedMessage,
             messages: apiMessages,
-            isVoiceInput: isVoiceInput,
             enableOnlineSearch: enableOnlineSearch,
             conversationId: currentConvId,
             requestId: Date.now().toString() // Help identify duplicate requests
@@ -295,12 +223,7 @@ export function useChat({
           }
         );
 
-        // Handle audio if enabled
-        if (isAudioEnabled && data.audioContent) {
-          playAudio(data.audioContent);
-        } else if (isAudioEnabled && responseMessage.content) {
-          // We could generate TTS here if needed
-        }
+        // Response received successfully
 
         // Update conversation title if first interaction
         if (isFirstUserInteraction) {
@@ -354,25 +277,10 @@ export function useChat({
     requestQueue.add(() => sendMessageToAI());
   };
 
-  const toggleAudio = () => {
-    setIsAudioEnabled(!isAudioEnabled);
-    
-    if (isAudioEnabled) {
-      stopAudio();
-    }
-    
-    toast({
-      title: !isAudioEnabled ? "Audio Enabled" : "Audio Disabled",
-      description: !isAudioEnabled ? "Voice responses will play." : "Voice responses muted."
-    });
-  };
 
   return {
     messages,
     isLoading,
-    audioSrc,
-    isAudioEnabled,
-    isPlaying,
     enableOnlineSearch,
     hasInteracted,
     retryCount,
@@ -380,10 +288,6 @@ export function useChat({
     sendMessage,
     createNewConversation,
     resetChat,
-    toggleOnlineSearch,
-    toggleAudio,
-    togglePlayback,
-    stopAudio,
-    handleFileUpload
+    toggleOnlineSearch
   };
 }

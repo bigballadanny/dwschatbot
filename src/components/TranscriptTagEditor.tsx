@@ -163,7 +163,7 @@ const TranscriptTagEditor: React.FC<TranscriptTagEditorProps> = ({
       setIsSaving(true);
       
       // Create a properly typed update object
-      const updateData: Record<string, any> = {
+      const updateData: { tags: string[] | null } = {
         tags: tags.length > 0 ? tags : null
       };
       

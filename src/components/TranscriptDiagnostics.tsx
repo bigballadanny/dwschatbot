@@ -7,6 +7,7 @@ import { Badge } from '@/components/ui/badge';
 import { Loader2, AlertCircle, CheckCircle2, Tag, Sparkles } from 'lucide-react';
 import { useToast } from '@/components/ui/use-toast';
 import { checkForTranscriptIssues, fixTranscriptIssues, fixTranscriptSourceTypes, updateTranscriptSourceType } from '@/utils/transcriptDiagnostics';
+import { supabase } from '@/integrations/supabase/client';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogFooter, DialogClose } from '@/components/ui/dialog';
 
@@ -14,14 +15,57 @@ interface TranscriptDiagnosticsProps {
   onComplete?: () => void;
 }
 
+interface DiagnosisStats {
+  total: number;
+  emptyContent: number;
+  missingFilePath: number;
+  recentlyUploaded: number;
+  businessSummitTranscripts: number;
+  potentialSummitTranscripts: number;
+}
+
+interface Transcript {
+  id: string;
+  title: string;
+  content: string;
+  created_at: string;
+  file_path?: string;
+  source?: string;
+  status?: string;
+}
+
+interface DiagnosisResults {
+  stats: DiagnosisStats;
+  recentTranscripts: Transcript[];
+  potentialSummitTranscripts: Transcript[];
+}
+
+interface FixResults {
+  success: number;
+  fixedCount?: number;
+  errors: string[];
+}
+
+interface ProcessingResults {
+  successful?: number;
+  failed?: number;
+  results?: Array<{
+    title: string;
+    success: boolean;
+    error?: string;
+  }>;
+}
+
 const TranscriptDiagnostics: React.FC<TranscriptDiagnosticsProps> = ({ onComplete }) => {
   const [loading, setLoading] = useState(false);
-  const [diagnosisResults, setDiagnosisResults] = useState<any>(null);
-  const [fixResults, setFixResults] = useState<any>(null);
-  const [sourceTypeResults, setSourceTypeResults] = useState<any>(null);
-  const [selectedTranscript, setSelectedTranscript] = useState<any>(null);
+  const [diagnosisResults, setDiagnosisResults] = useState<DiagnosisResults | null>(null);
+  const [fixResults, setFixResults] = useState<FixResults | null>(null);
+  const [sourceTypeResults, setSourceTypeResults] = useState<FixResults | null>(null);
+  const [selectedTranscript, setSelectedTranscript] = useState<Transcript | null>(null);
   const [showSourceTypeDialog, setShowSourceTypeDialog] = useState(false);
   const [newSourceType, setNewSourceType] = useState<string>('business_acquisitions_summit');
+  const [processingTranscripts, setProcessingTranscripts] = useState(false);
+  const [processingResults, setProcessingResults] = useState<ProcessingResults | null>(null);
   const { toast } = useToast();
 
   const runDiagnosis = async () => {
@@ -38,10 +82,10 @@ const TranscriptDiagnostics: React.FC<TranscriptDiagnosticsProps> = ({ onComplet
         title: 'Diagnosis complete',
         description: `Found ${results.stats.total} transcripts, ${results.stats.recentlyUploaded} uploaded recently, ${results.stats.potentialSummitTranscripts} potential summit transcripts.`,
       });
-    } catch (error: any) {
+    } catch (error: unknown) {
       toast({
         title: 'Error running diagnosis',
-        description: error.message,
+        description: error instanceof Error ? error.message : String(error),
         variant: 'destructive',
       });
     } finally {
@@ -57,7 +101,7 @@ const TranscriptDiagnostics: React.FC<TranscriptDiagnosticsProps> = ({ onComplet
     setLoading(true);
     
     try {
-      const transcriptIds = diagnosisResults.recentTranscripts.map((t: any) => t.id);
+      const transcriptIds = diagnosisResults.recentTranscripts.map((t) => t.id);
       const results = await fixTranscriptIssues(transcriptIds);
       setFixResults(results);
       
@@ -65,10 +109,10 @@ const TranscriptDiagnostics: React.FC<TranscriptDiagnosticsProps> = ({ onComplet
         title: 'Fix operation complete',
         description: `Fixed ${results.success} transcript(s). ${results.errors.length} error(s).`,
       });
-    } catch (error: any) {
+    } catch (error: unknown) {
       toast({
         title: 'Error fixing issues',
-        description: error.message,
+        description: error instanceof Error ? error.message : String(error),
         variant: 'destructive',
       });
     } finally {
@@ -91,10 +135,10 @@ const TranscriptDiagnostics: React.FC<TranscriptDiagnosticsProps> = ({ onComplet
       if (onComplete) {
         onComplete();
       }
-    } catch (error: any) {
+    } catch (error: unknown) {
       toast({
         title: 'Error fixing source types',
-        description: error.message,
+        description: error instanceof Error ? error.message : String(error),
         variant: 'destructive',
       });
     } finally {
@@ -110,7 +154,7 @@ const TranscriptDiagnostics: React.FC<TranscriptDiagnosticsProps> = ({ onComplet
     setLoading(true);
     
     try {
-      const transcriptIds = diagnosisResults.potentialSummitTranscripts.map((t: any) => t.id);
+      const transcriptIds = diagnosisResults.potentialSummitTranscripts.map((t) => t.id);
       const results = await fixTranscriptSourceTypes(transcriptIds);
       setSourceTypeResults(results);
       
@@ -122,10 +166,10 @@ const TranscriptDiagnostics: React.FC<TranscriptDiagnosticsProps> = ({ onComplet
       if (onComplete) {
         onComplete();
       }
-    } catch (error: any) {
+    } catch (error: unknown) {
       toast({
         title: 'Error fixing source types',
-        description: error.message,
+        description: error instanceof Error ? error.message : String(error),
         variant: 'destructive',
       });
     } finally {
@@ -133,7 +177,7 @@ const TranscriptDiagnostics: React.FC<TranscriptDiagnosticsProps> = ({ onComplet
     }
   };
 
-  const openSourceTypeDialog = (transcript: any) => {
+  const openSourceTypeDialog = (transcript: Transcript) => {
     setSelectedTranscript(transcript);
     setNewSourceType(transcript.source || 'protege_call');
     setShowSourceTypeDialog(true);
@@ -150,7 +194,7 @@ const TranscriptDiagnostics: React.FC<TranscriptDiagnosticsProps> = ({ onComplet
       if (result.success) {
         // Update the transcript in the current state
         if (diagnosisResults && diagnosisResults.recentTranscripts) {
-          const updatedTranscripts = diagnosisResults.recentTranscripts.map((t: any) => 
+          const updatedTranscripts = diagnosisResults.recentTranscripts.map((t) => 
             t.id === selectedTranscript.id ? { ...t, source: newSourceType } : t
           );
           setDiagnosisResults({
@@ -174,10 +218,10 @@ const TranscriptDiagnostics: React.FC<TranscriptDiagnosticsProps> = ({ onComplet
           variant: 'destructive',
         });
       }
-    } catch (error: any) {
+    } catch (error: unknown) {
       toast({
         title: 'Error updating source type',
-        description: error.message,
+        description: error instanceof Error ? error.message : String(error),
         variant: 'destructive',
       });
     } finally {
@@ -192,6 +236,52 @@ const TranscriptDiagnostics: React.FC<TranscriptDiagnosticsProps> = ({ onComplet
       case 'foundations_call': return 'bg-purple-100 text-purple-800';
       case 'business_acquisitions_summit': return 'bg-amber-100 text-amber-800';
       default: return 'bg-gray-100 text-gray-800';
+    }
+  };
+
+  const processTranscripts = async (batchSize: number = 5) => {
+    setProcessingTranscripts(true);
+    setProcessingResults(null);
+    
+    try {
+      // Get the anon key for authentication
+      const session = await supabase.auth.getSession();
+      const anonKey = session.data.session?.access_token || (supabase as { anonKey?: string }).anonKey;
+      
+      const response = await fetch(`${supabase.supabaseUrl}/functions/v1/reprocess-transcripts?reprocess_all=true&batch_size=${batchSize}&force=true`, {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${anonKey}`,
+          'Content-Type': 'application/json'
+        }
+      });
+      
+      if (!response.ok) {
+        const errorText = await response.text();
+        throw new Error(`Processing failed: ${errorText}`);
+      }
+      
+      const results = await response.json();
+      setProcessingResults(results);
+      
+      toast({
+        title: 'Processing complete',
+        description: `Processed ${results.successful} transcript(s) successfully. ${results.failed} failed.`,
+        variant: results.failed > 0 ? 'destructive' : 'default',
+      });
+      
+      // Refresh the diagnosis to show updated stats
+      if (diagnosisResults) {
+        await runDiagnosis();
+      }
+    } catch (error: unknown) {
+      toast({
+        title: 'Error processing transcripts',
+        description: error instanceof Error ? error.message : String(error),
+        variant: 'destructive',
+      });
+    } finally {
+      setProcessingTranscripts(false);
     }
   };
 
@@ -229,7 +319,7 @@ const TranscriptDiagnostics: React.FC<TranscriptDiagnosticsProps> = ({ onComplet
               <div>
                 <h3 className="text-lg font-semibold mb-2">Recent Transcripts</h3>
                 <div className="space-y-2">
-                  {diagnosisResults.recentTranscripts.map((transcript: any) => (
+                  {diagnosisResults.recentTranscripts.map((transcript) => (
                     <div key={transcript.id} className="border p-3 rounded-md">
                       <div className="flex justify-between">
                         <div className="font-medium">{transcript.title}</div>
@@ -319,7 +409,7 @@ const TranscriptDiagnostics: React.FC<TranscriptDiagnosticsProps> = ({ onComplet
                 <div className="mt-2">
                   <p className="font-medium">Errors ({fixResults.errors.length}):</p>
                   <ul className="list-disc pl-5 text-sm">
-                    {fixResults.errors.slice(0, 5).map((error: string, index: number) => (
+                    {fixResults.errors.slice(0, 5).map((error, index) => (
                       <li key={index}>{error}</li>
                     ))}
                     {fixResults.errors.length > 5 && <li>...and {fixResults.errors.length - 5} more</li>}
@@ -342,10 +432,36 @@ const TranscriptDiagnostics: React.FC<TranscriptDiagnosticsProps> = ({ onComplet
                 <div className="mt-2">
                   <p className="font-medium">Errors ({sourceTypeResults.errors.length}):</p>
                   <ul className="list-disc pl-5 text-sm">
-                    {sourceTypeResults.errors.slice(0, 5).map((error: string, index: number) => (
+                    {sourceTypeResults.errors.slice(0, 5).map((error, index) => (
                       <li key={index}>{error}</li>
                     ))}
                     {sourceTypeResults.errors.length > 5 && <li>...and {sourceTypeResults.errors.length - 5} more</li>}
+                  </ul>
+                </div>
+              )}
+            </AlertDescription>
+          </Alert>
+        )}
+
+        {processingResults && (
+          <Alert className={processingResults.failed > 0 ? 'bg-amber-50 border-amber-200' : 'bg-green-50 border-green-200'}>
+            {processingResults.failed > 0 
+              ? <AlertCircle className="h-4 w-4 text-amber-600" />
+              : <CheckCircle2 className="h-4 w-4 text-green-600" />}
+            <AlertTitle>Processing results</AlertTitle>
+            <AlertDescription>
+              Successfully processed {processingResults.successful} transcript(s).
+              {processingResults.failed > 0 && ` ${processingResults.failed} failed.`}
+              {processingResults.results && processingResults.results.length > 0 && (
+                <div className="mt-2">
+                  <p className="font-medium">Details:</p>
+                  <ul className="list-disc pl-5 text-sm">
+                    {processingResults.results.slice(0, 5).map((result, index) => (
+                      <li key={index} className={result.success ? 'text-green-700' : 'text-red-700'}>
+                        {result.title}: {result.success ? 'Success' : `Failed - ${result.error}`}
+                      </li>
+                    ))}
+                    {processingResults.results.length > 5 && <li>...and {processingResults.results.length - 5} more</li>}
                   </ul>
                 </div>
               )}
@@ -386,7 +502,33 @@ const TranscriptDiagnostics: React.FC<TranscriptDiagnosticsProps> = ({ onComplet
               'Fix All Source Types'
             )}
           </Button>
+          
+          <Button 
+            onClick={() => processTranscripts(5)} 
+            disabled={processingTranscripts || loading}
+            variant="default"
+            className="bg-green-600 hover:bg-green-700"
+          >
+            {processingTranscripts ? (
+              <><Loader2 className="mr-2 h-4 w-4 animate-spin" /> Processing Transcripts...</>
+            ) : (
+              <>
+                <Sparkles className="mr-2 h-4 w-4" />
+                Process All Transcripts
+              </>
+            )}
+          </Button>
         </div>
+        
+        {processingTranscripts && (
+          <Alert className="bg-blue-50 border-blue-200">
+            <AlertCircle className="h-4 w-4 text-blue-600" />
+            <AlertTitle>Processing in progress</AlertTitle>
+            <AlertDescription>
+              This may take several minutes. Processing transcripts with real OpenAI embeddings...
+            </AlertDescription>
+          </Alert>
+        )}
       </CardFooter>
 
       <Dialog open={showSourceTypeDialog} onOpenChange={setShowSourceTypeDialog}>

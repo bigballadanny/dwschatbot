@@ -1,5 +1,5 @@
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/context/AuthContext';
@@ -7,7 +7,7 @@ import { useAdmin } from '@/context/AdminContext';
 import { useSidebar } from "@/components/ui/sidebar";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Settings, PlusCircle, BarChart3, LogOut, Search, ChevronLeft, ChevronRight, UserCog, Home, FileText, Moon, Sun, Shield, Building } from 'lucide-react';
+import { Settings, PlusCircle, LogOut, Search, ChevronLeft, ChevronRight, UserCog, Home, FileText, Moon, Sun, Shield } from 'lucide-react';
 import { toast } from '@/components/ui/use-toast';
 import { Sidebar, SidebarContent, SidebarFooter, SidebarHeader, SidebarMenu, SidebarMenuButton, SidebarMenuItem, SidebarRail, SidebarSeparator } from "@/components/ui/sidebar";
 import { Sheet, SheetContent, SheetDescription, SheetFooter, SheetHeader, SheetTitle, SheetTrigger } from "@/components/ui/sheet";
@@ -56,9 +56,9 @@ const ChatSidebar: React.FC<ChatSidebarProps> = ({
     } else {
       setConversations([]);
     }
-  }, [user]);
+  }, [user, fetchConversations]);
 
-  const fetchConversations = async () => {
+  const fetchConversations = useCallback(async () => {
     if (!user) return;
     try {
       const {
@@ -78,7 +78,7 @@ const ChatSidebar: React.FC<ChatSidebarProps> = ({
         variant: 'destructive'
       });
     }
-  };
+  }, [user]);
 
   const handleNewChat = async () => {
     if (onCreateNew) {
@@ -136,7 +136,7 @@ const ChatSidebar: React.FC<ChatSidebarProps> = ({
         title: 'Success',
         description: 'Conversation deleted successfully'
       });
-    } catch (error: any) {
+    } catch (error: unknown) {
       console.error('Error deleting conversation:', error);
       toast({
         title: 'Error',
@@ -205,25 +205,9 @@ const ChatSidebar: React.FC<ChatSidebarProps> = ({
             </Button>
           </SidebarMenuItem>
           
-          <SidebarMenuItem>
-            <Button variant="ghost" className="w-full justify-start" onClick={() => navigate('/war-room')}>
-              <SidebarMenuButton>
-                <Building className="h-4 w-4" />
-                <span>War Room</span>
-              </SidebarMenuButton>
-            </Button>
-          </SidebarMenuItem>
           
           {isAdmin && (
             <>
-              <SidebarMenuItem>
-                <Button variant="ghost" className="w-full justify-start" onClick={() => navigate('/analytics')}>
-                  <SidebarMenuButton>
-                    <BarChart3 className="h-4 w-4" />
-                    <span>Analytics</span>
-                  </SidebarMenuButton>
-                </Button>
-              </SidebarMenuItem>
               <SidebarMenuItem>
                 <Button variant="ghost" className="w-full justify-start" onClick={() => navigate('/transcripts')}>
                   <SidebarMenuButton>

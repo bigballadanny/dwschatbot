@@ -1,10 +1,8 @@
 
 import React, { useEffect, useState } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
-import Header from '@/components/Header';
 import WelcomeScreen from '@/components/WelcomeScreen';
 import PopularQuestions from '@/components/PopularQuestions';
-import { SidebarInset } from "@/components/ui/sidebar";
 import { useToast } from "@/components/ui/use-toast";
 import { useAuth } from '@/context/AuthContext';
 import ChatContainer from '@/components/chat/ChatContainer';
@@ -13,7 +11,6 @@ import { useChat } from '@/hooks/useChat';
 const Index = () => {
   const { user } = useAuth();
   const [showWelcome, setShowWelcome] = useState(true);
-  const [audioEnabled, setAudioEnabled] = useState(false);
   const [conversationId, setConversationId] = useState<string | null>(null);
 
   const location = useLocation();
@@ -23,9 +20,6 @@ const Index = () => {
   const {
     messages,
     isLoading,
-    audioSrc,
-    isAudioEnabled,
-    isPlaying,
     enableOnlineSearch,
     hasInteracted,
     retryCount,
@@ -33,15 +27,10 @@ const Index = () => {
     sendMessage,
     createNewConversation,
     resetChat,
-    toggleOnlineSearch,
-    toggleAudio,
-    togglePlayback,
-    stopAudio,
-    handleFileUpload
+    toggleOnlineSearch
   } = useChat({
     user,
-    conversationId,
-    audioEnabled
+    conversationId
   });
 
   // Handle URL parameters and initial state setup
@@ -78,10 +67,6 @@ const Index = () => {
     }
   }, [location.search, user]);
 
-  // Sync audio settings with useChat hook
-  useEffect(() => {
-    setAudioEnabled(isAudioEnabled);
-  }, [isAudioEnabled]);
 
   // Handle asking a question from the popular questions component
   const handleAskQuestion = async (question: string) => {
@@ -109,8 +94,8 @@ const Index = () => {
   };
 
   // Handle sending a message to the chat
-  const handleSendMessage = async (message: string, isVoiceInput: boolean = false) => {
-    await sendMessage(message, isVoiceInput);
+  const handleSendMessage = async (message: string) => {
+    await sendMessage(message);
   };
 
   // Handle creating a new conversation
@@ -147,20 +132,13 @@ const Index = () => {
         <ChatContainer
           messages={messages}
           isLoading={isLoading}
-          audioEnabled={isAudioEnabled}
-          currentAudioSrc={audioSrc}
-          isPlaying={isPlaying}
           enableOnlineSearch={enableOnlineSearch}
           conversationId={conversationId}
           user={user}
           retryCount={retryCount}
           lastError={lastError}
           onSendMessage={handleSendMessage}
-          onToggleAudio={toggleAudio}
           onToggleOnlineSearch={toggleOnlineSearch}
-          onFileUpload={handleFileUpload}
-          onAudioStop={stopAudio}
-          onTogglePlayback={togglePlayback}
         />
       )}
     </div>

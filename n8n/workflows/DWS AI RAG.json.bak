@@ -1,0 +1,567 @@
+{
+  "name": "DWS Chatbot - Fixed RAG with Supabase",
+  "nodes": [
+    {
+      "parameters": {
+        "options": {}
+      },
+      "id": "openai-chat-model",
+      "name": "OpenAI Chat Model",
+      "type": "@n8n/n8n-nodes-langchain.lmChatOpenAi",
+      "typeVersion": 1,
+      "position": [
+        -800,
+        220
+      ],
+      "credentials": {
+        "openAiApi": {
+          "id": "baSWP97VlJnz5ThN",
+          "name": "OpenAi account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "dws-chatbot",
+        "responseMode": "responseNode",
+        "options": {}
+      },
+      "id": "dws-webhook",
+      "name": "DWS Chatbot Webhook",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2,
+      "position": [
+        -1240,
+        300
+      ],
+      "webhookId": "dws-chatbot-webhook"
+    },
+    {
+      "parameters": {},
+      "id": "manual-trigger",
+      "name": "Manual Transcript Trigger",
+      "type": "n8n-nodes-base.manualTrigger",
+      "typeVersion": 1,
+      "position": [
+        -1240,
+        1520
+      ]
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "chat-input-assign",
+              "name": "chatInput",
+              "value": "={{ $json?.chatInput || $json.body?.chatInput || 'Hello' }}",
+              "type": "string"
+            },
+            {
+              "id": "session-id-assign",
+              "name": "sessionId",
+              "value": "={{ $json?.sessionId || $json.body?.sessionId || 'default_session' }}",
+              "type": "string"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "extract-chat-input",
+      "name": "Extract Chat Input",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        -1020,
+        200
+      ]
+    },
+    {
+      "parameters": {
+        "tableName": "sessions"
+      },
+      "id": "supabase-memory",
+      "name": "Supabase Chat Memory",
+      "type": "@n8n/n8n-nodes-langchain.memoryPostgresChat",
+      "typeVersion": 1,
+      "position": [
+        -660,
+        260
+      ],
+      "credentials": {
+        "postgres": {
+          "id": "WtYx6BKJuBN3iYXi",
+          "name": "Postgres account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "promptType": "define",
+        "text": "={{ $json.chatInput }}",
+        "options": {
+          "systemMessage": "You are a specialized AI assistant with expertise in mergers and acquisitions, providing information from Deal Maker Society transcripts created by Carl Allen. You help users by retrieving and synthesizing information from these educational M&A sessions.\n\nGoal:\nProvide accurate, relevant information about M&A topics using the transcript database. Always cite which transcript(s) your information comes from.\n\nTool Instructions:\n- Use RAG to search transcripts for relevant M&A content\n- Use memory to maintain context for follow-up questions\n- When providing information, always mention the source transcript\n- Explain complex M&A concepts in an accessible way"
+        }
+      },
+      "id": "dws-rag-agent",
+      "name": "DWS RAG Agent",
+      "type": "@n8n/n8n-nodes-langchain.agent",
+      "typeVersion": 1.6,
+      "position": [
+        -768,
+        0
+      ]
+    },
+    {
+      "parameters": {
+        "respondWith": "redirect",
+        "redirectURL": "http://localhost:5678/webhook/883cb22e-345a-484b-82c8-05b56fc9fa20/chat",
+        "options": {}
+      },
+      "id": "respond-to-webhook",
+      "name": "Respond to Webhook",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.1,
+      "position": [
+        -184,
+        200
+      ]
+    },
+    {
+      "parameters": {
+        "model": "text-embedding-3-small",
+        "options": {}
+      },
+      "id": "embedding-model",
+      "name": "Embedding Model",
+      "type": "@n8n/n8n-nodes-langchain.embeddingsOpenAi",
+      "typeVersion": 1,
+      "position": [
+        -472,
+        420
+      ],
+      "credentials": {
+        "openAiApi": {
+          "id": "baSWP97VlJnz5ThN",
+          "name": "OpenAi account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "mode": "retrieve-as-tool",
+        "toolName": "transcript_search",
+        "toolDescription": "Search through Deal Maker Society transcripts for information about M&A topics, deal structures, negotiations, valuations, due diligence, and other business acquisition related content. Include the source transcript in your results.",
+        "tableName": {
+          "__rl": true,
+          "value": "embeddings",
+          "mode": "list",
+          "cachedResultName": "embeddings"
+        },
+        "options": {
+          "queryName": "match_documents"
+        }
+      },
+      "type": "@n8n/n8n-nodes-langchain.vectorStoreSupabase",
+      "typeVersion": 1,
+      "position": [
+        -560,
+        222.5
+      ],
+      "id": "transcript-rag-tool",
+      "name": "Transcript RAG Tool",
+      "credentials": {
+        "supabaseApi": {
+          "id": "yeyqB8waKNXNedDZ",
+          "name": "Supabase account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "-- Create necessary tables\nCREATE TABLE IF NOT EXISTS public.embeddings (\n  id bigserial PRIMARY KEY,\n  transcript_id UUID,\n  content TEXT,\n  metadata JSONB,\n  embedding vector(1536)\n);\n\n-- Create RLS policy for embeddings\nALTER TABLE public.embeddings ENABLE ROW LEVEL SECURITY;\nCREATE POLICY \"Enable read for all users\" ON public.embeddings FOR SELECT TO anon, authenticated USING (true);\nCREATE POLICY \"Enable insert for all users\" ON public.embeddings FOR INSERT TO anon, authenticated WITH CHECK (true);\n\n-- Create match function for similarity search\nCREATE OR REPLACE FUNCTION match_documents (\n  query_embedding vector(1536),\n  match_count int DEFAULT 5,\n  filter jsonb DEFAULT '{}'\n) RETURNS TABLE (\n  id bigint,\n  content text,\n  metadata jsonb,\n  similarity float\n)\nLANGUAGE plpgsql\nAS $$\nBEGIN\n  RETURN QUERY\n  SELECT\n    embeddings.id,\n    embeddings.content,\n    embeddings.metadata,\n    1 - (embeddings.embedding <=> query_embedding) as similarity\n  FROM embeddings\n  WHERE metadata @> filter\n  ORDER BY embeddings.embedding <=> query_embedding\n  LIMIT match_count;\nEND;\n$$;\n\n-- Create session table for chat memory\nCREATE TABLE IF NOT EXISTS public.sessions (\n  id TEXT PRIMARY KEY,\n  memory JSONB DEFAULT '{}',\n  created_at TIMESTAMPTZ DEFAULT now(),\n  updated_at TIMESTAMPTZ DEFAULT now()\n);\n\n-- Create transcripts table\nCREATE TABLE IF NOT EXISTS public.transcripts (\n  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),\n  title TEXT NOT NULL,\n  content TEXT NOT NULL,\n  is_processed BOOLEAN DEFAULT false,\n  metadata JSONB DEFAULT '{}',\n  created_at TIMESTAMPTZ DEFAULT now(),\n  updated_at TIMESTAMPTZ DEFAULT now()\n);\n\n-- Grant select on pgvector extension\nGRANT ALL ON EXTENSION vector TO anon, authenticated, service_role;\n\nSELECT 'Database schema setup complete';",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.5,
+      "position": [
+        -1020,
+        1520
+      ],
+      "id": "setup-database",
+      "name": "Setup Database Schema",
+      "credentials": {
+        "postgres": {
+          "id": "WtYx6BKJuBN3iYXi",
+          "name": "Postgres account"
+        }
+      }
+    },
+    {
+      "parameters": {},
+      "id": "transcript-trigger",
+      "name": "Process Transcript Trigger",
+      "type": "n8n-nodes-base.manualTrigger",
+      "typeVersion": 1,
+      "position": [
+        -1102,
+        660
+      ]
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "transcript-id",
+              "name": "transcript_id",
+              "value": "test-transcript-123",
+              "type": "string"
+            },
+            {
+              "id": "transcript-title",
+              "name": "transcript_title",
+              "value": "Test M&A Session - Deal Structures",
+              "type": "string"
+            },
+            {
+              "id": "transcript-content",
+              "name": "transcript_content",
+              "value": "This is a test transcript about mergers and acquisitions from Deal Maker Society. In this session, Carl Allen discusses key aspects of deal structures including asset purchases, stock purchases, and merger structures. Key points include: 1) Asset purchase agreements provide better control over liabilities. 2) Stock purchases may trigger change of control provisions. 3) Merger structures require board approval and shareholder consent.",
+              "type": "string"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "extract-transcript",
+      "name": "Extract Transcript Data",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        -744,
+        660
+      ]
+    },
+    {
+      "parameters": {
+        "chunkSize": 400,
+        "options": {}
+      },
+      "type": "@n8n/n8n-nodes-langchain.textSplitterRecursiveCharacterTextSplitter",
+      "typeVersion": 1,
+      "position": [
+        -1032,
+        1280
+      ],
+      "id": "chunk-transcript",
+      "name": "Chunk Transcript"
+    },
+    {
+      "parameters": {
+        "jsonMode": "expressionData",
+        "jsonData": "={{ $json.transcript_content }}",
+        "options": {
+          "metadata": {
+            "metadataValues": [
+              {
+                "name": "transcript_id",
+                "value": "={{ $json.transcript_id }}"
+              },
+              {
+                "name": "transcript_title",
+                "value": "={{ $json.transcript_title }}"
+              },
+              {
+                "name": "source",
+                "value": "Deal Maker Society"
+              },
+              {
+                "name": "author",
+                "value": "Carl Allen"
+              },
+              {
+                "name": "processed_at",
+                "value": "={{ new Date().toISOString() }}"
+              }
+            ]
+          }
+        }
+      },
+      "id": "prepare-document",
+      "name": "Prepare Document",
+      "type": "@n8n/n8n-nodes-langchain.documentDefaultDataLoader",
+      "typeVersion": 1,
+      "position": [
+        -1120,
+        1082.5
+      ]
+    },
+    {
+      "parameters": {
+        "model": "text-embedding-3-small",
+        "options": {}
+      },
+      "id": "generate-embeddings",
+      "name": "Generate Embeddings",
+      "type": "@n8n/n8n-nodes-langchain.embeddingsOpenAi",
+      "typeVersion": 1,
+      "position": [
+        -1240,
+        1080
+      ],
+      "credentials": {
+        "openAiApi": {
+          "id": "baSWP97VlJnz5ThN",
+          "name": "OpenAi account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "mode": "insert",
+        "tableName": {
+          "__rl": true,
+          "value": "embeddings",
+          "mode": "list",
+          "cachedResultName": "embeddings"
+        },
+        "options": {
+          "queryName": "match_documents"
+        }
+      },
+      "id": "store-embeddings",
+      "name": "Store Embeddings",
+      "type": "@n8n/n8n-nodes-langchain.vectorStoreSupabase",
+      "typeVersion": 1,
+      "position": [
+        -1224,
+        860
+      ],
+      "credentials": {
+        "supabaseApi": {
+          "id": "yeyqB8waKNXNedDZ",
+          "name": "Supabase account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "operation": "update",
+        "tableId": "transcripts",
+        "filterType": "string",
+        "filterString": "id=eq.{{ $('Extract Transcript Data').item.json.transcript_id }}"
+      },
+      "id": "mark-processed",
+      "name": "Mark as Processed",
+      "type": "n8n-nodes-base.supabase",
+      "typeVersion": 1,
+      "position": [
+        -744,
+        1060
+      ],
+      "credentials": {
+        "supabaseApi": {
+          "id": "yeyqB8waKNXNedDZ",
+          "name": "Supabase account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "public": true,
+        "initialMessages": "Hi there! 👋\n",
+        "options": {}
+      },
+      "type": "@n8n/n8n-nodes-langchain.chatTrigger",
+      "typeVersion": 1.1,
+      "position": [
+        -1240,
+        100
+      ],
+      "id": "9341f70a-cf3a-41fe-b232-0c8a74de24b5",
+      "name": "When chat message received",
+      "webhookId": "883cb22e-345a-484b-82c8-05b56fc9fa20"
+    }
+  ],
+  "pinData": {},
+  "connections": {
+    "OpenAI Chat Model": {
+      "ai_languageModel": [
+        [
+          {
+            "node": "DWS RAG Agent",
+            "type": "ai_languageModel",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "DWS Chatbot Webhook": {
+      "main": [
+        [
+          {
+            "node": "Extract Chat Input",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Manual Transcript Trigger": {
+      "main": [
+        [
+          {
+            "node": "Setup Database Schema",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Extract Chat Input": {
+      "main": [
+        [
+          {
+            "node": "DWS RAG Agent",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Supabase Chat Memory": {
+      "ai_memory": [
+        [
+          {
+            "node": "DWS RAG Agent",
+            "type": "ai_memory",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "DWS RAG Agent": {
+      "main": [
+        [
+          {
+            "node": "Respond to Webhook",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Embedding Model": {
+      "ai_embedding": [
+        [
+          {
+            "node": "Transcript RAG Tool",
+            "type": "ai_embedding",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Transcript RAG Tool": {
+      "ai_tool": [
+        [
+          {
+            "node": "DWS RAG Agent",
+            "type": "ai_tool",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Process Transcript Trigger": {
+      "main": [
+        [
+          {
+            "node": "Extract Transcript Data",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Extract Transcript Data": {
+      "main": [
+        [
+          {
+            "node": "Prepare Document",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Chunk Transcript": {
+      "ai_textSplitter": [
+        [
+          {
+            "node": "Prepare Document",
+            "type": "ai_textSplitter",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Prepare Document": {
+      "ai_document": [
+        [
+          {
+            "node": "Store Embeddings",
+            "type": "ai_document",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Generate Embeddings": {
+      "ai_embedding": [
+        [
+          {
+            "node": "Store Embeddings",
+            "type": "ai_embedding",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Store Embeddings": {
+      "main": [
+        [
+          {
+            "node": "Mark as Processed",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "When chat message received": {
+      "main": [
+        [
+          {
+            "node": "Extract Chat Input",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": true,
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "versionId": "e4f7949c-66ab-4ece-9f91-2671369b9f7f",
+  "meta": {
+    "instanceId": "4a639ba00d80f1bf8fbb16a57eee0c6613d43b67cbbef77dbbc9213fc793e152"
+  },
+  "id": "5IWrur2naDjou9kJ",
+  "tags": []
+}

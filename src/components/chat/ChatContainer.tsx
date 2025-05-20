@@ -10,45 +10,31 @@ import { Button } from '@/components/ui/button';
 interface ChatContainerProps {
   messages: MessageData[];
   isLoading: boolean;
-  audioEnabled: boolean;
-  currentAudioSrc: string | null;
-  isPlaying?: boolean;
   enableOnlineSearch: boolean;
   conversationId: string | null;
   user: any;
   retryCount?: number;
   lastError?: string | null;
-  onSendMessage: (message: string, isVoice: boolean) => Promise<void>;
-  onToggleAudio: () => void;
+  onSendMessage: (message: string) => Promise<void>;
   onToggleOnlineSearch: (enabled: boolean) => void;
-  onFileUpload: (files: FileList) => void;
-  onAudioStop: () => void;
-  onTogglePlayback?: () => void;
 }
 
 const ChatContainer: React.FC<ChatContainerProps> = ({
   messages,
   isLoading,
-  audioEnabled,
-  currentAudioSrc,
-  isPlaying,
   enableOnlineSearch,
   conversationId,
   user,
   retryCount = 0,
   lastError = null,
   onSendMessage,
-  onToggleAudio,
   onToggleOnlineSearch,
-  onFileUpload,
-  onAudioStop,
-  onTogglePlayback,
 }) => {
   // Handle retrying the last message
   const handleRetry = () => {
     const lastUserMessage = [...messages].reverse().find(m => m.source === 'user');
     if (lastUserMessage?.content) {
-      onSendMessage(lastUserMessage.content, false);
+      onSendMessage(lastUserMessage.content);
     }
   };
 
@@ -91,16 +77,9 @@ const ChatContainer: React.FC<ChatContainerProps> = ({
       <ChatInputBar
         onSendMessage={onSendMessage}
         onToggleOnlineSearch={onToggleOnlineSearch}
-        onFileUpload={onFileUpload}
         isLoading={isLoading}
         disabled={isLoading || (!user && !conversationId)}
-        audioEnabled={audioEnabled}
-        onToggleAudio={onToggleAudio}
         enableOnlineSearch={enableOnlineSearch}
-        currentAudioSrc={currentAudioSrc}
-        onAudioStop={onAudioStop}
-        isPlaying={isPlaying}
-        onTogglePlayback={onTogglePlayback}
         placeholder={user ? "Ask anything..." : "Please sign in to chat"}
         className="sticky bottom-0 z-20"
       />

@@ -1,0 +1,437 @@
+{
+  "name": "My workflow 10",
+  "nodes": [
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "dws-chatbot",
+        "responseMode": "responseNode",
+        "options": {}
+      },
+      "id": "20a28b78-d4fb-4f57-bd4b-c66e0c3dd424",
+      "name": "Webhook - Chat",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2,
+      "position": [
+        520,
+        980
+      ],
+      "webhookId": "dws-chatbot-webhook"
+    },
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "process-transcripts",
+        "responseMode": "lastNode",
+        "options": {}
+      },
+      "id": "94081fc0-ffe7-4ffa-8a4b-e83c83c8470b",
+      "name": "Webhook - Process Transcripts",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2,
+      "position": [
+        480,
+        1580
+      ],
+      "webhookId": "process-transcripts"
+    },
+    {
+      "parameters": {
+        "public": true,
+        "options": {
+          "title": "DWS Chatbot Testing UI"
+        }
+      },
+      "id": "d43252c3-e462-4430-983a-93729323f6a5",
+      "name": "Chat UI Trigger",
+      "type": "@n8n/n8n-nodes-langchain.chatTrigger",
+      "typeVersion": 1.1,
+      "position": [
+        520,
+        1180
+      ],
+      "webhookId": "dws-chatbot-ui"
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "merge_inputs",
+              "name": "_triggerType",
+              "value": "={{ $nodeExecutionOrder.includes('Chat UI Trigger') ? 'chat_ui' : 'webhook' }}",
+              "type": "string"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "62a3b375-ae57-4d80-a672-18ef17578347",
+      "name": "Merge Chat Inputs",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        720,
+        1080
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "// Extract and standardize parameters from either webhook or Chat UI\nconst triggerType = $input.item.json._triggerType;\nconst json = $input.item.json;\n\n// Extract the message (chatInput for webhook, message for Chat UI)\nconst message = json.chatInput || json.message || json.body?.chatInput || json.body?.message || '';\n\n// Extract session/conversation ID\nconst sessionId = json.sessionId || json.conversationId || json.body?.sessionId || json.body?.conversationId || '';\n\n// Extract user ID\nconst userId = json.userId || json.body?.userId || '14d883fb-aaaa-44f1-94e0-9658590f4fb9';\n\n// Generate conversation ID if not provided\nconst conversationId = sessionId || \n  [\n    Math.random().toString(16).substr(2, 8),\n    Math.random().toString(16).substr(2, 4),\n    Math.random().toString(16).substr(2, 4),\n    Math.random().toString(16).substr(2, 4),\n    Math.random().toString(16).substr(2, 12)\n  ].join('-');\n\nreturn {\n  json: {\n    chatInput: message,\n    conversationId: conversationId,\n    userId: userId,\n    sessionId: conversationId,\n    timestamp: new Date().toISOString(),\n    triggerType: triggerType\n  }\n};"
+      },
+      "id": "26e7b0ba-7bd3-4619-a90a-a77e1005af4e",
+      "name": "Extract Chat Parameters",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 1,
+      "position": [
+        920,
+        1080
+      ]
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "WITH existing_conversation AS (\n  SELECT id, title, user_id, created_at, updated_at\n  FROM conversations \n  WHERE id = '{{ $node[\"Extract Chat Parameters\"].json.conversationId }}'::uuid\n),\nnew_conversation AS (\n  INSERT INTO conversations (id, user_id, title, created_at, updated_at) \n  SELECT \n    '{{ $node[\"Extract Chat Parameters\"].json.conversationId }}'::uuid,\n    '{{ $node[\"Extract Chat Parameters\"].json.userId }}'::uuid,\n    'Chat Session ' || substr('{{ $node[\"Extract Chat Parameters\"].json.conversationId }}', 1, 8),\n    now(),\n    now()\n  WHERE NOT EXISTS (SELECT 1 FROM existing_conversation)\n  RETURNING id, title, user_id, created_at, updated_at\n)\nSELECT * FROM existing_conversation\nUNION ALL\nSELECT * FROM new_conversation;",
+        "options": {}
+      },
+      "id": "846e1442-d81a-4989-afe3-fe3fcee7e995",
+      "name": "Get or Create Conversation",
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.5,
+      "position": [
+        1120,
+        1080
+      ],
+      "credentials": {
+        "postgres": {
+          "id": "WtYx6BKJuBN3iYXi",
+          "name": "Postgres account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "INSERT INTO messages (conversation_id, content, is_user, metadata, created_at)\nVALUES (\n  '{{ $node[\"Get or Create Conversation\"].json.id }}'::uuid,\n  '{{ $node[\"Extract Chat Parameters\"].json.chatInput }}',\n  TRUE,\n  '{{ JSON.stringify({ sessionId: $node[\"Extract Chat Parameters\"].json.sessionId, timestamp: $node[\"Extract Chat Parameters\"].json.timestamp }) }}'::jsonb,\n  now()\n)\nRETURNING id, conversation_id, content, is_user, created_at, metadata;",
+        "options": {}
+      },
+      "id": "befa485d-9e1b-4341-856c-3d49c1480d3d",
+      "name": "Save User Message",
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.5,
+      "position": [
+        1320,
+        980
+      ],
+      "credentials": {
+        "postgres": {
+          "id": "WtYx6BKJuBN3iYXi",
+          "name": "Postgres account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "SELECT id, conversation_id, content, is_user, created_at, metadata\nFROM messages\nWHERE conversation_id = '{{ $node[\"Get or Create Conversation\"].json.id }}'::uuid\nORDER BY created_at DESC\nLIMIT 10;",
+        "options": {}
+      },
+      "id": "20ecdeb0-2ec4-43ae-87e8-f3528c67cd8a",
+      "name": "Get Recent Messages",
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.5,
+      "position": [
+        1520,
+        980
+      ],
+      "credentials": {
+        "postgres": {
+          "id": "WtYx6BKJuBN3iYXi",
+          "name": "Postgres account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "SELECT id, title, content, metadata\nFROM transcripts\nWHERE (\n  is_processed = false \n  OR metadata->>'reprocess_requested' = 'true'\n)\nAND content IS NOT NULL\nLIMIT {{$json[\"batch_size\"] || 5}};",
+        "options": {}
+      },
+      "id": "a74b6a1b-47aa-4629-9b60-09489d7f9374",
+      "name": "Fetch Unprocessed Transcripts",
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.5,
+      "position": [
+        640,
+        1580
+      ],
+      "credentials": {
+        "postgres": {
+          "id": "WtYx6BKJuBN3iYXi",
+          "name": "Postgres account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "DELETE FROM embeddings\nWHERE metadata->>'transcript_id' = '{{ $node[\"Fetch Unprocessed Transcripts\"].json.id }}';",
+        "options": {}
+      },
+      "id": "20bb8740-845f-4083-983d-fb863daa74ac",
+      "name": "Delete Old Embeddings",
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.6,
+      "position": [
+        840,
+        1580
+      ],
+      "credentials": {
+        "postgres": {
+          "id": "WtYx6BKJuBN3iYXi",
+          "name": "Postgres account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "DELETE FROM chunks\nWHERE metadata->>'transcript_id' = '{{ $node[\"Fetch Unprocessed Transcripts\"].json.id }}';",
+        "options": {}
+      },
+      "id": "afe5a9a7-e855-421a-83db-5acd7e26ad8a",
+      "name": "Delete Old Chunks",
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.6,
+      "position": [
+        1020,
+        1580
+      ],
+      "credentials": {
+        "postgres": {
+          "id": "WtYx6BKJuBN3iYXi",
+          "name": "Postgres account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "// Extract transcript data and pass it through\nconst transcript = $input.item.json;\n\nreturn {\n  json: {\n    id: transcript.id,\n    title: transcript.title,\n    content: transcript.content,\n    metadata: transcript.metadata\n  }\n};"
+      },
+      "id": "a854f753-327b-477d-b89a-add876b4ae62",
+      "name": "Prepare Transcript Data",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 1,
+      "position": [
+        1180,
+        1580
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "// Prepare data for chunk insertion\nconst input = $input.item.json;\n\n// Get transcript_id from current input or from Fetch Unprocessed Transcripts node\nconst transcript_id = input.transcript_id || \n                      input.id || \n                      (input.metadata && input.metadata.transcript_id) ||\n                      ($node[\"Fetch Unprocessed Transcripts\"] && $node[\"Fetch Unprocessed Transcripts\"].json.id);\n\n// Ensure we have all required fields\nconst chunkData = {\n  transcript_id: transcript_id,\n  content: input.content || '',\n  topic: input.primary_topic || 'uncategorized',\n  topics: input.topics || {},\n  primary_topic: input.primary_topic || null,\n  chunk_index: input.chunk_index || 0,\n  total_chunks: input.total_chunks || 1,\n  speaker: input.metadata?.speaker || 'unknown',\n  topic_scores: input.metadata?.topic_scores || {},\n  processed_at: new Date().toISOString()\n};\n\n// Add debug info for troubleshooting\nif (!chunkData.transcript_id) {\n  console.log(\"DEBUG - Input data:\", JSON.stringify(input, null, 2));\n  console.log(\"DEBUG - Fetch Unprocessed Transcripts:\", \n              $node[\"Fetch Unprocessed Transcripts\"] ? \n              JSON.stringify($node[\"Fetch Unprocessed Transcripts\"].json, null, 2) : \n              \"Not available\");\n  throw new Error('transcript_id is required');\n}\n\nreturn {\n  json: chunkData\n};"
+      },
+      "id": "92884683-ba26-463e-95e9-a76f873e756e",
+      "name": "Prepare Chunk Data",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 1,
+      "position": [
+        1380,
+        1580
+      ]
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "-- Insert chunk with topic categorization\nINSERT INTO chunks (\n  transcript_id,\n  content,\n  chunk_type,\n  topic,\n  metadata\n) VALUES (\n  '{{ $node[\"Prepare Chunk Data\"].json.transcript_id }}'::uuid,\n  '{{ $node[\"Prepare Chunk Data\"].json.content }}',\n  'parent',  -- TRY THIS VALUE\n  '{{ $node[\"Prepare Chunk Data\"].json.topic }}',\n  '{{ JSON.stringify({\n      topics: $node[\"Prepare Chunk Data\"].json.topics,\n      primary_topic: $node[\"Prepare Chunk Data\"].json.primary_topic,\n      chunk_index: $node[\"Prepare Chunk Data\"].json.chunk_index,\n      total_chunks: $node[\"Prepare Chunk Data\"].json.total_chunks,\n      speaker: $node[\"Prepare Chunk Data\"].json.speaker,\n      topic_scores: $node[\"Prepare Chunk Data\"].json.topic_scores,\n      processed_at: $node[\"Prepare Chunk Data\"].json.processed_at\n    }) }}'::jsonb\n) RETURNING id;",
+        "options": {}
+      },
+      "id": "f85f24ec-36b9-476a-a3c8-c73bb85723d1",
+      "name": "Save Categorized Chunk",
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.5,
+      "position": [
+        1620,
+        1580
+      ],
+      "credentials": {
+        "postgres": {
+          "id": "WtYx6BKJuBN3iYXi",
+          "name": "Postgres account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "SELECT pg_get_constraintdef(oid) \nFROM pg_constraint \nWHERE conname = 'chunks_chunk_type_check';",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.6,
+      "position": [
+        1800,
+        1580
+      ],
+      "id": "65cddc63-a103-4166-936c-fcd4f07c34dd",
+      "name": "Postgres",
+      "credentials": {
+        "postgres": {
+          "id": "WtYx6BKJuBN3iYXi",
+          "name": "Postgres account"
+        }
+      }
+    }
+  ],
+  "pinData": {},
+  "connections": {
+    "Webhook - Chat": {
+      "main": [
+        [
+          {
+            "node": "Merge Chat Inputs",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Chat UI Trigger": {
+      "main": [
+        [
+          {
+            "node": "Merge Chat Inputs",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Merge Chat Inputs": {
+      "main": [
+        [
+          {
+            "node": "Extract Chat Parameters",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Extract Chat Parameters": {
+      "main": [
+        [
+          {
+            "node": "Get or Create Conversation",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Get or Create Conversation": {
+      "main": [
+        [
+          {
+            "node": "Save User Message",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Get Recent Messages",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Webhook - Process Transcripts": {
+      "main": [
+        [
+          {
+            "node": "Fetch Unprocessed Transcripts",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Fetch Unprocessed Transcripts": {
+      "main": [
+        [
+          {
+            "node": "Delete Old Embeddings",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Delete Old Embeddings": {
+      "main": [
+        [
+          {
+            "node": "Delete Old Chunks",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Delete Old Chunks": {
+      "main": [
+        [
+          {
+            "node": "Prepare Transcript Data",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Prepare Chunk Data": {
+      "main": [
+        [
+          {
+            "node": "Save Categorized Chunk",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Prepare Transcript Data": {
+      "main": [
+        [
+          {
+            "node": "Prepare Chunk Data",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Save Categorized Chunk": {
+      "main": [
+        [
+          {
+            "node": "Postgres",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": true,
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "versionId": "80945324-d11b-4492-a111-107dce14dc3b",
+  "meta": {
+    "templateCredsSetupCompleted": true,
+    "instanceId": "4a639ba00d80f1bf8fbb16a57eee0c6613d43b67cbbef77dbbc9213fc793e152"
+  },
+  "id": "VqsIii83IZTQrb5p",
+  "tags": []
+}

@@ -8,8 +8,7 @@
 export type MessageSource = 'user' | 'system' | 'gemini' | 'transcript' | 'web' | 'fallback';
 
 /**
- * API message format expected by the Vertex AI :generateContent endpoint
- * And also now expected by our gemini-chat backend function's validation
+ * API message format expected by our backend function's validation
  */
 export interface ApiMessageWithParts {
   role: 'user' | 'model' | 'system'; // Use 'model' for assistant role
@@ -21,6 +20,7 @@ export interface ApiMessageWithParts {
  * This keeps only the essential properties needed by UI
  */
 export interface MessageData {
+  id: string; // Added message ID
   content: string;
   source: MessageSource;
   timestamp: Date;
@@ -100,7 +100,7 @@ export function dbMessageToUiMessage(dbMessage: DbMessage): MessageData {
   // Override source if metadata exists and has a source
   if (dbMessage.metadata && dbMessage.metadata.source) {
     // Ensure the source from metadata is one of the allowed MessageSource types
-    const validSources: MessageSource[] = ['user', 'system', 'gemini', 'transcript', 'web', 'fallback'];
+    const validSources: MessageSource[] = ['user', 'system', 'gemini', 'vertex', 'transcript', 'web', 'fallback'];
     if (validSources.includes(dbMessage.metadata.source as MessageSource)) {
        source = dbMessage.metadata.source as MessageSource;
     } else {
@@ -110,6 +110,7 @@ export function dbMessageToUiMessage(dbMessage: DbMessage): MessageData {
 
   // Create the message data with all fields properly populated
   const messageData: MessageData = {
+    id: dbMessage.id, // Include the ID
     content: dbMessage.content ?? '', // Ensure content is always a string
     source: source,
     timestamp: new Date(dbMessage.created_at),

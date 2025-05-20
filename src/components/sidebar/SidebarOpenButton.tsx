@@ -1,8 +1,8 @@
 
 import React from 'react';
 import { Button } from "@/components/ui/button";
-import { PanelLeft } from 'lucide-react';
 import { useSidebar } from "@/components/ui/sidebar";
+import DWSLogo from '@/components/DWSLogo';
 
 const SidebarOpenButton: React.FC = () => {
   const { state, toggleSidebar } = useSidebar();
@@ -14,11 +14,11 @@ const SidebarOpenButton: React.FC = () => {
     <Button
       variant="ghost"
       size="icon"
-      className="absolute left-4 top-4 z-30 h-8 w-8 bg-background/80 backdrop-blur-sm hover:bg-accent"
+      className="absolute left-4 top-4 z-30 h-10 w-10 bg-background/80 backdrop-blur-sm hover:bg-dws-gold/10 border border-dws-gold/20 transition-all duration-300 hover:scale-105"
       onClick={() => toggleSidebar()}
       title="Open sidebar"
     >
-      <PanelLeft className="h-4 w-4" />
+      <DWSLogo size="sm" />
       <span className="sr-only">Open sidebar</span>
     </Button>
   );

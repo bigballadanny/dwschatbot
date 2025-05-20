@@ -3,7 +3,7 @@ import React, { useRef, useEffect, useState, useMemo } from 'react';
 import MessageItem from '@/components/MessageItem';
 import { MessageData } from '@/utils/messageUtils';
 import { cn } from '@/lib/utils';
-import { motion, AnimatePresence } from 'framer-motion';
+// Removed framer-motion import - not installed
 import { useThrottle } from '@/utils/performanceUtils';
 
 interface MessageListProps {
@@ -82,32 +82,21 @@ const MessageList: React.FC<MessageListProps> = ({
         onScroll={handleScroll}
       >
         <div className="max-w-3xl mx-auto space-y-6">
-          <AnimatePresence initial={false}>
-            {displayMessages.map((message, index) => (
-              <motion.div
-                key={`${message.source}-${index}`}
-                initial={{ 
-                  opacity: 0, 
-                  y: message.source === 'user' ? -20 : 20
-                }}
-                animate={{ opacity: 1, y: 0 }}
-                exit={{ opacity: 0, height: 0 }}
-                transition={{ 
-                  duration: 0.3, 
-                  delay: message.source === 'user' ? 0 : 0.2 
-                }}
-                data-testid={`message-item-${message.source}`}
-              >
-                <MessageItem
-                  content={message.content}
-                  source={message.source}
-                  timestamp={message.timestamp}
-                  citation={message.citation}
-                  isLoading={message.isLoading}
-                />
-              </motion.div>
-            ))}
-          </AnimatePresence>
+          {displayMessages.map((message, index) => (
+            <div
+              key={`${message.source}-${index}`}
+              data-testid={`message-item-${message.source}`}
+              className="transition-all duration-300 ease-in-out"
+            >
+              <MessageItem
+                content={message.content}
+                source={message.source}
+                timestamp={message.timestamp}
+                citation={message.citation}
+                isLoading={message.isLoading}
+              />
+            </div>
+          ))}
           <div ref={messagesEndRef} />
         </div>
       </div>

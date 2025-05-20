@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogClose, DialogDescription } from "@/components/ui/dialog";
@@ -49,13 +49,7 @@ const BulkTagProcessor: React.FC<BulkTagProcessorProps> = ({ open, onClose, onCo
   const [selectedTab, setSelectedTab] = useState<string>('bulk');
   const { user } = useAuth();
 
-  useEffect(() => {
-    if (open) {
-      fetchUnprocessedTranscripts();
-    }
-  }, [open]);
-
-  const fetchUnprocessedTranscripts = async () => {
+  const fetchUnprocessedTranscripts = useCallback(async () => {
     if (!user) {
       setError('You must be logged in to process transcripts.');
       return;
@@ -76,11 +70,17 @@ const BulkTagProcessor: React.FC<BulkTagProcessorProps> = ({ open, onClose, onCo
           : data;
         setTranscripts(filteredData);
       }
-    } catch (error: any) {
-      console.error('Error fetching transcripts:', error.message);
-      setError(`Error fetching transcripts: ${error.message}`);
+    } catch (error: unknown) {
+      console.error('Error fetching transcripts:', error instanceof Error ? error.message : String(error));
+      setError(`Error fetching transcripts: ${error instanceof Error ? error.message : String(error)}`);
     }
-  };
+  }, [user, unprocessedOnly]);
+
+  useEffect(() => {
+    if (open) {
+      fetchUnprocessedTranscripts();
+    }
+  }, [open, fetchUnprocessedTranscripts]);
 
   const processTranscripts = async () => {
     if (!user || transcripts.length === 0) {
@@ -140,16 +140,16 @@ const BulkTagProcessor: React.FC<BulkTagProcessorProps> = ({ open, onClose, onCo
           processed++;
           setProcessedCount(processed);
           setProgress(Math.round((processed / transcripts.length) * 100));
-        } catch (error: any) {
-          console.error(`Error processing transcript ${transcript.id}:`, error.message);
+        } catch (error: unknown) {
+          console.error(`Error processing transcript ${transcript.id}:`, error instanceof Error ? error.message : String(error));
         }
       }
 
       showSuccess("Processing complete", `Successfully processed ${processed} transcripts.`);
       onComplete();
-    } catch (error: any) {
-      console.error('Error during bulk processing:', error.message);
-      setError(`Error during processing: ${error.message}`);
+    } catch (error: unknown) {
+      console.error('Error during bulk processing:', error instanceof Error ? error.message : String(error));
+      setError(`Error during processing: ${error instanceof Error ? error.message : String(error)}`);
       showError("Processing error", "There was an error during the bulk processing. Some transcripts may not have been updated.");
     } finally {
       setIsProcessing(false);

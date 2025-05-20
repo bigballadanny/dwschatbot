@@ -41,30 +41,12 @@ const Header: React.FC = () => {
               </Link>
             </NavigationMenuItem>
             
-            <NavigationMenuItem>
-              <Link to="/war-room" className={navigationMenuTriggerStyle()}>
-                War Room
-              </Link>
-            </NavigationMenuItem>
             
             {isAdmin && (
               <NavigationMenuItem>
                 <NavigationMenuTrigger>Admin</NavigationMenuTrigger>
                 <NavigationMenuContent>
                   <ul className="grid w-[200px] gap-3 p-4">
-                    <li>
-                      <NavigationMenuLink asChild>
-                        <Link 
-                          to="/analytics" 
-                          className="block select-none space-y-1 rounded-md p-3 leading-none no-underline outline-none transition-colors hover:bg-accent hover:text-accent-foreground focus:bg-accent focus:text-accent-foreground"
-                        >
-                          <div className="text-sm font-medium leading-none">Analytics</div>
-                          <p className="line-clamp-2 text-sm leading-snug text-muted-foreground">
-                            View user analytics and insights
-                          </p>
-                        </Link>
-                      </NavigationMenuLink>
-                    </li>
                     <li>
                       <NavigationMenuLink asChild>
                         <Link 
@@ -96,40 +78,6 @@ const Header: React.FC = () => {
               </NavigationMenuItem>
             )}
             
-            {/* Developer Tools Menu */}
-            <NavigationMenuItem>
-              <NavigationMenuTrigger>Developer Tools</NavigationMenuTrigger>
-              <NavigationMenuContent>
-                <ul className="grid w-[200px] gap-3 p-4">
-                  <li>
-                    <NavigationMenuLink asChild>
-                      <Link 
-                        to="/vertex-setup" 
-                        className="block select-none space-y-1 rounded-md p-3 leading-none no-underline outline-none transition-colors hover:bg-accent hover:text-accent-foreground focus:bg-accent focus:text-accent-foreground"
-                      >
-                        <div className="text-sm font-medium leading-none">Vertex AI Setup</div>
-                        <p className="line-clamp-2 text-sm leading-snug text-muted-foreground">
-                          Configure Vertex AI integration
-                        </p>
-                      </Link>
-                    </NavigationMenuLink>
-                  </li>
-                  <li>
-                    <NavigationMenuLink asChild>
-                      <Link 
-                        to="/vertex-test" 
-                        className="block select-none space-y-1 rounded-md p-3 leading-none no-underline outline-none transition-colors hover:bg-accent hover:text-accent-foreground focus:bg-accent focus:text-accent-foreground"
-                      >
-                        <div className="text-sm font-medium leading-none">Vertex Test</div>
-                        <p className="line-clamp-2 text-sm leading-snug text-muted-foreground">
-                          Test Vertex AI functionality
-                        </p>
-                      </Link>
-                    </NavigationMenuLink>
-                  </li>
-                </ul>
-              </NavigationMenuContent>
-            </NavigationMenuItem>
           </NavigationMenuList>
         </NavigationMenu>
 
@@ -178,9 +126,6 @@ const Header: React.FC = () => {
                 <DropdownMenuSeparator />
                 {isAdmin && (
                   <>
-                    <DropdownMenuItem asChild>
-                      <Link to="/analytics">Analytics Dashboard</Link>
-                    </DropdownMenuItem>
                     <DropdownMenuItem asChild>
                       <Link to="/transcripts">Manage Transcripts</Link>
                     </DropdownMenuItem>

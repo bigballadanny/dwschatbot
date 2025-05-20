@@ -197,7 +197,7 @@ const TagFilter: React.FC<TagFilterProps> = ({ onTagAdded, onTagRemoved }) => {
 };
 
 // Helper function from shadcn
-const cn = (...classes: any[]) => {
+const cn = (...classes: (string | undefined | null | boolean)[]) => {
   return classes.filter(Boolean).join(' ');
 };
 

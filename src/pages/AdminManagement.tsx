@@ -11,6 +11,7 @@ import { ShieldAlert, UserPlus, RefreshCw, AlertCircle } from 'lucide-react';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { useToast } from '@/components/ui/use-toast';
 import { useAuth } from '@/context/AuthContext';
+import TranscriptDiagnostics from '@/components/TranscriptDiagnostics';
 
 interface User {
   id: string;
@@ -182,6 +183,10 @@ const AdminManagement = () => {
             )}
           </CardContent>
         </Card>
+        
+        <div className="mt-8">
+          <TranscriptDiagnostics />
+        </div>
       </main>
     </div>
   );

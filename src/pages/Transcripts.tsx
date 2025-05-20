@@ -11,10 +11,11 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } f
 import { Badge } from "@/components/ui/badge";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue, SelectGroup, SelectLabel } from "@/components/ui/select";
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { useAuth } from '@/context/AuthContext';
 import { supabase } from '@/integrations/supabase/client';
 // import Header from '@/components/Header'; // Removed duplicate header import
-import { FileText, Upload, Tag as TagIcon, Loader2, X, Info, AlertTriangle, Edit, Tags, Plus, Sparkles, Settings, Filter, RefreshCw } from 'lucide-react';
+import { FileText, Upload, Tag as TagIcon, Loader2, X, Info, AlertTriangle, Edit, Tags, Plus, Sparkles, Settings, Filter, RefreshCw, MoreVertical, CheckCircle, AlertCircle } from 'lucide-react';
 import { detectSourceCategory, formatTagForDisplay, suggestTagsFromContent, getSourceCategories } from '@/utils/transcriptUtils';
 import TranscriptDiagnostics from "@/components/TranscriptDiagnostics";
 import { TagsInput } from "@/components/TagsInput";
@@ -23,6 +24,7 @@ import TagFilter from "@/components/TagFilter";
 import { showSuccess, showError, showWarning } from "@/utils/toastUtils";
 import BulkTagProcessor from "@/components/BulkTagProcessor";
 import FileUploader from "@/components/FileUploader";
+import { useTranscriptProcessor } from '@/hooks/useTranscriptProcessor';
 
 interface Transcript {
   id: string;
@@ -47,7 +49,7 @@ const TranscriptsPage: React.FC = () => {
   const [uploadProgress, setUploadProgress] = useState<number | null>(null);
   const [source, setSource] = useState<string>('');
   const [isUploading, setIsUploading] = useState(false);
-  const [isProcessing, setIsProcessing] = useState(false);
+  const [isCreatingTranscript, setIsCreatingTranscript] = useState(false);
   const [selectedTranscript, setSelectedTranscript] = useState<Transcript | null>(null);
   const [isTranscriptEditorOpen, setIsTranscriptEditorOpen] = useState(false);
   const [tagFilters, setTagFilters] = useState<string[]>([]);
@@ -56,6 +58,7 @@ const TranscriptsPage: React.FC = () => {
   const [isBulkProcessorOpen, setIsBulkProcessorOpen] = useState(false);
   const [isBatchTaggingMode, setIsBatchTaggingMode] = useState(false);
   const [selectedTranscriptIds, setSelectedTranscriptIds] = useState<string[]>([]);
+  const { processTranscript, processBatch, isProcessing, getProcessingStatus } = useTranscriptProcessor();
   const [isBatchTagEditorOpen, setIsBatchTagEditorOpen] = useState(false);
   const [autoDetectTags, setAutoDetectTags] = useState(false);
   const [showAddTranscript, setShowAddTranscript] = useState(true);
@@ -241,7 +244,7 @@ const TranscriptsPage: React.FC = () => {
       return;
     }
 
-    setIsProcessing(true);
+    setIsCreatingTranscript(true);
     try {
       const autoTags = (content && autoDetectTags) ? suggestTagsFromContent(content) : [];
       const finalTags = [...new Set([...selectedTags, ...autoTags])];
@@ -265,13 +268,33 @@ const TranscriptsPage: React.FC = () => {
       if (error) {
         console.error('Error creating transcript:', error);
         showError("Failed to create transcript", "There was an error creating the transcript. Please try again.");
-        setIsProcessing(false);
+        setIsCreatingTranscript(false);
         return;
       }
 
       if (data && data.length > 0) {
         const newTranscript = data[0];
         setTranscripts(prevTranscripts => [newTranscript, ...prevTranscripts]);
+        
+        // Trigger transcript processing via edge function
+        try {
+          const { data: processData, error: processError } = await supabase.functions.invoke('process-transcript', {
+            body: {
+              transcriptId: newTranscript.id,
+              forceProcess: false
+            }
+          });
+
+          if (processError) {
+            console.error('Error triggering transcript processing:', processError);
+            showWarning("Processing Warning", "Transcript created but processing could not be triggered. You can process it manually later.");
+          } else {
+            showSuccess("Transcript created and processing", `Successfully created the transcript${autoTags.length > 0 ? ` with ${autoTags.length} auto-detected tags` : ''}. Processing has been initiated.`);
+          }
+        } catch (error) {
+          console.error('Error invoking process-transcript function:', error);
+        }
+        
         setTitle('');
         setContent('');
         setSelectedFile(null);
@@ -282,7 +305,6 @@ const TranscriptsPage: React.FC = () => {
         if (fileInputRef.current) {
           fileInputRef.current.value = ''; // Reset the file input
         }
-        showSuccess("Transcript created", `Successfully created the transcript${autoTags.length > 0 ? ` with ${autoTags.length} auto-detected tags` : ''}.`);
         setShowAddTranscript(false);
       } else {
         showWarning("No transcript created", "No transcript was created.");
@@ -291,7 +313,7 @@ const TranscriptsPage: React.FC = () => {
       console.error('Error creating transcript:', error.message);
       showError("Failed to create transcript", "There was an error creating the transcript. Please try again.");
     } finally {
-      setIsProcessing(false);
+      setIsCreatingTranscript(false);
       setIsUploading(false);
     }
   };
@@ -389,24 +411,10 @@ const TranscriptsPage: React.FC = () => {
 
   return (
     <div className="min-h-screen flex flex-col">
-      {/* <Header /> */} // Removed duplicate header component
       <div className="container mx-auto py-6 flex-1">
         <div className="flex justify-between items-center mb-6">
           <h1 className="text-2xl font-bold">Transcripts</h1>
           <div className="flex items-center gap-2">
-            <Button 
-              variant="outline" 
-              size="sm" 
-              onClick={() => setShowFilters(!showFilters)}
-              className="flex items-center gap-1"
-            >
-              <Filter className="w-4 h-4" />
-              {tagFilters.length > 0 && (
-                <Badge variant="secondary" className="ml-1">{tagFilters.length}</Badge>
-              )}
-              <span className="hidden sm:inline">Filter</span>
-            </Button>
-            
             <Button
               variant="default"
               size="sm"
@@ -414,18 +422,60 @@ const TranscriptsPage: React.FC = () => {
               className="flex items-center gap-1"
             >
               <Plus className="w-4 h-4" />
-              <span className="hidden sm:inline">{showAddTranscript ? "Hide Form" : "Add"}</span>
+              <span className="hidden sm:inline">Add Transcript</span>
             </Button>
             
-            <Button 
-              variant="outline" 
-              size="sm" 
-              onClick={handleOpenBulkProcessor}
-              className="flex items-center gap-1"
-            >
-              <Sparkles className="w-4 h-4" />
-              <span className="hidden sm:inline">Bulk Process</span>
-            </Button>
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <Button variant="outline" size="sm" className="flex items-center gap-1">
+                  <Settings className="w-4 h-4" />
+                  <span className="hidden sm:inline">Bulk Actions</span>
+                </Button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="end" className="w-56">
+                <DropdownMenuItem onClick={handleOpenBulkProcessor}>
+                  <Sparkles className="w-4 h-4 mr-2" />
+                  Auto-categorize & Tag
+                </DropdownMenuItem>
+                <DropdownMenuItem onClick={async () => {
+                  const unprocessedCount = transcripts.filter(t => !t.is_processed).length;
+                  const transcriptsToProcess = unprocessedCount > 0 
+                    ? transcripts.filter(t => !t.is_processed) 
+                    : transcripts;
+                  
+                  const willProcess = transcriptsToProcess.length;
+                  
+                  if (willProcess === 0) {
+                    showWarning("No Transcripts", "No transcripts to process");
+                    return;
+                  }
+                  
+                  showSuccess("Bulk Processing", `Processing ${willProcess} transcript${willProcess !== 1 ? 's' : ''}...`);
+                  
+                  const result = await processBatch(
+                    transcriptsToProcess.map(t => t.id),
+                    { batchSize: 5, delay: 1000 }
+                  );
+                  
+                  // Refresh transcripts to show updated status
+                  setTimeout(() => fetchTranscripts(), 2000);
+                }}>
+                  <RefreshCw className="w-4 h-4 mr-2" />
+                  {transcripts.filter(t => !t.is_processed).length > 0 
+                    ? `Process Unprocessed (${transcripts.filter(t => !t.is_processed).length})`
+                    : 'Reprocess All'
+                  }
+                </DropdownMenuItem>
+                <DropdownMenuSeparator />
+                <DropdownMenuItem onClick={() => setShowFilters(!showFilters)}>
+                  <Filter className="w-4 h-4 mr-2" />
+                  {showFilters ? 'Hide Filters' : 'Show Filters'}
+                  {tagFilters.length > 0 && (
+                    <Badge variant="secondary" className="ml-auto">{tagFilters.length}</Badge>
+                  )}
+                </DropdownMenuItem>
+              </DropdownMenuContent>
+            </DropdownMenu>
             
             <Button
               variant="ghost"
@@ -438,6 +488,23 @@ const TranscriptsPage: React.FC = () => {
             </Button>
           </div>
         </div>
+        
+        {transcripts.length > 0 && (
+          <div className="mb-4 flex items-center gap-4 text-sm text-muted-foreground">
+            <div className="flex items-center gap-2">
+              <CheckCircle className="h-4 w-4 text-green-600" />
+              <span>{transcripts.filter(t => t.is_processed).length} processed</span>
+            </div>
+            <div className="flex items-center gap-2">
+              <AlertCircle className="h-4 w-4 text-orange-600" />
+              <span>{transcripts.filter(t => !t.is_processed).length} unprocessed</span>
+            </div>
+            <div className="flex items-center gap-2">
+              <FileText className="h-4 w-4" />
+              <span>{transcripts.length} total</span>
+            </div>
+          </div>
+        )}
         
         <div className="grid gap-6 mt-3">
           {showFilters && (
@@ -570,8 +637,8 @@ const TranscriptsPage: React.FC = () => {
                         />
                       </div>
 
-                      <Button onClick={handleSubmit} disabled={isProcessing}>
-                        {isProcessing ? (
+                      <Button onClick={handleSubmit} disabled={isCreatingTranscript}>
+                        {isCreatingTranscript ? (
                           <>
                             <Loader2 className="mr-2 h-4 w-4 animate-spin" />
                             Processing...
@@ -666,29 +733,28 @@ const TranscriptsPage: React.FC = () => {
                 </div>
               </div>
               
-              <div className="flex gap-2">
-                {filteredTranscripts.length > 0 && (
+              {selectedTranscriptIds.length > 0 && (
+                <div className="flex gap-2">
                   <Button
                     variant="outline"
                     size="sm"
                     onClick={toggleSelectAll}
                     className="flex items-center gap-1"
                   >
-                    {selectedTranscriptIds.length === filteredTranscripts.length ? 'Deselect All' : 'Select All'}
+                    {selectedTranscriptIds.length === filteredTranscripts.length ? 'Deselect' : 'Select All'}
                   </Button>
-                )}
-                
-                <Button
-                  variant={selectedTranscriptIds.length > 0 ? "default" : "outline"}
-                  size="sm"
-                  onClick={handleOpenBatchTagEditor}
-                  disabled={selectedTranscriptIds.length === 0}
-                  className="flex items-center gap-1"
-                >
-                  <TagIcon className="w-3 h-3 mr-1" />
-                  Edit Tags ({selectedTranscriptIds.length})
-                </Button>
-              </div>
+                  
+                  <Button
+                    variant="default"
+                    size="sm"
+                    onClick={handleOpenBatchTagEditor}
+                    className="flex items-center gap-1"
+                  >
+                    <TagIcon className="w-3 h-3 mr-1" />
+                    Tag Selected ({selectedTranscriptIds.length})
+                  </Button>
+                </div>
+              )}
             </CardHeader>
             
             <CardContent>
@@ -728,15 +794,86 @@ const TranscriptsPage: React.FC = () => {
                             </p>
                           </div>
                         </div>
-                        <Button 
-                          variant="ghost" 
-                          size="sm" 
-                          className="h-8 w-8 p-0" 
-                          onClick={() => handleOpenTranscriptEditor(transcript)}
-                        >
-                          <Edit className="h-4 w-4" />
-                          <span className="sr-only">Edit</span>
-                        </Button>
+                        <div className="flex items-center gap-2">
+                          <div className={`flex items-center gap-1 px-2 py-1 rounded-full text-xs font-medium ${
+                            getProcessingStatus(transcript.id) === 'processing'
+                              ? 'bg-blue-100 text-blue-700'
+                              : transcript.is_processed 
+                                ? 'bg-green-100 text-green-700' 
+                                : 'bg-orange-100 text-orange-700'
+                          }`}>
+                            {getProcessingStatus(transcript.id) === 'processing' ? (
+                              <>
+                                <Loader2 className="h-3 w-3 animate-spin" />
+                                Processing
+                              </>
+                            ) : transcript.is_processed ? (
+                              <>
+                                <CheckCircle className="h-3 w-3" />
+                                Processed
+                              </>
+                            ) : (
+                              <>
+                                <AlertCircle className="h-3 w-3" />
+                                Unprocessed
+                              </>
+                            )}
+                          </div>
+                          <DropdownMenu>
+                            <DropdownMenuTrigger asChild>
+                              <Button variant="ghost" size="sm" className="h-8 w-8 p-0">
+                                <MoreVertical className="h-4 w-4" />
+                                <span className="sr-only">Actions</span>
+                              </Button>
+                            </DropdownMenuTrigger>
+                            <DropdownMenuContent align="end">
+                              <DropdownMenuItem onClick={() => handleOpenTranscriptEditor(transcript)}>
+                                <Edit className="h-4 w-4 mr-2" />
+                                Edit
+                              </DropdownMenuItem>
+                              <DropdownMenuItem 
+                                onClick={async () => {
+                                  showSuccess("Processing", "Initiating transcript processing...");
+                                  const result = await processTranscript(transcript.id, true);
+                                  
+                                  if (result.success) {
+                                    setTranscripts(prev => prev.map(t => 
+                                      t.id === transcript.id ? { ...t, is_processed: true } : t
+                                    ));
+                                  }
+                                }}
+                                disabled={getProcessingStatus(transcript.id) === 'processing'}
+                              >
+                                <RefreshCw className="h-4 w-4 mr-2" />
+                                {transcript.is_processed ? 'Reprocess' : 'Process'}
+                              </DropdownMenuItem>
+                              <DropdownMenuSeparator />
+                              <DropdownMenuItem 
+                                className="text-red-600"
+                                onClick={async () => {
+                                  if (confirm(`Are you sure you want to delete "${transcript.title}"?`)) {
+                                    try {
+                                      const { error } = await supabase
+                                        .from('transcripts')
+                                        .delete()
+                                        .eq('id', transcript.id);
+                                      
+                                      if (error) throw error;
+                                      
+                                      showSuccess("Deleted", "Transcript deleted successfully");
+                                      setTranscripts(prev => prev.filter(t => t.id !== transcript.id));
+                                    } catch (error) {
+                                      console.error("Delete error:", error);
+                                      showError("Error", "Failed to delete transcript");
+                                    }
+                                  }
+                                }}
+                              >
+                                Delete
+                              </DropdownMenuItem>
+                            </DropdownMenuContent>
+                          </DropdownMenu>
+                        </div>
                       </div>
                       
                       {transcript.tags && transcript.tags.length > 0 && (
