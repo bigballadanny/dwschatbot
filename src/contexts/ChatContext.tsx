@@ -246,7 +246,7 @@ export const ChatProvider: React.FC<ChatProviderProps> = ({
       try {
         const apiMessages = formatMessagesForApi(trimmedMessage);
 
-        const { data, error } = await supabase.functions.invoke('gemini-chat', {
+        const { data, error } = await supabase.functions.invoke('ai-chat', {
           body: {
             query: trimmedMessage,
             messages: apiMessages,

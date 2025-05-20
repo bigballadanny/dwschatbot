@@ -28,7 +28,7 @@ export function useServiceAccountCheck() {
     
     try {
       // Fix: Remove the path property and use the correct syntax for the health endpoint
-      const { data, error } = await supabase.functions.invoke('gemini-chat/health', {
+      const { data, error } = await supabase.functions.invoke('ai-chat/health', {
         method: 'GET'
       });
       
