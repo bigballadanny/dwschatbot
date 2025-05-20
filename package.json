@@ -3,6 +3,7 @@
   "private": true,
   "version": "0.0.0",
   "type": "module",
+  "// Security note": "There are vulnerabilities in undici that need to be addressed. Run npm audit for details. Fix by upgrading firebase and related packages.",
   "scripts": {
     "dev": "vite",
     "build": "vite build",
