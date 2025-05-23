@@ -9,7 +9,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { useToast } from "@/components/ui/use-toast";
 import { supabase } from "@/integrations/supabase/client";
-import { useAuth } from "@/context/AuthContext";
+import { useAuth } from "@/contexts/auth/AuthContext";
 import { AuthError } from "@supabase/supabase-js";
 import { Loader2 } from "lucide-react";
 import { WavyBackground } from "@/components/ui/wavy-background";

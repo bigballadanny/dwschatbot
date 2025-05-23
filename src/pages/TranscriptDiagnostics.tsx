@@ -12,7 +12,7 @@ import IssuesSummary from '@/components/diagnostics/IssuesSummary';
 import EmptyContentTranscripts from '@/components/diagnostics/EmptyContentTranscripts';
 import { TranscriptDetailsView } from "@/components/diagnostics/TranscriptDetailsView";
 import { supabase } from "@/integrations/supabase/client";
-import { useAdmin } from "@/context/AdminContext";
+import { useAdmin } from "@/contexts/admin";
 import { checkEnvironmentStatus } from '@/utils/diagnostics/environmentCheck';
 import { Button } from "@/components/ui/button";
 import { useToast } from "@/components/ui/use-toast";
