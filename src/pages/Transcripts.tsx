@@ -11,16 +11,16 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Progress } from "@/components/ui/progress";
 import { Textarea } from "@/components/ui/textarea";
-import { FileText, Tag, Upload, X, RefreshCw, Search, Filter, AlertTriangle, Trash2, Info, BarChart, Sparkles, CheckCircle, HelpCircle, Clock } from "lucide-react";
+import { FileText, Tag, Upload, X, RefreshCw, Search, Filter, AlertTriangle, Trash2, Info, BarChart, Sparkles, CheckCircle, HelpCircle, Clock, Loader2 } from "lucide-react";
 import TranscriptStatusIndicator, { TranscriptStatus } from "@/components/TranscriptStatusIndicator";
 import TranscriptDetailProgress from "@/components/TranscriptDetailProgress";
 import TagFilter from "@/components/TagFilter";
 import BulkTranscriptManager from "@/components/BulkTranscriptManager";
 import { supabase } from "@/integrations/supabase/client";
-import { useAuth } from '@/context/AuthContext';
-import { useAdmin } from '@/context/AdminContext';
+import { useAuth } from '@/contexts/auth/AuthContext';
+import { useAdmin } from '@/contexts/admin/AdminContext';
 import { showSuccess, showError, showWarning } from "@/utils/toastUtils";
-import { useTranscriptSummaries } from "@/hooks/useTranscriptSummaries";
+import { useTranscriptSummaries } from "@/hooks/transcripts/useTranscriptSummaries";
 import { getTranscriptCounts, getSourceCategories, formatTagForDisplay, suggestTagsFromContent, Transcript as TranscriptType } from "@/utils/transcriptUtils";
 import TranscriptUploader from "@/components/TranscriptUploader";
 import { Alert, AlertDescription } from "@/components/ui/alert";
@@ -87,6 +87,13 @@ const TranscriptsPage = () => {
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
   const [transcriptToDelete, setTranscriptToDelete] = useState<Transcript | null>(null);
   const [isDeleting, setIsDeleting] = useState(false);
+  const [isReprocessingAll, setIsReprocessingAll] = useState(false);
+  const [reprocessingProgress, setReprocessingProgress] = useState({
+    total: 0,
+    completed: 0,
+    failed: 0,
+    inProgress: false
+  });
   const {
     progress,
     batchSummarizeTranscripts,
@@ -497,6 +504,81 @@ const TranscriptsPage = () => {
     }
   };
 
+  // Function to reprocess all unprocessed transcripts
+  const reprocessAllTranscripts = async () => {
+    // Get all unprocessed transcripts
+    const unprocessedTranscripts = transcripts.filter(t => !t.is_processed);
+    
+    if (unprocessedTranscripts.length === 0) {
+      showWarning("No unprocessed transcripts", "All transcripts have already been processed");
+      return;
+    }
+
+    setIsReprocessingAll(true);
+    setReprocessingProgress({
+      total: unprocessedTranscripts.length,
+      completed: 0,
+      failed: 0,
+      inProgress: true
+    });
+
+    const { reprocessTranscript } = await import('@/utils/diagnostics/reprocessTranscripts');
+    
+    let successCount = 0;
+    let failCount = 0;
+
+    // Process transcripts one by one to avoid overwhelming the server
+    for (const transcript of unprocessedTranscripts) {
+      try {
+        const result = await reprocessTranscript(transcript.id);
+        
+        if (result) {
+          successCount++;
+          setReprocessingProgress(prev => ({
+            ...prev,
+            completed: prev.completed + 1
+          }));
+        } else {
+          failCount++;
+          setReprocessingProgress(prev => ({
+            ...prev,
+            failed: prev.failed + 1
+          }));
+        }
+      } catch (error) {
+        console.error(`Error reprocessing transcript ${transcript.id}:`, error);
+        failCount++;
+        setReprocessingProgress(prev => ({
+          ...prev,
+          failed: prev.failed + 1
+        }));
+      }
+
+      // Add a small delay between requests
+      await new Promise(resolve => setTimeout(resolve, 1000));
+    }
+
+    setIsReprocessingAll(false);
+    setReprocessingProgress(prev => ({
+      ...prev,
+      inProgress: false
+    }));
+
+    // Show completion message
+    if (successCount > 0) {
+      showSuccess(
+        "Reprocessing complete", 
+        `Successfully processed ${successCount} transcripts` + 
+        (failCount > 0 ? ` (${failCount} failed)` : '')
+      );
+    } else {
+      showError("Reprocessing failed", "Failed to process any transcripts");
+    }
+
+    // Refresh the transcript list
+    await refreshTranscripts();
+  };
+
   const getTranscriptStatus = (transcript: Transcript): TranscriptStatus => {
     // Check for empty content
     if (!transcript.content || transcript.content.trim() === '') {
@@ -641,6 +723,64 @@ const TranscriptsPage = () => {
           </div>
         </div>
       </div>
+
+      {/* Reprocessing Progress Bar */}
+      {reprocessingProgress.inProgress && (
+        <Card className="mb-6">
+          <CardContent className="pt-6">
+            <div className="space-y-2">
+              <div className="flex justify-between items-center">
+                <h3 className="font-medium">Reprocessing Transcripts</h3>
+                <span className="text-sm text-muted-foreground">
+                  {reprocessingProgress.completed + reprocessingProgress.failed} / {reprocessingProgress.total}
+                </span>
+              </div>
+              <Progress 
+                value={(reprocessingProgress.completed + reprocessingProgress.failed) / reprocessingProgress.total * 100} 
+              />
+              <div className="flex justify-between text-sm">
+                <span className="text-green-600">
+                  {reprocessingProgress.completed} completed
+                </span>
+                {reprocessingProgress.failed > 0 && (
+                  <span className="text-red-600">
+                    {reprocessingProgress.failed} failed
+                  </span>
+                )}
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+      )}
+
+      {/* Reprocess All Button for unprocessed transcripts */}
+      {transcripts.filter(t => !t.is_processed).length > 0 && (
+        <Alert className="mb-6">
+          <AlertTriangle className="h-4 w-4" />
+          <AlertDescription className="flex items-center justify-between">
+            <span>
+              You have {transcripts.filter(t => !t.is_processed).length} unprocessed transcripts.
+            </span>
+            <Button 
+              size="sm" 
+              onClick={reprocessAllTranscripts}
+              disabled={isReprocessingAll}
+            >
+              {isReprocessingAll ? (
+                <>
+                  <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                  Processing...
+                </>
+              ) : (
+                <>
+                  <RefreshCw className="h-4 w-4 mr-2" />
+                  Reprocess All Transcripts
+                </>
+              )}
+            </Button>
+          </AlertDescription>
+        </Alert>
+      )}
 
       <Tabs defaultValue="all" value={activeTab} onValueChange={setActiveTab}>
         <TabsList className="mb-4">

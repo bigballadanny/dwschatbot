@@ -296,7 +296,7 @@ serve(async (req: Request) => {
     console.log("Request validation passed.");
 
     // 4. Prepare Messages for AI
-    const { messages: clientMessages = [], enableOnlineSearch = false } = requestData;
+    const { messages: clientMessages = [], enableOnlineSearch = false, query } = requestData;
     let preparedMessages: ChatMessage[] = clientMessages;
 
     // Add system prompts
@@ -316,6 +316,52 @@ serve(async (req: Request) => {
     // Ensure conversation alternates user/model roles if needed
     if (normalizedClientMessages.length > 0 && normalizedClientMessages[normalizedClientMessages.length - 1].role !== 'user') {
         console.warn("Last message in history is not 'user'. Vertex might require user/model alternation. Consider adjusting client-side logic.");
+    }
+
+    // 4a. Search for relevant chunks from transcripts
+    let relevantContext = "";
+    let chunkSources: string[] = [];
+    
+    if (query && supabaseAdmin) {
+      try {
+        console.log(`Searching for relevant chunks for query: "${query}"`);
+        
+        const { data: chunks, error: searchError } = await supabaseAdmin
+          .rpc('search_chunks', {
+            query_text: query,
+            match_count: 5
+          });
+        
+        if (searchError) {
+          console.error("Error searching chunks:", searchError);
+        } else if (chunks && chunks.length > 0) {
+          console.log(`Found ${chunks.length} relevant chunks`);
+          
+          // Build context from chunks
+          relevantContext = chunks
+            .map((chunk: any) => chunk.content)
+            .join('\n\n---\n\n');
+          
+          // Track sources
+          const uniqueTranscriptIds = [...new Set(chunks.map((c: any) => c.transcript_id))];
+          chunkSources = uniqueTranscriptIds as string[];
+          
+          // Add RAG context to system prompts
+          preparedMessages.push({
+            role: 'system',
+            parts: [{
+              text: `Here is relevant context from M&A transcripts that may help answer the user's question:\n\n${relevantContext}\n\nUse this information to provide a more accurate and detailed response. Always cite the specific transcript when using information from it.`
+            }]
+          });
+          
+          console.log(`Added RAG context from ${uniqueTranscriptIds.length} transcripts`);
+        } else {
+          console.log("No relevant chunks found for query");
+        }
+      } catch (ragError) {
+        console.error("Error in RAG search:", ragError);
+        // Continue without RAG context
+      }
     }
 
     // Combine system prompts and normalized client messages
@@ -465,6 +511,12 @@ serve(async (req: Request) => {
         analyticsData.source_type = "transcript";
         analyticsData.transcript_title = citation[0] || null;
         console.log("Found citations in AI response:", citation);
+    } else if (chunkSources.length > 0) {
+        // Use transcript IDs from RAG search as citations
+        citation = chunkSources;
+        analyticsData.source_type = "transcript";
+        analyticsData.transcript_title = `${chunkSources.length} transcripts`;
+        console.log("Using transcript sources from RAG search:", citation);
     } else {
         analyticsData.source_type = enableOnlineSearch ? "online_search" : "gemini";
     }
