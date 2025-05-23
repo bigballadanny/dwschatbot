@@ -18,6 +18,9 @@ Ensure these are set in Lovable:
 - [ ] `VITE_SUPABASE_URL`
 - [ ] `VITE_SUPABASE_ANON_KEY`
 
+In Supabase Dashboard (Settings > Edge Functions > Secrets):
+- [ ] `GEMINI_API_KEY` - Your Google AI Studio API key
+
 ## Deployment Steps
 
 ### 1. Push to GitHub
@@ -42,9 +45,11 @@ supabase db push
 ### 4. Edge Functions
 If edge functions were modified:
 ```bash
-supabase functions deploy process-transcript
 supabase functions deploy ai-chat
+supabase functions deploy process-transcript
 ```
+
+**Note**: The ai-chat function now uses direct Gemini API integration (no n8n dependencies)
 
 ## Post-Deployment Verification
 

@@ -9,7 +9,9 @@
     "build": "vite build",
     "build:dev": "vite build --mode development",
     "lint": "eslint .",
-    "preview": "vite preview"
+    "preview": "vite preview",
+    "deploy:functions": "supabase functions deploy ai-chat && supabase functions deploy process-transcript",
+    "deploy:db": "supabase db push"
   },
   "dependencies": {
     "@hookform/resolvers": "^3.10.0",
