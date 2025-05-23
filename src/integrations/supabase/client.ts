@@ -21,34 +21,5 @@ export const supabase = createClient<Database>(
   }
 );
 
-// Initialize the storage bucket for transcripts if it doesn't exist
-(async () => {
-  if (typeof window !== 'undefined') {
-    try {
-      const { data: buckets, error } = await supabase.storage.listBuckets();
-      
-      if (error) {
-        console.error('Error fetching storage buckets:', error);
-        return;
-      }
-      
-      const transcriptsBucketExists = buckets?.find(bucket => bucket.name === 'transcripts');
-      
-      if (!transcriptsBucketExists) {
-        console.log('Creating transcripts storage bucket');
-        const { error: createError } = await supabase.storage.createBucket('transcripts', {
-          public: true,
-          fileSizeLimit: 10485760, // 10MB
-        });
-        
-        if (createError) {
-          console.error('Error creating transcripts bucket:', createError);
-        } else {
-          console.log('Transcripts bucket created successfully');
-        }
-      }
-    } catch (error) {
-      console.error('Error initializing storage bucket:', error);
-    }
-  }
-})();
+// Note: Storage bucket creation should be done in Supabase dashboard
+// The 'transcripts' bucket needs to be created manually with proper RLS policies
