@@ -6,7 +6,7 @@ import { useAuth } from "@/context/AuthContext";
 import { ArrowRight, MessageSquare, Building, DollarSign, Search, FileText, Bot } from "lucide-react";
 import { Card, CardContent } from "@/components/ui/card";
 import { motion } from 'framer-motion';
-import { useIsMobile } from '@/hooks/use-mobile';
+import { useIsMobile } from '@/hooks/ui/use-mobile';
 
 export interface WelcomeScreenProps {
   onStartChat: () => void;

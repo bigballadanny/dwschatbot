@@ -18,7 +18,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Separator } from '@/components/ui/separator';
 import { InfoIcon, ChevronRight, ChevronDown } from 'lucide-react';
 import { useToast } from '@/components/ui/use-toast';
-import { TranscriptChunk } from '@/hooks/useTranscriptDetails';
+import { TranscriptChunk } from '@/hooks/transcripts/useTranscriptDetails';
 
 interface TranscriptChunksProps {
   transcriptId: string;

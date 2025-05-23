@@ -1,77 +1,91 @@
 # DWS AI Chatbot - BETA
 
-A React-based chatbot application with n8n workflows for chat processing and transcript ingestion.
+A React-based chatbot application with AI-powered conversations and document processing capabilities.
 
 ## Features
 
-- **Chat Interface**: Modern, responsive chat UI built with React and Shadcn UI
-- **Transcript Processing**: Upload and process transcripts with automated chunking
+- **Modern Chat Interface**: Responsive UI built with React and Shadcn UI
+- **Document Processing**: Upload and process transcripts with automated chunking
 - **Vector Search**: Leverages Supabase PGVector for efficient semantic search
 - **Audio Support**: Text-to-speech and speech-to-text capabilities
-- **n8n Workflows**: Flexible workflow automation for processing chat and transcripts
+- **AI Integration**: Powered by Vertex AI (Gemini) with optional OpenAI support
 
-## Key Components
+## Technology Stack
 
-- **React Frontend**: Modern UI built with TypeScript and Shadcn UI
-- **Supabase Backend**: Database, storage, and edge functions
-- **n8n Workflows**: Automated workflows for chat and transcript processing
-- **PGVector**: Vector database for semantic search
+- **Frontend**: React 18, TypeScript, Vite, Shadcn UI, Tailwind CSS
+- **Backend**: Supabase (PostgreSQL + PGVector, Edge Functions)
+- **AI Services**: Vertex AI (Gemini), OpenAI APIs
+- **State Management**: React Query, Context API
 
-## Getting Started
+## Quick Start
 
-1. **Configure Environment Variables**:
-   ```
-   SUPABASE_URL=your-supabase-url
-   SUPABASE_KEY=your-supabase-key
-   N8N_CHAT_WEBHOOK=your-n8n-webhook-url
-   N8N_TRANSCRIPT_WEBHOOK=your-n8n-webhook-url
-   ```
-
-2. **Install Dependencies**:
+1. **Environment Setup**:
    ```bash
    npm install
+   cp .env.example .env.local
+   # Configure your environment variables
    ```
 
-3. **Start Development Server**:
+2. **Development**:
    ```bash
    npm run dev
    ```
 
-4. **Set Up n8n**:
-   - Install n8n: `npm install n8n -g`
-   - Configure workflows as described in [N8N_WORKFLOWS.md](N8N_WORKFLOWS.md)
+3. **Build**:
+   ```bash
+   npm run build
+   ```
 
-## Architecture
+## Documentation
 
-The application follows a clean, modular architecture:
+Comprehensive documentation is available in the `/docs` directory:
 
-1. **Frontend** (React + TypeScript):
-   - Components for chat, transcript management, and diagnostics
-   - Hooks for state management and API communication
-
-2. **Backend** (Supabase):
-   - Edge functions for processing requests
-   - PGVector for semantic search
-   - Storage for transcript files
-   - Realtime subscriptions for updates
-
-3. **Workflows** (n8n):
-   - Chat processing workflow
-   - Transcript ingestion workflow
-   - Connected to Supabase via webhooks
-
-See [UPDATED_ARCHITECTURE.md](UPDATED_ARCHITECTURE.md) for detailed architecture information.
+- [Environment Setup](./docs/setup/ENVIRONMENT.md) - Development environment configuration
+- [System Architecture](./docs/development/ARCHITECTURE.md) - Technical architecture overview
+- [Contributing Guidelines](./docs/development/CONTRIBUTING.md) - Development standards and workflow
+- [Supabase Setup](./docs/setup/SUPABASE_SETUP.md) - Backend configuration
+- [Pydantic Integration](./docs/integration/PYDANTIC_GUIDE.md) - Data validation patterns
+- [LangChain Integration](./docs/integration/LANGCHAIN_GUIDE.md) - Enhanced RAG capabilities
 
 ## Project Structure
 
-- `/src`: React frontend code
-- `/supabase`: Supabase configuration and edge functions
-- `/docs`: Documentation
-- `/n8n`: n8n workflow definitions
+```
+├── src/                 # React application source
+├── supabase/           # Backend functions and configuration
+├── docs/               # Documentation
+├── CLAUDE.md           # Claude Code integration instructions
+└── CHANGELOG.md        # Version history
+```
 
-## Contributing
+## Key Capabilities
 
-See [TASKS.md](TASKS.md) for current tasks and priorities.
+### Chat System
+- Multi-turn conversations with context retention
+- Vector-based document retrieval (RAG)
+- Voice input and output support
+- Citation tracking for AI responses
+
+### Document Management
+- File upload and processing
+- Intelligent text chunking
+- Vector embedding generation
+- Searchable document index
+
+### Advanced Features
+- Role-based access control
+- Conversation history
+- Real-time updates
+- Performance monitoring
+
+## Development
+
+This project uses modern development practices:
+- TypeScript for type safety
+- ESLint for code quality
+- React Query for data fetching
+- Shadcn UI for consistent components
+
+For detailed development information, see [Contributing Guidelines](./docs/development/CONTRIBUTING.md).
 
 ## License
 

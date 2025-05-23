@@ -4,9 +4,9 @@ import { Input } from "@/components/ui/input"
 import { cn } from "@/lib/utils"
 import { Send, Loader2, Paperclip, Mic, MicOff, Lightbulb, Globe2 } from "lucide-react"
 import SearchModeToggle from '@/components/SearchModeToggle'
-import { useAudio } from '@/contexts/AudioContext'
+import { useAudio } from '@/contexts/audio'
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip"
-import { useIsMobile } from '@/hooks/use-mobile'
+import { useIsMobile } from '@/hooks/ui/use-mobile'
 import { motion, AnimatePresence } from "framer-motion"
 
 export interface AIInputWithSearchProps

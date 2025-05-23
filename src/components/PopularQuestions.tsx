@@ -7,8 +7,8 @@ import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 import { MessageSquare, TrendingUp, Sparkles } from "lucide-react";
 import { motion } from 'framer-motion';
-import { useIsMobile } from '@/hooks/use-mobile';
-import { useAuth } from '@/context/AuthContext';
+import { useIsMobile } from '@/hooks/ui/use-mobile';
+import { useAuth } from '@/contexts/auth/AuthContext';
 
 interface PopularQuestionsProps {
   onSelectQuestion: (question: string) => void;

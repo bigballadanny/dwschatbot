@@ -3,7 +3,7 @@
  * Utility functions for showing toast notifications
  */
 import { useToast } from "@/components/ui/use-toast";
-import { toast as toastFn } from "@/hooks/use-toast";
+import { toast as toastFn } from "@/hooks/ui/use-toast";
 
 // Success toast
 export function showSuccess(title: string, message?: string) {

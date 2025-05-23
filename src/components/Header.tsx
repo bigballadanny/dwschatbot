@@ -3,8 +3,8 @@ import React from 'react';
 import { Link } from 'react-router-dom';
 import { Button } from "@/components/ui/button";
 import { Headphones } from 'lucide-react';
-import { useAuth } from '@/context/AuthContext';
-import { useAdmin } from '@/context/AdminContext';
+import { useAuth } from '@/contexts/auth/AuthContext';
+import { useAdmin } from '@/contexts/admin/AdminContext';
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import {

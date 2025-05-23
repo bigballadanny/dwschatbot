@@ -40,7 +40,38 @@ Deno.serve(async (req) => {
     console.log(`[WEBHOOK] Received event: ${type} for transcript ID ${record?.id || 'unknown'}`);
     console.log(`[WEBHOOK] Full record data:`, JSON.stringify(record, null, 2));
     
-    // Only process INSERT events and forced processing
+    // Handle n8n processing completion
+    if (type === 'N8N_PROCESSING_COMPLETE') {
+      console.log(`[WEBHOOK] Received n8n processing completion for transcript ${record.id}`);
+      
+      // Update the transcript with processed data
+      const { error: updateError } = await supabaseAdmin
+        .from('transcripts')
+        .update({
+          is_processed: true,
+          metadata: {
+            ...record.metadata,
+            webhook_processed_at: new Date().toISOString()
+          }
+        })
+        .eq('id', record.id);
+      
+      if (updateError) {
+        console.error('[WEBHOOK] Error updating transcript after n8n processing:', updateError);
+        return new Response(JSON.stringify({ error: updateError.message }), { 
+          status: 500,
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+        });
+      }
+      
+      console.log(`[WEBHOOK] Successfully updated transcript ${record.id} after n8n processing`);
+      return new Response(JSON.stringify({ success: true, message: 'n8n processing completed' }), { 
+        status: 200,
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+      });
+    }
+    
+    // Only process INSERT events and forced processing for initial processing
     if (type !== 'INSERT' && type !== 'FORCE_PROCESSING') {
       console.log(`[WEBHOOK] Ignoring non-processing event: ${type}`);
       return new Response('Not a processing event, ignoring', { 

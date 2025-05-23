@@ -4,7 +4,7 @@ import { Button } from "@/components/ui/button";
 import { Headphones, Copy, Check, Volume2, VolumeX } from 'lucide-react';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { supabase } from '@/integrations/supabase/client';
-import { useToast } from "@/hooks/use-toast";
+import { useToast } from "@/hooks/ui/use-toast";
 import AudioPlayer from '@/components/AudioPlayer';
 
 interface MessageControlsProps {

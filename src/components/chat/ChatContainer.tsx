@@ -8,10 +8,10 @@ import MobileFriendlyChatInputBar, { ContextMobileFriendlyChatInputBar } from '.
 import { Alert, AlertTitle, AlertDescription } from '@/components/ui/alert';
 import { AlertCircle, RefreshCw } from 'lucide-react';
 import { Button } from '@/components/ui/button';
-import { useChat } from '@/contexts/ChatContext';
-import { useAudio } from '@/contexts/AudioContext';
+import { useChat } from '@/contexts/chat';
+import { useAudio } from '@/contexts/audio';
 import ErrorBoundary from '@/components/ErrorBoundary';
-import { useIsMobile } from '@/hooks/use-mobile';
+import { useIsMobile } from '@/hooks/ui/use-mobile';
 import { cn } from '@/lib/utils';
 
 interface ChatContainerProps {

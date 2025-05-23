@@ -1,13 +1,13 @@
 import React, { createContext, useContext, useState, useCallback, ReactNode, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { supabase } from '@/integrations/supabase/client';
-import { useMessages } from '@/hooks/useMessages';
-import { useMessageCreation } from '@/hooks/useMessageCreation';
-import { useMessageApi } from '@/hooks/useMessageApi';
-import { useSearchConfig } from '@/hooks/useSearchConfig';
+import { useMessages } from '@/hooks/chat/useMessages';
+import { useMessageCreation } from '@/hooks/chat/useMessageCreation';
+import { useMessageApi } from '@/hooks/chat/useMessageApi';
+import { useSearchConfig } from '@/hooks/ui/useSearchConfig';
 import { MessageData } from '@/utils/messageUtils';
 import { useToast } from '@/components/ui/use-toast';
-import { useAudio } from '@/contexts/AudioContext';
+import { useAudio } from '@/contexts/audio';
 import offlineQueue from '@/utils/offlineQueue';
 
 // Define context type

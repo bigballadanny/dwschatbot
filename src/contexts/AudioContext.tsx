@@ -1,5 +1,5 @@
 import React, { createContext, useContext, ReactNode } from 'react';
-import { useAudioManager, AudioManagerOptions } from '@/hooks/useAudioManager';
+import { useAudioManager, AudioManagerOptions } from '@/hooks/audio/useAudioManager';
 
 // Define the context type
 interface AudioContextType {

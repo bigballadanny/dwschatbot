@@ -6,7 +6,7 @@ import { AIInputWithSearch } from "@/components/ui/ai-input-with-search";
 import { showInfo, showError } from "@/utils/toastUtils";
 import { useThrottle } from '@/utils/performanceUtils';
 import MessageList from './message/MessageList';
-import { useIsMobile } from '@/hooks/use-mobile';
+import { useIsMobile } from '@/hooks/ui/use-mobile';
 import { motion, AnimatePresence } from 'framer-motion';
 import { ChevronDownCircle, Info } from 'lucide-react';
 import { Button } from '@/components/ui/button';

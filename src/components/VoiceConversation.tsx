@@ -6,7 +6,7 @@ import MessageItem from '@/components/MessageItem';
 import { cn } from "@/lib/utils";
 import { useToast } from "@/components/ui/use-toast";
 import { Alert, AlertDescription } from "@/components/ui/alert";
-import { useAudio } from '@/contexts/AudioContext';
+import { useAudio } from '@/contexts/audio';
 import VoiceInput from './VoiceInput';
 
 interface VoiceConversationProps {

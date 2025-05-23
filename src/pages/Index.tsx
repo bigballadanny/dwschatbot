@@ -6,14 +6,14 @@ import WelcomeScreen from '@/components/WelcomeScreen';
 import PopularQuestions from '@/components/PopularQuestions';
 import { SidebarInset } from "@/components/ui/sidebar";
 import { useToast } from "@/components/ui/use-toast";
-import { useAuth } from '@/context/AuthContext';
+import { useAuth } from '@/contexts/auth/AuthContext';
 import ChatContainer, { ContextChatContainer } from '@/components/chat/ChatContainer';
-import { useChat } from '@/contexts/ChatContext';
-import { useAudio } from '@/contexts/AudioContext';
+import { useChat } from '@/contexts/chat';
+import { useAudio } from '@/contexts/audio';
 import { Button } from '@/components/ui/button';
 import { ArrowLeft, PlusCircle, InfoIcon } from 'lucide-react';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
-import { useIsMobile } from '@/hooks/use-mobile';
+import { useIsMobile } from '@/hooks/ui/use-mobile';
 
 const Index = () => {
   const { user, isAuthenticated } = useAuth();

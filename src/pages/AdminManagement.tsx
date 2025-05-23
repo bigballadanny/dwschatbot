@@ -10,7 +10,7 @@ import { Badge } from '@/components/ui/badge';
 import { ShieldAlert, UserPlus, RefreshCw, AlertCircle } from 'lucide-react';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { useToast } from '@/components/ui/use-toast';
-import { useAuth } from '@/context/AuthContext';
+import { useAuth } from '@/contexts/auth/AuthContext';
 
 interface User {
   id: string;

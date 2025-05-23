@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { useAuth } from '@/context/AuthContext';
+import { useAuth } from '@/contexts/auth/AuthContext';
 import { supabase } from '@/integrations/supabase/client';
 import FileUploader from '@/components/FileUploader';
 import { ScrollArea } from "@/components/ui/scroll-area";

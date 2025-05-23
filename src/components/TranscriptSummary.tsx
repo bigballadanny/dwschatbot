@@ -4,7 +4,7 @@ import { supabase } from '@/integrations/supabase/client'; // Import the global 
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
-import { toast } from "@/hooks/use-toast";
+import { toast } from "@/hooks/ui/use-toast";
 import { Sparkles, AlertCircle, CheckCircle2, RefreshCw } from 'lucide-react';
 import { SummaryContent } from './summary/SummaryContent';
 import { KeyPointsList } from './summary/KeyPointsList';

@@ -2,7 +2,7 @@ import React, { useEffect } from 'react';
 import { Button } from "@/components/ui/button";
 import { Mic, MicOff, Loader2 } from "lucide-react";
 import { cn } from "@/lib/utils";
-import { useAudio } from '@/contexts/AudioContext';
+import { useAudio } from '@/contexts/audio';
 import { toast } from '@/components/ui/use-toast';
 
 interface VoiceInputProps {

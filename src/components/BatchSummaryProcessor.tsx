@@ -6,7 +6,7 @@ import { Badge } from "@/components/ui/badge";
 import { Progress } from "@/components/ui/progress";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { supabase } from '@/integrations/supabase/client';
-import { useTranscriptSummaries } from '@/hooks/useTranscriptSummaries';
+import { useTranscriptSummaries } from '@/hooks/transcripts/useTranscriptSummaries';
 import { Loader2, CheckCircle, AlertCircle, Search, X } from 'lucide-react';
 
 interface Transcript {

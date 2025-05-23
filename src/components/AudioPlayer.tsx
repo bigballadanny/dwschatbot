@@ -3,7 +3,7 @@ import { Button } from "@/components/ui/button";
 import { Slider } from "@/components/ui/slider";
 import { Pause, Play, Volume2, VolumeX } from "lucide-react";
 import { cn } from "@/lib/utils";
-import { useAudio } from '@/contexts/AudioContext';
+import { useAudio } from '@/contexts/audio';
 
 interface AudioPlayerProps {
   className?: string;

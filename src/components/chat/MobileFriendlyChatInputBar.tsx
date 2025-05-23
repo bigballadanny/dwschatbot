@@ -4,10 +4,10 @@ import UnifiedInputBar from '@/components/UnifiedInputBar';
 import SearchModeToggle from '@/components/SearchModeToggle';
 import AudioPlayer from '@/components/AudioPlayer';
 import { motion, AnimatePresence } from 'framer-motion';
-import { useChat } from '@/contexts/ChatContext';
-import { useAudio } from '@/contexts/AudioContext';
-import { useAuth } from '@/context/AuthContext';
-import { useIsMobile } from '@/hooks/use-mobile';
+import { useChat } from '@/contexts/chat';
+import { useAudio } from '@/contexts/audio';
+import { useAuth } from '@/contexts/auth/AuthContext';
+import { useIsMobile } from '@/hooks/ui/use-mobile';
 
 interface ChatInputBarProps {
   onSendMessage: (message: string, isVoice: boolean) => Promise<void>;

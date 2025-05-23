@@ -17,7 +17,7 @@ import { TranscriptChunks } from './TranscriptChunks';
 import { reprocessTranscript } from '@/utils/diagnostics/reprocessTranscripts';
 import { useToast } from '@/components/ui/use-toast';
 import { Loader2 } from 'lucide-react';
-import { useTranscriptDetails } from '@/hooks/useTranscriptDetails';
+import { useTranscriptDetails } from '@/hooks/transcripts/useTranscriptDetails';
 
 interface TranscriptDetailsViewProps {
   transcript?: any;
