@@ -1,0 +1,20 @@
+{
+  "mcpServers": {
+    "supabase": {
+      "type": "stdio",
+      "command": "claude-mcp-proxy",
+      "args": ["http://localhost:3005/supabase"]
+    },
+    "context7": {
+      "type": "stdio",
+      "command": "claude-mcp-proxy",
+      "args": ["http://localhost:3005/context7"]
+    },
+    "browsermcp": {
+      "type": "stdio",
+      "command": "claude-mcp-proxy",
+      "args": ["http://localhost:3005/browsermcp"]
+    }
+  },
+  "enableAllProjectMcpServers": true
+}

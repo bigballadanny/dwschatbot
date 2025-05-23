@@ -1,0 +1,28 @@
+{
+  "version": 1,
+  "protocols": [
+    {
+      "name": "chatbot-api",
+      "description": "Protocol for chatbot API interactions",
+      "schema": {
+        "type": "object",
+        "properties": {
+          "action": {
+            "type": "string",
+            "enum": ["send_message", "get_history", "clear_history"],
+            "description": "The action to perform with the chatbot API"
+          },
+          "message": {
+            "type": "string",
+            "description": "Message content for send_message action"
+          },
+          "user_id": {
+            "type": "string",
+            "description": "User identifier for the conversation"
+          }
+        },
+        "required": ["action", "user_id"]
+      }
+    }
+  ]
+}
