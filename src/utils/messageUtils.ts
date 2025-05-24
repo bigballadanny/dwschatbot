@@ -24,6 +24,12 @@ export interface MessageData {
   timestamp?: Date;
   citation?: string[];
   isLoading?: boolean;
+  metadata?: {
+    ragPercentage?: number;
+    processingTime?: number;
+    followUpQuestions?: string[];
+    sourcesUsed?: string[];
+  };
 }
 
 /**
@@ -52,11 +58,26 @@ export const dbMessageToUiMessage = (dbMessage: DbMessage): MessageData => {
     citation = Array.isArray(dbMessage.metadata.citation) ? dbMessage.metadata.citation : undefined;
   }
   
+  // Extract enhanced metadata if available
+  let enhancedMetadata: MessageData['metadata'] = undefined;
+  if (dbMessage.metadata && typeof dbMessage.metadata === 'object') {
+    const metadata = dbMessage.metadata as any;
+    if (metadata.ragPercentage || metadata.processingTime || metadata.followUpQuestions || metadata.sourcesUsed) {
+      enhancedMetadata = {
+        ragPercentage: metadata.ragPercentage,
+        processingTime: metadata.processingTime,
+        followUpQuestions: Array.isArray(metadata.followUpQuestions) ? metadata.followUpQuestions : undefined,
+        sourcesUsed: Array.isArray(metadata.sourcesUsed) ? metadata.sourcesUsed : undefined
+      };
+    }
+  }
+  
   return {
     content: dbMessage.content,
     source: source,
     timestamp: timestamp,
-    citation: citation
+    citation: citation,
+    metadata: enhancedMetadata
   };
 };
 
@@ -97,11 +118,26 @@ export const apiMessageToUiMessage = (apiMessage: any): MessageData => {
     source = 'system';
   }
   
+  // Extract enhanced metadata if available
+  let enhancedMetadata: MessageData['metadata'] = undefined;
+  if (apiMessage.metadata && typeof apiMessage.metadata === 'object') {
+    const metadata = apiMessage.metadata;
+    if (metadata.ragPercentage || metadata.processingTime || metadata.followUpQuestions || metadata.sourcesUsed) {
+      enhancedMetadata = {
+        ragPercentage: metadata.ragPercentage,
+        processingTime: metadata.processingTime,
+        followUpQuestions: Array.isArray(metadata.followUpQuestions) ? metadata.followUpQuestions : undefined,
+        sourcesUsed: Array.isArray(metadata.sourcesUsed) ? metadata.sourcesUsed : undefined
+      };
+    }
+  }
+
   return {
     content: apiMessage.content || '',
     source,
     timestamp: new Date(),
-    citation: apiMessage.citation
+    citation: apiMessage.citation,
+    metadata: enhancedMetadata
   };
 };
 

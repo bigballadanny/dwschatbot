@@ -9,6 +9,7 @@ import { MessageData } from '@/utils/messageUtils';
 import { useToast } from '@/components/ui/use-toast';
 import { useAudio } from '@/contexts/audio';
 import offlineQueue from '@/utils/offlineQueue';
+import { logger } from '@/utils/logger';
 
 // Define context type
 interface ChatContextType {
@@ -159,7 +160,7 @@ export const ChatProvider: React.FC<ChatProviderProps> = ({
       
       return null;
     } catch (error) {
-      console.error('Error creating conversation:', error);
+      logger.error('ChatContext', 'Error creating conversation', error);
       toast({
         title: 'Error',
         description: 'Failed to create a new conversation.',
@@ -181,7 +182,7 @@ export const ChatProvider: React.FC<ChatProviderProps> = ({
         .eq('id', convId)
         .eq('user_id', user.id);
     } catch (error) {
-      console.error('Error updating conversation title:', error);
+      logger.error('ChatContext', 'Error updating conversation title', error);
     }
   }, [user]);
   
@@ -190,7 +191,7 @@ export const ChatProvider: React.FC<ChatProviderProps> = ({
     convId: string,
     userId: string,
     userMessage: string,
-    aiResponse: { content: string; source: 'gemini' | 'system'; citation?: string[] }
+    aiResponse: { content: string; source: 'gemini' | 'system'; citation?: string[]; metadata?: any }
   ) => {
     try {
       // Create user message
@@ -215,11 +216,12 @@ export const ChatProvider: React.FC<ChatProviderProps> = ({
           role: 'assistant',
           source: aiResponse.source,
           citation: aiResponse.citation,
+          metadata: aiResponse.metadata,
         });
         
       if (aiMsgError) throw aiMsgError;
     } catch (error) {
-      console.error('Error saving messages:', error);
+      logger.error('ChatContext', 'Error saving messages', error);
       throw error;
     }
   }, []);
@@ -289,42 +291,49 @@ export const ChatProvider: React.FC<ChatProviderProps> = ({
           throw new Error(errorMsg);
         }
 
-        if (retryCount > 0) {
-          setRetryCount(0);
-        }
-
-        const responseMessage = addSystemMessage(
-          data.content, 
-          (data.source || 'gemini') as 'gemini' | 'system', 
-          data.citation
-        );
-
+        // Save messages to database first (this can fail and trigger retry)
         await saveMessages(
           currentConvId as string, 
           user.id, 
           trimmedMessage, 
           {
-            content: responseMessage.content,
-            source: responseMessage.source as 'gemini' | 'system',
-            citation: responseMessage.citation
+            content: data.content,
+            source: (data.source || 'gemini') as 'gemini' | 'system',
+            citation: data.citation,
+            metadata: data.metadata
           }
         );
 
+        // Only add to UI after successful database save (prevents duplicate UI messages on retry)
+        const responseMessage = addSystemMessage(
+          data.content, 
+          (data.source || 'gemini') as 'gemini' | 'system', 
+          data.citation,
+          data.metadata
+        );
+
+        // Reset retry count on success
+        if (retryCount > 0) {
+          setRetryCount(0);
+        }
+
+        // Handle audio content if present
         if (data.audioContent) {
           playAudioContent(data.audioContent);
         }
 
+        // Update conversation title for first interaction
         if (isFirstUserInteraction) {
           await updateConversationTitle(currentConvId as string, trimmedMessage);
           setHasInteracted(true);
         }
         
       } catch (error) {
-        console.error('Error in sendMessage:', error);
+        logger.error('ChatContext', 'Error in sendMessage', error);
         
         if (retryAttempt < requestQueue.maxRetries) {
           const nextRetry = retryAttempt + 1;
-          console.log(`Retrying message (${nextRetry}/${requestQueue.maxRetries})...`);
+          logger.info('ChatContext', `Retrying message (${nextRetry}/${requestQueue.maxRetries})`);
           
           const retryDelay = Math.min(1000 * Math.pow(2, retryAttempt), 10000);
           

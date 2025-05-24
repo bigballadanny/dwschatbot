@@ -14,6 +14,7 @@ import {
   formatFileSize
 } from "@/utils/fileUtils";
 import { Progress } from "@/components/ui/progress";
+import { logger } from "@/utils/logger";
 
 interface TranscriptUploaderProps {
   userId: string;
@@ -120,7 +121,7 @@ const TranscriptUploader = ({
       // No duplicates found
       return true;
     } catch (error) {
-      console.error('Error checking for duplicates:', error);
+      logger.error('TranscriptUploader', 'Error checking for duplicates', error);
       // If the check fails, allow the upload rather than blocking it
       return true;
     }
@@ -165,7 +166,7 @@ const TranscriptUploader = ({
         description: "Your transcript has been uploaded and is being processed.",
       });
     } catch (error: any) {
-      console.error('Error creating transcript record:', error);
+      logger.error('TranscriptUploader', 'Error creating transcript record', error);
       setUploadStatus('error');
       toast({
         variant: "destructive",
@@ -264,7 +265,7 @@ const TranscriptUploader = ({
       stopProgressSimulation();
       setUploadStatus('error');
       setUploadProgress(null);
-      console.error('Error uploading file:', error);
+      logger.error('TranscriptUploader', 'Error uploading file', error);
       toast({
         variant: "destructive",
         title: "Upload failed",

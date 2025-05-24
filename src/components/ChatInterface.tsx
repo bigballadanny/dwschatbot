@@ -11,6 +11,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { ChevronDownCircle, Info } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Alert, AlertDescription } from '@/components/ui/alert';
+import { logger } from '@/utils/logger';
 
 interface ChatInterfaceProps {
   className?: string;
@@ -127,7 +128,7 @@ const ChatInterface = forwardRef<ChatInterfaceRef, ChatInterfaceProps>(({
     try {
       await onSendMessage(questionText);
     } catch (error) {
-      console.error('Error submitting question:', error);
+      logger.error('Error submitting question:', error);
       showError('Failed to send message', 'Please try again later.', error);
     } finally {
       setIsLoading(false);
@@ -180,7 +181,7 @@ const ChatInterface = forwardRef<ChatInterfaceRef, ChatInterfaceProps>(({
       await handleSubmitQuestion(filePrompt);
       
     } catch (error) {
-      console.error('Error uploading document:', error);
+      logger.error('Error uploading document:', error);
       showError("Upload Failed", "There was a problem uploading your document. Please try again.");
     } finally {
       setUploading(false);

@@ -8,6 +8,7 @@ import { useToast } from "@/components/ui/use-toast";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { useAudio } from '@/contexts/audio';
 import VoiceInput from './VoiceInput';
+import { logger } from "@/utils/logger";
 
 interface VoiceConversationProps {
   className?: string;
@@ -72,7 +73,7 @@ const VoiceConversation = forwardRef<VoiceConversationRefMethods, VoiceConversat
         setUserInput('');
         clearTranscript();
       } catch (error) {
-        console.error('Error submitting transcript:', error);
+        logger.error('VoiceConversation', 'Error submitting transcript', error);
         toast({
           title: "Error",
           description: "Failed to send your message. Please try again.",

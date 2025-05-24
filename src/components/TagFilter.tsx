@@ -17,6 +17,7 @@ import { ScrollArea } from '@/components/ui/scroll-area';
 import { supabase } from '@/integrations/supabase/client';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 import { cn } from '@/lib/utils';
+import { logger } from '@/utils/logger';
 
 interface TagFilterProps {
   onTagAdded?: (tag: string) => void;
@@ -64,7 +65,7 @@ const TagFilter: React.FC<TagFilterProps> = ({
           .select('tags');
 
         if (error) {
-          console.error('Error fetching tags:', error);
+          logger.error('Error fetching tags:', error);
           return;
         }
 
@@ -80,7 +81,7 @@ const TagFilter: React.FC<TagFilterProps> = ({
           setAllTags(uniqueTags);
         }
       } catch (error) {
-        console.error('Error fetching tags:', error);
+        logger.error('Error fetching tags:', error);
       } finally {
         setIsLoading(false);
       }

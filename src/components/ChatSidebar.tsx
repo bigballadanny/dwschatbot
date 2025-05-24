@@ -14,6 +14,7 @@ import { Sheet, SheetContent, SheetDescription, SheetFooter, SheetHeader, SheetT
 import { useTheme } from "next-themes";
 import { Switch } from "@/components/ui/switch";
 import { Label } from "@/components/ui/label";
+import { logger } from "@/utils/logger";
 
 // Import refactored components
 import ConversationList from './sidebar/ConversationList';
@@ -69,9 +70,9 @@ const ChatSidebar: React.FC<ChatSidebarProps> = ({
       });
       if (error) throw error;
       setConversations(data || []);
-      console.log('Fetched conversations:', data);
+      logger.debug('ChatSidebar', 'Fetched conversations', data);
     } catch (error) {
-      console.error('Error fetching conversations:', error);
+      logger.error('ChatSidebar', 'Error fetching conversations', error);
       toast({
         title: 'Error',
         description: 'Failed to load your conversations',
@@ -101,7 +102,7 @@ const ChatSidebar: React.FC<ChatSidebarProps> = ({
         fetchConversations();
       }
     } catch (error) {
-      console.error('Error creating new conversation:', error);
+      logger.error('ChatSidebar', 'Error creating new conversation', error);
       toast({
         title: 'Error',
         description: 'Failed to create a new conversation',
@@ -137,7 +138,7 @@ const ChatSidebar: React.FC<ChatSidebarProps> = ({
         description: 'Conversation deleted successfully'
       });
     } catch (error: any) {
-      console.error('Error deleting conversation:', error);
+      logger.error('ChatSidebar', 'Error deleting conversation', error);
       toast({
         title: 'Error',
         description: 'Failed to delete the conversation',

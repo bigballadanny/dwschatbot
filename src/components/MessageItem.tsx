@@ -4,7 +4,10 @@ import { cn } from '@/lib/utils';
 import MessageContent from './message/MessageContent';
 import MessageControls from './message/MessageControls';
 import MessageSourceLabel from './message/MessageSourceLabel';
+import { RagIndicator } from './chat/RagIndicator';
+import { FollowUpQuestions } from './chat/FollowUpQuestions';
 import { MessageData, MessageSource } from '@/utils/messageUtils';
+import { logger } from '@/utils/logger';
 
 export interface MessageProps extends MessageData {
   className?: string;
@@ -16,6 +19,7 @@ const MessageItem: React.FC<MessageProps> = ({
   timestamp,
   citation,
   isLoading,
+  metadata,
   className,
 }) => {
   const isUser = source === 'user';
@@ -53,6 +57,27 @@ const MessageItem: React.FC<MessageProps> = ({
               citation={citation} 
               isLoading={isLoading} 
             />
+            {metadata && (metadata.ragPercentage || metadata.sourcesUsed || metadata.processingTime) && (
+              <div className="mt-3">
+                <RagIndicator 
+                  ragPercentage={metadata.ragPercentage}
+                  sourcesUsed={metadata.sourcesUsed}
+                  processingTime={metadata.processingTime}
+                />
+              </div>
+            )}
+            {metadata && metadata.followUpQuestions && metadata.followUpQuestions.length > 0 && (
+              <div className="mt-3">
+                <FollowUpQuestions 
+                  questions={metadata.followUpQuestions}
+                  onQuestionClick={(question) => {
+                    // Add the question to the chat input
+                    // This will be handled by the parent component or context
+                    logger.debug('Follow-up question clicked:', question);
+                  }}
+                />
+              </div>
+            )}
           </>
         )}
       </div>
