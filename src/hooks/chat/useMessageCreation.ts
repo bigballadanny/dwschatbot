@@ -22,13 +22,17 @@ export function useMessageCreation() {
   const createSystemMessage = (
     content: string,
     source: MessageSource = 'gemini',
-    citation?: string[]
+    citation?: string[],
+    metadata?: MessageData['metadata'],
+    id?: string
   ): MessageData => {
     return {
+      id: id || crypto.randomUUID(),
       content,
       source,
       timestamp: new Date(),
-      citation
+      citation,
+      metadata
     };
   };
 

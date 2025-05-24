@@ -21,6 +21,7 @@ import { ChatProvider } from '@/contexts/chat';
 import SidebarOpenButton from '@/components/sidebar/SidebarOpenButton';
 import TranscriptDiagnostics from '@/pages/TranscriptDiagnostics';
 import ErrorBoundary from '@/components/ErrorBoundary';
+import { ChatErrorBoundary } from '@/components/ChatErrorBoundary';
 import './App.css';
 
 // Initialize the query client
@@ -148,9 +149,11 @@ const ChatContextWrapper = () => {
   const { user } = useAuth();
   
   return (
-    <ChatProvider user={user} initialConversationId={null}>
-      <AppContent />
-    </ChatProvider>
+    <ChatErrorBoundary>
+      <ChatProvider user={user} initialConversationId={null}>
+        <AppContent />
+      </ChatProvider>
+    </ChatErrorBoundary>
   );
 }
 

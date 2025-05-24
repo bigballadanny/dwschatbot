@@ -26,6 +26,7 @@ interface ChatContextType {
   toggleOnlineSearch: (enabled: boolean) => void;
   createNewConversation: (title: string) => Promise<string | null>;
   handleFileUpload: (files: FileList) => Promise<void>;
+  clearMessageQueue: () => void;
 }
 
 // Create context
@@ -73,7 +74,7 @@ const requestQueue = {
       try {
         await nextRequest();
       } catch (error) {
-        console.error('Request error:', error);
+        logger.error('Request error:', error);
       }
       
       setTimeout(() => this.processQueue(), 100);
@@ -118,7 +119,8 @@ export const ChatProvider: React.FC<ChatProviderProps> = ({
     addUserMessage,
     addSystemMessage,
     addErrorMessage,
-    formatMessagesForApi
+    formatMessagesForApi,
+    setMessages
   } = useMessages({ 
     userId: user?.id, 
     conversationId 
@@ -136,6 +138,19 @@ export const ChatProvider: React.FC<ChatProviderProps> = ({
     clearAudio();
     setRetryCount(0);
   }, [resetMessages, clearAudio]);
+  
+  // Clear message queue and any stuck states
+  const clearMessageQueue = useCallback(() => {
+    // Clear the request queue
+    requestQueue.queue = [];
+    requestQueue.isProcessing = false;
+    
+    // Clear any stuck loading states
+    setIsLoading(false);
+    setRetryCount(0);
+    
+    logger.info('ChatContext', 'Message queue cleared');
+  }, [setIsLoading, setRetryCount]);
   
   // Create a new conversation
   const createNewConversation = useCallback(async (title: string): Promise<string | null> => {
@@ -201,6 +216,7 @@ export const ChatProvider: React.FC<ChatProviderProps> = ({
           conversation_id: convId,
           user_id: userId,
           content: userMessage,
+          is_user: true, // Keep for backward compatibility
           role: 'user',
         });
         
@@ -213,6 +229,7 @@ export const ChatProvider: React.FC<ChatProviderProps> = ({
           conversation_id: convId,
           user_id: userId,
           content: aiResponse.content,
+          is_user: false, // Keep for backward compatibility
           role: 'assistant',
           source: aiResponse.source,
           citation: aiResponse.citation,
@@ -222,9 +239,14 @@ export const ChatProvider: React.FC<ChatProviderProps> = ({
       if (aiMsgError) throw aiMsgError;
     } catch (error) {
       logger.error('ChatContext', 'Error saving messages', error);
-      throw error;
+      // Don't throw - just log the error to prevent retry loop
+      toast({
+        title: 'Warning',
+        description: 'Message saved locally but not synced to server',
+        variant: 'warning'
+      });
     }
-  }, []);
+  }, [toast]);
   
   // Send a message to the AI
   const sendMessage = useCallback(async (message: string, isVoiceInput: boolean = false): Promise<void> => {
@@ -270,9 +292,23 @@ export const ChatProvider: React.FC<ChatProviderProps> = ({
     }
     
     setIsLoading(true);
+    
+    // Add a placeholder assistant message immediately
+    const placeholderMessageId = crypto.randomUUID();
+    addSystemMessage('Thinking...', 'system', undefined, undefined, placeholderMessageId);
 
     const sendMessageToAI = async (retryAttempt = 0): Promise<void> => {
       try {
+        // Update placeholder message for retries
+        if (retryAttempt > 0) {
+          // Update the existing placeholder message instead of adding a new one
+          setMessages(prev => prev.map(msg => 
+            msg.id === placeholderMessageId 
+              ? { ...msg, content: `Retrying... (${retryAttempt}/${requestQueue.maxRetries})` }
+              : msg
+          ));
+        }
+        
         const apiMessages = formatMessagesForApi(trimmedMessage);
 
         const { data, error } = await supabase.functions.invoke('ai-chat', {
@@ -304,13 +340,19 @@ export const ChatProvider: React.FC<ChatProviderProps> = ({
           }
         );
 
-        // Only add to UI after successful database save (prevents duplicate UI messages on retry)
-        const responseMessage = addSystemMessage(
-          data.content, 
-          (data.source || 'gemini') as 'gemini' | 'system', 
-          data.citation,
-          data.metadata
-        );
+        // Update the placeholder message with the actual response
+        setMessages(prev => prev.map(msg => 
+          msg.id === placeholderMessageId 
+            ? {
+                ...msg,
+                content: data.content,
+                source: (data.source || 'gemini') as 'gemini' | 'system',
+                citation: data.citation,
+                metadata: data.metadata,
+                isLoading: false
+              }
+            : msg
+        ));
 
         // Reset retry count on success
         if (retryCount > 0) {
@@ -351,7 +393,19 @@ export const ChatProvider: React.FC<ChatProviderProps> = ({
           return sendMessageToAI(nextRetry);
         }
         
-        addErrorMessage(error instanceof Error ? error.message : 'Request failed.');
+        // Final failure - update the placeholder message to show error
+        setMessages(prev => prev.map(msg => 
+          msg.id === placeholderMessageId 
+            ? {
+                ...msg,
+                content: 'Sorry, I encountered an error. Please try again.',
+                source: 'system' as const,
+                isLoading: false,
+                isError: true
+              }
+            : msg
+        ));
+        
         toast({ 
           title: "Error Processing Message", 
           description: error instanceof Error ? error.message : "Please try again.", 
@@ -367,7 +421,7 @@ export const ChatProvider: React.FC<ChatProviderProps> = ({
     user, isLoading, conversationId, hasInteracted, enableOnlineSearch, 
     clearAudio, createNewConversation, addUserMessage, formatMessagesForApi, retryCount,
     addSystemMessage, addErrorMessage, saveMessages, playAudioContent, updateConversationTitle,
-    setHasInteracted, setIsLoading, setRetryCount, toast
+    setHasInteracted, setIsLoading, setRetryCount, toast, setMessages
   ]);
   
   // Handle file upload
@@ -423,7 +477,7 @@ export const ChatProvider: React.FC<ChatProviderProps> = ({
         description: `"${processedFile.name}" has been uploaded and is being analyzed.`,
       });
     } catch (error) {
-      console.error('Error processing file upload:', error);
+      logger.error('Error processing file upload:', error);
       toast({
         title: "Upload Failed",
         description: error instanceof Error ? error.message : "There was a problem processing your file. Please try again.",
@@ -446,7 +500,8 @@ export const ChatProvider: React.FC<ChatProviderProps> = ({
     resetChat,
     toggleOnlineSearch,
     createNewConversation,
-    handleFileUpload
+    handleFileUpload,
+    clearMessageQueue
   };
   
   return (

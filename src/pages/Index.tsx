@@ -36,7 +36,8 @@ const Index = () => {
     resetChat,
     toggleOnlineSearch,
     createNewConversation,
-    handleFileUpload
+    handleFileUpload,
+    clearMessageQueue
   } = useChat();
 
   // Get audio functionality from context
@@ -55,6 +56,11 @@ const Index = () => {
     const params = new URLSearchParams(location.search);
     const urlConversationId = params.get('conversation');
     const question = params.get('q');
+    
+    // Clear any stuck messages when navigating home without params
+    if (!urlConversationId && !question && !conversationId) {
+      clearMessageQueue();
+    }
     
     // Show welcome screen if no conversation or question
     if (!urlConversationId && !question) {
@@ -76,7 +82,7 @@ const Index = () => {
       
       return () => clearTimeout(timer);
     }
-  }, [location.search, isAuthenticated, conversationId, hasInteracted]);
+  }, [location.search, isAuthenticated, conversationId, hasInteracted, clearMessageQueue]);
 
   // Scroll to the top when showing welcome screen
   useEffect(() => {

@@ -2,6 +2,7 @@ import { useState, useCallback, useEffect } from 'react';
 import { MessageData } from '@/utils/messageUtils';
 import { useMessageCreation } from './useMessageCreation';
 import { useMessageApi } from './useMessageApi';
+import { logger } from '@/utils/logger';
 
 interface UseMessagesProps {
   userId: string | undefined;
@@ -55,7 +56,7 @@ export function useMessages({ userId, conversationId }: UseMessagesProps) {
       
       return result.success;
     } catch (error) {
-      console.error('Error loading messages:', error);
+      logger.error('Error loading messages:', error);
       return false;
     }
   }, [messageApi]);
@@ -75,9 +76,11 @@ export function useMessages({ userId, conversationId }: UseMessagesProps) {
   const addSystemMessage = useCallback((
     content: string,
     source = 'gemini' as const,
-    citation?: string[]
+    citation?: string[],
+    metadata?: MessageData['metadata'],
+    id?: string
   ): MessageData => {
-    const systemMessage = messageCreation.createSystemMessage(content, source, citation);
+    const systemMessage = messageCreation.createSystemMessage(content, source, citation, metadata, id);
     setMessages(prevMessages => [...prevMessages, systemMessage]);
     return systemMessage;
   }, [messageCreation]);
@@ -127,6 +130,7 @@ export function useMessages({ userId, conversationId }: UseMessagesProps) {
     addErrorMessage,
     addLoadingMessage,
     removeLoadingMessage,
-    formatMessagesForApi
+    formatMessagesForApi,
+    setMessages
   };
 }

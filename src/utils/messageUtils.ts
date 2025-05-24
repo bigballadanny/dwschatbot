@@ -19,11 +19,13 @@ export interface DbMessage {
 
 // UI-facing message format
 export interface MessageData {
+  id?: string;
   content: string;
   source: MessageSource;
   timestamp?: Date;
   citation?: string[];
   isLoading?: boolean;
+  isError?: boolean;
   metadata?: {
     ragPercentage?: number;
     processingTime?: number;
